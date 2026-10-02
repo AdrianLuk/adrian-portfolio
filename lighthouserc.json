@@ -1,0 +1,48 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "npm run start -- --port 3200",
+      "startServerReadyPattern": "Ready",
+      "url": [
+        "http://localhost:3200/"
+      ],
+      "numberOfRuns": 3,
+      "settings": {
+        "throttlingMethod": "devtools",
+        "onlyCategories": [
+          "performance",
+          "accessibility"
+        ]
+      }
+    },
+    "assert": {
+      "assertions": {
+        "largest-contentful-paint": [
+          "error",
+          {
+            "maxNumericValue": 2500,
+            "aggregationMethod": "median-run"
+          }
+        ],
+        "cumulative-layout-shift": [
+          "error",
+          {
+            "maxNumericValue": 0,
+            "aggregationMethod": "pessimistic"
+          }
+        ],
+        "categories:accessibility": [
+          "error",
+          {
+            "minScore": 1,
+            "aggregationMethod": "median-run"
+          }
+        ]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci/reports"
+    }
+  }
+}

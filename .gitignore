@@ -47,3 +47,9 @@ next-env.d.ts
 /.impeccable/live/
 /.impeccable/config.local.json
 /.impeccable/questions/
+
+# playwright and lighthouse ci
+/test-results/
+/playwright-report/
+/blob-report/
+/.lighthouseci/
