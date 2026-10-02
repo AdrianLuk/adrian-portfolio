@@ -70,16 +70,18 @@ export default function Home() {
               <p className="mt-4 leading-relaxed text-ink/90">
                 {highlight.paragraph}
               </p>
-              <ul className="mt-6 flex flex-wrap gap-8">
-                {highlight.keyNumbers.map((n) => (
-                  <li key={n.label} className="flex flex-col">
-                    <span className="font-display text-4xl font-extrabold text-cyan [font-stretch:130%]">
-                      {n.value}
-                    </span>
-                    <span className="text-sm text-ink/80">{n.label}</span>
-                  </li>
-                ))}
-              </ul>
+              {highlight.keyNumbers.length > 0 && (
+                <ul className="mt-6 flex flex-wrap gap-8">
+                  {highlight.keyNumbers.map((n) => (
+                    <li key={n.label} className="flex flex-col">
+                      <span className="font-display text-4xl font-extrabold text-cyan [font-stretch:130%]">
+                        {n.value}
+                      </span>
+                      <span className="text-sm text-ink/80">{n.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className="mt-6">
                 <Link
                   href={hrefFor(highlight.link)}

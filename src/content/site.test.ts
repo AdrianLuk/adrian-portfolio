@@ -46,9 +46,11 @@ describe("Highlights", () => {
     );
   });
 
-  it("each carry exactly two key numbers from the verified allowlist", () => {
+  it("carry exactly two key numbers from the verified allowlist, except Juice Bros, which has none", () => {
     for (const highlight of highlights) {
-      expect(highlight.keyNumbers).toHaveLength(2);
+      expect(highlight.keyNumbers).toHaveLength(
+        highlight.id === "juice-bros" ? 0 : 2,
+      );
       const allowed = verifiedNumbers[highlight.id];
       for (const n of highlight.keyNumbers) {
         expect(allowed).toContainEqual(

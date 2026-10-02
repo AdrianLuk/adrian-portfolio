@@ -52,9 +52,9 @@ The site is itself the proof. The strongest craft work of his career (the Studio
 
 - Verified experience copy (bullet and paragraph per role): https://claude.ai/artifact/4PgJFWw584vy31XLxcDDv5. Every factual claim on the site comes from here or the resume.
 - Resume: `C:\Users\Adrian\Documents\Adrian-Luk-Resume-2026.pdf` (not yet in the repo).
-- Juice Bros is live at https://juicebrospickleball.com with four public Player tools (Booking Buddy, Pickle Point Pal, Match Mixer, Drum Roll), and its repo is public (github.com/AdrianLuk/juice-bros). Screenshots and short recordings can be taken from it.
+- Juice Bros is live at https://juicebrospickleball.com with public Player tools (currently Booking Buddy, Pickle Point Pal, Match Mixer, Drum Roll; the set grows, so never state a count, and Booking Buddy needs a login), and its repo is public (github.com/AdrianLuk/juice-bros). Screenshots and short recordings can be taken from it.
 - controld.com is public, but no screenshots of the authenticated dashboard or of the a11y work exist. BT Cup is not publicly reachable and no screenshots exist. The Life House booking widget and dashboards are behind hotel accounts; no screenshots exist. Studio's site is live but is not shown on the portfolio.
-- Confirmed outcomes: Control D got its SOC certification, and the a11y overhaul was his contribution to it (SOC type unknown; never state it). BT Cup: 11,750 employees provisioned, ~2,180 enrolled per contest; contest count and time span unknown. Juice Bros: no usage numbers, tools mainly used by Adrian himself; never claim traffic, users or adoption.
+- Confirmed outcomes: Control D got its SOC certification, and the a11y overhaul was his contribution to it (SOC type unknown; never state it). BT Cup: 11,750 employees provisioned, roughly 2,000 enrolled per contest; contest count and time span unknown. Juice Bros: no usage numbers, tools mainly used by Adrian himself; never claim traffic, users or adoption.
 - Absences future work must not fabricate: testimonials, employer quotes, client logos beyond naming, metrics not listed above, a Studio case study.
 
 ## Product Principles
