@@ -26,7 +26,8 @@ export type Highlight = {
   title: string;
   byline: string;
   paragraph: string;
-  keyNumbers: readonly [KeyNumber, KeyNumber];
+  /** Two verified numbers; Juice Bros has none (no stable figures, and usage numbers are never claimed). */
+  keyNumbers: readonly [] | readonly [KeyNumber, KeyNumber];
   link: HighlightLink;
 };
 
@@ -125,11 +126,8 @@ export const highlights = [
     title: "Juice Bros",
     byline: "Side project",
     paragraph:
-      "I'm the sole engineer on Juice Bros, a pickleball media brand. I scoped a deliberately tight MVP, chose the stack (Next.js App Router, TypeScript, Tailwind, shadcn/ui, Vercel), modeled content as typed data so the site could grow without a CMS, and integrated the podcast's YouTube feed and a Beehiiv newsletter. On top of that I built a suite of free, no-login web tools for pickleball players.",
-    keyNumbers: [
-      { value: "4", label: "free Player tools" },
-      { value: "0", label: "logins to use them" },
-    ],
+      "I'm the sole engineer on Juice Bros, a pickleball media brand. I scoped a deliberately tight MVP, chose the stack (Next.js App Router, TypeScript, Tailwind, shadcn/ui, Vercel), modeled content as typed data so the site could grow without a CMS, and integrated the podcast's YouTube feed and a Beehiiv newsletter. On top of that I built a suite of free web tools for pickleball players.",
+    keyNumbers: [],
     link: { kind: "case-study", slug: "juice-bros" },
   },
   {
@@ -137,10 +135,10 @@ export const highlights = [
     title: "BT Cup",
     byline: "Elite Digital Agency for PepsiCo Canada",
     paragraph:
-      "BT Cup was a contest platform PepsiCo Canada used to run retail display-execution competitions for its field sales force, with 11,750 employees provisioned and about 2,180 enrolled per contest. On a 14-contributor codebase (Laravel 5.8 and React 16), I designed the domain schema, wrote about 91% of the REST API and about half of the front end, and made the call to move the front end from Vue to React.",
+      "BT Cup was a contest platform PepsiCo Canada used to run retail display-execution competitions for its field sales force, with 11,750 employees provisioned and roughly 2,000 enrolled per contest. On a 14-contributor codebase (Laravel 5.8 and React 16), I designed the domain schema, wrote about 91% of the REST API and about half of the front end, and made the call to move the front end from Vue to React.",
     keyNumbers: [
       { value: "11,750", label: "employees provisioned" },
-      { value: "~2,180", label: "enrolled per contest" },
+      { value: "~2,000", label: "enrolled per contest" },
     ],
     link: { kind: "role", roleId: "elite-digital" },
   },

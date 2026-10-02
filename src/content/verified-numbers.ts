@@ -44,21 +44,7 @@ export const verifiedNumbers: Record<HighlightId, readonly VerifiedNumber[]> = {
         "Retrofitted five languages and multi-currency support onto a UI that had already shipped",
     },
   ],
-  "juice-bros": [
-    {
-      value: "4",
-      label: "free Player tools",
-      source: "project context",
-      evidence:
-        "four public Player tools (Booking Buddy, Pickle Point Pal, Match Mixer, Drum Roll)",
-    },
-    {
-      value: "0",
-      label: "logins to use them",
-      source: "blurbs",
-      evidence: "a suite of free, no-login web tools for pickleball players",
-    },
-  ],
+  "juice-bros": [],
   "bt-cup": [
     {
       value: "11,750",
@@ -67,10 +53,10 @@ export const verifiedNumbers: Record<HighlightId, readonly VerifiedNumber[]> = {
       evidence: "with 11,750 employees provisioned",
     },
     {
-      value: "~2,180",
+      value: "~2,000",
       label: "enrolled per contest",
-      source: "blurbs",
-      evidence: "about 2,180 enrolled per contest",
+      source: "resume",
+      evidence: "Roughly 2,000 field employees enrolled per contest",
     },
   ],
 };
