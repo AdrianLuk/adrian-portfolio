@@ -5,8 +5,8 @@ Adrian Luk's public portfolio at adrianluk.com. It exists to win senior frontend
 ## Language
 
 **Project**:
-A piece of work Adrian did, at a job or on his own, such as Control D, btcup, Studio or Juice Bros.
-_Avoid_: Job, client work, portfolio piece
+A piece of work Adrian did, at a job or on his own, such as Control D, Life House, BT Cup, Studio or Juice Bros.
+_Avoid_: Job, client work, portfolio piece, "btcup" (write BT Cup)
 
 **Case study**:
 The write-up of one Project on its own page: problem, what Adrian did, approach and outcome. Side projects qualify just like employer work.

@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# impeccable: keep surface briefs and config.json; ignore generated working files
+/.impeccable/review/
+/.impeccable/build/
+/.impeccable/mocks/
+/.impeccable/live/
+/.impeccable/config.local.json
+/.impeccable/questions/
