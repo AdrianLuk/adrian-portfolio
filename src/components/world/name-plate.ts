@@ -6,18 +6,22 @@ import {
   Group,
   Matrix4,
   Mesh,
+  MeshPhysicalMaterial,
   ShaderMaterial,
   ShapePath,
   Vector3,
   type Camera,
   type Color,
+  type Texture,
 } from "three";
+import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 import { createGlowPoints } from "./glow-points";
 import type { Pool } from "./ground-pools";
 import { nameGlyphs } from "./name-glyphs";
 import { fogUniforms, palette } from "./palette";
 import type { WordFit } from "./plate-fit";
 import { CAMERA } from "./pose";
+import type { plateFinishFor } from "./quality";
 import type { SharedUniforms } from "./shared";
 import { valleyHeight } from "./terrain";
 
@@ -102,16 +106,50 @@ function createBeam(color: Color, shared: SharedUniforms) {
 }
 
 /**
- * ADRIAN LUK as monumental extruded letterforms: faces lit from above and
- * sinking into the ground fog at their feet, sides glowing violet into depth,
- * a cyan chamfer along every front edge (the emissive edge), and two beams
- * rising from behind the plate whose light sweeps across the letter faces.
+ * Smooths the curved flanks so reflections run along them instead of
+ * breaking at every facet, while the faces (group 0, the caps) keep their
+ * exact flat normals: creasing would tilt them towards the chamfer and streak
+ * the reflections across each face's long triangles.
+ */
+function smoothFlanks(geometry: ExtrudeGeometry) {
+  const normal = geometry.attributes.normal;
+  // One cap group per letter.
+  const caps = geometry.groups
+    .filter((g) => g.materialIndex === 0)
+    .map((g) => ({
+      start: g.start * 3,
+      flat: normal.array.slice(g.start * 3, (g.start + g.count) * 3),
+    }));
+  toCreasedNormals(geometry, Math.PI / 6);
+  const creased = geometry.attributes.normal;
+  for (const { start, flat } of caps) creased.array.set(flat, start);
+  creased.needsUpdate = true;
+}
+
+/**
+ * ADRIAN LUK as the hero object: monumental extruded letterforms in physically
+ * based materials that reflect a baked night environment. The faces are pale,
+ * clearcoated and lit from above, sinking into the ground fog at their feet;
+ * the sides are dark reflective metal glowing violet into depth; a cyan
+ * chamfer emits along every front edge (the signature, which reflections add
+ * to, never replace); and two beams rise from behind the plate, their light
+ * sweeping across the faces.
  *
  * The plate group is the plate plane: it sits `plateDepth` ahead of the camera
  * and shares its orientation, so words placed at their fits (camera space)
  * cover the DOM headline exactly.
  */
-export function createNamePlate(shared: SharedUniforms) {
+export function createNamePlate(
+  shared: SharedUniforms,
+  {
+    envMap,
+    finish,
+  }: {
+    /** The baked night environment, or null on the lite tier. */
+    envMap: Texture | null;
+    finish: ReturnType<typeof plateFinishFor>;
+  },
+) {
   const group = new Group();
 
   // Plate-local beam axes, for the light they throw across the faces:
@@ -119,30 +157,44 @@ export function createNamePlate(shared: SharedUniforms) {
   const beamA = new Vector3();
   const beamB = new Vector3();
   const toPlate = new Matrix4();
-  const cap = new ShaderMaterial({
-    uniforms: {
-      ...fogUniforms(),
-      uInk: { value: palette.ink },
-      uLow: { value: palette.violet.clone().lerp(palette.dusk, 0.45) },
-      uCyan: { value: palette.cyan },
-      uViolet: { value: palette.violet },
-      uCapHeight: { value: nameGlyphs.capHeight },
-      uToPlate: { value: toPlate },
-      uBeamA: { value: beamA },
-      uBeamB: { value: beamB },
-    },
-    vertexShader: /* glsl */ `
-      uniform mat4 uToPlate;
-      varying float vHeight;
-      varying vec2 vPlate;
-      void main() {
+  // The plate's own light goes in as emissive, through onBeforeCompile, so
+  // the physical shading (reflections, clearcoat) adds on top of it.
+  const capUniforms = {
+    ...fogUniforms(),
+    uInk: { value: palette.ink },
+    uLow: { value: palette.violet.clone().lerp(palette.dusk, 0.45) },
+    uCyan: { value: palette.cyan },
+    uViolet: { value: palette.violet },
+    uCapHeight: { value: nameGlyphs.capHeight },
+    uToPlate: { value: toPlate },
+    uBeamA: { value: beamA },
+    uBeamB: { value: beamB },
+  };
+  const cap = new MeshPhysicalMaterial({
+    color: palette.ink.clone().lerp(palette.violet, 0.1),
+    roughness: 0.2,
+    metalness: 0.1,
+    envMap,
+    envMapIntensity: 1.45,
+    clearcoat: finish.clearcoat,
+    clearcoatRoughness: 0.05,
+    iridescence: finish.iridescence,
+    iridescenceIOR: 1.3,
+    iridescenceThicknessRange: [180, 420],
+    fog: false,
+  });
+  cap.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, capUniforms);
+    shader.vertexShader =
+      "uniform mat4 uToPlate;\nvarying float vHeight;\nvarying vec2 vPlate;\n" +
+      shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
         vHeight = position.y;
-        vec4 world = modelMatrix * vec4(position, 1.0);
-        vPlate = (uToPlate * world).xy;
-        gl_Position = projectionMatrix * viewMatrix * world;
-      }
-    `,
-    fragmentShader: /* glsl */ `
+        vPlate = (uToPlate * modelMatrix * vec4(position, 1.0)).xy;`,
+      );
+    shader.fragmentShader =
+      /* glsl */ `
       uniform vec3 uInk, uLow, uCyan, uViolet, uFogColor;
       uniform float uCapHeight;
       uniform vec3 uBeamA, uBeamB;
@@ -154,59 +206,70 @@ export function createNamePlate(shared: SharedUniforms) {
         float width = 0.7 + 0.12 * rise;
         return exp(-(dx * dx) / (width * width));
       }
-      void main() {
-        float g = clamp(vHeight / uCapHeight, 0.0, 1.0);
-        // Lit from above: near-white at the cap line, violet-dusk at the baseline.
-        vec3 col = mix(uLow, uInk * 0.95, smoothstep(0.0, 1.0, g));
-        // The beams' light crossing the faces.
-        col += uCyan * band(uBeamA, vPlate) * 0.42;
-        col += uViolet * band(uBeamB, vPlate) * 0.5;
-        // The feet sink into the ground fog.
-        col = mix(col, uFogColor, (1.0 - smoothstep(0.0, 0.18, g)) * 0.45);
-        gl_FragColor = vec4(col, 1.0);
-        #include <colorspace_fragment>
-      }
-    `,
+    ` +
+      shader.fragmentShader
+        .replace(
+          "#include <emissivemap_fragment>",
+          /* glsl */ `#include <emissivemap_fragment>
+          float g = clamp(vHeight / uCapHeight, 0.0, 1.0);
+          // Lit from above: pale at the cap line, violet-dusk at the baseline.
+          totalEmissiveRadiance = mix(uLow, uInk * 0.64, smoothstep(0.0, 1.0, g));
+          // The beams' light crossing the faces.
+          totalEmissiveRadiance += uCyan * band(uBeamA, vPlate) * 0.42;
+          totalEmissiveRadiance += uViolet * band(uBeamB, vPlate) * 0.5;`,
+        )
+        .replace(
+          "#include <opaque_fragment>",
+          /* glsl */ `// The feet sink into the ground fog.
+          outgoingLight = mix(outgoingLight, uFogColor, (1.0 - smoothstep(0.0, 0.18, g)) * 0.45);
+          #include <opaque_fragment>`,
+        );
+  };
+
+  const sideUniforms = {
+    uCyan: { value: palette.cyan },
+    uViolet: { value: palette.violet },
+    uDeep: { value: palette.night },
+    uDepth: { value: TOTAL_DEPTH },
+    uBevel: { value: EXTRUDE.bevel },
+  };
+  const sides = new MeshPhysicalMaterial({
+    color: palette.night.clone().lerp(palette.violet, 0.3),
+    metalness: 0.8,
+    roughness: 0.26,
+    envMap,
+    envMapIntensity: 0.9,
+    fog: false,
   });
-  const sides = new ShaderMaterial({
-    uniforms: {
-      uCyan: { value: palette.cyan },
-      uViolet: { value: palette.violet },
-      uDeep: { value: palette.night },
-      uDepth: { value: TOTAL_DEPTH },
-      uBevel: { value: EXTRUDE.bevel },
-    },
-    vertexShader: /* glsl */ `
-      uniform float uDepth;
-      varying vec3 vNormal;
-      varying float vDepth;
-      varying float vFromFront;
-      void main() {
-        vNormal = normal;
+  sides.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, sideUniforms);
+    shader.vertexShader =
+      "varying float vFromFront;\nvarying float vNormalZ;\n" +
+      shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
         vFromFront = -position.z;
-        vDepth = vFromFront / uDepth;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: /* glsl */ `
+        vNormalZ = normal.z;`,
+      );
+    shader.fragmentShader =
+      /* glsl */ `
       uniform vec3 uCyan, uViolet, uDeep;
-      uniform float uBevel;
-      varying vec3 vNormal;
-      varying float vDepth;
+      uniform float uDepth, uBevel;
       varying float vFromFront;
-      void main() {
-        float front = 1.0 - clamp(vDepth, 0.0, 1.0);
-        vec3 col = mix(uDeep, uViolet * 0.75, pow(front, 2.6));
+      varying float vNormalZ;
+    ` +
+      shader.fragmentShader.replace(
+        "#include <emissivemap_fragment>",
+        /* glsl */ `#include <emissivemap_fragment>
+        float front = 1.0 - clamp(vFromFront / uDepth, 0.0, 1.0);
+        vec3 glow = mix(uDeep, uViolet * 0.75, pow(front, 2.6));
         // The chamfer emits: brightest at the face edge, fading back across it.
-        float rim = smoothstep(0.15, 0.95, normalize(vNormal).z);
+        float rim = smoothstep(0.15, 0.95, vNormalZ);
         float edge = 1.0 - smoothstep(0.0, uBevel * 1.6, vFromFront);
-        col = mix(col, uCyan * 1.1, rim * 0.85 * (0.45 + 0.55 * edge));
-        col += uCyan * edge * 0.25;
-        gl_FragColor = vec4(col, 1.0);
-        #include <colorspace_fragment>
-      }
-    `,
-  });
+        glow = mix(glow, uCyan * 1.1, rim * 0.85 * (0.45 + 0.55 * edge));
+        totalEmissiveRadiance = glow + uCyan * edge * 0.25;`,
+      );
+  };
 
   const words = new Map<string, Mesh>();
   for (const [text, word] of Object.entries(nameGlyphs.words)) {
@@ -220,6 +283,7 @@ export function createNamePlate(shared: SharedUniforms) {
     });
     // The face toward the camera is the extrusion's far cap: bring it to z = 0.
     geometry.translate(0, 0, -(EXTRUDE.depth + EXTRUDE.bevel));
+    smoothFlanks(geometry);
     const mesh = new Mesh(geometry, [cap, sides]);
     mesh.visible = false;
     words.set(text, mesh);
@@ -316,6 +380,12 @@ export function createNamePlate(shared: SharedUniforms) {
     },
 
     pools: () => pools,
+
+    /** Swaps the reflected environment (after a lost context is restored). */
+    setEnvironment(texture: Texture | null) {
+      cap.envMap = texture;
+      sides.envMap = texture;
+    },
 
     /** Sweeps the beams; `t` in seconds. The still frame uses a fixed t. */
     sweep(t: number) {

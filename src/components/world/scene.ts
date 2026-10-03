@@ -9,6 +9,7 @@ import {
   SRGBColorSpace,
   WebGLRenderer,
 } from "three";
+import { bakePlateEnvironment } from "./environment";
 import { createGlowPoints, type Glow } from "./glow-points";
 import { createGroundPools } from "./ground-pools";
 import { createMist } from "./mist";
@@ -17,7 +18,12 @@ import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight } from "./pose";
-import { moteCountFor, pixelRatioFor } from "./quality";
+import {
+  moteCountFor,
+  pixelRatioFor,
+  plateFinishFor,
+  tierFor,
+} from "./quality";
 import { seededRandom } from "./noise";
 import type { SharedUniforms } from "./shared";
 import { createSky } from "./sky";
@@ -48,6 +54,9 @@ export type World = {
   setMotion(motion: boolean): void;
   dispose(): void;
 };
+
+/** Lets the browser paint and handle input before the next setup step. */
+const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /** The moment the still frame shows: beams crossed, motes mid-rise. */
 const STILL_TIME = 11.5;
@@ -102,15 +111,32 @@ export async function createWorld(
   const camera = new PerspectiveCamera(CAMERA.fovY, 1, 0.5, 2600);
   camera.rotation.order = "YXZ";
 
+  // Setup yields between its heavier steps, so no one task blocks input long.
   const sky = createSky(shared);
   const structures = createStructures();
-  const plate = createNamePlate(shared);
+  const terrain = createTerrain();
+  await nextTask();
+
+  // The plate is the hero object: large screens get its full finish, and only
+  // they bake (and reflect) an environment.
+  const finish = plateFinishFor(
+    tierFor(window.innerWidth, window.devicePixelRatio),
+  );
+  const bake = () =>
+    finish.envSize > 0 ? bakePlateEnvironment(renderer, finish.envSize) : null;
+  let environment = bake();
+  await nextTask();
+
+  const plate = createNamePlate(shared, {
+    envMap: environment?.texture ?? null,
+    finish,
+  });
   const lights = createGlowPoints(structures.glows, shared);
   const pools = createGroundPools(structures.pools.length + 3, 0.32);
   // Every material is self-lit or moonlit in its shader: the scene has no lights.
   scene.add(
     ...sky.objects,
-    createTerrain(),
+    terrain,
     pools.mesh,
     ...structures.meshes,
     lights.points,
@@ -225,6 +251,10 @@ export async function createWorld(
     options.onLost();
   };
   const onContextRestored = () => {
+    // The baked environment lived in a render target, which the loss wiped.
+    environment?.dispose();
+    environment = bake();
+    plate.setEnvironment(environment?.texture ?? null);
     layout();
     sync();
   };
@@ -247,6 +277,7 @@ export async function createWorld(
         for (const material of materials) material.dispose();
       }
     });
+    environment?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
   }
