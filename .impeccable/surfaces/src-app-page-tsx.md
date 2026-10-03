@@ -35,7 +35,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 4. Pointer and focus micro-motion: light-structures and panels tilt a few degrees toward the pointer, motes drift, the focus ring pulses once, links brighten.
 5. Case study scroll scenes: pinned sequences for the Player tools (the one place pinning is allowed). Phase 2.
 
-Reduced motion: the settled hero frame rendered once (static canvas or pre-rendered frame), no motes, no fly-in, no camera scrub; layout, colour and content identical.
+Reduced motion: the settled hero frame rendered once (static canvas or pre-rendered frame) with the motes frozen in place as scenery (decided 2026-10-02: nothing drifts), no fly-in, no camera scrub; layout, colour and content identical.
 
 Performance: canvas DPR capped at 1.5, low-poly terrain with shader fog, particle count scaled to device, rendering paused when offscreen or hidden, the H1 text is the LCP element and the canvas fades in behind it.
 
