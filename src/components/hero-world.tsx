@@ -329,7 +329,7 @@ export function HeroWorld({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0 [mask-image:linear-gradient(to_bottom,black_72%,transparent)] group-data-[world=drawn]:opacity-100 motion-safe:transition-opacity motion-safe:duration-1000"
+        className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0 [mask-image:linear-gradient(to_bottom,black_88%,transparent)] group-data-[world=drawn]:opacity-100 motion-safe:transition-opacity motion-safe:duration-1000"
       />
       {children}
     </section>

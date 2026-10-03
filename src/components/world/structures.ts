@@ -207,6 +207,20 @@ export function createStructures() {
     tower(x, z, 14 + random() * 30, 1.6 + random() * 2, -side, lightOf());
   }
 
+  // The runway carried on from the plate towards the camera, each light
+  // pooling on the ground: lines of light leading up out of the foreground
+  // to the name. Last, so the random draws above are unchanged.
+  for (let z = -77; z <= -14; z += 7) {
+    for (const side of [-1, 1]) {
+      const x = side * 14;
+      const color =
+        Math.round(Math.abs(z) / 7) % 6 === 0 ? palette.violet : palette.cyan;
+      const y = valleyHeight(x, z);
+      glows.push({ x, y: y + 0.35, z, color, size: 0.9, seed: random() });
+      pools.push({ x, y, z, width: 3, depth: 7, color });
+    }
+  }
+
   const geometry = new BoxGeometry(1, 1, 1);
   const bodyMesh = new InstancedMesh(geometry, bodyMaterial(), bodies.length);
   const bandMesh = new InstancedMesh(
