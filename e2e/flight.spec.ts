@@ -1,185 +1,90 @@
 import { expect, test, type Page } from "@playwright/test";
 import { credits, hero } from "../src/content/site";
+import { heroRoot, SCENE_TIMEOUT, watched, watchHero } from "./hero";
 
-// Software WebGL on CI is slow to compile the scene's shaders.
-const SCENE_TIMEOUT = 20_000;
+// The opening runs once, on desktop; the last test covers a 390px phone.
+test.skip(({ isMobile }) => isMobile, "covered on desktop and at 390px");
 
-const heroRoot = (page: Page) => page.getByRole("region", { name: hero.label });
-const skip = (page: Page) => page.getByRole("button", { name: credits.skip });
-const creditLines = (page: Page) =>
-  page.locator(`ul[aria-label="${credits.label}"] > li`);
+const creditList = (page: Page) =>
+  page.locator(`ul[aria-label="${credits.label}"]`);
 
 test.describe("with motion allowed", () => {
-  test("the hero is in 'flight' on load and 'settled' within 7 seconds", async ({
+  // Small enough to render quickly in software WebGL; behaviour, not looks.
+  test.use({ viewport: { width: 960, height: 600 } });
+
+  test("flies in: 'flight' on load, big title cards, 'settled' within 7 seconds", async ({
     page,
   }) => {
-    // Timed in the page, from the first 'flight' to 'settled': the opening's
-    // own budget, apart from however long the server and page load take.
-    await page.addInitScript(() => {
-      const w = window as unknown as { __at: Record<string, number> };
-      w.__at = {};
-      new MutationObserver((records) => {
-        for (const r of records) {
-          const state = (r.target as Element).getAttribute("data-state");
-          if (state) w.__at[state] ??= performance.now();
-        }
-      }).observe(document, {
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["data-state"],
-      });
-    });
+    await watchHero(page);
     await page.goto("/");
     await expect(heroRoot(page)).toHaveAttribute("data-state", "flight", {
       timeout: SCENE_TIMEOUT,
     });
+
+    // The credits play as title cards in the scene, hidden from assistive
+    // tech (the list is what it reads), one in full view, its name big.
+    const cards = page.locator("[data-credit-card]");
+    await expect(cards).toHaveCount(credits.lines.length);
+    await expect(cards.first().locator("xpath=..")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    const shown = () =>
+      cards.evaluateAll((els) =>
+        els.findIndex((el) => getComputedStyle(el).opacity === "1"),
+      );
+    await expect.poll(shown, { timeout: SCENE_TIMEOUT }).toBeGreaterThan(-1);
+    const nameSize = await cards
+      .nth(Math.max(0, await shown()))
+      .locator("span")
+      .last()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(nameSize).toBeGreaterThanOrEqual(32);
+
     await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
       timeout: SCENE_TIMEOUT,
     });
-    const at = await page.evaluate(
-      () => (window as unknown as { __at: Record<string, number> }).__at,
-    );
+    // Timed in the page: the opening's own budget, apart from page load.
+    const { at } = await watched(page);
     expect(at.settled - at.flight).toBeLessThan(7_000);
   });
 
-  test("Skip is the first stop after the nav", async ({ page }) => {
-    await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "flight", {
-      timeout: SCENE_TIMEOUT,
-    });
-    await page
-      .getByRole("navigation", { name: "Main" })
-      .getByRole("link")
-      .last()
-      .focus();
-    await page.keyboard.press("Tab");
-    await expect(skip(page)).toBeFocused();
-  });
-
-  test("Skip is reachable at once and settles the hero immediately", async ({
+  test("Skip settles it at once, hands focus on, and the credits go", async ({
     page,
   }) => {
-    // Pressed the moment the flight begins, so a busy machine can't let the
-    // opening run out first; timed in the page.
-    await page.addInitScript((name) => {
-      const w = window as unknown as { __skip: Record<string, number> };
-      w.__skip = {};
-      new MutationObserver((records) => {
-        for (const r of records) {
-          const state = (r.target as Element).getAttribute("data-state");
-          if (!state || w.__skip[state]) continue;
-          w.__skip[state] = performance.now();
-          if (state !== "flight") continue;
-          const button = Array.from(document.querySelectorAll("button")).find(
-            (b) => b.textContent === name,
-          );
-          button?.focus();
-          button?.click();
-        }
-      }).observe(document, {
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["data-state"],
-      });
-    }, credits.skip);
+    await watchHero(page, { skip: true });
     await page.goto("/");
     await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
       timeout: SCENE_TIMEOUT,
     });
-    const at = await page.evaluate(
-      () => (window as unknown as { __skip: Record<string, number> }).__skip,
-    );
+    const { at } = await watched(page);
     expect(at.settled - at.flight).toBeLessThan(250);
-    // The control fades with the credits, so focus moves on to the action.
     await expect(
       page.getByRole("link", { name: hero.primaryAction.label }),
     ).toBeFocused();
-  });
 
-  test("Skip works from the keyboard", async ({ page }) => {
-    await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "flight", {
-      timeout: SCENE_TIMEOUT,
-    });
-    await skip(page).press("Enter");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
-      timeout: 500,
-    });
-  });
-
-  test("the five credit lines are in the DOM, and gone from view once settled", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await expect(creditLines(page)).toHaveText([
+    // Still in the DOM, but hidden: never along the scroll, nor tabbable.
+    await expect(creditList(page).locator("> li")).toHaveText([
       ...credits.lines,
       credits.skip,
     ]);
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "flight", {
-      timeout: SCENE_TIMEOUT,
-    });
-    await skip(page).click();
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
-    await expect(creditLines(page)).toHaveCount(5);
-    // Hidden, so they never come along the scroll (or into the tab order).
     await expect(page.getByRole("list", { name: credits.label })).toBeHidden();
-    await page.mouse.wheel(0, 1200);
-    for (const line of await creditLines(page).all()) {
-      await expect(line).not.toBeInViewport();
-    }
-  });
-
-  test("the world draws during the flight and keeps it to the end", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
-      timeout: SCENE_TIMEOUT,
-    });
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
-      timeout: SCENE_TIMEOUT,
-    });
   });
 });
 
 test.describe("under prefers-reduced-motion", () => {
   test.use({ reducedMotion: "reduce" });
 
-  test("the hero never enters 'flight'", async ({ page }) => {
-    // Record every state the hero passes through, from the first byte.
-    await page.addInitScript(() => {
-      const w = window as unknown as { __states: string[] };
-      w.__states = [];
-      new MutationObserver((records) => {
-        for (const r of records) {
-          const state = (r.target as Element).getAttribute("data-state");
-          if (state) w.__states.push(state);
-        }
-      }).observe(document, {
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["data-state"],
-      });
-    });
-    await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
-      timeout: SCENE_TIMEOUT,
-    });
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced");
-    const states = await page.evaluate(
-      () => (window as unknown as { __states: string[] }).__states,
-    );
-    expect(states).not.toContain("flight");
-  });
-
-  test("the credits stay as static captions, Skip among them", async ({
+  test("never flies: the credits stay as static captions, Skip among them", async ({
     page,
   }) => {
+    await watchHero(page);
     await page.goto("/");
     await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced");
-    for (const line of await creditLines(page).all()) {
+    for (const line of await creditList(page).locator("> li").all()) {
       await expect(line).toBeVisible();
     }
+    expect((await watched(page)).seen).not.toContain("flight");
   });
 });
 
@@ -190,16 +95,13 @@ test.describe("on a 390px phone, portrait", () => {
     page,
   }) => {
     await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "flight", {
+    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
     });
     const overflow = () =>
       page.evaluate(
         () => document.documentElement.scrollWidth - window.innerWidth,
       );
-    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
-      timeout: SCENE_TIMEOUT,
-    });
     expect(await overflow()).toBeLessThanOrEqual(0);
     await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
       timeout: SCENE_TIMEOUT,

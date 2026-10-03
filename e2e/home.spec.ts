@@ -13,6 +13,10 @@ import {
   roles,
 } from "../src/content/site";
 
+// Content and navigation, not the opening (flight.spec.ts plays that): the
+// still hero is quicker to load, and nothing moves under the tests.
+test.use({ reducedMotion: "reduce" });
+
 test.describe("before any script runs", () => {
   test.use({ javaScriptEnabled: false });
 
@@ -81,10 +85,8 @@ async function tabTo(page: Page): Promise<Stop> {
 }
 
 test.describe("a keyboard walk", () => {
-  // Under reduced motion the credits are static captions, so Skip is a stop
-  // however long the walk takes. (flight.spec.ts covers Skip mid-flight.)
-  test.use({ reducedMotion: "reduce" });
-
+  // The credits are static captions here, so Skip is a stop however long the
+  // walk takes.
   test("reaches every stop in order with visible focus", async ({ page }) => {
     await page.goto("/");
 

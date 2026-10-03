@@ -60,7 +60,7 @@ If a detail isn't in the resume, the blurbs, or the project context, ask Adrian 
   - Content is readable immediately and never waits on an animation.
   - No scroll-jacking: native scroll speed, no snapping. Pinning is allowed only inside the Case study.
   - `prefers-reduced-motion` gets a fully static version that's just as good.
-  - Performance budget: mobile LCP under 2.5s, no layout shift.
+  - Performance budget: mobile LCP under 2.5s, no layout shift. (Revised 2026-10-03: LCP is reported, not gated. The opening's title cards are big type that paints seconds in, by design, so they become the LCP; Adrian chose the experience over the number. No layout shift still holds.)
   - Time-boxed so motion doesn't delay launch by more than a few days.
 
   - Opening: a first-person flight down a valley of lit ridges and structures, the camera banking left and right with the terrain (fighter-jet style), the name plate glowing dead centre ahead, then arrival; 5 to 6s, skippable, and the full name is in the nav bar from the first frame (the H1 is the LCP element). The name plate is a monumental extruded 3D letterform that the camera arrives at, turns in and settles frontal (the 20th Century Fox arrival as the device; none of its fanfare, plinth or composition), with the DOM H1 matching its final pose. No post-processing bloom; glow comes from emissive materials and light sprites. During it, four self-aware opening credits appear as cards in the world (Deadpool-style fourth-wall titles; the device only, never the film's lines or marks). Credits are the only humour on the home page until one bookend on the contact line; no credits along the scroll, and the Highlights are played straight.

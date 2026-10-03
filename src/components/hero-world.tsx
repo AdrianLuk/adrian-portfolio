@@ -8,11 +8,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import {
-  FLIGHT_START_RIG,
-  SETTLED_RIG,
-  type FlightRig,
-} from "./world/flight";
+import { FLIGHT_START_RIG, SETTLED_RIG, type FlightRig } from "./world/flight";
 import type { CreditPlacement, Measurement, World } from "./world/scene";
 
 /**
@@ -46,16 +42,7 @@ const prefersReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
 const unknownMotion = () => null;
 
 /** Room kept between a credit card and the hero's edges, in CSS pixels. */
-const EDGE = 16;
-
-/**
- * How much larger a credit card stands in the scene than its caption, so it
- * reads at a glance mid-flight. By transform, so nothing reflows.
- */
-const CREDIT_SIZE = { wide: 1.6, narrow: 1.35 } as const;
-
-/** The card's backdrop reaches this far past the text on each side. */
-const CARD_INSET = 12;
+const EDGE = 24;
 
 /** Canvas-relative boxes of each headline word, from the text itself. */
 function measure(canvas: HTMLCanvasElement, root: HTMLElement): Measurement {
@@ -81,21 +68,27 @@ function measure(canvas: HTMLCanvasElement, root: HTMLElement): Measurement {
 }
 
 /**
- * Where credit `index` appears, in normalised device coordinates: below the
- * plate (which flies in dead centre), alternating sides, or centred on a
- * narrow screen.
+ * Where title card `index` stands, in normalised device coordinates: round
+ * the frame, clear of the plate flying in dead centre (corner to corner on a
+ * wide screen, above and below it on a narrow one).
  */
 function creditSpot(index: number, aspect: number) {
-  if (aspect < 0.9) return { x: 0, y: index % 2 === 0 ? -0.22 : -0.44 };
-  return { x: index % 2 === 0 ? -0.32 : 0.32, y: -0.26 };
+  if (aspect < 0.9) return { x: 0, y: index % 2 === 0 ? 0.5 : -0.5 };
+  const spots = [
+    { x: -0.42, y: -0.42 },
+    { x: 0.42, y: 0.42 },
+    { x: -0.42, y: 0.42 },
+    { x: 0.42, y: -0.42 },
+  ];
+  return spots[index % spots.length];
 }
 
 /** Moves an element, by transform only (so nothing reflows), to a point. */
 function moveTo(el: HTMLElement, root: HTMLElement, at: CreditPlacement) {
-  // Never larger than fits across the hero, backdrop and all.
+  // Never larger than fits across the hero.
   const scale = Math.min(
     at.scale,
-    (root.clientWidth - 2 * EDGE) / (el.offsetWidth + 2 * CARD_INSET),
+    (root.clientWidth - 2 * EDGE) / el.offsetWidth,
   );
   // offsetLeft/Top are the layout position, untouched by transforms.
   const width = el.offsetWidth * scale;
@@ -159,10 +152,9 @@ export function HeroWorld({
     if (!root || !canvas) return;
 
     const reduced = window.matchMedia(REDUCED_MOTION);
-    const lines = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-credit]"),
+    const cards = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-credit-card]"),
     );
-    const skip = root.querySelector<HTMLElement>("[data-credit-skip]");
     const action = root.querySelector<HTMLElement>("[data-hero-action]");
 
     // The world reads this on every frame; the timeline animates it in place.
@@ -179,29 +171,23 @@ export function HeroWorld({
     function placeCredits() {
       if (!flying || !root) return;
       const aspect = root.clientWidth / Math.max(1, root.clientHeight);
-      const size = aspect < 0.9 ? CREDIT_SIZE.narrow : CREDIT_SIZE.wide;
-      lines.forEach((el, i) => {
+      cards.forEach((el, i) => {
         if (!(parseFloat(el.style.opacity) > 0)) return;
         const spot = creditSpot(i, aspect);
+        // Set flush to the side of the frame it stands on.
+        el.style.textAlign =
+          spot.x < 0 ? "left" : spot.x > 0 ? "right" : "center";
         const at = world?.placeCredit(i, spot) ?? {
           x: ((spot.x + 1) / 2) * root.clientWidth,
           y: ((1 - spot.y) / 2) * root.clientHeight,
           scale: 1,
         };
-        moveTo(el, root, { ...at, scale: at.scale * size });
+        moveTo(el, root, at);
       });
-      // Skip waits at the bottom of the hero, clear of the plate.
-      if (skip) {
-        moveTo(skip, root, {
-          x: skip.offsetLeft + skip.offsetWidth / 2,
-          y: root.clientHeight,
-          scale: 1,
-        });
-      }
     }
 
     function clearCredits() {
-      for (const el of [...lines, skip]) {
+      for (const el of cards) {
         el?.style.removeProperty("opacity");
         el?.style.removeProperty("transform");
       }
@@ -227,7 +213,7 @@ export function HeroWorld({
       if (cancelled || !flying) return;
       timeline = createFlightTimeline({
         rig,
-        credits: lines,
+        credits: cards,
         onUpdate: placeCredits,
         onComplete: land,
       });
