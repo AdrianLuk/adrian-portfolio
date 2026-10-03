@@ -121,5 +121,8 @@ export function createGlowPoints(
     setViewportHeight(height: number) {
       material.uniforms.uViewportHeight.value = height;
     },
+    setIntensity(value: number) {
+      material.uniforms.uIntensity.value = value;
+    },
   };
 }

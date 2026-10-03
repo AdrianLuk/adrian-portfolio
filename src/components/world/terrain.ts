@@ -7,13 +7,30 @@ const PLATE_LINE = -90;
  * The valley the hero looks down. The camera stands near z = 0 looking along
  * -z; the name plate stands 90 ahead. Up to PLATE_ZONE the valley runs straight
  * and level so the plate can stand anywhere across the screen; beyond it the
- * valley narrows and winds, which the flight banks through.
+ * valley narrows and winds into the distance.
+ *
+ * Behind the camera (+z, never seen once settled) lies the canyon the opening
+ * flight comes down: narrow and winding, opening out into the plate's valley
+ * past FLIGHT_ZONE.
  */
 
 const PLATE_ZONE = 170;
+const FLIGHT_ZONE = 120;
+
+/** The world's edge behind the camera: the far end of the flight's canyon. */
+export const WORLD_BACK = 700;
+
+/** The world's far edge, down the valley. */
+export const WORLD_FRONT = -1320;
 
 /** Lateral offset of the valley floor's centre line at depth z. */
 export function valleyCentre(z: number) {
+  if (z > FLIGHT_ZONE) {
+    // Off to the left of the plate's line, so the flight sees the plate at
+    // an angle and runs straight into the turn-in, with one gentle S-bend.
+    const d = z - FLIGHT_ZONE;
+    return -80 * smoothstep(0, 50, d) + 10 * Math.sin(d * 0.025);
+  }
   const d = Math.max(0, -z - PLATE_ZONE);
   const ramp = smoothstep(0, 180, d);
   return ramp * (42 * Math.sin(d * 0.0085) + 15 * Math.sin(d * 0.021 + 1.3));
@@ -21,6 +38,7 @@ export function valleyCentre(z: number) {
 
 /** Half the width of the level floor at depth z. */
 export function corridorHalfWidth(z: number) {
+  if (z > 0) return 88 - 50 * smoothstep(FLIGHT_ZONE, 330, z);
   return 88 - 52 * smoothstep(PLATE_ZONE, 480, -z);
 }
 

@@ -12,6 +12,9 @@ const routes = [
 
 for (const route of routes) {
   test(`${route.name} has no axe violations`, async ({ page }) => {
+    // The page as it stands, not a frame of the opening's fades (world.spec.ts
+    // audits home once the opening has settled).
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(route.path);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
