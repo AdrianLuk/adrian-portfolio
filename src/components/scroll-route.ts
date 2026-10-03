@@ -1,0 +1,134 @@
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { litAt, routeAnchors, stopAt, type PanelBox } from "./route-anchors";
+import type { RouteRig } from "./world/route";
+import type { World } from "./world/scene";
+
+gsap.registerPlugin(ScrollTrigger);
+
+/**
+ * Seconds the camera takes to catch up with the scroll: enough to smooth a
+ * wheel's steps and to ease onto the route if the page is already scrolled
+ * when the opening lands, little enough that it moves at the visitor's pace.
+ */
+const SCRUB = 0.3;
+
+/** How much of its site's sideways motion a panel follows, and the room kept at the screen's edges. */
+const PANEL_PARALLAX = 0.3;
+const EDGE = 16;
+
+
+/**
+ * The scroll route: ScrollTrigger scrubs the camera along the route as the
+ * page scrolls natively (nothing pinned, nothing snapped, scroll behaviour
+ * untouched), each site lighting as its panel enters. The panels stay in the
+ * page's flow, so they read, tab and scroll as usual; each drifts a little
+ * sideways with its site as the camera passes, and stands where the page put
+ * it when the camera is at its stop.
+ */
+export function createScrollRoute({
+  route,
+  panels,
+  locateSite,
+}: {
+  route: RouteRig;
+  /** The Highlights' panels, in the sites' order. */
+  panels: readonly HTMLElement[];
+  /**
+   * The world's site finder, once it has loaded. Its canvas is held fixed
+   * over the viewport while the route runs, so canvas pixels are viewport
+   * pixels.
+   */
+  locateSite: () => World["placeSite"] | null;
+}) {
+  /** The scroll position the camera is at: the page's, smoothed by the scrub. */
+  const scroll = { y: 0 };
+  let boxes: PanelBox[] = [];
+  let anchors: number[] = [0];
+  let viewport = 1;
+  const shifts = panels.map(() => 0);
+
+  function measure() {
+    viewport = window.innerHeight;
+    // A panel only ever shifts sideways, so its top is its place in the flow.
+    boxes = panels.map((el) => ({
+      top: el.getBoundingClientRect().top + window.scrollY,
+      height: el.offsetHeight,
+    }));
+    anchors = routeAnchors({
+      viewport,
+      maxScroll: ScrollTrigger.maxScroll(window),
+      panels: boxes,
+    });
+  }
+
+  /** Sets each panel beside its site, in step with the camera. */
+  function placePanels() {
+    const locate = locateSite();
+    const width = document.documentElement.clientWidth;
+    // Every read, then every write, so the page lays out once.
+    const next = panels.map((el, i) => {
+      const now = locate?.(i);
+      const atStop = locate?.(i, i + 1);
+      if (!now || !atStop) return 0;
+      const box = el.getBoundingClientRect();
+      const left = box.left - shifts[i];
+      const right = box.right - shifts[i];
+      const want = PANEL_PARALLAX * (now.x - atStop.x);
+      return Math.round(
+        Math.min(Math.max(want, EDGE - left), Math.max(0, width - EDGE - right)),
+      );
+    });
+    next.forEach((shift, i) => {
+      if (shift === shifts[i]) return;
+      shifts[i] = shift;
+      panels[i].style.transform = shift ? `translateX(${shift}px)` : "";
+    });
+  }
+
+  function update() {
+    route.at = stopAt(scroll.y, anchors);
+    boxes.forEach((box, i) => {
+      route.lit[i] = litAt(scroll.y, box, viewport);
+      panels[i].toggleAttribute("data-lit", route.lit[i] >= 0.5);
+    });
+    placePanels();
+  }
+
+  measure();
+  const tween = gsap.fromTo(
+    scroll,
+    { y: 0 },
+    {
+      y: () => ScrollTrigger.maxScroll(window),
+      ease: "none",
+      onUpdate: update,
+      scrollTrigger: {
+        start: 0,
+        end: "max",
+        scrub: SCRUB,
+        invalidateOnRefresh: true,
+        onRefresh() {
+          measure();
+          update();
+        },
+      },
+    },
+  );
+
+  return {
+    /** Stops for good, handing the panels back to the page as it drew them. */
+    kill() {
+      tween.scrollTrigger?.kill();
+      tween.kill();
+      route.at = 0;
+      route.lit.fill(0);
+      for (const el of panels) {
+        el.style.removeProperty("transform");
+        el.removeAttribute("data-lit");
+      }
+    },
+  };
+}
+
+export type ScrollRoute = ReturnType<typeof createScrollRoute>;

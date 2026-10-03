@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { person } from "../src/content/site";
-import { heroRoot, settledWorld, watchHero } from "./hero";
+import { countFrames, heroRoot, settledWorld, watchHero } from "./hero";
 
 // The WebGL world is checked once, on desktop; flight.spec covers 390px.
 test.skip(({ isMobile }) => isMobile, "covered on desktop and at 390px");
@@ -37,21 +37,10 @@ test.describe("under prefers-reduced-motion", () => {
   test("the world renders once, nothing animates, and home is axe-clean", async ({
     page,
   }) => {
-    // Count animation frames, which any render loop or drifting mote would need.
-    await page.addInitScript(() => {
-      const w = window as unknown as { __frames: number };
-      w.__frames = 0;
-      const request = window.requestAnimationFrame.bind(window);
-      window.requestAnimationFrame = (callback) => {
-        w.__frames++;
-        return request(callback);
-      };
-    });
+    const frames = await countFrames(page);
     await page.goto("/");
     await settledWorld(page, "reduced");
 
-    const frames = () =>
-      page.evaluate(() => (window as unknown as { __frames: number }).__frames);
     const before = await frames();
     await page.waitForTimeout(1000);
     expect(await frames()).toBe(before);

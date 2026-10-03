@@ -55,7 +55,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </nav>
         </header>
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-fog px-4 py-6 text-center text-sm text-ink/70 sm:px-6">
+        {/* Positioned, so it paints over the home page's world, which is held
+          fixed behind the page as the camera flies. */}
+        <footer className="relative border-t border-fog px-4 py-6 text-center text-sm text-ink/70 sm:px-6">
           {person.name} · {person.location}
         </footer>
         <Analytics />

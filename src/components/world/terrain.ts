@@ -20,8 +20,11 @@ const FLIGHT_ZONE = 120;
 /** The world's edge behind the camera: the far end of the flight's canyon. */
 export const WORLD_BACK = 700;
 
-/** The world's far edge, down the valley. */
-export const WORLD_FRONT = -1320;
+/**
+ * The world's far edge, down the valley: far enough past the outpost that the
+ * route's last view fades into fog before it ends.
+ */
+export const WORLD_FRONT = -1700;
 
 /** Lateral offset of the valley floor's centre line at depth z. */
 export function valleyCentre(z: number) {

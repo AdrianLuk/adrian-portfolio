@@ -31,7 +31,9 @@ const landsAfterFlight =
 
 export default function Home() {
   return (
-    <>
+    // Its own stacking context: once the camera flies, the world's canvas is
+    // held at the back of it, behind the whole page and over the body's sky.
+    <div className="relative isolate">
       <HeroWorld label={hero.label} className="min-h-[88svh]">
         {/* Out of the flow at the hero's foot, so hiding the credits never
           moves anything, but first in it: Skip is the hero's first stop. */}
@@ -188,6 +190,6 @@ export default function Home() {
           {contact.bookend}
         </p>
       </section>
-    </>
+    </div>
   );
 }
