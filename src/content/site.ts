@@ -246,9 +246,10 @@ export const resume = {
   intro: "Where I've worked, newest first, and one project of my own.",
   rolesHeading: "Experience",
   sideProjectsHeading: "Side projects",
-  /** In public/; a web copy of the 2026 resume with the phone number removed. */
+  /** In public/; web copies of the 2026 resume with the phone number removed. */
   pdfHref: "/Adrian-Luk-Resume-2026.pdf",
-  download: { label: "Download PDF", detail: "PDF, 2 pages" },
+  docxHref: "/Adrian-Luk-Resume-2026.docx",
+  download: { pdf: "Download PDF", docx: "Download Word version (.docx)" },
 } as const;
 
 export const contact = {
@@ -288,6 +289,11 @@ export const notFound = {
 
 export function hrefFor(link: HighlightLink): string {
   return link.kind === "role" ? `/resume#${link.roleId}` : `/work/${link.slug}`;
+}
+
+/** "https://juicebrospickleball.com" -> "juicebrospickleball.com" */
+export function displayUrl(url: string): string {
+  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
 export function linkLabelFor(highlight: Highlight): string {

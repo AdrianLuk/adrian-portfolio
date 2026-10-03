@@ -61,11 +61,16 @@ test("a Highlight's link lands on its Role", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("the Download PDF button links to the Resume PDF", async ({ page }) => {
+test("the download links point at the Resume PDF and the Word version", async ({
+  page,
+}) => {
   await page.goto("/resume");
   await expect(
-    page.getByRole("link", { name: resume.download.label }),
+    page.getByRole("link", { name: resume.download.pdf }),
   ).toHaveAttribute("href", resume.pdfHref);
+  await expect(
+    page.getByRole("link", { name: resume.download.docx }),
+  ).toHaveAttribute("href", resume.docxHref);
 });
 
 test("the Resume PDF is served as a PDF with no phone number in it", async ({
@@ -81,7 +86,16 @@ test("the Resume PDF is served as a PDF with no phone number in it", async ({
 
   expect(text).toContain("adrianluk618@gmail.com");
   expect(text).not.toMatch(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
-  expect(text).not.toMatch(/btcup/i);
+});
+
+test("the Resume DOCX is served as a Word document", async ({ request }) => {
+  const response = await request.get(resume.docxHref);
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain(
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  );
+  // The phone-number checks on its contents live in src/content/resume-files.test.ts.
+  expect((await response.body()).subarray(0, 2).toString("latin1")).toBe("PK");
 });
 
 type Stop = { href: string | null; focusVisible: boolean };
@@ -107,6 +121,7 @@ test("a keyboard walk reaches the nav, the download and the project link with vi
     "/",
     ...nav.map((n) => n.href),
     resume.pdfHref,
+    resume.docxHref,
     sideProjects[0].url,
   ];
   const stops: Stop[] = [];

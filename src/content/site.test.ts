@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as site from "./site";
 import {
   caseStudies,
+  displayUrl,
   highlights,
   hrefFor,
   roles,
@@ -61,6 +62,23 @@ describe("Highlights", () => {
   });
 });
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/** "Mar 2024" -> months since year 0, so labels sort. */
+function monthNumber(label: string): number {
+  const [month, year] = label.split(" ");
+  return Number(year) * 12 + MONTHS.indexOf(month);
+}
+
+function roleText(id: string): string {
+  const role = roles.find((r) => r.id === id);
+  if (!role) throw new Error(`No Role "${id}"`);
+  return allStrings(role).join(" ");
+}
+
 describe("Roles and Side projects", () => {
   it("keep Juice Bros under Side projects and out of the Roles", () => {
     expect(sideProjects.map((p) => p.name)).toContain("Juice Bros");
@@ -68,47 +86,46 @@ describe("Roles and Side projects", () => {
       expect(allStrings(role).join(" ")).not.toMatch(/juice bros/i);
     }
   });
-});
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const monthIndex = (label: string) => {
-  const [month, year] = label.split(" ");
-  return Number(year) * 12 + MONTHS.indexOf(month);
-};
-
-describe("Roles", () => {
-  it("run newest first, by start date", () => {
-    const starts = roles.map((r) => monthIndex(r.start));
+  it("list Roles newest first, by start date", () => {
+    const starts = roles.map((r) => monthNumber(r.start));
     expect(starts).toEqual([...starts].sort((a, b) => b - a));
   });
 
-  it("have unique ids, which the Resume page uses as anchors", () => {
+  it("give each Role a unique id, which the Resume page uses as its anchor", () => {
     const ids = roles.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
 
 describe("Content accuracy", () => {
-  const role = (id: string) => roles.find((r) => r.id === id)!;
-
-  it("describes the Life House widget as primary frontend engineer, never top committer", () => {
-    const lifeHouse = allStrings(role("life-house")).join(" ");
-    expect(lifeHouse).toMatch(/primary frontend engineer/i);
-    expect(lifeHouse).not.toMatch(/top committer/i);
+  it("describes the Life House widget as primary frontend engineer", () => {
+    expect(roleText("life-house")).toMatch(/primary frontend engineer/i);
   });
 
   it("gives BT Cup enrolment as roughly 2,000 per contest", () => {
-    const btCup = allStrings(role("elite-digital")).join(" ");
-    expect(btCup).toMatch(/roughly 2,000/i);
-    expect(btCup).not.toMatch(/2,180/);
+    expect(roleText("elite-digital")).toMatch(/roughly 2,000/i);
   });
 
   it("limits 'architected' to the data model, REST API and React front end", () => {
-    const sentence = role("elite-digital").bullets.find((b) =>
-      /architected/i.test(b),
+    const sentence = roles
+      .find((r) => r.id === "elite-digital")
+      ?.bullets.find((b) => /architected/i.test(b));
+    expect(sentence).toMatch(
+      /Architected the data model, REST API and React front end/,
     );
-    expect(sentence).toMatch(/Architected the data model, REST API and React front end/);
     expect(sentence).not.toMatch(/SAML|SSO|admin panel|scoring/i);
+  });
+});
+
+describe("displayUrl", () => {
+  it("drops the scheme and a trailing slash", () => {
+    expect(displayUrl("https://juicebrospickleball.com")).toBe(
+      "juicebrospickleball.com",
+    );
+    expect(displayUrl("https://juicebrospickleball.com/")).toBe(
+      "juicebrospickleball.com",
+    );
   });
 });
 

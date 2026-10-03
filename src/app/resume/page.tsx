@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { resume, roles, sideProjects } from "@/content/site";
+import { displayUrl, resume, roles, sideProjects } from "@/content/site";
+import {
+  entryTitle,
+  metaLine,
+  panel,
+  primaryAction,
+  sectionLabel,
+  textLink,
+} from "../styles";
 
 export const metadata: Metadata = {
   title: resume.metaTitle,
   description: resume.metaDescription,
 };
-
-const sectionHeading =
-  "font-display text-sm tracking-[0.3em] text-violet uppercase [font-stretch:75%]";
-const itemTitle = "font-display text-2xl font-bold [font-stretch:115%]";
-const meta =
-  "font-display text-sm tracking-widest text-cyan uppercase [font-stretch:75%]";
-const externalLink =
-  "font-semibold text-cyan underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan";
 
 function Bullets({ items }: { items: readonly string[] }) {
   return (
@@ -32,23 +32,18 @@ export default function ResumePage() {
           {resume.heading}
         </h2>
         <p className="text-lg text-ink/85">{resume.intro}</p>
-        <p>
-          <a
-            href={resume.pdfHref}
-            download
-            className="inline-block rounded-full bg-ember px-6 py-3 font-display font-bold tracking-wide text-night uppercase [font-stretch:110%]"
-          >
-            {resume.download.label}
-            <span className="sr-only"> ({resume.download.detail})</span>
+        <p className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <a href={resume.pdfHref} download className={primaryAction}>
+            {resume.download.pdf}
+          </a>
+          <a href={resume.docxHref} download className={textLink}>
+            {resume.download.docx}
           </a>
         </p>
       </header>
 
-      <section
-        aria-labelledby="experience-heading"
-        className="mt-16 max-w-3xl"
-      >
-        <h3 id="experience-heading" className={sectionHeading}>
+      <section aria-labelledby="experience-heading" className="mt-16 max-w-3xl">
+        <h3 id="experience-heading" className={sectionLabel}>
           {resume.rolesHeading}
         </h3>
         <ol className="mt-8 space-y-12 border-l border-fog pl-6 sm:pl-8">
@@ -58,10 +53,10 @@ export default function ResumePage() {
                 aria-hidden="true"
                 className="absolute top-2 -left-[calc(1.5rem+4.5px)] size-2 rounded-full bg-cyan sm:-left-[calc(2rem+4.5px)]"
               />
-              <h4 className={itemTitle}>
+              <h4 className={entryTitle}>
                 {role.title}, {role.company}
               </h4>
-              <p className={`mt-1 ${meta}`}>
+              <p className={`mt-1 ${metaLine}`}>
                 {role.start} to {role.end}
               </p>
               <p className="mt-3 text-ink/80 italic">{role.summary}</p>
@@ -75,22 +70,18 @@ export default function ResumePage() {
         aria-labelledby="side-projects-heading"
         className="mt-20 max-w-3xl"
       >
-        <h3 id="side-projects-heading" className={sectionHeading}>
+        <h3 id="side-projects-heading" className={sectionLabel}>
           {resume.sideProjectsHeading}
         </h3>
         <ul className="mt-8 space-y-10">
           {sideProjects.map((project) => (
-            <li
-              key={project.id}
-              id={project.id}
-              className="scroll-mt-24 rounded-2xl bg-dusk/70 p-6 sm:p-8"
-            >
-              <h4 className={itemTitle}>{project.name}</h4>
-              <p className={`mt-1 ${meta}`}>{project.year}</p>
+            <li key={project.id} id={project.id} className={`scroll-mt-24 ${panel}`}>
+              <h4 className={entryTitle}>{project.name}</h4>
+              <p className={`mt-1 ${metaLine}`}>{project.year}</p>
               <Bullets items={project.bullets} />
               <p className="mt-6">
-                <a href={project.url} className={externalLink}>
-                  {project.url.replace(/^https:\/\//, "")}
+                <a href={project.url} className={textLink}>
+                  {displayUrl(project.url)}
                 </a>
               </p>
             </li>

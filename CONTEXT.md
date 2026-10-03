@@ -37,5 +37,5 @@ The page listing every Role, then Side projects, with verified bullets, and offe
 _Avoid_: Experience page, CV page
 
 **Resume PDF**:
-The downloadable resume file. It and the Resume page state the same facts and must be kept in sync.
+The downloadable resume file, offered as a PDF and as a Word (.docx) copy. Both and the Resume page state the same facts and must be kept in sync.
 _Avoid_: CV

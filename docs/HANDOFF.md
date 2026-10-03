@@ -5,7 +5,7 @@ Carried over from the planning session. Source of truth for scope and content ru
 ## References
 
 - Verified experience copy (bullet + paragraph per role): https://claude.ai/artifact/4PgJFWw584vy31XLxcDDv5 (read with the Artifact tool). Also `lib/blurbs.ts` in `blurbs.zip` from the previous session.
-- Resume: `Adrian-Luk-Resume-2026.pdf`. The copy in `public/` is the web version, with the phone number (text and `tel:` link) removed; the original stays out of the repo. Redo the removal whenever the resume changes, and keep the Resume page in step (`src/content/resume-pdf.test.ts` checks they agree).
+- Resume: `Adrian-Luk-Resume-2026.pdf` and `.docx`. The copies in `public/` are the web versions, with the phone number (text and `tel:` link) removed; the originals stay out of the repo. Redo the removal in both whenever the resume changes, and keep the Resume page in step (`src/content/resume-files.test.ts` checks the page, the PDF and the DOCX agree).
 
 ## Decisions already made
 
