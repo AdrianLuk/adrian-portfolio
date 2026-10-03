@@ -238,6 +238,20 @@ export const sideProjects = [
   },
 ] as const satisfies readonly SideProject[];
 
+export const resume = {
+  metaTitle: "Adrian Luk, resume",
+  metaDescription:
+    "Where Adrian Luk has worked as a frontend and full-stack engineer, newest first, with a PDF to download.",
+  heading: "Resume",
+  intro: "Where I've worked, newest first, and one project of my own.",
+  rolesHeading: "Experience",
+  sideProjectsHeading: "Side projects",
+  /** In public/; web copies of the 2026 resume with the phone number removed. */
+  pdfHref: "/Adrian-Luk-Resume-2026.pdf",
+  docxHref: "/Adrian-Luk-Resume-2026.docx",
+  download: { pdf: "Download PDF", docx: "Download Word version (.docx)" },
+} as const;
+
 export const contact = {
   heading: "Contact",
   channels: [
@@ -275,6 +289,11 @@ export const notFound = {
 
 export function hrefFor(link: HighlightLink): string {
   return link.kind === "role" ? `/resume#${link.roleId}` : `/work/${link.slug}`;
+}
+
+/** "https://juicebrospickleball.com" -> "juicebrospickleball.com" */
+export function displayUrl(url: string): string {
+  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
 export function linkLabelFor(highlight: Highlight): string {
