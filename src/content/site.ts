@@ -71,7 +71,8 @@ export type Highlight = {
   id: HighlightId;
   title: string;
   byline: string;
-  paragraph: string;
+  /** One paragraph, or (Control D, the whole role) exactly three lines. */
+  paragraph: string | readonly [string, string, string];
   /** Two verified numbers; Juice Bros has none (no stable figures, and usage numbers are never claimed). */
   keyNumbers: readonly [] | readonly [KeyNumber, KeyNumber];
   link: HighlightLink;
@@ -123,10 +124,11 @@ export const hero = {
   label: "Introduction",
   titleLine: "Senior frontend engineer",
   backendLine: "React and TypeScript, plus the back end when it needs building.",
-  primaryAction: { label: "See the work", href: "#work" },
+  primaryAction: { label: "See the work", href: "#highlight-control-d" },
 } as const;
 
 export const credits = {
+  label: "Opening credits",
   lines: [
     "A portfolio by: Adrian Luk",
     "Starring: Adrian Luk, as himself",
@@ -343,8 +345,11 @@ export const highlights = [
     id: "control-d",
     title: "Control D",
     byline: "Windscribe",
-    paragraph:
-      "I built single sign-on across four identity providers (Okta, Google, Microsoft Entra ID and Tailscale), including the OAuth/OIDC work in our PHP REST API. I built the org-level scheduled Reports feature end to end, from the backend scheduling through to the interface organizations use to set reports up. When an external WCAG 2.1 audit put an accessibility deadline on our SOC certification, I took on the remediation across roughly 248 components in the dashboard, the authenticated app and the public marketing pages. To keep it from regressing, I built a cypress-axe harness that checks 96 routes against WCAG 2.1 AA.",
+    paragraph: [
+      "I built single sign-on across four identity providers (Okta, Google, Microsoft Entra ID and Tailscale), including the OAuth/OIDC work in our PHP REST API.",
+      "I built the org-level scheduled Reports feature end to end, from the backend scheduling through to the interface organizations use to set reports up.",
+      "When an external WCAG 2.1 audit put an accessibility deadline on our SOC certification, I took on the remediation across roughly 248 components in the dashboard, the authenticated app and the public marketing pages, and built a cypress-axe harness that checks 96 routes against WCAG 2.1 AA to keep it from regressing.",
+    ],
     keyNumbers: [
       { value: "4", label: "identity providers behind one sign-on" },
       { value: "96", label: "routes under a WCAG 2.1 AA suite" },
@@ -496,6 +501,8 @@ export const resume = {
 
 export const contact = {
   heading: "Contact",
+  lead: "The full history is on the resume. For anything else, write to me.",
+  resume: { label: "Resume", href: "/resume" },
   channels: [
     {
       id: "email",
@@ -519,6 +526,8 @@ export const contact = {
   bookend: "The end. (Hire him.)",
 } as const satisfies {
   heading: string;
+  lead: string;
+  resume: { label: string; href: string };
   channels: readonly ContactChannel[];
   bookend: string;
 };
@@ -528,6 +537,11 @@ export const notFound = {
   body: "Nothing out here but fog. This page doesn't exist, or it drifted off.",
   homeLink: "Back to the home page",
 } as const;
+
+/** The id of a Highlight's panel on the home page, and its in-page anchor. */
+export function highlightAnchor(id: HighlightId): string {
+  return `highlight-${id}`;
+}
 
 export function hrefFor(link: HighlightLink): string {
   return link.kind === "role" ? `/resume#${link.roleId}` : `/work/${link.slug}`;

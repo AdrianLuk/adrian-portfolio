@@ -1,11 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  caseStudies,
   contact,
+  credits,
   hero,
+  highlightAnchor,
   highlights,
   hrefFor,
+  linkLabelFor,
   nav,
   person,
+  roles,
 } from "../src/content/site";
 
 test.describe("before any script runs", () => {
@@ -26,6 +31,37 @@ test.describe("before any script runs", () => {
     await expect(page.getByText(hero.backendLine)).toBeVisible();
     const headings = page.locator("#work").getByRole("heading", { level: 3 });
     await expect(headings).toHaveText(highlights.map((h) => h.title));
+  });
+
+  test("every panel carries its text, its key numbers and its link", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    for (const highlight of highlights) {
+      const panel = page.locator(`#${highlightAnchor(highlight.id)}`);
+      for (const line of [highlight.paragraph].flat()) {
+        await expect(panel).toContainText(line);
+      }
+      for (const n of highlight.keyNumbers) {
+        await expect(panel).toContainText(n.value);
+        await expect(panel).toContainText(n.label);
+      }
+      await expect(
+        panel.getByRole("link", { name: linkLabelFor(highlight) }),
+      ).toHaveAttribute("href", hrefFor(highlight.link));
+    }
+  });
+
+  test("the opening credits, the outpost and its resume link are in the markup", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(
+      page.getByRole("list", { name: credits.label }).getByRole("listitem"),
+    ).toHaveCount(5);
+    await expect(
+      page.locator("#contact").getByRole("link", { name: contact.resume.label }),
+    ).toHaveAttribute("href", contact.resume.href);
   });
 });
 
@@ -52,8 +88,10 @@ test("a keyboard walk reaches every stop in order with visible focus", async ({
   const expected = [
     "/",
     ...nav.map((n) => n.href),
+    null, // the Skip control: a button, so no href
     hero.primaryAction.href,
     ...highlights.map((h) => hrefFor(h.link)),
+    contact.resume.href,
     ...contact.channels.map((c) => c.href),
   ];
 
@@ -68,18 +106,93 @@ test("a keyboard walk reaches every stop in order with visible focus", async ({
   }
 });
 
-test("'See the work' takes the visitor to the Highlights", async ({ page }) => {
+test("'See the work' goes to the first panel and moves focus there", async ({
+  page,
+}) => {
   await page.goto("/");
+  const first = highlights[0];
   await page.getByRole("link", { name: hero.primaryAction.label }).click();
-  await expect(page).toHaveURL(/#work$/);
+  await expect(page).toHaveURL(new RegExp(`#${highlightAnchor(first.id)}$`));
   await expect(
-    page.getByRole("heading", { name: highlights[0].title }),
+    page.getByRole("heading", { name: first.title }),
   ).toBeInViewport();
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.id))
+    .toBe(highlightAnchor(first.id));
 });
 
-test("the outpost closes on the bookend line", async ({ page }) => {
+test("each panel shows its two key numbers, and Juice Bros none", async ({
+  page,
+}) => {
+  await page.goto("/");
+  for (const highlight of highlights) {
+    const numbers = page
+      .locator(`#${highlightAnchor(highlight.id)}`)
+      .getByRole("list", { name: "Key numbers" })
+      .getByRole("listitem");
+    await expect(numbers).toHaveCount(highlight.id === "juice-bros" ? 0 : 2);
+  }
+});
+
+test.describe("every Highlight link", () => {
+  for (const highlight of highlights) {
+    test(`${highlight.title} responds 200 and lands on a heading that names it`, async ({
+      page,
+      request,
+    }) => {
+      const href = hrefFor(highlight.link);
+      expect((await request.get(href)).status()).toBe(200);
+
+      await page.goto("/");
+      await page
+        .locator(`#${highlightAnchor(highlight.id)}`)
+        .getByRole("link", { name: linkLabelFor(highlight) })
+        .click();
+      await expect(page).toHaveURL(href);
+
+      if (highlight.link.kind === "case-study") {
+        const { slug } = highlight.link;
+        const study = caseStudies.find((c) => c.slug === slug)!;
+        await expect(
+          page.getByRole("main").getByRole("heading", { level: 2 }),
+        ).toHaveText(study.title);
+      } else {
+        const { roleId } = highlight.link;
+        const role = roles.find((r) => r.id === roleId)!;
+        await expect(
+          page.locator(`#${role.id}`).getByRole("heading"),
+        ).toHaveText(`${role.title}, ${role.company}`);
+      }
+    });
+  }
+});
+
+test("the opening has five credit lines, the last being the Skip control", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const items = page
+    .getByRole("list", { name: credits.label })
+    .getByRole("listitem");
+  await expect(items).toHaveText([...credits.lines, credits.skip]);
+  await expect(items.last().getByRole("button")).toHaveText(credits.skip);
+});
+
+test("the outpost has a lead, the resume link, the contact channels and one bookend", async ({
+  page,
+}) => {
   await page.goto("/");
   const outpost = page.locator("#contact");
+  await expect(outpost.getByText(contact.lead)).toBeVisible();
+  await expect(
+    outpost.getByRole("link", { name: contact.resume.label }),
+  ).toHaveAttribute("href", contact.resume.href);
+  for (const channel of contact.channels) {
+    await expect(
+      outpost.getByRole("link", { name: channel.text }),
+    ).toHaveAttribute("href", channel.href);
+  }
+  await expect(page.getByText(contact.bookend)).toHaveCount(1);
   await expect(outpost.getByText(contact.bookend)).toBeVisible();
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });

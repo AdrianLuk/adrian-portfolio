@@ -5,6 +5,7 @@ import * as site from "./site";
 import {
   caseStudies,
   displayUrl,
+  highlightAnchor,
   highlights,
   hrefFor,
   roles,
@@ -48,6 +49,25 @@ describe("Highlights", () => {
     expect(hrefFor({ kind: "case-study", slug: "juice-bros" })).toBe(
       "/work/juice-bros",
     );
+  });
+
+  it("anchor each panel by its id, and 'See the work' goes to the first", () => {
+    expect(highlightAnchor("control-d")).toBe("highlight-control-d");
+    expect(site.hero.primaryAction.href).toBe(
+      `#${highlightAnchor(highlights[0].id)}`,
+    );
+  });
+
+  it("present the whole Control D role in three lines: SSO, Reports, then the a11y overhaul", () => {
+    const controlD = highlights.find((h) => h.id === "control-d")!;
+    const lines = [controlD.paragraph].flat();
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/single sign-on across four identity providers/i);
+    expect(lines[1]).toMatch(/scheduled Reports feature end to end/i);
+    expect(lines[2]).toMatch(/96 routes/);
+    expect(lines[2]).toMatch(/accessibility/i);
+    // Accessibility is not the headline.
+    expect(lines[0]).not.toMatch(/accessib|WCAG|a11y/i);
   });
 
   it("carry exactly two key numbers from the verified allowlist, except Juice Bros, which has none", () => {
