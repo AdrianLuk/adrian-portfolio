@@ -1,49 +1,70 @@
+import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel } from "@/components/highlight-panel";
-import { contact, credits, hero, highlights, person, work } from "@/content/site";
+import {
+  contact,
+  credits,
+  hero,
+  highlights,
+  person,
+  work,
+} from "@/content/site";
 import Link from "next/link";
+import { Fragment } from "react";
 import { metaLine, primaryAction, sectionLabel, textLink } from "./styles";
 
 export default function Home() {
   return (
     <>
-      <section
-        aria-label={hero.label}
-        className="mx-auto flex min-h-[70svh] max-w-6xl flex-col justify-end gap-6 px-4 pt-24 pb-16 sm:px-6"
+      <HeroWorld
+        label={hero.label}
+        className="flex min-h-[88svh] flex-col justify-end"
       >
-        {/* The accessible name is the H1 in the nav; this is its display echo. */}
-        <p
-          aria-hidden="true"
-          className="font-display text-6xl leading-none font-extrabold uppercase [font-stretch:150%] sm:text-8xl"
-        >
-          {person.name}
-        </p>
-        <div className="max-w-2xl space-y-2">
-          <p className="font-display text-2xl font-semibold text-cyan [font-stretch:110%]">
-            {hero.titleLine}
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-24 pb-16 sm:px-6">
+          {/* The accessible name is the H1 in the nav; this is its display echo.
+            The 3D name plate stands exactly over it, word for word, and it
+            fades out once the plate has rendered. */}
+          <p
+            aria-hidden="true"
+            data-plate-echo
+            className="font-display text-[min(14vw,6rem)] leading-[0.92] font-extrabold uppercase [font-stretch:150%] group-data-[state=reduced]:opacity-0 group-data-[state=settled]:opacity-0 motion-safe:transition-opacity motion-safe:duration-1000 md:text-[min(9vw,7rem)] md:leading-none"
+          >
+            {person.name.split(" ").map((word, i) => (
+              <Fragment key={word}>
+                {i > 0 && " "}
+                <span data-plate-word className="max-md:block">
+                  {word}
+                </span>
+              </Fragment>
+            ))}
           </p>
-          <p className="text-lg text-ink/85">{hero.backendLine}</p>
+          <div className="max-w-2xl space-y-2">
+            <p className="font-display text-2xl font-semibold text-cyan [font-stretch:110%]">
+              {hero.titleLine}
+            </p>
+            <p className="text-lg text-ink/85">{hero.backendLine}</p>
+          </div>
+          {/* Static captions until the fly-in lands; the Skip control is the last credit. */}
+          <ul aria-label={credits.label} className={`space-y-1 ${metaLine}`}>
+            {credits.lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+            <li>
+              {/* Placeholder: it has nothing to skip until the camera lands. */}
+              <button
+                type="button"
+                className="cursor-pointer text-left uppercase underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan"
+              >
+                {credits.skip}
+              </button>
+            </li>
+          </ul>
+          <p>
+            <a href={hero.primaryAction.href} className={primaryAction}>
+              {hero.primaryAction.label}
+            </a>
+          </p>
         </div>
-        {/* Static captions until the fly-in lands; the Skip control is the last credit. */}
-        <ul aria-label={credits.label} className={`space-y-1 ${metaLine}`}>
-          {credits.lines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-          <li>
-            {/* Placeholder: it has nothing to skip until the camera lands. */}
-            <button
-              type="button"
-              className="cursor-pointer text-left uppercase underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan"
-            >
-              {credits.skip}
-            </button>
-          </li>
-        </ul>
-        <p>
-          <a href={hero.primaryAction.href} className={primaryAction}>
-            {hero.primaryAction.label}
-          </a>
-        </p>
-      </section>
+      </HeroWorld>
 
       <section
         id="work"
