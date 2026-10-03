@@ -238,6 +238,19 @@ export const sideProjects = [
   },
 ] as const satisfies readonly SideProject[];
 
+export const resume = {
+  metaTitle: "Adrian Luk, resume",
+  metaDescription:
+    "Where Adrian Luk has worked as a frontend and full-stack engineer, newest first, with a PDF to download.",
+  heading: "Resume",
+  intro: "Where I've worked, newest first, and one project of my own.",
+  rolesHeading: "Experience",
+  sideProjectsHeading: "Side projects",
+  /** In public/; a web copy of the 2026 resume with the phone number removed. */
+  pdfHref: "/Adrian-Luk-Resume-2026.pdf",
+  download: { label: "Download PDF", detail: "PDF, 2 pages" },
+} as const;
+
 export const contact = {
   heading: "Contact",
   channels: [

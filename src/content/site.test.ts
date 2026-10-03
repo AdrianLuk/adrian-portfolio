@@ -70,11 +70,55 @@ describe("Roles and Side projects", () => {
   });
 });
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthIndex = (label: string) => {
+  const [month, year] = label.split(" ");
+  return Number(year) * 12 + MONTHS.indexOf(month);
+};
+
+describe("Roles", () => {
+  it("run newest first, by start date", () => {
+    const starts = roles.map((r) => monthIndex(r.start));
+    expect(starts).toEqual([...starts].sort((a, b) => b - a));
+  });
+
+  it("have unique ids, which the Resume page uses as anchors", () => {
+    const ids = roles.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("Content accuracy", () => {
+  const role = (id: string) => roles.find((r) => r.id === id)!;
+
+  it("describes the Life House widget as primary frontend engineer, never top committer", () => {
+    const lifeHouse = allStrings(role("life-house")).join(" ");
+    expect(lifeHouse).toMatch(/primary frontend engineer/i);
+    expect(lifeHouse).not.toMatch(/top committer/i);
+  });
+
+  it("gives BT Cup enrolment as roughly 2,000 per contest", () => {
+    const btCup = allStrings(role("elite-digital")).join(" ");
+    expect(btCup).toMatch(/roughly 2,000/i);
+    expect(btCup).not.toMatch(/2,180/);
+  });
+
+  it("limits 'architected' to the data model, REST API and React front end", () => {
+    const sentence = role("elite-digital").bullets.find((b) =>
+      /architected/i.test(b),
+    );
+    expect(sentence).toMatch(/Architected the data model, REST API and React front end/);
+    expect(sentence).not.toMatch(/SAML|SSO|admin panel|scoring/i);
+  });
+});
+
 describe("Rejected wording", () => {
   const strings = allStrings({ ...site });
 
   it.each([
     ["btcup", /btcup/i],
+    ["top committer", /top committer/i],
+    ["~2,180", /2,180/],
     ["real backend ownership", /real backend ownership/i],
     ["Fin.", /\bFin\./],
   ])("no string contains %s", (_label, pattern) => {
