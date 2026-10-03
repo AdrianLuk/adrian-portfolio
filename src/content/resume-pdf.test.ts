@@ -12,11 +12,12 @@ const publicDir = path.join(process.cwd(), "public");
  */
 const squash = (s: string) => s.replace(/\s+/g, "").replace(/[’‘]/g, "'");
 
+let pdfData: Buffer;
 let pdfText: string;
 
 beforeAll(async () => {
-  const data = await readFile(path.join(publicDir, resume.pdfHref));
-  const parser = new PDFParse({ data });
+  pdfData = await readFile(path.join(publicDir, resume.pdfHref));
+  const parser = new PDFParse({ data: pdfData });
   pdfText = squash((await parser.getText()).text);
   await parser.destroy();
 });
@@ -65,6 +66,15 @@ describe("Resume PDF", () => {
   it("has no phone number", () => {
     expect(pdfText).not.toMatch(/\d{3}[-.)]?\d{3}[-.]?\d{4}/);
     expect(pdfText).not.toMatch(/tel:/i);
+  });
+
+  it("has no tel: link either (a link annotation isn't in the extracted text)", async () => {
+    const parser = new PDFParse({ data: pdfData });
+    const info = await parser.getInfo({ parsePageInfo: true });
+    await parser.destroy();
+    const links = JSON.stringify(info.pages);
+    expect(links).toContain("mailto:adrianluk618@gmail.com");
+    expect(links).not.toMatch(/tel:|\d{3}[-.]?\d{3}[-.]?\d{4}/i);
   });
 
   it("spells BT Cup as the site does, never btcup", () => {
