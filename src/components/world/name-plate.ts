@@ -55,7 +55,11 @@ export function outlineToShapes(outline: string) {
   return path.toShapes();
 }
 
-function createBeam(color: Color, shared: SharedUniforms) {
+function createBeam(
+  color: Color,
+  shared: SharedUniforms,
+  level: { value: number },
+) {
   const length = 130;
   const geometry = new CylinderGeometry(7.5, 0.22, length, 32, 1, true);
   geometry.translate(0, length / 2, 0);
@@ -70,6 +74,7 @@ function createBeam(color: Color, shared: SharedUniforms) {
         ...shared,
         uColor: { value: color },
         uLength: { value: length },
+        uLevel: level,
       },
       vertexShader: /* glsl */ `
         uniform float uLength;
@@ -86,6 +91,7 @@ function createBeam(color: Color, shared: SharedUniforms) {
       `,
       fragmentShader: /* glsl */ `
         uniform vec3 uColor;
+        uniform float uLevel;
         varying float vAlong;
         varying vec3 vNormalView;
         varying vec3 vViewPos;
@@ -93,7 +99,7 @@ function createBeam(color: Color, shared: SharedUniforms) {
           float facing = abs(dot(normalize(vNormalView), normalize(-vViewPos)));
           float core = pow(facing, 3.0);
           float fade = pow(1.0 - vAlong, 1.7) * smoothstep(0.0, 0.04, vAlong);
-          gl_FragColor = vec4(uColor * core * fade * 0.13, 1.0);
+          gl_FragColor = vec4(uColor * core * fade * 0.13 * uLevel, 1.0);
           #include <colorspace_fragment>
         }
       `,
@@ -157,6 +163,8 @@ export function createNamePlate(
   const beamA = new Vector3();
   const beamB = new Vector3();
   const toPlate = new Matrix4();
+  /** The beams' brightness: 1 at rest, brighter as the camera arrives. */
+  const beamLevel = { value: 1 };
   // The plate's own light goes in as emissive, through onBeforeCompile, so
   // the physical shading (reflections, clearcoat) adds on top of it.
   const capUniforms = {
@@ -169,6 +177,7 @@ export function createNamePlate(
     uToPlate: { value: toPlate },
     uBeamA: { value: beamA },
     uBeamB: { value: beamB },
+    uBeamLevel: beamLevel,
   };
   const cap = new MeshPhysicalMaterial({
     color: palette.ink.clone().lerp(palette.violet, 0.1),
@@ -198,6 +207,7 @@ export function createNamePlate(
       uniform vec3 uInk, uLow, uCyan, uViolet, uFogColor;
       uniform float uCapHeight;
       uniform vec3 uBeamA, uBeamB;
+      uniform float uBeamLevel;
       varying float vHeight;
       varying vec2 vPlate;
       float band(vec3 beam, vec2 p) {
@@ -215,8 +225,8 @@ export function createNamePlate(
           // Lit from above: pale at the cap line, violet-dusk at the baseline.
           totalEmissiveRadiance = mix(uLow, uInk * 0.64, smoothstep(0.0, 1.0, g));
           // The beams' light crossing the faces.
-          totalEmissiveRadiance += uCyan * band(uBeamA, vPlate) * 0.42;
-          totalEmissiveRadiance += uViolet * band(uBeamB, vPlate) * 0.5;`,
+          totalEmissiveRadiance += uCyan * band(uBeamA, vPlate) * 0.42 * uBeamLevel;
+          totalEmissiveRadiance += uViolet * band(uBeamB, vPlate) * 0.5 * uBeamLevel;`,
         )
         .replace(
           "#include <opaque_fragment>",
@@ -292,6 +302,10 @@ export function createNamePlate(
 
   /** Light the beams and the plate's lit edge throw onto the ground. */
   let pools: Pool[] = [];
+  /** The middle of the letterforms' face, in world space. */
+  const centre = new Vector3();
+  /** Radians added to the beams' swing: they sweep across the letters on arrival. */
+  let sweepOffset = 0;
   function poolAt(
     x: number,
     z: number,
@@ -311,8 +325,8 @@ export function createNamePlate(
   }
 
   const beams = [
-    createBeam(palette.cyan, shared),
-    createBeam(palette.violet, shared),
+    createBeam(palette.cyan, shared, beamLevel),
+    createBeam(palette.violet, shared, beamLevel),
   ];
   group.add(...beams);
   const flares = createGlowPoints(
@@ -354,6 +368,9 @@ export function createNamePlate(
       );
       const base = Math.min(...placed.map((p) => p.fit.y));
       const scale = Math.max(...placed.map((p) => p.fit.scale));
+      const top = Math.max(
+        ...placed.map((p) => p.fit.y + nameGlyphs.capHeight * p.fit.scale),
+      );
       const behind = -TOTAL_DEPTH * scale - 2;
       const span = right - left;
       const origins = [left + span * 0.2, left + span * 0.8];
@@ -368,6 +385,11 @@ export function createNamePlate(
 
       group.updateMatrixWorld();
       toPlate.copy(group.matrixWorld).invert();
+      centre.copy(
+        group.localToWorld(
+          new Vector3((left + right) / 2, (base + top) / 2, 0),
+        ),
+      );
 
       const edgeLight = palette.cyan.clone().lerp(palette.violet, 0.35);
       pools = [
@@ -381,6 +403,15 @@ export function createNamePlate(
 
     pools: () => pools,
 
+    centre: () => centre,
+
+    /** Lights the arrival: the beams' brightness and their sweep's offset. */
+    setArrival(level: number, sweep: number) {
+      beamLevel.value = level;
+      flares.setIntensity(1.2 * level);
+      sweepOffset = sweep;
+    },
+
     /** Swaps the reflected environment (after a lost context is restored). */
     setEnvironment(texture: Texture | null) {
       cap.envMap = texture;
@@ -389,7 +420,7 @@ export function createNamePlate(
 
     /** Sweeps the beams; `t` in seconds. The still frame uses a fixed t. */
     sweep(t: number) {
-      const [a, b] = sweepAngles(t);
+      const [a, b] = sweepAngles(t).map((s) => s + sweepOffset);
       beams[0].rotation.set(BEAM_LEAN, 0, a, "ZYX");
       beams[1].rotation.set(BEAM_LEAN, 0, b, "ZYX");
       // Turning +y about z by s tips it towards -x: x(rise) = x0 - tan(s) * rise.

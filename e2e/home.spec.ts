@@ -80,30 +80,34 @@ async function tabTo(page: Page): Promise<Stop> {
   });
 }
 
-test("a keyboard walk reaches every stop in order with visible focus", async ({
-  page,
-}) => {
-  await page.goto("/");
+test.describe("a keyboard walk", () => {
+  // Under reduced motion the credits are static captions, so Skip is a stop
+  // however long the walk takes. (flight.spec.ts covers Skip mid-flight.)
+  test.use({ reducedMotion: "reduce" });
 
-  const expected = [
-    "/",
-    ...nav.map((n) => n.href),
-    null, // the Skip control: a button, so no href
-    hero.primaryAction.href,
-    ...highlights.map((h) => hrefFor(h.link)),
-    contact.resume.href,
-    ...contact.channels.map((c) => c.href),
-  ];
+  test("reaches every stop in order with visible focus", async ({ page }) => {
+    await page.goto("/");
 
-  const stops: Stop[] = [];
-  for (let i = 0; i < expected.length; i++) stops.push(await tabTo(page));
+    const expected = [
+      "/",
+      ...nav.map((n) => n.href),
+      null, // the Skip control: a button, so no href
+      hero.primaryAction.href,
+      ...highlights.map((h) => hrefFor(h.link)),
+      contact.resume.href,
+      ...contact.channels.map((c) => c.href),
+    ];
 
-  expect(stops.map((s) => s.href)).toEqual(expected);
-  for (const stop of stops) {
-    expect(stop, `focus visible on ${stop.href}`).toMatchObject({
-      focusVisible: true,
-    });
-  }
+    const stops: Stop[] = [];
+    for (let i = 0; i < expected.length; i++) stops.push(await tabTo(page));
+
+    expect(stops.map((s) => s.href)).toEqual(expected);
+    for (const stop of stops) {
+      expect(stop, `focus visible on ${stop.href}`).toMatchObject({
+        focusVisible: true,
+      });
+    }
+  });
 });
 
 test("'See the work' goes to the first panel and moves focus there", async ({
@@ -171,11 +175,14 @@ test("the opening has five credit lines, the last being the Skip control", async
   page,
 }) => {
   await page.goto("/");
+  // (Hidden once the opening settles, but still in the DOM.)
   const items = page
-    .getByRole("list", { name: credits.label })
-    .getByRole("listitem");
+    .getByRole("list", { name: credits.label, includeHidden: true })
+    .getByRole("listitem", { includeHidden: true });
   await expect(items).toHaveText([...credits.lines, credits.skip]);
-  await expect(items.last().getByRole("button")).toHaveText(credits.skip);
+  await expect(
+    items.last().getByRole("button", { includeHidden: true }),
+  ).toHaveText(credits.skip);
 });
 
 test("the outpost has a lead, the resume link, the contact channels and one bookend", async ({

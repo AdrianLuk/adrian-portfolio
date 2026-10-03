@@ -1,0 +1,177 @@
+import { Euler, Quaternion, Vector3 } from "three";
+import { describe, expect, it } from "vitest";
+import { createFlightPath, SETTLED_RIG, type FlightRig } from "./flight";
+import { CAMERA } from "./pose";
+import {
+  corridorHalfWidth,
+  valleyCentre,
+  valleyHeight,
+  WORLD_BACK,
+} from "./terrain";
+
+/**
+ * Settled poses like the real layouts': the camera on the centre line, pitched
+ * down the valley, the plate's centre `plateDepth` ahead in camera space and
+ * standing `centreHeight` above the floor (the words stand on the ground).
+ */
+function settledLayout(height: number, plateX: number, centreHeight: number) {
+  const quaternion = new Quaternion().setFromEuler(
+    new Euler(-CAMERA.pitch, 0, 0, "YXZ"),
+  );
+  const position = new Vector3(0, height, 0);
+  const { pitch, plateDepth } = CAMERA;
+  const plateY =
+    (centreHeight - height + plateDepth * Math.sin(pitch)) / Math.cos(pitch);
+  const plateCentre = new Vector3(plateX, plateY, -plateDepth)
+    .applyQuaternion(quaternion)
+    .add(position);
+  return { settled: { position, quaternion }, plateCentre };
+}
+
+/**
+ * Rig states down the whole flight, as the timeline plays them: the flight,
+ * then the turn, with the settle over its last stretch.
+ */
+function along(steps = 120): FlightRig[] {
+  const rigs: FlightRig[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const flight = Math.min(1, t * 2);
+    const turn = Math.max(0, t * 2 - 1);
+    rigs.push({
+      ...SETTLED_RIG,
+      flight,
+      turn,
+      settle: Math.max(0, (turn - 0.4) / 0.6),
+    });
+  }
+  return rigs;
+}
+
+const degrees = (radians: number) => (radians * 180) / Math.PI;
+
+/** The horizontal heading through b, and its turn rate per unit (+ = left). */
+function turning(a: Vector3, b: Vector3, c: Vector3) {
+  const h1 = b.clone().sub(a).setY(0);
+  const h2 = c.clone().sub(b).setY(0);
+  const step = (h1.length() + h2.length()) / 2;
+  h1.normalize();
+  h2.normalize();
+  const turn = Math.atan2(h1.z * h2.x - h1.x * h2.z, h1.dot(h2));
+  return { curvature: turn / step, heading: h1 };
+}
+
+const layouts = {
+  "desktop, one line lower left": settledLayout(21, -18, 7),
+  "phone, stacked": settledLayout(16, -3, 9),
+};
+
+describe("the flight path", () => {
+  for (const [name, { settled, plateCentre }] of Object.entries(layouts)) {
+    describe(name, () => {
+      const path = createFlightPath(settled, plateCentre);
+
+      it("ends exactly on the settled pose", () => {
+        const pose = path.poseAt(SETTLED_RIG);
+        expect(pose.position.distanceTo(settled.position)).toBeLessThan(1e-6);
+        expect(pose.quaternion.angleTo(settled.quaternion)).toBeLessThan(1e-6);
+      });
+
+      it("starts inside the world, with terrain behind the camera", () => {
+        const start = path.poseAt({ flight: 0, turn: 0, settle: 0 });
+        expect(start.position.z).toBeLessThan(WORLD_BACK - 60);
+      });
+
+      it("stays well above the ground and below the ridges the whole way", () => {
+        for (const rig of along()) {
+          const { position: p } = path.poseAt(rig);
+          expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(6);
+          // The walls rise over the 70 units past the floor's edge.
+          expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
+            corridorHalfWidth(p.z) + 45,
+          );
+        }
+      });
+
+      it("sees the plate the whole way, over every ridge between", () => {
+        for (const rig of along()) {
+          const { position: p } = path.poseAt(rig);
+          for (let k = 1; k < 40; k++) {
+            const q = p.clone().lerp(plateCentre, k / 40);
+            expect(q.y).toBeGreaterThan(valleyHeight(q.x, q.z));
+          }
+        }
+      });
+
+      it("holds the plate dead centre until it settles into the framing", () => {
+        for (const rig of along()) {
+          if (rig.settle > 0) continue;
+          const { position, quaternion } = path.poseAt(rig);
+          const ahead = new Vector3(0, 0, -1).applyQuaternion(quaternion);
+          const toPlate = plateCentre.clone().sub(position).normalize();
+          expect(ahead.angleTo(toPlate)).toBeLessThan(1e-4);
+        }
+      });
+
+      it("closes on the plate the whole way, so it grows", () => {
+        let last = Infinity;
+        for (const rig of along()) {
+          const d = path.poseAt(rig).position.distanceTo(plateCentre);
+          expect(d).toBeLessThanOrEqual(last + 1e-6);
+          last = d;
+        }
+      });
+
+      it("turns in from about 40 degrees off the final view, closing to 0", () => {
+        const offFinal = (turn: number) =>
+          viewAngle(path.poseAt({ flight: 1, turn, settle: 0 }).position) -
+          viewAngle(settled.position);
+        const viewAngle = (p: Vector3) =>
+          Math.atan2(p.x - plateCentre.x, p.z - plateCentre.z);
+
+        expect(degrees(offFinal(0))).toBeCloseTo(40, 0);
+        let last = offFinal(0);
+        for (let turn = 0.05; turn <= 1.0001; turn += 0.05) {
+          const now = offFinal(turn);
+          expect(now).toBeLessThanOrEqual(last + 1e-6);
+          last = now;
+        }
+        expect(Math.abs(last)).toBeLessThan(1e-6);
+      });
+
+      it("banks into every turn, left and right, and levels out to settle", () => {
+        const rigs = along(200).filter((r) => r.settle === 0);
+        const banks: number[] = [];
+        for (let i = 1; i < rigs.length - 1; i++) {
+          const before = path.poseAt(rigs[i - 1]).position;
+          const pose = path.poseAt(rigs[i]);
+          const after = path.poseAt(rigs[i + 1]).position;
+          const { curvature, heading } = turning(before, pose.position, after);
+          const left = new Vector3(heading.z, 0, -heading.x);
+          const lean = new Vector3(0, 1, 0)
+            .applyQuaternion(pose.quaternion)
+            .dot(left);
+          // Any turn tighter than a 250-unit radius.
+          if (Math.abs(curvature) > 1 / 250) {
+            expect(Math.sign(lean)).toBe(Math.sign(curvature));
+          }
+          banks.push(Math.asin(lean));
+        }
+        expect(degrees(Math.max(...banks))).toBeGreaterThan(10);
+        expect(degrees(Math.min(...banks))).toBeLessThan(-6);
+        expect(degrees(Math.max(...banks.map(Math.abs)))).toBeLessThan(35);
+      });
+
+      it("flies it like a plane: no turn tighter than a 24-unit radius", () => {
+        const rigs = along(200);
+        for (let i = 1; i < rigs.length - 1; i++) {
+          const [a, b, c] = [rigs[i - 1], rigs[i], rigs[i + 1]].map(
+            (r) => path.poseAt(r).position,
+          );
+          if (a.distanceTo(c) < 1) continue; // at rest
+          expect(Math.abs(turning(a, b, c).curvature)).toBeLessThan(1 / 24);
+        }
+      });
+    });
+  }
+});

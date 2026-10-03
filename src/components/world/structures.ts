@@ -12,7 +12,12 @@ import type { Glow } from "./glow-points";
 import type { Pool } from "./ground-pools";
 import { seededRandom } from "./noise";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
-import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
+import {
+  corridorHalfWidth,
+  valleyCentre,
+  valleyHeight,
+  WORLD_BACK,
+} from "./terrain";
 
 type Box = {
   x: number;
@@ -169,8 +174,12 @@ export function createStructures() {
     }
   }
 
-  // Runway lights down the floor, either side of the line the flight follows.
-  for (let z = -112; z > -1100; z -= 7) {
+  // Runway lights down the floor, either side of the line the flight follows,
+  // and down the canyon it comes in by.
+  const runway = [];
+  for (let z = -112; z > -1100; z -= 7) runway.push(z);
+  for (let z = 200; z < WORLD_BACK; z += 7) runway.push(z);
+  for (const z of runway) {
     const c = valleyCentre(z);
     const far = -z > 300;
     for (const side of [-1, 1]) {
@@ -179,11 +188,23 @@ export function createStructures() {
         x,
         y: valleyHeight(x, z) + 0.35,
         z,
-        color: Math.round(-z / 7) % 6 === 0 ? palette.violet : palette.cyan,
+        color:
+          Math.round(Math.abs(z) / 7) % 6 === 0 ? palette.violet : palette.cyan,
         size: far ? 1.6 : 1.1,
         seed: random(),
       });
     }
+  }
+
+  // The canyon the opening flight comes down (behind the settled view): towers
+  // close along both walls, so they stream past either side. Last, so the
+  // settled view's random draws are unchanged.
+  for (let i = 0; i < 26; i++) {
+    const z = 150 + i * 21 + random() * 10;
+    const side = i % 2 === 0 ? -1 : 1;
+    const w = corridorHalfWidth(z);
+    const x = valleyCentre(z) + side * (w - 4 + random() * 22);
+    tower(x, z, 14 + random() * 30, 1.6 + random() * 2, -side, lightOf());
   }
 
   const geometry = new BoxGeometry(1, 1, 1);

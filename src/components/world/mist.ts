@@ -1,6 +1,7 @@
 import { DoubleSide, Mesh, PlaneGeometry, ShaderMaterial } from "three";
 import { fogChunk, fogUniforms, palette } from "./palette";
 import type { SharedUniforms } from "./shared";
+import { WORLD_BACK } from "./terrain";
 
 /**
  * Two drifting sheets of ground mist over the valley floor: fractal noise,
@@ -12,9 +13,11 @@ export function createMist(shared: SharedUniforms) {
     { y: 4.5, opacity: 0.12, scale: 0.011, speed: -0.32 },
   ];
   return layers.map(({ y, opacity, scale, speed }) => {
-    const geometry = new PlaneGeometry(1100, 1200);
+    // From the opening flight's start (+z) to the far end of the valley.
+    const far = -1160;
+    const geometry = new PlaneGeometry(1100, WORLD_BACK - far);
     geometry.rotateX(-Math.PI / 2);
-    geometry.translate(0, y, -560);
+    geometry.translate(0, y, (WORLD_BACK + far) / 2);
     const mesh = new Mesh(
       geometry,
       new ShaderMaterial({

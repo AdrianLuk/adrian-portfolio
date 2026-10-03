@@ -13,17 +13,30 @@ test("the H1 and the hero's root are in the initial HTML, before any script", as
   const html = await (await request.get("/")).text();
   expect(html).toMatch(new RegExp(`<h1[^>]*>.*${person.name}.*</h1>`));
   expect(html).toContain('data-state="loading"');
+  expect(html).toContain('data-world="pending"');
   expect(html).toMatch(/<canvas[^>]*aria-hidden="true"/);
 });
 
+/** The world has drawn and the opening is over (settled, or reduced). */
+async function settledWorld(page: Page, state: "settled" | "reduced") {
+  await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
+    timeout: SCENE_TIMEOUT,
+  });
+  await expect(heroRoot(page)).toHaveAttribute("data-state", state, {
+    timeout: SCENE_TIMEOUT,
+  });
+  // And the hero copy has finished landing (a half-faded button fails contrast).
+  await expect
+    .poll(() => page.evaluate(() => document.getAnimations().length))
+    .toBe(0);
+}
+
 test.describe("with motion allowed", () => {
-  test("the world reaches 'settled' and the canvas stays hidden from assistive tech", async ({
+  test("the world draws and settles, the canvas hidden from assistive tech", async ({
     page,
   }) => {
     await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
-      timeout: SCENE_TIMEOUT,
-    });
+    await settledWorld(page, "settled");
     await expect(heroRoot(page).locator("canvas")).toHaveAttribute(
       "aria-hidden",
       "true",
@@ -32,9 +45,7 @@ test.describe("with motion allowed", () => {
 
   test("home stays axe-clean once the world has settled", async ({ page }) => {
     await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
-      timeout: SCENE_TIMEOUT,
-    });
+    await settledWorld(page, "settled");
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
@@ -57,9 +68,7 @@ test.describe("under prefers-reduced-motion", () => {
       };
     });
     await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced", {
-      timeout: SCENE_TIMEOUT,
-    });
+    await settledWorld(page, "reduced");
 
     const frames = () =>
       page.evaluate(() => (window as unknown as { __frames: number }).__frames);
@@ -71,9 +80,7 @@ test.describe("under prefers-reduced-motion", () => {
 
   test("home stays axe-clean", async ({ page }) => {
     await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced", {
-      timeout: SCENE_TIMEOUT,
-    });
+    await settledWorld(page, "reduced");
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
@@ -94,9 +101,7 @@ test.describe("on a 2x screen up to 2560px wide", () => {
     // The viewport is overridden, so the phone project would only repeat it.
     test.skip(testInfo.project.name === "phone", "same viewport as desktop");
     await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced", {
-      timeout: SCENE_TIMEOUT,
-    });
+    await settledWorld(page, "reduced");
     const size = () =>
       page.locator("canvas").evaluate((c: HTMLCanvasElement) => ({
         width: c.width,

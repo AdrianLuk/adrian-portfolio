@@ -1,10 +1,11 @@
 import { Mesh, PlaneGeometry, ShaderMaterial } from "three";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
-import { valleyHeight } from "./terrain";
+import { valleyHeight, WORLD_BACK, WORLD_FRONT } from "./terrain";
 
 const WIDTH = 1100;
-const DEPTH = 1400;
-const NEAR_Z = 80;
+/** From behind the opening flight's start (+z) to the far end of the valley. */
+const DEPTH = WORLD_BACK - WORLD_FRONT;
+const NEAR_Z = WORLD_BACK;
 
 /**
  * The valley as a low-poly mesh: faceted (flat-shaded from screen-space
@@ -12,7 +13,7 @@ const NEAR_Z = 80;
  * contour lines gathering towards them, all sinking into the shader fog.
  */
 export function createTerrain() {
-  const geometry = new PlaneGeometry(WIDTH, DEPTH, 150, 200);
+  const geometry = new PlaneGeometry(WIDTH, DEPTH, 150, 289);
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, 0, NEAR_Z - DEPTH / 2);
   const position = geometry.attributes.position;
