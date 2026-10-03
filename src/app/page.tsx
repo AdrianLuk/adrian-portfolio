@@ -63,9 +63,9 @@ export default function Home() {
             </ul>
           </div>
         </div>
-        {/* The headline (and the plate standing on it) about a third of the
+        {/* The headline (and the plate standing on it) about 40% of the
           way down the screen; the foot is kept clear for the credits. */}
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-[max(4rem,calc(30svh-3.25rem))] pb-44 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-[max(4rem,calc(40svh-3.25rem))] pb-44 sm:px-6">
           {/* The accessible name is the H1 in the nav; this is its display echo.
             The 3D name plate stands exactly over it, word for word, and it
             fades out once the plate has rendered (or while it flies in). */}
