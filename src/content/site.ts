@@ -19,6 +19,52 @@ export type HighlightLink =
   | { kind: "case-study"; slug: CaseStudySlug }
   | { kind: "role"; roleId: RoleId };
 
+export type Image = {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+};
+
+export type Recording = {
+  /** Accessible name for the video. */
+  label: string;
+  poster: string;
+  width: number;
+  height: number;
+  sources: readonly { src: string; type: string }[];
+};
+
+export type Showcase = {
+  name: string;
+  screenshots: { desktop: Image; phone: Image };
+  recording?: Recording;
+};
+
+export type PlayerTool = Showcase & {
+  url: string;
+  summary: string;
+  /** Booking Buddy needs an account; the others do not. Never generalise. */
+  access: "open" | "account";
+  accessNote: string;
+};
+
+export type CaseStudy = {
+  slug: CaseStudySlug;
+  title: string;
+  byline: string;
+  metaTitle: string;
+  metaDescription: string;
+  sections: readonly {
+    id: "problem" | "what-i-did" | "approach" | "outcome";
+    heading: string;
+    paragraphs: readonly string[];
+  }[];
+  links: readonly { label: string; href: string }[];
+  home: Showcase;
+  tools: readonly PlayerTool[];
+};
+
 export type HighlightId = "control-d" | "life-house" | "juice-bros" | "bt-cup";
 
 export type Highlight = {
@@ -92,9 +138,205 @@ export const credits = {
 
 export const work = { heading: "Work" } as const;
 
+const mediaBase = "/case-studies/juice-bros";
+
 export const caseStudies = [
-  { slug: "juice-bros", title: "Juice Bros" },
-] as const satisfies readonly { slug: CaseStudySlug; title: string }[];
+  {
+    slug: "juice-bros",
+    title: "Juice Bros",
+    byline: "Side project",
+    metaTitle: "Juice Bros case study | Adrian Luk",
+    metaDescription:
+      "How I scoped, built and run the Juice Bros pickleball site as its only engineer, plus the free Player tools I built for my own play.",
+    sections: [
+      {
+        id: "problem",
+        heading: "The problem",
+        paragraphs: [
+          "Juice Bros is a pickleball media brand with a podcast. It needed a website, and I'm the only engineer on it.",
+          "That made scope the problem: a deliberately tight MVP that one person could ship, with content structured so the site could grow without a CMS.",
+        ],
+      },
+      {
+        id: "what-i-did",
+        heading: "What I did",
+        paragraphs: [
+          "I scoped a deliberately tight MVP, chose the stack and built the site. I integrated the podcast's YouTube feed and a Beehiiv newsletter.",
+          "On top of that I built a suite of free web tools for pickleball players, the Player tools below.",
+        ],
+      },
+      {
+        id: "approach",
+        heading: "Approach",
+        paragraphs: [
+          "The stack is Next.js App Router, TypeScript, Tailwind, shadcn/ui and Vercel. I modeled content as typed data, so the site can grow without a CMS.",
+          "I built the tools for my own play, and they live on the same site as the show.",
+        ],
+      },
+      {
+        id: "outcome",
+        heading: "Outcome",
+        paragraphs: [
+          "Juice Bros is live. I built it, I run it, and I'm its only engineer. I built the Player tools for my own play.",
+          "The live site is the proof, and the source is public.",
+        ],
+      },
+    ],
+    links: [
+      {
+        label: "Visit juicebrospickleball.com",
+        href: "https://juicebrospickleball.com",
+      },
+      {
+        label: "Read the juice-bros source on GitHub",
+        href: "https://github.com/AdrianLuk/juice-bros",
+      },
+      {
+        label: "Open Booking Buddy",
+        href: "https://juicebrospickleball.com/booking-buddy",
+      },
+      {
+        label: "Open Pickle Point Pal",
+        href: "https://juicebrospickleball.com/tools/pickle-point-pal",
+      },
+      {
+        label: "Open Match Mixer",
+        href: "https://juicebrospickleball.com/tools/match-mixer",
+      },
+      {
+        label: "Open Drum Roll",
+        href: "https://juicebrospickleball.com/tools/drum-roll",
+      },
+    ],
+    home: {
+      name: "The site",
+      screenshots: {
+        desktop: {
+          src: `${mediaBase}/home-desktop.webp`,
+          width: 1440,
+          height: 900,
+          alt: "The Juice Bros home page on desktop: the two hosts either side of the logo, the headline 'Pickleball, from two guys still trying to get good at it', and Watch on YouTube and Listen on Spotify buttons.",
+        },
+        phone: {
+          src: `${mediaBase}/home-phone.webp`,
+          width: 780,
+          height: 1688,
+          alt: "The Juice Bros home page on a phone: the hosts and logo, the same headline stacked over three lines, and the YouTube and Spotify buttons.",
+        },
+      },
+    },
+    tools: [
+      {
+        name: "Booking Buddy",
+        url: "https://juicebrospickleball.com/booking-buddy",
+        summary:
+          "Poll your group on a time, then keep everyone's court bookings in one place.",
+        access: "account",
+        accessNote: "Needs an account. These are its public entry screens.",
+        screenshots: {
+          desktop: {
+            src: `${mediaBase}/booking-buddy-desktop.webp`,
+            width: 1440,
+            height: 900,
+            alt: "Booking Buddy's public entry page on desktop: the headline 'Sort out the next game without the group-chat spiral' beside two pinned cards showing a booked Saturday court and a Thursday proposal, each with yes, maybe and no replies.",
+          },
+          phone: {
+            src: `${mediaBase}/booking-buddy-phone.webp`,
+            width: 780,
+            height: 1688,
+            alt: "Booking Buddy's public entry page on a phone: the headline and a Get started button above a pinned booking card.",
+          },
+        },
+      },
+      {
+        name: "Pickle Point Pal",
+        url: "https://juicebrospickleball.com/tools/pickle-point-pal",
+        summary:
+          "Keep score and track serves like a referee: the three-number score call, server one or two, and side-outs, with every tap undoable.",
+        access: "open",
+        accessNote: "No sign-up. The phone view is held sideways, as it's meant to be.",
+        screenshots: {
+          desktop: {
+            src: `${mediaBase}/pickle-point-pal-desktop.webp`,
+            width: 1440,
+            height: 900,
+            alt: "Pickle Point Pal on desktop mid-match: the score called as 1-3-2, Cat and Dee serving, a court diagram with the server highlighted, and rally buttons for each team.",
+          },
+          phone: {
+            src: `${mediaBase}/pickle-point-pal-phone.webp`,
+            width: 1688,
+            height: 780,
+            alt: "Pickle Point Pal on a phone held sideways: the score called as 1-3-2 in the centre, a court diagram below it, and a large rally button for each team on either side.",
+          },
+        },
+        recording: {
+          label: "Pickle Point Pal in use: setting up a doubles match, the coin toss, then scoring rallies as the call and server change.",
+          poster: `${mediaBase}/pickle-point-pal-poster.webp`,
+          width: 844,
+          height: 390,
+          sources: [
+            { src: `${mediaBase}/pickle-point-pal.webm`, type: "video/webm" },
+            { src: `${mediaBase}/pickle-point-pal.mp4`, type: "video/mp4" },
+          ],
+        },
+      },
+      {
+        name: "Match Mixer",
+        url: "https://juicebrospickleball.com/tools/match-mixer",
+        summary:
+          "Paste your player list and get a doubles round robin where nobody partners the same person twice.",
+        access: "open",
+        accessNote: "No sign-up, and nothing you type is kept on a server.",
+        screenshots: {
+          desktop: {
+            src: `${mediaBase}/match-mixer-desktop.webp`,
+            width: 1440,
+            height: 900,
+            alt: "Match Mixer on desktop: format options and an eight-name player list on the left, and a generated board of rounds with two courts per round on the right.",
+          },
+          phone: {
+            src: `${mediaBase}/match-mixer-phone.webp`,
+            width: 780,
+            height: 1688,
+            alt: "Match Mixer on a phone: the generated board listing each round and court as a pair of doubles teams.",
+          },
+        },
+        recording: {
+          label: "Match Mixer in use: typing eight names, making the board and reading the rounds it generates.",
+          poster: `${mediaBase}/match-mixer-poster.webp`,
+          width: 960,
+          height: 610,
+          sources: [
+            { src: `${mediaBase}/match-mixer.webm`, type: "video/webm" },
+            { src: `${mediaBase}/match-mixer.mp4`, type: "video/mp4" },
+          ],
+        },
+      },
+      {
+        name: "Drum Roll",
+        url: "https://juicebrospickleball.com/tools/drum-roll",
+        summary:
+          "Spin a wheel to pick a name, or add prizes and run the whole raffle. No paper tickets.",
+        access: "open",
+        accessNote: "No sign-up.",
+        screenshots: {
+          desktop: {
+            src: `${mediaBase}/drum-roll-desktop.webp`,
+            width: 1440,
+            height: 900,
+            alt: "Drum Roll on desktop: a wheel divided into five names, a Spin button beneath it and the On the wheel list starting below.",
+          },
+          phone: {
+            src: `${mediaBase}/drum-roll-phone.webp`,
+            width: 780,
+            height: 1688,
+            alt: "Drum Roll on a phone: a full-width wheel divided into five names, with a Spin button beneath it.",
+          },
+        },
+      },
+    ],
+  },
+] as const satisfies readonly CaseStudy[];
 
 export const highlights = [
   {
