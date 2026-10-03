@@ -8,10 +8,10 @@ import {
 } from "@/content/site";
 import { metaLine, textLink } from "@/app/styles";
 
-/** Cyan is the world's light; Life House glows ember and Juice Bros violet. */
+/** Cyan is the world's light; Juice Bros, the Side project, is violet. Ember stays the primary action's alone. */
 const accents: Record<HighlightId, { bracket: string; glow: string }> = {
   "control-d": { bracket: "border-cyan", glow: "shadow-cyan/10" },
-  "life-house": { bracket: "border-ember", glow: "shadow-ember/10" },
+  "life-house": { bracket: "border-cyan", glow: "shadow-cyan/10" },
   "juice-bros": { bracket: "border-violet", glow: "shadow-violet/10" },
   "bt-cup": { bracket: "border-cyan", glow: "shadow-cyan/10" },
 };
