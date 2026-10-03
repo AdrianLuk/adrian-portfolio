@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2943 2943">
+<defs><linearGradient id="face" x1="0" y1="0" x2="0" y2="1353" gradientUnits="userSpaceOnUse"><stop offset="0.1" stop-color="#c3c8d4"/><stop offset="1" stop-color="#7a62c2"/></linearGradient><path id="g" fill-rule="evenodd" clip-rule="evenodd" d="M102 1353L623 1353L776 1068L1588 1068L1739 1353L2261 1353L1509 0L856 0ZM907 765L1182 248L1184 248L1459 765Z"/><clipPath id="a"><use href="#g"/></clipPath></defs>
+<rect width="2943" height="2943" rx="530" fill="#121b3a"/>
+<g transform="translate(75 843)">
+<use href="#g" fill="#141432" transform="translate(593 -97) scale(0.92800)"/>
+<use href="#g" fill="#151534" transform="translate(581 -95) scale(0.92950)"/>
+<use href="#g" fill="#171636" transform="translate(569 -93) scale(0.93100)"/>
+<use href="#g" fill="#181738" transform="translate(556 -91) scale(0.93250)"/>
+<use href="#g" fill="#19173a" transform="translate(544 -89) scale(0.93400)"/>
+<use href="#g" fill="#1b183c" transform="translate(531 -87) scale(0.93550)"/>
+<use href="#g" fill="#1c193e" transform="translate(519 -85) scale(0.93700)"/>
+<use href="#g" fill="#1e1a40" transform="translate(507 -83) scale(0.93850)"/>
+<use href="#g" fill="#1f1b42" transform="translate(494 -81) scale(0.94000)"/>
+<use href="#g" fill="#201c44" transform="translate(482 -79) scale(0.94150)"/>
+<use href="#g" fill="#221d47" transform="translate(470 -77) scale(0.94300)"/>
+<use href="#g" fill="#231d49" transform="translate(457 -75) scale(0.94450)"/>
+<use href="#g" fill="#251e4b" transform="translate(445 -73) scale(0.94600)"/>
+<use href="#g" fill="#261f4d" transform="translate(433 -71) scale(0.94750)"/>
+<use href="#g" fill="#28204f" transform="translate(420 -69) scale(0.94900)"/>
+<use href="#g" fill="#292151" transform="translate(408 -67) scale(0.95050)"/>
+<use href="#g" fill="#2a2254" transform="translate(396 -65) scale(0.95200)"/>
+<use href="#g" fill="#2c2356" transform="translate(383 -63) scale(0.95350)"/>
+<use href="#g" fill="#2e2458" transform="translate(371 -61) scale(0.95500)"/>
+<use href="#g" fill="#2f255a" transform="translate(358 -59) scale(0.95650)"/>
+<use href="#g" fill="#31265d" transform="translate(346 -56) scale(0.95800)"/>
+<use href="#g" fill="#32275f" transform="translate(334 -54) scale(0.95950)"/>
+<use href="#g" fill="#342861" transform="translate(321 -52) scale(0.96100)"/>
+<use href="#g" fill="#352964" transform="translate(309 -50) scale(0.96250)"/>
+<use href="#g" fill="#372a66" transform="translate(297 -48) scale(0.96400)"/>
+<use href="#g" fill="#392b69" transform="translate(284 -46) scale(0.96550)"/>
+<use href="#g" fill="#3a2c6b" transform="translate(272 -44) scale(0.96700)"/>
+<use href="#g" fill="#3c2d6e" transform="translate(260 -42) scale(0.96850)"/>
+<use href="#g" fill="#3e2e70" transform="translate(247 -40) scale(0.97000)"/>
+<use href="#g" fill="#3f2f73" transform="translate(235 -38) scale(0.97150)"/>
+<use href="#g" fill="#413076" transform="translate(222 -36) scale(0.97300)"/>
+<use href="#g" fill="#433178" transform="translate(210 -34) scale(0.97450)"/>
+<use href="#g" fill="#45337b" transform="translate(198 -32) scale(0.97600)"/>
+<use href="#g" fill="#47347e" transform="translate(185 -30) scale(0.97750)"/>
+<use href="#g" fill="#493581" transform="translate(173 -28) scale(0.97900)"/>
+<use href="#g" fill="#4b3683" transform="translate(161 -26) scale(0.98050)"/>
+<use href="#g" fill="#4d3786" transform="translate(148 -24) scale(0.98200)"/>
+<use href="#g" fill="#4f398a" transform="translate(136 -22) scale(0.98350)"/>
+<use href="#g" fill="#513a8d" transform="translate(124 -20) scale(0.98500)"/>
+<use href="#g" fill="#533b90" transform="translate(111 -18) scale(0.98650)"/>
+<use href="#g" fill="#553d93" transform="translate(99 -16) scale(0.98800)"/>
+<use href="#g" fill="#573e97" transform="translate(87 -14) scale(0.98950)"/>
+<use href="#g" fill="#5a409a" transform="translate(74 -12) scale(0.99100)"/>
+<use href="#g" fill="#5c419e" transform="translate(62 -10) scale(0.99250)"/>
+<use href="#g" fill="#5f43a2" transform="translate(49 -8) scale(0.99400)"/>
+<use href="#g" fill="#6245a6" transform="translate(37 -6) scale(0.99550)"/>
+<use href="#g" fill="#6547ab" transform="translate(25 -4) scale(0.99700)"/>
+<use href="#g" fill="#6949b1" transform="translate(12 -2) scale(0.99850)"/>
+<path fill="url(#face)" fill-rule="evenodd" d="M102 1353L623 1353L776 1068L1588 1068L1739 1353L2261 1353L1509 0L856 0ZM907 765L1182 248L1184 248L1459 765Z"/>
+<path fill="none" stroke="#4ff0f2" stroke-width="90" stroke-linejoin="round" clip-path="url(#a)" d="M102 1353L623 1353L776 1068L1588 1068L1739 1353L2261 1353L1509 0L856 0ZM907 765L1182 248L1184 248L1459 765Z"/>
+</g>
+</svg>
