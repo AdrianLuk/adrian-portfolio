@@ -80,13 +80,21 @@ test.describe("under prefers-reduced-motion", () => {
 });
 
 test.describe("on a 2x screen up to 2560px wide", () => {
-  test.use({ viewport: { width: 2560, height: 1300 }, deviceScaleFactor: 2 });
+  // Sizing doesn't depend on motion, and a 3840px canvas animating in software
+  // WebGL starves the parallel tests on CI: render once per resize instead.
+  test.use({
+    viewport: { width: 2560, height: 1300 },
+    deviceScaleFactor: 2,
+    reducedMotion: "reduce",
+  });
 
   test("the canvas resizes with the viewport at no more than 1.5x", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    // The viewport is overridden, so the phone project would only repeat it.
+    test.skip(testInfo.project.name === "phone", "same viewport as desktop");
     await page.goto("/");
-    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced", {
       timeout: SCENE_TIMEOUT,
     });
     const size = () =>
