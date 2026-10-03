@@ -2,6 +2,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { litAt, routeAnchors, stopAt, type PanelBox } from "./route-anchors";
 import type { RouteRig } from "./world/route";
+import type { World } from "./world/scene";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -16,11 +17,6 @@ const SCRUB = 0.3;
 const PANEL_PARALLAX = 0.3;
 const EDGE = 16;
 
-/** Where a site stands on screen (viewport pixels), from the route at `at`. */
-export type SiteLocator = (
-  index: number,
-  at?: number,
-) => { x: number; y: number } | null;
 
 /**
  * The scroll route: ScrollTrigger scrubs the camera along the route as the
@@ -34,13 +30,16 @@ export function createScrollRoute({
   route,
   panels,
   locateSite,
-  onUpdate,
 }: {
   route: RouteRig;
   /** The Highlights' panels, in the sites' order. */
   panels: readonly HTMLElement[];
-  locateSite: () => SiteLocator | null;
-  onUpdate?: () => void;
+  /**
+   * The world's site finder, once it has loaded. Its canvas is held fixed
+   * over the viewport while the route runs, so canvas pixels are viewport
+   * pixels.
+   */
+  locateSite: () => World["placeSite"] | null;
 }) {
   /** The scroll position the camera is at: the page's, smoothed by the scrub. */
   const scroll = { y: 0 };
@@ -94,7 +93,6 @@ export function createScrollRoute({
       panels[i].toggleAttribute("data-lit", route.lit[i] >= 0.5);
     });
     placePanels();
-    onUpdate?.();
   }
 
   measure();

@@ -47,6 +47,24 @@ export async function watchHero(page: Page, { skip = false } = {}) {
 export const watched = (page: Page) =>
   page.evaluate(() => (window as unknown as { __hero: Watch }).__hero);
 
+/**
+ * Counts animation frames from the first byte, which any render loop, drifting
+ * mote or scrubbed camera would need. Returns a reader for the count.
+ */
+export async function countFrames(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __frames: number };
+    w.__frames = 0;
+    const request = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) => {
+      w.__frames++;
+      return request(callback);
+    };
+  });
+  return () =>
+    page.evaluate(() => (window as unknown as { __frames: number }).__frames);
+}
+
 /** The world has drawn, the hero is in `state`, and nothing is still landing. */
 export async function settledWorld(page: Page, state: "settled" | "reduced") {
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {

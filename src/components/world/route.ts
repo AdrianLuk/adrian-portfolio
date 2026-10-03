@@ -1,4 +1,5 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
+import type { HighlightId } from "@/content/site";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
 import { valleyCentre, valleyHeight } from "./terrain";
@@ -15,10 +16,11 @@ import { valleyCentre, valleyHeight } from "./terrain";
  */
 
 /**
- * Where a lit site stands, which side of the valley (+1 = right, +x), and
- * the light it burns (its panel's accent).
+ * The Highlight a lit site stands for, where it stands, which side of the
+ * valley (+1 = right, +x), and the light it burns (its panel's accent).
  */
 export type Site = {
+  highlight: HighlightId;
   position: Vector3;
   side: 1 | -1;
   light: "cyan" | "violet";
@@ -30,34 +32,41 @@ const SITE_HEIGHT = 24;
 /** How far a site stands off the valley's centre line. */
 const SITE_OFFSET = 30;
 
-function site(z: number, side: 1 | -1, light: Site["light"]): Site {
-  const x = valleyCentre(z) + side * SITE_OFFSET;
+/** A point `height` above the valley floor at depth z, `offset` off its line. */
+function above(z: number, height: number, offset = 0) {
+  const x = valleyCentre(z) + offset;
+  return new Vector3(x, valleyHeight(x, z) + height, z);
+}
+
+function site(
+  highlight: HighlightId,
+  z: number,
+  side: 1 | -1,
+  light: Site["light"],
+): Site {
   return {
-    position: new Vector3(x, valleyHeight(x, z) + SITE_HEIGHT, z),
+    highlight,
+    position: above(z, SITE_HEIGHT, side * SITE_OFFSET),
     side,
     light,
   };
 }
 
 /**
- * The four lit sites, in the Highlights' order (Control D, Life House, Juice
- * Bros, BT Cup), alternating sides of the valley: on a wide screen the panels
- * alternate left and right, so each site stands on the side its panel leaves
- * clear. The first is the light on the horizon once the camera settles.
+ * The four lit sites, in the Highlights' order, alternating sides of the
+ * valley: on a wide screen the panels alternate left and right, so each site
+ * stands on the side its panel leaves clear. The first is the light on the
+ * horizon once the camera settles.
  */
 export const SITES: readonly Site[] = [
-  site(-420, 1, "cyan"),
-  site(-600, -1, "cyan"),
-  site(-780, 1, "violet"),
-  site(-960, -1, "cyan"),
+  site("control-d", -420, 1, "cyan"),
+  site("life-house", -600, -1, "cyan"),
+  site("juice-bros", -780, 1, "violet"),
+  site("bt-cup", -960, -1, "cyan"),
 ];
 
 /** The outpost at the route's end, on the valley's centre line. */
-export const OUTPOST = (() => {
-  const z = -1130;
-  const x = valleyCentre(z);
-  return new Vector3(x, valleyHeight(x, z) + 14, z);
-})();
+export const OUTPOST = above(-1130, 14);
 
 /** Stops along the route: the settled view, each site, the outpost. */
 export const ROUTE_STOPS = SITES.length + 2;
@@ -77,8 +86,18 @@ const STOP_LEAD = 80;
 const STOP_HEIGHT = 16;
 const CRUISE_HEIGHT = 24;
 
-/** How far over the plate's centre the camera passes. */
-const OVER_PLATE = 24;
+/** World units between the points the route's spline passes through. */
+const SPACING = 60;
+
+/**
+ * Over the plate: how far in front of it the climb is halfway (and how far
+ * above the halfway height), how high over its centre the camera passes, and
+ * how far beyond it the camera levels out, a little above cruising height.
+ */
+const CLIMB = { ahead: 45, lift: 4, over: 24, beyond: 60, extra: 6 };
+
+/** How far below a site's light the camera aims, so its ground shows. */
+const AIM_BELOW = 8;
 
 /**
  * Where a framed site sits across the screen, in normalised device
@@ -101,11 +120,6 @@ function framing(from: Vector3, at: Vector3, ndcX: number, aspect: number) {
   return new Quaternion().setFromAxisAngle(UP, yaw).multiply(quaternion);
 }
 
-const cruise = (z: number, height: number) => {
-  const x = valleyCentre(z);
-  return new Vector3(x, valleyHeight(x, z) + height, z);
-};
-
 /** Builds the route for one layout (the settled pose and the screen's shape). */
 export function createRoute(
   settled: Pose,
@@ -117,42 +131,41 @@ export function createRoute(
   const stopPoints: number[] = [0];
   const views: Quaternion[] = [settled.quaternion.clone()];
 
-  // Up and over the plate, then down the valley to the first site.
-  const overY = plateCentre.y + OVER_PLATE;
+  // Up and over the plate, then down the valley.
+  const overY = plateCentre.y + CLIMB.over;
+  let from = plateCentre.z - CLIMB.beyond;
   points.push(
     new Vector3(
       settled.position.x,
-      (settled.position.y + overY) / 2 + 4,
-      plateCentre.z + 45,
+      (settled.position.y + overY) / 2 + CLIMB.lift,
+      plateCentre.z + CLIMB.ahead,
     ),
-    new Vector3(plateCentre.x * 0.5, overY, plateCentre.z),
-    cruise(plateCentre.z - 60, CRUISE_HEIGHT + 6),
+    new Vector3(plateCentre.x / 2, overY, plateCentre.z),
+    above(from, CRUISE_HEIGHT + CLIMB.extra),
   );
 
-  let from = plateCentre.z - 60;
-  for (const s of SITES) {
-    const stopZ = s.position.z + STOP_LEAD;
-    for (let z = from - 60; z > stopZ + 30; z -= 60) {
-      points.push(cruise(z, CRUISE_HEIGHT));
+  /**
+   * Cruises on down the valley and stops `STOP_LEAD` short of `target`,
+   * framed `ndcX` across the screen.
+   */
+  function stopBefore(target: Vector3, ndcX: number) {
+    const stopZ = target.z + STOP_LEAD;
+    for (let z = from - SPACING; z > stopZ + SPACING / 2; z -= SPACING) {
+      points.push(above(z, CRUISE_HEIGHT));
     }
-    const at = cruise(stopZ, STOP_HEIGHT);
+    const at = above(stopZ, STOP_HEIGHT);
     stopPoints.push(points.length);
     points.push(at);
-    // Aimed a little below the light, so the ground it stands on shows.
-    const target = s.position.clone().setY(s.position.y - 8);
-    views.push(framing(at, target, s.side * siteScreenX(aspect), aspect));
+    views.push(framing(at, target, ndcX, aspect));
     from = stopZ;
   }
 
-  const lastZ = OUTPOST.z + STOP_LEAD;
-  for (let z = from - 60; z > lastZ + 30; z -= 60) {
-    points.push(cruise(z, CRUISE_HEIGHT));
+  for (const s of SITES) {
+    const aim = s.position.clone().setY(s.position.y - AIM_BELOW);
+    stopBefore(aim, s.side * siteScreenX(aspect));
   }
-  const end = cruise(lastZ, STOP_HEIGHT);
-  stopPoints.push(points.length);
-  points.push(end);
   // To the right, clear of the contact copy, which sits on the left.
-  views.push(framing(end, OUTPOST, siteScreenX(aspect), aspect));
+  stopBefore(OUTPOST, siteScreenX(aspect));
 
   const curve = new CatmullRomCurve3(points, false, "centripetal");
   const perSegment = 12;
@@ -160,7 +173,7 @@ export function createRoute(
   const lengths = curve.getLengths((points.length - 1) * perSegment);
   const total = lengths[lengths.length - 1];
   /** Fraction of the route's length at each stop. */
-  const stopAt = stopPoints.map((i) => lengths[i * perSegment] / total);
+  const stopFractions = stopPoints.map((i) => lengths[i * perSegment] / total);
 
   return {
     /** The camera at `stop` (0 to ROUTE_STOPS - 1; fractions in between). */
@@ -168,7 +181,8 @@ export function createRoute(
       const s = Math.min(ROUTE_STOPS - 1, Math.max(0, stop));
       const k = Math.min(ROUTE_STOPS - 2, Math.floor(s));
       const f = s - k;
-      const u = stopAt[k] + (stopAt[k + 1] - stopAt[k]) * f;
+      const u =
+        stopFractions[k] + (stopFractions[k + 1] - stopFractions[k]) * f;
       const position =
         f === 0 ? points[stopPoints[k]].clone() : curve.getPointAt(u);
       const eased = f * f * (3 - 2 * f);

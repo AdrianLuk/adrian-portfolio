@@ -10,7 +10,8 @@ import {
 } from "react";
 import type { ScrollRoute } from "./scroll-route";
 import { FLIGHT_START_RIG, SETTLED_RIG, type FlightRig } from "./world/flight";
-import { routeRig } from "./world/route";
+import { highlightAnchor } from "@/content/site";
+import { routeRig, SITES } from "./world/route";
 import type { CreditPlacement, Measurement, World } from "./world/scene";
 
 /**
@@ -226,12 +227,14 @@ export function HeroWorld({
         routing = false;
         return;
       }
-      if (cancelled || !routing) return;
+      // Called off meanwhile, or already started by a call that loaded first.
+      if (cancelled || !routing || scrollRoute) return;
       scrollRoute = createScrollRoute({
         route,
-        panels: Array.from(
-          document.querySelectorAll<HTMLElement>("[data-site-panel]"),
-        ),
+        // Each site's own panel, by its Highlight.
+        panels: SITES.map((site) =>
+          document.getElementById(highlightAnchor(site.highlight)),
+        ).filter((el) => el !== null),
         locateSite: () => world?.placeSite ?? null,
       });
     }

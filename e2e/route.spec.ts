@@ -1,7 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { highlightAnchor, highlights, hrefFor } from "../src/content/site";
-import { heroRoot, SCENE_TIMEOUT, settledWorld, watchHero } from "./hero";
+import {
+  countFrames,
+  heroRoot,
+  SCENE_TIMEOUT,
+  settledWorld,
+  watchHero,
+} from "./hero";
 
 // The route runs on desktop; the last tests cover a 390px phone.
 test.skip(({ isMobile }) => isMobile, "covered on desktop and at 390px");
@@ -36,21 +42,6 @@ const scrollTerms = (page: Page) =>
     height: document.documentElement.scrollHeight,
     pinned: document.querySelectorAll(".pin-spacer").length,
   }));
-
-/** Counts animation frames, which a scrubbed camera would need. */
-async function countFrames(page: Page) {
-  await page.addInitScript(() => {
-    const w = window as unknown as { __frames: number };
-    w.__frames = 0;
-    const request = window.requestAnimationFrame.bind(window);
-    window.requestAnimationFrame = (callback) => {
-      w.__frames++;
-      return request(callback);
-    };
-  });
-  return () =>
-    page.evaluate(() => (window as unknown as { __frames: number }).__frames);
-}
 
 test.describe("with motion allowed", () => {
   // Small enough to render quickly in software WebGL; behaviour, not looks.

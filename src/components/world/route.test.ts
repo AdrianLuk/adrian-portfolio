@@ -1,5 +1,6 @@
 import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
+import { highlights } from "../../content/site";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
 import { createRoute, OUTPOST, ROUTE_STOPS, SITES } from "./route";
@@ -42,6 +43,12 @@ const layouts = {
   "desktop, one line lower left": { ...settledLayout(21, -18, 7), aspect: 1.6 },
   "phone, stacked": { ...settledLayout(16, -3, 9), aspect: 0.46 },
 };
+
+describe("the lit sites", () => {
+  it("stand for the Highlights, one each, in their order", () => {
+    expect(SITES.map((s) => s.highlight)).toEqual(highlights.map((h) => h.id));
+  });
+});
 
 describe("the scroll route", () => {
   for (const [name, { settled, plateCentre, aspect }] of Object.entries(

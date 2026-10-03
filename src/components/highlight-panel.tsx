@@ -13,23 +13,19 @@ import { metaLine, textLink } from "@/app/styles";
  * stays the primary action's alone. Each matches its site's light in the
  * world, and glows brighter once the scroll route has lit the site.
  */
+const cyan = {
+  bracket: "border-cyan",
+  glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+};
+const violet = {
+  bracket: "border-violet",
+  glow: "shadow-violet/10 data-lit:shadow-violet/25",
+};
 const accents: Record<HighlightId, { bracket: string; glow: string }> = {
-  "control-d": {
-    bracket: "border-cyan",
-    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
-  },
-  "life-house": {
-    bracket: "border-cyan",
-    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
-  },
-  "juice-bros": {
-    bracket: "border-violet",
-    glow: "shadow-violet/10 data-lit:shadow-violet/25",
-  },
-  "bt-cup": {
-    bracket: "border-cyan",
-    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
-  },
+  "control-d": cyan,
+  "life-house": cyan,
+  "juice-bros": violet,
+  "bt-cup": cyan,
 };
 
 const corners = [
@@ -62,7 +58,6 @@ export function HighlightPanel({
       id={id}
       aria-labelledby={`${id}-heading`}
       tabIndex={-1}
-      data-site-panel
       className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${accent.glow} ${className}`}
     >
       {corners.map((corner) => (

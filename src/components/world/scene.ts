@@ -356,7 +356,9 @@ export async function createWorld(
     renderer.setAnimationLoop(running ? loop : null);
   }
 
-  // Pause when the hero is scrolled away or the tab is hidden.
+  // Pause when the tab is hidden, or the canvas is scrolled away (under
+  // reduced motion it scrolls with the hero; while the camera flies it is
+  // held fixed behind the whole page, so it stays in view).
   const intersection = new IntersectionObserver(([entry]) => {
     onScreen = entry.isIntersecting;
     sync();
