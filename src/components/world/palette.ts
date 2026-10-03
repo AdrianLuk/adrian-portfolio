@@ -1,4 +1,4 @@
-import { Color } from "three";
+import { Color, Vector3 } from "three";
 
 /** The world's palette, mirroring the @theme colours in globals.css. */
 export const palette = {
@@ -10,6 +10,9 @@ export const palette = {
   magenta: new Color("#ff6fd8"),
   ink: new Color("#eaf2ff"),
 } as const;
+
+/** The cold moonlight every faceted surface is shaded by. */
+export const MOON = new Vector3(-0.35, 0.8, -0.5).normalize();
 
 /** Exponential-squared fog density shared by every material, built-in or not. */
 export const FOG_DENSITY = 0.0021;

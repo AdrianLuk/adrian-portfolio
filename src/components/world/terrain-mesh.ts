@@ -1,5 +1,5 @@
-import { Mesh, PlaneGeometry, ShaderMaterial, Vector3 } from "three";
-import { fogChunk, fogUniforms, palette } from "./palette";
+import { Mesh, PlaneGeometry, ShaderMaterial } from "three";
+import { fogChunk, fogUniforms, MOON, palette } from "./palette";
 import { valleyHeight } from "./terrain";
 
 const WIDTH = 1100;
@@ -8,8 +8,8 @@ const NEAR_Z = 80;
 
 /**
  * The valley as a low-poly mesh: faceted (flat-shaded from screen-space
- * derivatives), lit by a cold moon, with faint contour lines tracing the ridges
- * in cyan and violet, all sinking into the shader fog.
+ * derivatives), lit by a cold moon, its crests catching violet sky and faint
+ * contour lines gathering towards them, all sinking into the shader fog.
  */
 export function createTerrain() {
   const geometry = new PlaneGeometry(WIDTH, DEPTH, 150, 200);
@@ -28,7 +28,7 @@ export function createTerrain() {
       uHigh: { value: palette.fog },
       uCyan: { value: palette.cyan },
       uViolet: { value: palette.violet },
-      uMoon: { value: new Vector3(-0.35, 0.8, -0.5).normalize() },
+      uMoon: { value: MOON },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorld;
@@ -48,16 +48,16 @@ export function createTerrain() {
         float height = clamp(vWorld.y / 60.0, 0.0, 1.0);
         vec3 col = mix(uLow, uHigh, height) * (0.5 + 0.85 * diffuse);
 
-        // Contour lines on the walls: the lit ridges.
-        float h = vWorld.y / 3.5;
+        // Contour lines, gathering towards the crests: the lit ridges.
+        float h = vWorld.y / 7.0;
         float fw = fwidth(h);
         float line = 1.0 - min(abs(fract(h - 0.5) - 0.5) / max(fw, 1e-4), 1.0);
-        line *= smoothstep(2.0, 9.0, vWorld.y) * (1.0 - smoothstep(0.25, 0.7, fw));
+        line *= smoothstep(25.0, 50.0, vWorld.y) * (1.0 - smoothstep(0.25, 0.7, fw));
         vec3 lineColor = mix(uCyan, uViolet, smoothstep(10.0, 45.0, vWorld.y));
-        col += lineColor * line * 0.32;
+        col += lineColor * line * 0.14;
 
         // Crests catch the violet sky.
-        col += uViolet * 0.12 * smoothstep(0.55, 0.95, n.y) * smoothstep(28.0, 55.0, vWorld.y);
+        col += uViolet * 0.3 * smoothstep(0.55, 0.95, n.y) * smoothstep(28.0, 55.0, vWorld.y);
 
         col = mix(col, uFogColor, fogAmount(vWorld));
         gl_FragColor = vec4(col, 1.0);

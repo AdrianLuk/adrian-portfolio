@@ -49,6 +49,12 @@ export function createSky(shared: SharedUniforms) {
           float ahead = max(0.0, -dir.z);
           col += uViolet * 0.16 * exp(-abs(h - 0.015) * 11.0) * pow(ahead, 4.0);
           col += uCyan * 0.05 * exp(-abs(h) * 32.0) * pow(ahead, 10.0);
+          // A far range beyond the valley, half lost in the haze.
+          float az = atan(dir.x, -dir.z);
+          float ridge = 0.035 + 0.03 * sin(az * 3.0 + 1.1) + 0.018 * sin(az * 7.3 + 0.4)
+            + 0.009 * sin(az * 17.0 + 2.3);
+          float range = 1.0 - smoothstep(ridge - 0.004, ridge + 0.004, h);
+          col = mix(col, mix(uHorizon, uMid, 0.55), range * 0.75);
           gl_FragColor = vec4(col, 1.0);
           #include <colorspace_fragment>
         }

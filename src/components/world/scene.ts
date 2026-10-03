@@ -1,7 +1,5 @@
 import {
-  AmbientLight,
   InstancedMesh,
-  DirectionalLight,
   FogExp2,
   Material,
   Mesh,
@@ -12,6 +10,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { createGlowPoints, type Glow } from "./glow-points";
+import { createGroundPools } from "./ground-pools";
 import { createMist } from "./mist";
 import { createNamePlate, type PlacedWord } from "./name-plate";
 import { nameGlyphs } from "./name-glyphs";
@@ -107,18 +106,17 @@ export async function createWorld(
   const structures = createStructures();
   const plate = createNamePlate(shared);
   const lights = createGlowPoints(structures.glows, shared);
+  const pools = createGroundPools(structures.pools.length + 3, 0.32);
+  // Every material is self-lit or moonlit in its shader: the scene has no lights.
   scene.add(
     ...sky.objects,
     createTerrain(),
+    pools.mesh,
     ...structures.meshes,
     lights.points,
     ...createMist(shared),
     plate.group,
-    new AmbientLight(palette.violet, 0.5),
   );
-  const moon = new DirectionalLight(palette.ink, 0.55);
-  moon.position.set(-0.4, 0.9, 0.6);
-  scene.add(moon);
 
   let motes: ReturnType<typeof createMotes> | null = null;
   let motesFor = 0;
@@ -195,6 +193,7 @@ export async function createWorld(
     camera.position.set(0, settledCameraHeight(placed), 0);
     camera.rotation.set(-CAMERA.pitch, 0, 0);
     plate.place(placed, camera);
+    pools.set([...structures.pools, ...plate.pools()]);
     // The loop, when it runs, draws the new pose on its next frame.
     if (!running) render();
   }

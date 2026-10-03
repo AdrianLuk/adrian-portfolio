@@ -5,11 +5,13 @@ import {
   Matrix4,
   MeshBasicMaterial,
   Quaternion,
+  ShaderMaterial,
   Vector3,
 } from "three";
 import type { Glow } from "./glow-points";
+import type { Pool } from "./ground-pools";
 import { seededRandom } from "./noise";
-import { palette } from "./palette";
+import { fogChunk, fogUniforms, MOON, palette } from "./palette";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 
 type Box = {
@@ -19,20 +21,63 @@ type Box = {
   w: number;
   h: number;
   d: number;
-  color?: Color;
+  color: Color;
 };
 
 /**
- * The light-structures: dark towers along the valley walls carrying cyan and
- * violet light bands, gates of light spanning the valley further out, and
- * runway lights down the floor. Every glow comes from an emissive band or a
- * light sprite; nothing is outlined.
+ * Tower bodies: faceted and moonlit like the terrain, and lit from within
+ * near the top in their own light colour, which falls off down the shaft.
+ */
+function bodyMaterial() {
+  return new ShaderMaterial({
+    uniforms: {
+      ...fogUniforms(),
+      uBase: { value: palette.night.clone().lerp(palette.dusk, 0.7) },
+      uMoon: { value: MOON },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vWorld;
+      varying vec3 vLight;
+      varying float vHeight;
+      void main() {
+        vHeight = position.y + 0.5;
+        vLight = instanceColor;
+        vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
+        vWorld = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uBase, uMoon;
+      varying vec3 vWorld;
+      varying vec3 vLight;
+      varying float vHeight;
+      ${fogChunk}
+      void main() {
+        vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+        float diffuse = max(dot(n, uMoon), 0.0);
+        vec3 col = uBase * (0.55 + 1.1 * diffuse);
+        col += vLight * pow(vHeight, 7.0) * 0.55;
+        col = mix(col, uFogColor, fogAmount(vWorld));
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+}
+
+/**
+ * The light-structures: towers along the valley walls, lit from within and
+ * carrying cyan and violet seams and rings, twin pylons marking gates further
+ * out, and runway lights down the floor. Each emitter also throws a pool of
+ * light onto the ground at its foot.
  */
 export function createStructures() {
   const random = seededRandom(0x11ad);
   const bodies: Box[] = [];
   const bands: Box[] = [];
   const glows: Glow[] = [];
+  const pools: Pool[] = [];
   const lightOf = () => (random() < 0.62 ? palette.cyan : palette.violet);
 
   function tower(
@@ -41,6 +86,7 @@ export function createStructures() {
     height: number,
     width: number,
     facing: number,
+    light: Color,
   ) {
     const ground = Math.min(
       valleyHeight(x - width, z),
@@ -48,7 +94,6 @@ export function createStructures() {
       valleyHeight(x, z),
     );
     const top = ground + height;
-    const light = lightOf();
     bodies.push({
       x,
       y: ground - 2 + (height + 2) / 2,
@@ -56,15 +101,16 @@ export function createStructures() {
       w: width,
       h: height + 2,
       d: width,
+      color: light,
     });
     // A vertical seam of light on the face looking into the valley.
     bands.push({
       x: x + (facing * width) / 2,
-      y: ground + height * 0.45,
+      y: ground + height * 0.5,
       z,
       w: 0.16,
-      h: height * 0.7,
-      d: width * 0.18,
+      h: height * 0.78,
+      d: Math.max(0.4, width * 0.22),
       color: light,
     });
     // Rings of light near the top.
@@ -88,6 +134,15 @@ export function createStructures() {
       size: 3.2 + random() * 2.5,
       seed: random(),
     });
+    pools.push({
+      x,
+      y: valleyHeight(x, z),
+      z,
+      // Long in z: seen at a grazing angle, a round pool would read as a line.
+      width: width * 6,
+      depth: width * 14,
+      color: light,
+    });
   }
 
   // Towers along both walls, from just behind the plate to the far end.
@@ -96,58 +151,22 @@ export function createStructures() {
     const side = i % 2 === 0 ? -1 : 1;
     const w = corridorHalfWidth(z);
     const x = valleyCentre(z) + side * (w - 6 + random() * 46);
-    tower(x, z, 12 + random() * 34, 1.6 + random() * 2.2, -side);
+    const height = 12 + random() * 34;
+    const width = 1.6 + random() * 2.2;
+    tower(x, z, height, width, -side, lightOf());
   }
 
-  // Gates spanning the valley: two pylons and a bar of light between them.
+  // Gates: twin pylons either side of the floor, far enough out to clear the
+  // sky above the plate. No bar spans them: a line across the sky is a stroke.
   for (const [z, color] of [
-    [-300, palette.violet],
     [-540, palette.cyan],
     [-800, palette.violet],
   ] as const) {
     const c = valleyCentre(z);
     const half = corridorHalfWidth(z) + 2;
-    const ground = valleyHeight(c, z);
-    const height = 30;
     for (const side of [-1, 1]) {
-      const x = c + side * half;
-      const base = valleyHeight(x, z);
-      const h = ground + height - base + 3;
-      bodies.push({
-        x,
-        y: base - 2 + (h + 2) / 2,
-        z,
-        w: 2.6,
-        h: h + 2,
-        d: 2.6,
-      });
-      glows.push({
-        x,
-        y: ground + height + 4.5,
-        z,
-        color,
-        size: 6,
-        seed: random(),
-      });
+      tower(c + side * half, z, 36, 2.8, -side, color);
     }
-    bands.push({
-      x: c,
-      y: ground + height,
-      z,
-      w: half * 2,
-      h: 0.55,
-      d: 0.55,
-      color,
-    });
-    bands.push({
-      x: c,
-      y: ground + height - 2.2,
-      z,
-      w: half * 2,
-      h: 0.18,
-      d: 0.3,
-      color,
-    });
   }
 
   // Runway lights down the floor, either side of the line the flight follows.
@@ -168,13 +187,7 @@ export function createStructures() {
   }
 
   const geometry = new BoxGeometry(1, 1, 1);
-  const bodyMesh = new InstancedMesh(
-    geometry,
-    new MeshBasicMaterial({
-      color: palette.night.clone().lerp(palette.dusk, 0.5),
-    }),
-    bodies.length,
-  );
+  const bodyMesh = new InstancedMesh(geometry, bodyMaterial(), bodies.length);
   const bandMesh = new InstancedMesh(
     geometry,
     new MeshBasicMaterial(),
@@ -182,21 +195,19 @@ export function createStructures() {
   );
   const m = new Matrix4();
   const q = new Quaternion();
-  bodies.forEach((b, i) => {
-    bodyMesh.setMatrixAt(
-      i,
-      m.compose(new Vector3(b.x, b.y, b.z), q, new Vector3(b.w, b.h, b.d)),
-    );
-  });
-  bands.forEach((b, i) => {
-    bandMesh.setMatrixAt(
-      i,
-      m.compose(new Vector3(b.x, b.y, b.z), q, new Vector3(b.w, b.h, b.d)),
-    );
-    bandMesh.setColorAt(i, b.color ?? palette.cyan);
-  });
-  bodyMesh.computeBoundingSphere();
-  bandMesh.computeBoundingSphere();
+  for (const [mesh, boxes] of [
+    [bodyMesh, bodies],
+    [bandMesh, bands],
+  ] as const) {
+    boxes.forEach((b, i) => {
+      mesh.setMatrixAt(
+        i,
+        m.compose(new Vector3(b.x, b.y, b.z), q, new Vector3(b.w, b.h, b.d)),
+      );
+      mesh.setColorAt(i, b.color);
+    });
+    mesh.computeBoundingSphere();
+  }
 
-  return { meshes: [bodyMesh, bandMesh], glows };
+  return { meshes: [bodyMesh, bandMesh], glows, pools };
 }

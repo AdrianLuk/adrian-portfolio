@@ -27,6 +27,12 @@ describe("the valley", () => {
     }
   });
 
+  it("swells in the foreground, so the floor reads as ground, not a panel", () => {
+    const heights = [];
+    for (let x = -60; x <= 60; x += 3) heights.push(valleyHeight(x, -40));
+    expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(1.2);
+  });
+
   it("rises into ridges on both sides, all the way down", () => {
     for (const z of [-CAMERA.plateDepth, -300, -700]) {
       const c = valleyCentre(z);

@@ -8,7 +8,7 @@ import type { SharedUniforms } from "./shared";
  */
 export function createMist(shared: SharedUniforms) {
   const layers = [
-    { y: 0.9, opacity: 0.2, scale: 0.018, speed: 0.5 },
+    { y: 0.9, opacity: 0.28, scale: 0.018, speed: 0.5 },
     { y: 4.5, opacity: 0.12, scale: 0.011, speed: -0.32 },
   ];
   return layers.map(({ y, opacity, scale, speed }) => {
@@ -60,7 +60,7 @@ export function createMist(shared: SharedUniforms) {
             float n = noise(p) * 0.55 + noise(p * 2.07 + 3.1) * 0.3 + noise(p * 4.3 - 1.7) * 0.15;
             float density = smoothstep(0.35, 0.85, n);
             float dist = distance(vWorld, cameraPosition);
-            float fadeNear = smoothstep(12.0, 70.0, dist);
+            float fadeNear = smoothstep(4.0, 30.0, dist);
             float fadeFar = 1.0 - fogAmount(vWorld) * 0.7;
             gl_FragColor = vec4(uTint, density * uOpacity * fadeNear * fadeFar);
             #include <colorspace_fragment>
