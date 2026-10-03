@@ -65,7 +65,9 @@ export type World = {
   /**
    * Where credit `index` stands now. The first call anchors it in the world
    * where the camera sees `spot` (normalised device coordinates); later calls
-   * follow that anchor as the camera flies on. Null until the plate is posed,
+   * follow a damped share of that anchor's motion as the camera flies and
+   * banks, so the card sits in the scene but stays readable. Null until the
+   * plate is posed,
    * or once the anchor is behind the camera.
    */
   placeCredit(
@@ -83,6 +85,12 @@ const STILL_TIME = 11.5;
 
 /** How far ahead a credit is anchored when it appears, in world units. */
 const CREDIT_DEPTH = 420;
+
+/**
+ * How much of its anchor's motion a credit follows: enough to sit in the
+ * scene as the camera flies and banks, little enough to stay readable.
+ */
+const CREDIT_PARALLAX = 0.3;
 
 const BEACON_INTENSITY = 3;
 
@@ -397,11 +405,13 @@ export async function createWorld(
     const depth = -anchor.clone().applyMatrix4(camera.matrixWorldInverse).z;
     if (depth <= camera.near) return null;
     const ndc = anchor.clone().project(camera);
+    const x = spot.x + (ndc.x - spot.x) * CREDIT_PARALLAX;
+    const y = spot.y + (ndc.y - spot.y) * CREDIT_PARALLAX;
     return {
-      x: ((ndc.x + 1) / 2) * canvasSize.width,
-      y: ((1 - ndc.y) / 2) * canvasSize.height,
-      // It grows as the camera closes on it, gently, so it stays readable.
-      scale: Math.min(1.35, Math.max(1, Math.sqrt(CREDIT_DEPTH / depth))),
+      x: ((x + 1) / 2) * canvasSize.width,
+      y: ((1 - y) / 2) * canvasSize.height,
+      // It grows a little as the camera closes on it.
+      scale: Math.min(1.12, Math.max(1, Math.sqrt(CREDIT_DEPTH / depth))),
     };
   }
 

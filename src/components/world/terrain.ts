@@ -26,9 +26,10 @@ export const WORLD_FRONT = -1320;
 /** Lateral offset of the valley floor's centre line at depth z. */
 export function valleyCentre(z: number) {
   if (z > FLIGHT_ZONE) {
-    // One long bend: the canyon swings right (towards +x) all the way down
-    // into the valley, and back the other way further out.
-    return -40 * Math.sin((z - FLIGHT_ZONE) * 0.006);
+    // Off to the left of the plate's line, so the flight sees the plate at
+    // an angle and runs straight into the turn-in, with one gentle S-bend.
+    const d = z - FLIGHT_ZONE;
+    return -80 * smoothstep(0, 50, d) + 10 * Math.sin(d * 0.025);
   }
   const d = Math.max(0, -z - PLATE_ZONE);
   const ramp = smoothstep(0, 180, d);

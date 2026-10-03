@@ -1,6 +1,11 @@
 import { Euler, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { createFlightPath, SETTLED_RIG, type FlightRig } from "./flight";
+import {
+  createFlightPath,
+  FLIGHT_TIMING,
+  SETTLED_RIG,
+  type FlightRig,
+} from "./flight";
 import { CAMERA } from "./pose";
 import {
   corridorHalfWidth,
@@ -122,21 +127,50 @@ describe("the flight path", () => {
         }
       });
 
-      it("turns in from about 40 degrees off the final view, closing to 0", () => {
-        const offFinal = (turn: number) =>
-          viewAngle(path.poseAt({ flight: 1, turn, settle: 0 }).position) -
-          viewAngle(settled.position);
-        const viewAngle = (p: Vector3) =>
+      /** The camera's bearing from the plate, against the final view's. */
+      const offFinal = (rig: Pick<FlightRig, "flight" | "turn">) => {
+        const bearing = (p: Vector3) =>
           Math.atan2(p.x - plateCentre.x, p.z - plateCentre.z);
+        const { position } = path.poseAt({ ...rig, settle: 0 });
+        return bearing(position) - bearing(settled.position);
+      };
 
-        expect(degrees(offFinal(0))).toBeCloseTo(40, 0);
-        let last = offFinal(0);
-        for (let turn = 0.05; turn <= 1.0001; turn += 0.05) {
-          const now = offFinal(turn);
+      it("turns in from about 40 degrees off the final view, closing to 0", () => {
+        expect(degrees(Math.abs(offFinal({ flight: 1, turn: 0 })))).toBeCloseTo(
+          40,
+          0,
+        );
+        let last = Infinity;
+        for (let turn = 0; turn <= 1.0001; turn += 0.05) {
+          const now = Math.abs(offFinal({ flight: 1, turn }));
           expect(now).toBeLessThanOrEqual(last + 1e-6);
           last = now;
         }
-        expect(Math.abs(last)).toBeLessThan(1e-6);
+        expect(last).toBeLessThan(1e-6);
+      });
+
+      it("swings the view through no more than 32 degrees before the turn-in", () => {
+        // The camera always looks at the plate, so the view turns as the
+        // camera's bearing from it changes.
+        let swung = 0;
+        let last = offFinal({ flight: 0, turn: 0 });
+        for (let flight = 0.01; flight <= 1.0001; flight += 0.01) {
+          const now = offFinal({ flight, turn: 0 });
+          swung += Math.abs(now - last);
+          last = now;
+        }
+        expect(degrees(swung)).toBeLessThan(32);
+      });
+
+      it("cruises at no more than 88 units a second, so the credits read", () => {
+        let length = 0;
+        let last = path.poseAt({ flight: 0, turn: 0, settle: 0 }).position;
+        for (let flight = 0.01; flight <= 1.0001; flight += 0.01) {
+          const now = path.poseAt({ flight, turn: 0, settle: 0 }).position;
+          length += now.distanceTo(last);
+          last = now;
+        }
+        expect(length / FLIGHT_TIMING.flight).toBeLessThan(88);
       });
 
       it("banks into every turn, left and right, and levels out to settle", () => {

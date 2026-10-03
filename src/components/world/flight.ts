@@ -14,8 +14,9 @@ import { valleyCentre, valleyHeight } from "./terrain";
  *
  * The camera comes down the canyon behind the settled viewpoint (+z), the
  * plate dead centre ahead the whole way, banking through each bend; near the
- * plate it swings round from about 40 degrees off the final view (the turn-in)
- * and settles exactly on the settled pose.
+ * plate it swings round from about 40 degrees off the final view (the turn-in,
+ * from the left, the side the canyon comes in on, so the view barely swings
+ * out first) and settles exactly on the settled pose.
  */
 
 export type Pose = { position: Vector3; quaternion: Quaternion };
@@ -56,7 +57,7 @@ export const SETTLED_RIG: Readonly<FlightRig> = {
 };
 
 /** Seconds; the timeline's flight runs linearly, its turn eases out (power2). */
-export const FLIGHT_TIMING = { flight: 4, turn: 1.5 } as const;
+export const FLIGHT_TIMING = { flight: 3.6, turn: 1.9 } as const;
 
 /** How far round the turn-in starts from the final view, in radians. */
 export const TURN_IN = (40 * Math.PI) / 180;
@@ -74,7 +75,7 @@ const SPACING = 10;
 const CRUISE_HEIGHT = 22;
 
 /** The greatest bank, in radians, and how hard the camera leans into a turn. */
-const MAX_BANK = 0.42;
+const MAX_BANK = 0.32;
 const BANK_PER_CURVATURE = 60;
 
 const UP = new Vector3(0, 1, 0);
@@ -93,7 +94,8 @@ function arcPoint(centre: Vector3, end: Vector3, s: number) {
   // (nor the spline through these points overshoots) at either end.
   const swing = 0.8 * s * s + 0.2 * s;
   const close = 0.7 * (1 - (1 - s) * (1 - s)) + 0.3 * s;
-  const a = finalAngle + TURN_IN * (1 - swing);
+  // From the left of the final view (seen from the plate, a smaller bearing).
+  const a = finalAngle - TURN_IN * (1 - swing);
   const r = TURN_RADIUS + (finalRadius - TURN_RADIUS) * close;
   return new Vector3(centre.x + r * Math.sin(a), 0, centre.z + r * Math.cos(a));
 }
@@ -114,9 +116,9 @@ function buildCurve(settled: Pose, plateCentre: Vector3, startZ: number) {
     points.push(cruise(valleyCentre(z), z, CRUISE_HEIGHT));
   }
 
-  // Out of the canyon along its own heading and across the valley's right
-  // side, banking hard left at the end onto the line the arc opens on (it
-  // opens heading across the plate).
+  // Out of the canyon along its own heading and down the valley's left side,
+  // banking right at the end onto the line the arc opens on (it opens heading
+  // across the plate).
   const exit = new Vector3(valleyCentre(canyonEnd), 0, canyonEnd);
   const exitHeading = new Vector3(
     valleyCentre(canyonEnd - 10) - valleyCentre(canyonEnd + 10),
