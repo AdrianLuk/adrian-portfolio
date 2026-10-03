@@ -124,7 +124,7 @@ export const hero = {
   label: "Introduction",
   titleLine: "Senior frontend engineer",
   backendLine: "React and TypeScript, plus the back end when it needs building.",
-  primaryAction: { label: "See the work", href: "#highlight-control-d" },
+  primaryAction: { label: "See the work", href: `#${highlightAnchor("control-d")}` },
 } as const;
 
 export const credits = {
