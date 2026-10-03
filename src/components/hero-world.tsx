@@ -8,7 +8,9 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import type { ScrollRoute } from "./scroll-route";
 import { FLIGHT_START_RIG, SETTLED_RIG, type FlightRig } from "./world/flight";
+import { routeRig } from "./world/route";
 import type { CreditPlacement, Measurement, World } from "./world/scene";
 
 /**
@@ -44,9 +46,15 @@ const unknownMotion = () => null;
 /** Room kept between a credit card and the hero's edges, in CSS pixels. */
 const EDGE = 24;
 
-/** Canvas-relative boxes of each headline word, from the text itself. */
+/**
+ * Canvas-relative boxes of each headline word, from the text itself, as they
+ * stand with the page at the top (where the camera is settled): a canvas held
+ * fixed behind the page stays put as the headline scrolls away.
+ */
 function measure(canvas: HTMLCanvasElement, root: HTMLElement): Measurement {
   const host = canvas.getBoundingClientRect();
+  const scrolled =
+    getComputedStyle(canvas).position === "fixed" ? window.scrollY : 0;
   const range = document.createRange();
   const words = Array.from(
     root.querySelectorAll<HTMLElement>("[data-plate-word]"),
@@ -57,7 +65,7 @@ function measure(canvas: HTMLCanvasElement, root: HTMLElement): Measurement {
         text: (el.textContent ?? "").toUpperCase(),
         rect: {
           left: box.left - host.left,
-          top: box.top - host.top,
+          top: box.top + scrolled - host.top,
           width: box.width,
           height: box.height,
         },
@@ -163,8 +171,13 @@ export function HeroWorld({
     const rig: FlightRig = {
       ...(reduced.matches ? SETTLED_RIG : FLIGHT_START_RIG),
     };
+    // The scroll route's state, which the world also reads on every frame.
+    const route = routeRig();
     let world: World | null = null;
     let timeline: gsap.core.Timeline | null = null;
+    let scrollRoute: ScrollRoute | null = null;
+    /** True from asking for the scroll route until it is stopped. */
+    let routing = false;
     let flying = false;
     let cancelled = false;
 
@@ -198,6 +211,35 @@ export function HeroWorld({
       flying = false;
       Object.assign(rig, SETTLED_RIG);
       setLanded(true);
+      if (!reduced.matches) startRoute();
+    }
+
+    /** Once landed, with motion allowed, scrolling carries the camera on. */
+    async function startRoute() {
+      if (routing) return;
+      routing = true;
+      let createScrollRoute;
+      try {
+        ({ createScrollRoute } = await import("./scroll-route"));
+      } catch {
+        // A stale chunk after a deploy, say: the camera stays settled.
+        routing = false;
+        return;
+      }
+      if (cancelled || !routing) return;
+      scrollRoute = createScrollRoute({
+        route,
+        panels: Array.from(
+          document.querySelectorAll<HTMLElement>("[data-site-panel]"),
+        ),
+        locateSite: () => world?.placeSite ?? null,
+      });
+    }
+
+    function stopRoute() {
+      routing = false;
+      scrollRoute?.kill();
+      scrollRoute = null;
     }
 
     async function fly() {
@@ -253,6 +295,7 @@ export function HeroWorld({
         const created = await createWorld(canvas, {
           motion: !reduced.matches,
           rig,
+          route,
           measure: () => measure(canvas, root),
           onFrame: () => {
             if (!cancelled) setWorldState("drawn");
@@ -282,16 +325,21 @@ export function HeroWorld({
       placeCredits();
     });
     resize.observe(root);
+    // The canvas too: it fills the hero, or the viewport once it is held
+    // behind the whole page.
+    resize.observe(canvas);
     const echo = root.querySelector("[data-plate-echo]");
     if (echo) resize.observe(echo);
 
     // Any change of preference calls the flight off for good: reducing motion
     // mid-flight lands at once, and allowing it again brings the settled frame
-    // alive rather than replaying the opening.
+    // alive rather than replaying the opening. Reducing it stops the scroll
+    // route too, back to the settled frame.
     const onPreference = () => {
       timeline?.kill();
       // Back to static captions, should motion now be reduced.
       clearCredits();
+      if (reduced.matches) stopRoute();
       land();
       world?.setMotion(!reduced.matches);
     };
@@ -309,6 +357,7 @@ export function HeroWorld({
       cancelled = true;
       flying = false;
       timeline?.kill();
+      stopRoute();
       cancelAnimationFrame(frame);
       clearTimeout(timer);
       resize.disconnect();
@@ -318,18 +367,22 @@ export function HeroWorld({
     };
   }, []);
 
+  // The canvas fills the hero and fades into the page below it, until the
+  // camera flies: then it is held fixed behind the whole page (the page sets
+  // the stacking context it sits at the back of), and the scroll carries the
+  // camera on. Under reduced motion it stays the hero's still frame.
   return (
     <section
       ref={rootRef}
       aria-label={label}
       data-state={state}
       data-world={worldState}
-      className={`group relative isolate overflow-hidden ${className}`}
+      className={`group relative overflow-hidden ${className}`}
     >
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0 [mask-image:linear-gradient(to_bottom,black_88%,transparent)] group-data-[world=drawn]:opacity-100 motion-safe:transition-opacity motion-safe:duration-1000"
+        className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0 [mask-image:linear-gradient(to_bottom,black_88%,transparent)] group-data-[state=flight]:fixed group-data-[state=flight]:h-lvh group-data-[state=flight]:[mask-image:none] group-data-[state=settled]:fixed group-data-[state=settled]:h-lvh group-data-[state=settled]:[mask-image:none] group-data-[world=drawn]:opacity-100 motion-safe:transition-opacity motion-safe:duration-1000"
       />
       {children}
     </section>

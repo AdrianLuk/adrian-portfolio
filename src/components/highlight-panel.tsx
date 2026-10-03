@@ -8,12 +8,28 @@ import {
 } from "@/content/site";
 import { metaLine, textLink } from "@/app/styles";
 
-/** Cyan is the world's light; Juice Bros, the Side project, is violet. Ember stays the primary action's alone. */
+/**
+ * Cyan is the world's light; Juice Bros, the Side project, is violet. Ember
+ * stays the primary action's alone. Each matches its site's light in the
+ * world, and glows brighter once the scroll route has lit the site.
+ */
 const accents: Record<HighlightId, { bracket: string; glow: string }> = {
-  "control-d": { bracket: "border-cyan", glow: "shadow-cyan/10" },
-  "life-house": { bracket: "border-cyan", glow: "shadow-cyan/10" },
-  "juice-bros": { bracket: "border-violet", glow: "shadow-violet/10" },
-  "bt-cup": { bracket: "border-cyan", glow: "shadow-cyan/10" },
+  "control-d": {
+    bracket: "border-cyan",
+    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+  },
+  "life-house": {
+    bracket: "border-cyan",
+    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+  },
+  "juice-bros": {
+    bracket: "border-violet",
+    glow: "shadow-violet/10 data-lit:shadow-violet/25",
+  },
+  "bt-cup": {
+    bracket: "border-cyan",
+    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+  },
 };
 
 const corners = [
@@ -27,6 +43,8 @@ const corners = [
  * A holographic panel standing at one site: the verified text, its key numbers
  * and the link on. A server component, so it reads fully with scripting off.
  * It is focusable (tabindex -1) only so "See the work" can move focus here.
+ * With motion allowed, the scroll route lights its site as it enters (and
+ * marks it data-lit), and sets it beside the site as the camera passes.
  */
 export function HighlightPanel({
   highlight,
@@ -44,7 +62,8 @@ export function HighlightPanel({
       id={id}
       aria-labelledby={`${id}-heading`}
       tabIndex={-1}
-      className={`relative scroll-mt-20 rounded-sm bg-dusk/70 p-6 shadow-2xl sm:p-8 ${accent.glow} ${className}`}
+      data-site-panel
+      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${accent.glow} ${className}`}
     >
       {corners.map((corner) => (
         <span

@@ -12,6 +12,7 @@ import type { Glow } from "./glow-points";
 import type { Pool } from "./ground-pools";
 import { seededRandom } from "./noise";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
+import { OUTPOST, SITES } from "./route";
 import {
   corridorHalfWidth,
   valleyCentre,
@@ -220,6 +221,33 @@ export function createStructures() {
       pools.push({ x, y, z, width: 3, depth: 7, color });
     }
   }
+
+  // The scroll route's lit sites: a tall mast at each, its light at the top
+  // (the scene brightens it as the site's panel enters), and the outpost at
+  // the route's end, a ring of masts round its light. Last, so the random
+  // draws above are unchanged.
+  for (const site of SITES) {
+    const { x, y, z } = site.position;
+    const light = palette[site.light];
+    const ground = valleyHeight(x, z);
+    tower(x, z, y - ground - 2.5, 3.4, -site.side, light);
+    pools.push({ x, y: ground, z, width: 34, depth: 60, color: light });
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.4;
+    const x = OUTPOST.x + Math.sin(a) * 16;
+    const z = OUTPOST.z + Math.cos(a) * 16;
+    const light = i % 2 ? palette.violet : palette.cyan;
+    tower(x, z, 16 + random() * 14, 2.2, x < OUTPOST.x ? 1 : -1, light);
+  }
+  pools.push({
+    x: OUTPOST.x,
+    y: valleyHeight(OUTPOST.x, OUTPOST.z),
+    z: OUTPOST.z,
+    width: 50,
+    depth: 80,
+    color: palette.cyan,
+  });
 
   const geometry = new BoxGeometry(1, 1, 1);
   const bodyMesh = new InstancedMesh(geometry, bodyMaterial(), bodies.length);

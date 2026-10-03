@@ -13,7 +13,8 @@ const NEAR_Z = WORLD_BACK;
  * contour lines gathering towards them, all sinking into the shader fog.
  */
 export function createTerrain() {
-  const geometry = new PlaneGeometry(WIDTH, DEPTH, 150, 289);
+  // A facet about every 7 units down the valley.
+  const geometry = new PlaneGeometry(WIDTH, DEPTH, 150, Math.round(DEPTH / 7));
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, 0, NEAR_Z - DEPTH / 2);
   const position = geometry.attributes.position;

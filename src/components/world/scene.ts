@@ -20,6 +20,7 @@ import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight } from "./pose";
+import { createRoute, SITES, type Route, type RouteRig } from "./route";
 import {
   moteCountFor,
   pixelRatioFor,
@@ -31,7 +32,7 @@ import type { SharedUniforms } from "./shared";
 import { createSky } from "./sky";
 import { createStructures } from "./structures";
 import { createTerrain } from "./terrain-mesh";
-import { valleyCentre, valleyHeight } from "./terrain";
+import { valleyHeight } from "./terrain";
 
 /** The canvas size and the headline's word boxes, in canvas pixels. */
 export type Measurement = {
@@ -48,6 +49,11 @@ export type WorldOptions = {
    * animates it in place); SETTLED_RIG holds the settled pose.
    */
   rig: Readonly<FlightRig>;
+  /**
+   * The scroll route's state, read on every frame: the camera follows the
+   * route once `at` leaves 0, and each site burns as brightly as it is lit.
+   */
+  route: Readonly<RouteRig>;
   measure: () => Measurement;
   /** Called after the first frame has rendered. */
   onFrame: () => void;
@@ -74,6 +80,12 @@ export type World = {
     index: number,
     spot: { x: number; y: number },
   ): CreditPlacement | null;
+  /**
+   * Where lit site `index` stands on the canvas, seen from the scroll route
+   * at stop `at` (by default, where the camera is now). Null until the plate
+   * is posed, or while the site is behind the camera.
+   */
+  placeSite(index: number, at?: number): { x: number; y: number } | null;
   dispose(): void;
 };
 
@@ -95,25 +107,29 @@ const CREDIT_PARALLAX = 0.3;
 const BEACON_INTENSITY = 3;
 
 /**
- * The first lit site, glowing on the horizon down the valley once the camera
- * has settled: the scroll route's first stop.
+ * A site's light, as a share of BEACON_INTENSITY: how dim the sites further
+ * down the valley wait, and how much brighter each burns once its panel is in.
  */
-function createSiteBeacon(shared: SharedUniforms) {
-  const z = -420;
-  const x = valleyCentre(z);
-  return createGlowPoints(
-    [
-      {
-        x,
-        y: valleyHeight(x, z) + 24,
-        z,
-        color: palette.cyan,
-        size: 12,
-        seed: 0.5,
-      },
-    ],
-    shared,
-    { intensity: 0 },
+const SITE_LIGHT = { waiting: 0.35, lit: 0.9 };
+
+/**
+ * The lit sites' lights, one each so each brightens on its own: the first
+ * glows on the horizon down the valley once the camera has settled.
+ */
+function createSiteLights(shared: SharedUniforms) {
+  return SITES.map((site) =>
+    createGlowPoints(
+      [
+        {
+          ...site.position,
+          color: palette[site.light],
+          size: 12,
+          seed: 0.5,
+        },
+      ],
+      shared,
+      { intensity: 0 },
+    ),
   );
 }
 
@@ -166,6 +182,8 @@ export async function createWorld(
   scene.fog = new FogExp2(palette.fog, FOG_DENSITY);
   const camera = new PerspectiveCamera(CAMERA.fovY, 1, 0.5, 2600);
   camera.rotation.order = "YXZ";
+  /** The camera's double, for seeing from elsewhere on the route. */
+  const probe = camera.clone();
 
   // Setup yields between its heavier steps, so no one task blocks input long.
   const sky = createSky(shared);
@@ -188,7 +206,7 @@ export async function createWorld(
     finish,
   });
   const lights = createGlowPoints(structures.glows, shared);
-  const beacon = createSiteBeacon(shared);
+  const sites = createSiteLights(shared);
   const pools = createGroundPools(structures.pools.length + 3, 0.32);
   // Every material is self-lit or moonlit in its shader: the scene has no lights.
   scene.add(
@@ -197,7 +215,7 @@ export async function createWorld(
     pools.mesh,
     ...structures.meshes,
     lights.points,
-    beacon.points,
+    ...sites.map((s) => s.points),
     ...createMist(shared),
     plate.group,
   );
@@ -214,21 +232,31 @@ export async function createWorld(
   let posed = false;
   let compiled = false;
   let path: FlightPath | null = null;
-  /** The settled pose the path was planned back from. */
+  let route: Route | null = null;
+  /** The settled pose (and screen shape) the paths were planned from. */
   let pathFor = "";
   const canvasSize = { width: 1, height: 1 };
   const credits = new Map<number, Vector3>();
 
-  /** Puts the camera where the rig says, and lights the arrival. */
+  /**
+   * Puts the camera where the rigs say (the opening's flight, then the scroll
+   * route once the visitor scrolls), and lights the arrival and the sites.
+   */
   function pose() {
-    if (!path) return;
+    if (!path || !route) return;
     const { rig } = options;
-    const { position, quaternion } = path.poseAt(rig);
+    const { at, lit } = options.route;
+    const { position, quaternion } =
+      at > 0 ? route.poseAt(at) : path.poseAt(rig);
     camera.position.copy(position);
     camera.quaternion.copy(quaternion);
     camera.updateMatrixWorld();
     plate.setArrival(rig.beams, rig.sweep);
-    beacon.setIntensity(BEACON_INTENSITY * rig.beacon);
+    sites.forEach((site, i) => {
+      // The first is the scroll cue, lit by the arrival; the rest wait dim.
+      const waiting = i === 0 ? rig.beacon : rig.beacon * SITE_LIGHT.waiting;
+      site.setIntensity(BEACON_INTENSITY * (waiting + SITE_LIGHT.lit * lit[i]));
+    });
   }
 
   function render() {
@@ -255,7 +283,7 @@ export async function createWorld(
     camera.updateProjectionMatrix();
     canvasSize.width = width;
     canvasSize.height = height;
-    for (const glow of [lights, plate.flares, beacon, motes])
+    for (const glow of [lights, plate.flares, ...sites, motes])
       glow?.setViewportHeight(height);
 
     // Motes scale with the canvas area; rebuild only when the count bucket moves.
@@ -300,15 +328,15 @@ export async function createWorld(
     camera.rotation.set(-CAMERA.pitch, 0, 0);
     plate.place(placed, camera);
     const centre = plate.centre();
-    const key = [camera.position.y, centre.x, centre.y, centre.z].join();
+    const key = [camera.position.y, centre.x, centre.y, centre.z, camera.aspect]
+      .join();
     if (key !== pathFor) {
-      path = createFlightPath(
-        {
-          position: camera.position.clone(),
-          quaternion: camera.quaternion.clone(),
-        },
-        centre.clone(),
-      );
+      const settled = {
+        position: camera.position.clone(),
+        quaternion: camera.quaternion.clone(),
+      };
+      path = createFlightPath(settled, centre.clone());
+      route = createRoute(settled, centre.clone(), camera.aspect);
       pathFor = key;
     }
     credits.clear();
@@ -415,9 +443,31 @@ export async function createWorld(
     };
   }
 
+  /**
+   * Where site `index` stands on the canvas, in canvas pixels, seen from the
+   * route at stop `at` (the camera's own stop by default). Null until the
+   * plate is posed, or while the site is behind the camera.
+   */
+  function placeSite(index: number, at = options.route.at) {
+    if (!posed || !route) return null;
+    const { position, quaternion } = route.poseAt(at);
+    probe.position.copy(position);
+    probe.quaternion.copy(quaternion);
+    probe.aspect = camera.aspect;
+    probe.updateProjectionMatrix();
+    probe.updateMatrixWorld();
+    const ndc = SITES[index].position.clone().project(probe);
+    if (ndc.z >= 1) return null;
+    return {
+      x: ((ndc.x + 1) / 2) * canvasSize.width,
+      y: ((1 - ndc.y) / 2) * canvasSize.height,
+    };
+  }
+
   return {
     layout,
     placeCredit,
+    placeSite,
     setMotion(next) {
       motion = next;
       if (!motion) {
