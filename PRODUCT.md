@@ -22,7 +22,7 @@ The site is itself the proof. The strongest craft work of his career (the Studio
 
 - Visited from job applications, LinkedIn and referrals; the home page and Juice Bros case study are the pages most likely to be read.
 - Phones first for the quick look; desktop for the deliberate review and anyone reading the source.
-- The repo goes public at launch and gets pinned on his GitHub profile, so the source is part of the product.
+- The repo is public, to be pinned on his GitHub profile, so the source is part of the product.
 - The Resume PDF on the site is a copy of `Adrian-Luk-Resume-2026.pdf` with the phone number removed. The PDF and the Resume page must state the same facts.
 - Vocabulary lives in `CONTEXT.md`; locked decisions, scope and content-accuracy rules live in `docs/HANDOFF.md`.
 
@@ -44,14 +44,14 @@ The site is itself the proof. The strongest craft work of his career (the Studio
 - Voice: first person, plain and specific in every factual passage (Highlights, Case study, Resume page). Humour is welcome in a few deliberate places where personality is expected (hero tagline, footer, 404, contact line), in the register of his GitHub bio ("Slapping the keyboard till something good happens"). A joke never sits inside a claim.
 - Hero positioning: "Senior frontend engineer" leads, with one supporting line on backend depth. Exact wording comes from a later copywriting pass.
 - Naming: product leads, company in the byline ("Control D" / Windscribe; "BT Cup" / Elite Digital Agency for PepsiCo Canada (spelled "BT Cup" on the site)).
-- Photo: he wants a photo of himself on the site but has not taken one yet. Design for it; ship a placeholder until he supplies the file.
+- Photo: a portrait is planned but doesn't exist yet. Design for it, and ship a placeholder until the file is supplied.
 - Pinned visual direction (2026-10-02): a luminous night world of Adrian's own, techy and cyberpunk-esque, in the spirit of Avatar's Pandora (a world the camera flies into) but never its IP (no Na'vi, no named Pandora places or creatures) and with no flora required, with a cinematic fly-in that settles on his name. Ambition level: extravagant, worthy of Awwwards. This supersedes the earlier "not dark" preference: dark as a night sky is in; dark as a flat background with a neon accent is still out. The world is built procedurally in code (WebGL), not from supplied imagery.
 - The site need not match Juice Bros' court-green / neon-yellow.
 
 ## Evidence on Hand
 
-- Verified experience copy (bullet and paragraph per role): https://claude.ai/artifact/4PgJFWw584vy31XLxcDDv5. Every factual claim on the site comes from here or the resume.
-- Resume: `C:\Users\Adrian\Documents\Adrian-Luk-Resume-2026.pdf` (source, with phone number; the repo holds only the phone-free web copy in `public/`).
+- Verified experience copy (bullet and paragraph per role), kept outside the repo: https://claude.ai/artifact/4PgJFWw584vy31XLxcDDv5 (private). Every factual claim on the site comes from here or the resume.
+- Resume: `Adrian-Luk-Resume-2026.pdf`. The source, with the phone number, is kept outside the repo; the repo holds only the phone-free web copy in `public/`.
 - Juice Bros is live at https://juicebrospickleball.com with public Player tools (currently Booking Buddy, Pickle Point Pal, Match Mixer, Drum Roll; the set grows, so never state a count, and Booking Buddy needs a login), and its repo is public (github.com/AdrianLuk/juice-bros). Screenshots and short recordings can be taken from it.
 - controld.com is public, but no screenshots of the authenticated dashboard or of the a11y work exist. BT Cup is not publicly reachable and no screenshots exist. The Life House booking widget and dashboards are behind hotel accounts; no screenshots exist. Studio's site is live but is not shown on the portfolio.
 - Confirmed outcomes: Control D got its SOC certification, and the a11y overhaul was his contribution to it (SOC type unknown; never state it). BT Cup: 11,750 employees provisioned, roughly 2,000 enrolled per contest; contest count and time span unknown. Juice Bros: no usage numbers, tools mainly used by Adrian himself; never claim traffic, users or adoption.
