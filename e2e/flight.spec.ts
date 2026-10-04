@@ -67,6 +67,51 @@ test.describe("with motion allowed", () => {
     ]);
     await expect(page.getByRole("list", { name: credits.label })).toBeHidden();
   });
+
+  test("the settled frame never shows before the flight: the copy is held back from the first paint", async ({
+    page,
+  }) => {
+    // Read as the page first parses, styled, before the timeline has loaded.
+    await page.addInitScript(
+      ({ titleLine, lines }) => {
+        document.addEventListener("DOMContentLoaded", () => {
+          const shown = (el: Element | null | undefined) =>
+            el ? getComputedStyle(el).opacity !== "0" : null;
+          const byText = (text: string) =>
+            Array.from(document.querySelectorAll("p, a, li")).find(
+              (el) => el.textContent === text,
+            );
+          (window as unknown as { __firstPaint: object }).__firstPaint = {
+            state: document
+              .querySelector("[data-state]")
+              ?.getAttribute("data-state"),
+            echo: shown(document.querySelector("[data-plate-echo]")),
+            title: shown(byText(titleLine)?.parentElement),
+            action: shown(
+              document.querySelector("[data-hero-action]")?.parentElement,
+            ),
+            credits: lines.map((line) => shown(byText(line))),
+          };
+        });
+      },
+      {
+        titleLine: hero.titleLine,
+        lines: credits.lines,
+      },
+    );
+    await page.goto("/");
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __firstPaint: object }).__firstPaint,
+      ),
+    ).toEqual({
+      state: "loading",
+      echo: false,
+      title: false,
+      action: false,
+      credits: credits.lines.map(() => false),
+    });
+  });
 });
 
 test.describe("under prefers-reduced-motion", () => {

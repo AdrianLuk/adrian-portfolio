@@ -14,7 +14,7 @@ import { metaLine, primaryAction, sectionLabel, textLink } from "./styles";
 
 /** Skip, set on a card at the foot of the hero while the fly-in plays. */
 const skipCard =
-  "relative w-fit max-w-full group-data-[state=flight]:before:absolute group-data-[state=flight]:before:-inset-x-3 group-data-[state=flight]:before:-inset-y-1.5 group-data-[state=flight]:before:-z-10 group-data-[state=flight]:before:rounded-lg group-data-[state=flight]:before:bg-night/70 group-data-[state=flight]:before:backdrop-blur-sm";
+  "relative w-fit max-w-full opening:before:absolute opening:before:-inset-x-3 opening:before:-inset-y-1.5 opening:before:-z-10 opening:before:rounded-lg opening:before:bg-night/70 opening:before:backdrop-blur-sm";
 
 /** "A portfolio by: Adrian Luk" as its role and its name, for a title card. */
 function creditParts(line: string) {
@@ -27,7 +27,7 @@ function creditParts(line: string) {
  * once (a half-faded button fails contrast) and eases in only as it lands.
  */
 const landsAfterFlight =
-  "group-data-[state=flight]:translate-y-3 group-data-[state=flight]:opacity-0 motion-safe:group-data-[state=settled]:transition-[opacity,translate] motion-safe:group-data-[state=settled]:duration-700";
+  "opening:translate-y-3 opening:opacity-0 motion-safe:group-data-[state=settled]:transition-[opacity,translate] motion-safe:group-data-[state=settled]:duration-700";
 
 export default function Home() {
   return (
@@ -48,7 +48,7 @@ export default function Home() {
               className={`space-y-1 ${metaLine} group-data-[state=settled]:invisible group-data-[state=settled]:opacity-0 motion-safe:transition-[opacity,visibility] motion-safe:duration-700`}
             >
               {credits.lines.map((line) => (
-                <li key={line} className="group-data-[state=flight]:opacity-0">
+                <li key={line} className="opening:opacity-0">
                   {line}
                 </li>
               ))}
@@ -74,7 +74,7 @@ export default function Home() {
           <p
             aria-hidden="true"
             data-plate-echo
-            className="font-display text-[min(14vw,6rem)] leading-[0.92] font-extrabold uppercase [font-stretch:150%] group-data-[state=flight]:opacity-0 group-data-[world=drawn]:opacity-0 motion-safe:transition-opacity motion-safe:duration-1000 md:text-[min(9vw,7rem)] md:leading-none"
+            className="font-display text-[min(14vw,6rem)] leading-[0.92] font-extrabold uppercase [font-stretch:150%] opening:opacity-0 group-data-[world=drawn]:opacity-0 motion-safe:transition-opacity motion-safe:duration-1000 md:text-[min(9vw,7rem)] md:leading-none"
           >
             {person.name.split(" ").map((word, i) => (
               <Fragment key={word}>
@@ -93,7 +93,7 @@ export default function Home() {
           </div>
           {/* Lands last; shown at once if it takes focus mid-flight. */}
           <p
-            className={`${landsAfterFlight} group-data-[state=settled]:delay-200 has-focus-visible:translate-y-0 has-focus-visible:opacity-100`}
+            className={`${landsAfterFlight} group-data-[state=settled]:delay-200 has-focus-visible:translate-y-0! has-focus-visible:opacity-100!`}
           >
             <a
               href={hero.primaryAction.href}
@@ -110,7 +110,7 @@ export default function Home() {
           what assistive tech reads. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none invisible absolute inset-0 overflow-hidden group-data-[state=flight]:visible"
+          className="pointer-events-none invisible absolute inset-0 overflow-hidden opening:visible"
         >
           {credits.lines.map((line) => {
             const { role, name } = creditParts(line);
