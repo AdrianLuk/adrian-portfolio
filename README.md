@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# adrianluk.com
 
-## Getting Started
+The portfolio of Adrian Luk, a senior frontend engineer. The site is built as one night world: a procedural WebGL valley the camera flies down, arriving at the name, then carried on by the scroll past four lit sites (the Highlights) to an outpost where the resume and contact wait.
 
-First, run the development server:
+It's meant to be the proof of its own claims, so it's held to these:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Accessible:** WCAG 2.1 AA, axe-clean on every route, fully keyboard navigable with a visible focus ring. The WebGL canvas is decorative (`aria-hidden`); the name, the credits and all the content are real DOM text.
+- **Reduced motion that's just as good:** under `prefers-reduced-motion` the world renders once, still, with no fly-in and no scrubbed camera.
+- **No scroll-jacking:** the camera follows native scroll. Nothing pins or snaps.
+- **No layout shift**, and the content never waits on an animation.
+
+## Stack
+
+Next.js 16 (App Router) with React 19 and TypeScript, Tailwind v4, Three.js for the world, and GSAP (ScrollTrigger) for the opening and the scroll route. It's a static site on Vercel: no backend, database, auth or forms. Vercel Web Analytics is the only analytics (cookieless).
+
+Motion lives in client components (`src/components/hero-world.tsx` and what it loads); everything else is a server component.
+
+## Layout
+
+```
+src/app/              routes: home, /work/[slug] (the Case study), /resume, 404
+src/content/site.ts   the site's copy and content, typed, in one module
+src/components/       the hero, the Highlight panels, the scroll route
+src/components/world/ the WebGL world: terrain, structures, sky, the name plate,
+                      and the flight and route paths as pure, unit-tested maths
+e2e/                  Playwright specs over the production build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running it
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Node 22.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev          # http://localhost:3000
+```
 
-## Learn More
+## Checks
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+npm run typecheck
+npm test             # Vitest: the content module and the world's maths
+npm run test:e2e     # Playwright, against a production build
+npm run lhci         # Lighthouse CI on the home page
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The Playwright suite builds and serves the site on port 3100 (set `E2E_PORT` to run a second copy alongside). It checks what a visitor or a tool can see: axe on every route at desktop and phone widths, keyboard walks with visible focus, the opening's states and timing, reduced motion, and that scrolling is never hijacked. CI runs all of it on every pull request.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Docs
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `docs/HANDOFF.md`: scope, decisions and the content-accuracy rules every claim on the site follows.
+- `CONTEXT.md`: the project's vocabulary (Project, Highlight, Case study, Role, and so on).
+- `PRODUCT.md`: who the site is for and what it must do.
+- `.impeccable/surfaces/src-app-page-tsx.md`: the home page's design direction and motion plan.
