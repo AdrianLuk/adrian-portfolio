@@ -18,15 +18,32 @@ test.describe.configure({ mode: "serial", timeout: 60_000 });
 const panel = (page: Page, i: number) =>
   page.locator(`#${highlightAnchor(highlights[i].id)}`);
 
-/** Scrolls so panel `i` is centred, as a reader would stop to read it. */
-const scrollToPanel = (page: Page, i: number) =>
-  panel(page, i).evaluate((el) => {
+/**
+ * Scrolls so panel `i` is centred, as a reader would stop to read it, and
+ * waits in the page (one round trip, not a poll of several) for its site to
+ * light. Returns where it scrolled to, and whether the site lit.
+ */
+const visitPanel = (page: Page, i: number) =>
+  panel(page, i).evaluate(async (el) => {
     const box = el.getBoundingClientRect();
     const y = Math.round(
       window.scrollY + box.top + box.height / 2 - window.innerHeight / 2,
     );
     window.scrollTo(0, y);
-    return y;
+    const lit = await new Promise<boolean>((resolve) => {
+      const done = () => {
+        observer.disconnect();
+        clearTimeout(timer);
+        resolve(el.hasAttribute("data-lit"));
+      };
+      const observer = new MutationObserver(() => {
+        if (el.hasAttribute("data-lit")) done();
+      });
+      observer.observe(el, { attributeFilter: ["data-lit"] });
+      const timer = setTimeout(done, 10_000);
+      if (el.hasAttribute("data-lit")) done();
+    });
+    return { y, lit };
   });
 
 /**
@@ -103,8 +120,8 @@ test.describe("with motion allowed, the opening skipped", () => {
     expect(atTop).toEqual(atTop.map(() => ({ below: true, lit: false })));
 
     for (let i = 0; i < highlights.length; i++) {
-      const y = await scrollToPanel(page, i);
-      await expect(panel(page, i)).toHaveAttribute("data-lit", "");
+      const { y, lit } = await visitPanel(page, i);
+      expect(lit, highlights[i].title).toBe(true);
       // The page went exactly where it was sent and stays there.
       expect(await scrollState(page)).toEqual({ y, terms: before });
     }
@@ -118,8 +135,7 @@ test.describe("with motion allowed, the opening skipped", () => {
   });
 
   test("home stays axe-clean mid-route", async () => {
-    await scrollToPanel(page, 2);
-    await expect(panel(page, 2)).toHaveAttribute("data-lit", "");
+    expect((await visitPanel(page, 2)).lit).toBe(true);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
@@ -157,13 +173,17 @@ test.describe("with motion allowed, the opening skipped", () => {
         stop = await focused();
       }
       expect(stop?.panel).toBe(anchor);
-      // In view and on top once the page has settled round it.
-      await expect.poll(focused).toEqual({
+      // In view and on top: usually at once, else once the page has settled
+      // round it.
+      const want = {
         href: hrefFor(highlight.link),
         panel: anchor,
         inView: true,
         onTop: true,
-      });
+      };
+      if (JSON.stringify(stop) !== JSON.stringify(want)) {
+        await expect.poll(focused).toEqual(want);
+      }
     }
   });
 });
@@ -201,8 +221,7 @@ test.describe("on a 390px phone, portrait", () => {
 
   test("every panel stays inside the screen, with the world behind it", async () => {
     for (let i = 0; i < highlights.length; i++) {
-      await scrollToPanel(page, i);
-      await expect(panel(page, i)).toHaveAttribute("data-lit", "");
+      expect((await visitPanel(page, i)).lit, highlights[i].title).toBe(true);
       const seen = await panel(page, i).evaluate((el) => {
         const box = el.getBoundingClientRect();
         const canvas = document.querySelector("canvas")!;

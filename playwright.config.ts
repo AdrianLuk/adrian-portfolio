@@ -13,11 +13,26 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
   },
+  // CI's runner has 4 cores and no GPU.
+  workers: process.env.CI ? 4 : undefined,
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    // The specs that fly the world, drawing it every frame in software WebGL:
+    // no more than two at once, or they starve each other's frames (and the
+    // opening's timing with them).
+    {
+      name: "world",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /(flight|route|world)\.spec\.ts/,
+      workers: 2,
+    },
+    {
+      name: "desktop",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /(flight|route|world)\.spec\.ts/,
+    },
     // Every route is audited at phone width too. Behaviour that differs on a
     // phone (the stacked plate, the panels at 390px) is tested at that width
-    // in the desktop project, so the rest isn't run twice.
+    // in the world project, so the rest isn't run twice.
     {
       name: "phone",
       use: { ...devices["Pixel 7"] },
