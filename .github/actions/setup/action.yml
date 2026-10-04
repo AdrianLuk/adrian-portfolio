@@ -1,0 +1,23 @@
+name: Set up
+description: >
+  Node and the dependencies, node_modules kept between runs until the
+  lockfile changes.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Cache dependencies
+      id: deps
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+    - name: Install dependencies
+      if: steps.deps.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci
