@@ -32,7 +32,7 @@ test.describe("under prefers-reduced-motion, on a 2x screen 2560px wide", () => 
       },
     });
   });
-  test.afterAll(() => page.context().close());
+  test.afterAll(() => page?.context().close());
 
   const panel = (i: number) =>
     page.locator(`#${highlightAnchor(highlights[i].id)}`);

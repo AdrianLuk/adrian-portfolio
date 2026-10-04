@@ -13,26 +13,14 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
   },
-  // CI's runner has 4 cores and no GPU.
-  workers: process.env.CI ? 4 : undefined,
+  // CI's runner has 4 cores and no GPU, so Playwright's default of 2 workers
+  // stays: tried at 4 (even with the world's specs held to 2 of them), the
+  // world's software WebGL starved the pages and the opening ran over its 7s.
   projects: [
-    // The specs that fly the world, drawing it every frame in software WebGL:
-    // no more than two at once, or they starve each other's frames (and the
-    // opening's timing with them).
-    {
-      name: "world",
-      use: { ...devices["Desktop Chrome"] },
-      testMatch: /(flight|route|world)\.spec\.ts/,
-      workers: 2,
-    },
-    {
-      name: "desktop",
-      use: { ...devices["Desktop Chrome"] },
-      testIgnore: /(flight|route|world)\.spec\.ts/,
-    },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     // Every route is audited at phone width too. Behaviour that differs on a
     // phone (the stacked plate, the panels at 390px) is tested at that width
-    // in the world project, so the rest isn't run twice.
+    // in the desktop project, so the rest isn't run twice.
     {
       name: "phone",
       use: { ...devices["Pixel 7"] },

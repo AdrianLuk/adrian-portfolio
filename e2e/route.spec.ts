@@ -77,7 +77,7 @@ test.describe("with motion allowed, the opening skipped", () => {
       until: "settled",
     });
   });
-  test.afterAll(() => page.context().close());
+  test.afterAll(() => page?.context().close());
 
   test("Skip settles it at once, hands focus on, and the credits go", async () => {
     const { at } = await watched(page);
@@ -199,7 +199,7 @@ test.describe("on a 390px phone, portrait", () => {
       until: "drawn",
     });
   });
-  test.afterAll(() => page.context().close());
+  test.afterAll(() => page?.context().close());
 
   const overflow = () =>
     page.evaluate(

@@ -165,8 +165,11 @@ export async function settledWorld(page: Page, state: "settled" | "reduced") {
   await expect(heroRoot(page)).toHaveAttribute("data-state", state, {
     timeout: SCENE_TIMEOUT,
   });
-  // A half-faded button fails contrast, so wait for the copy to land.
+  // A half-faded button fails contrast, so wait for the copy to land (which
+  // a busy machine's slow frames can stretch out).
   await expect
-    .poll(() => page.evaluate(() => document.getAnimations().length))
+    .poll(() => page.evaluate(() => document.getAnimations().length), {
+      timeout: SCENE_TIMEOUT,
+    })
     .toBe(0);
 }
