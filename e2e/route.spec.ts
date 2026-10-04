@@ -15,35 +15,43 @@ test.skip(({ isMobile }) => isMobile, "covered on desktop and at 390px");
 const panel = (page: Page, i: number) =>
   page.locator(`#${highlightAnchor(highlights[i].id)}`);
 
+// With the world rendering every frame in software WebGL (as on CI), each
+// round trip to the page waits on a slow frame: these tests are slow, and
+// each check is made in as few round trips as it can be.
+
 /** Scrolls so panel `i` is centred, as a reader would stop to read it. */
-async function scrollToPanel(page: Page, i: number) {
-  const y = await panel(page, i).evaluate((el) => {
+const scrollToPanel = (page: Page, i: number) =>
+  panel(page, i).evaluate((el) => {
     const box = el.getBoundingClientRect();
-    return Math.round(
+    const y = Math.round(
       window.scrollY + box.top + box.height / 2 - window.innerHeight / 2,
     );
+    window.scrollTo(0, y);
+    return y;
   });
-  await page.evaluate((y) => window.scrollTo(0, y), y);
-  return y;
-}
 
 /**
- * Everything that scroll-jacking would change: snapping on any element, the
- * scroll's behaviour, and pinning (which pads the page out).
+ * Where the page has scrolled to, and everything that scroll-jacking would
+ * change: snapping on any element, the scroll's behaviour, and pinning
+ * (which pads the page out).
  */
-const scrollTerms = (page: Page) =>
+const scrollState = (page: Page) =>
   page.evaluate(() => ({
-    snapping: Array.from(document.querySelectorAll("*"))
-      .map((el) => getComputedStyle(el).scrollSnapType)
-      .filter((type) => type !== "none"),
-    behaviour: [document.documentElement, document.body].map(
-      (el) => getComputedStyle(el).scrollBehavior,
-    ),
-    height: document.documentElement.scrollHeight,
-    pinned: document.querySelectorAll(".pin-spacer").length,
+    y: window.scrollY,
+    terms: {
+      snapping: Array.from(document.querySelectorAll("*"))
+        .map((el) => getComputedStyle(el).scrollSnapType)
+        .filter((type) => type !== "none"),
+      behaviour: [document.documentElement, document.body].map(
+        (el) => getComputedStyle(el).scrollBehavior,
+      ),
+      height: document.documentElement.scrollHeight,
+      pinned: document.querySelectorAll(".pin-spacer").length,
+    },
   }));
 
 test.describe("with motion allowed", () => {
+  test.slow();
   // Small enough to render quickly in software WebGL; behaviour, not looks.
   test.use({ viewport: { width: 960, height: 600 } });
 
@@ -56,7 +64,7 @@ test.describe("with motion allowed", () => {
   test("each site lights as its panel enters, at native scroll, nothing pinned or snapped", async ({
     page,
   }) => {
-    const before = await scrollTerms(page);
+    const { terms: before } = await scrollState(page);
     expect(before.snapping).toEqual([]);
     expect(before.pinned).toBe(0);
     // Behind the whole page now, not just the hero.
@@ -66,50 +74,75 @@ test.describe("with motion allowed", () => {
     );
 
     // At the top, the sites of the panels still below the fold are dark.
-    for (let i = 1; i < highlights.length; i++) {
-      await expect(panel(page, i)).not.toBeInViewport();
-      await expect(panel(page, i)).not.toHaveAttribute("data-lit");
-    }
+    const atTop = await page.evaluate(
+      (ids) =>
+        ids.map((id) => {
+          const el = document.getElementById(id)!;
+          return {
+            below: el.getBoundingClientRect().top >= window.innerHeight,
+            lit: el.hasAttribute("data-lit"),
+          };
+        }),
+      highlights.slice(1).map((h) => highlightAnchor(h.id)),
+    );
+    expect(atTop).toEqual(atTop.map(() => ({ below: true, lit: false })));
 
     for (let i = 0; i < highlights.length; i++) {
       const y = await scrollToPanel(page, i);
       await expect(panel(page, i)).toHaveAttribute("data-lit", "");
       // The page went exactly where it was sent and stays there.
-      expect(await page.evaluate(() => window.scrollY)).toBe(y);
-      expect(await scrollTerms(page)).toEqual(before);
+      expect(await scrollState(page)).toEqual({ y, terms: before });
     }
 
     // A wheel turn scrolls the page by itself, at its own pace.
-    const y = await page.evaluate(() => window.scrollY);
+    const { y } = await scrollState(page);
     await page.mouse.wheel(0, 300);
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(y + 300);
-    expect(await scrollTerms(page)).toEqual(before);
+    await expect
+      .poll(() => scrollState(page))
+      .toEqual({ y: y + 300, terms: before });
   });
 
   test("every panel link is reached by keyboard mid-route, in view and on top", async ({
     page,
   }) => {
-    for (const highlight of highlights) {
-      const link = panel(page, highlights.indexOf(highlight)).getByRole(
-        "link",
-      );
-      // Tab on until the panel's link has focus.
-      for (let i = 0; i < 20; i++) {
-        await page.keyboard.press("Tab");
-        if (await link.evaluate((el) => el === document.activeElement)) break;
-      }
-      await expect(link).toBeFocused();
-      await expect(link).toHaveAttribute("href", hrefFor(highlight.link));
-      await expect(link).toBeInViewport();
-      const onTop = await link.evaluate((el) => {
+    /** The focused element: its link, whether it is in view, and on top. */
+    const focused = () =>
+      page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el) return null;
         const box = el.getBoundingClientRect();
         const hit = document.elementFromPoint(
           box.left + box.width / 2,
           box.top + box.height / 2,
         );
-        return !!hit && el.contains(hit);
+        return {
+          href: el.getAttribute("href"),
+          panel: el.closest("section")?.id ?? null,
+          inView:
+            box.top >= 0 &&
+            box.bottom <= window.innerHeight &&
+            box.left >= 0 &&
+            box.right <= window.innerWidth,
+          onTop: !!hit && el.contains(hit),
+        };
       });
-      expect(onTop).toBe(true);
+
+    for (const highlight of highlights) {
+      const anchor = highlightAnchor(highlight.id);
+      // Tab on until the panel's link has focus.
+      let stop = null;
+      for (let i = 0; i < 20 && stop?.panel !== anchor; i++) {
+        await page.keyboard.press("Tab");
+        stop = await focused();
+      }
+      expect(stop?.panel).toBe(anchor);
+      // In view and on top once the page has settled round it.
+      await expect.poll(focused).toEqual({
+        href: hrefFor(highlight.link),
+        panel: anchor,
+        inView: true,
+        onTop: true,
+      });
     }
   });
 
@@ -149,6 +182,7 @@ test.describe("under prefers-reduced-motion", () => {
 });
 
 test.describe("on a 390px phone, portrait", () => {
+  test.slow();
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
   test("every panel stays inside the screen, with the world behind it", async ({
@@ -162,21 +196,24 @@ test.describe("on a 390px phone, portrait", () => {
     await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
     });
-    const canvas = heroRoot(page).locator("canvas");
-
     for (let i = 0; i < highlights.length; i++) {
       await scrollToPanel(page, i);
       await expect(panel(page, i)).toHaveAttribute("data-lit", "");
-      const box = (await panel(page, i).boundingBox())!;
-      expect(box.x).toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width).toBeLessThanOrEqual(390);
-      await expect(canvas).toHaveCSS("position", "fixed");
-      await expect(canvas).toBeInViewport();
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth - window.innerWidth,
-        ),
-      ).toBeLessThanOrEqual(0);
+      const seen = await panel(page, i).evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const canvas = document.querySelector("canvas")!;
+        const world = canvas.getBoundingClientRect();
+        return {
+          inside: box.left >= 0 && box.right <= window.innerWidth,
+          overflow: document.documentElement.scrollWidth > window.innerWidth,
+          // The world fills the screen behind the panel.
+          world:
+            getComputedStyle(canvas).position === "fixed" &&
+            world.top <= 0 &&
+            world.bottom >= window.innerHeight,
+        };
+      });
+      expect(seen).toEqual({ inside: true, overflow: false, world: true });
     }
   });
 });
