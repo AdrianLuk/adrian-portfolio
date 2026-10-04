@@ -96,31 +96,30 @@ export function createScrollRoute({
   }
 
   measure();
-  const tween = gsap.fromTo(
-    scroll,
-    { y: 0 },
-    {
-      y: () => ScrollTrigger.maxScroll(window),
-      ease: "none",
-      onUpdate: update,
-      scrollTrigger: {
-        start: 0,
-        end: "max",
-        scrub: SCRUB,
-        invalidateOnRefresh: true,
-        onRefresh() {
-          measure();
-          update();
-        },
-      },
+  // The camera eases after the scroll from wherever it has got to, so a
+  // refresh (after a resize, say) can only re-measure the route, never send
+  // the camera back along it.
+  const follow = gsap.quickTo(scroll, "y", {
+    duration: SCRUB,
+    ease: "expo.out",
+    onUpdate: update,
+  });
+  const trigger = ScrollTrigger.create({
+    start: 0,
+    end: "max",
+    onUpdate: (self) => follow(self.scroll()),
+    onRefresh(self) {
+      measure();
+      update();
+      follow(self.scroll());
     },
-  );
+  });
 
   return {
     /** Stops for good, handing the panels back to the page as it drew them. */
     kill() {
-      tween.scrollTrigger?.kill();
-      tween.kill();
+      trigger.kill();
+      follow.tween.kill();
       route.at = 0;
       route.lit.fill(0);
       for (const el of panels) {
