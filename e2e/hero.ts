@@ -1,4 +1,10 @@
-import { expect, type Page } from "@playwright/test";
+import {
+  expect,
+  type Browser,
+  type BrowserContextOptions,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { credits, hero } from "../src/content/site";
 
 // Software WebGL on CI is slow to compile the scene's shaders.
@@ -86,6 +92,71 @@ export async function countFrames(page: Page) {
     page.evaluate(() => (window as unknown as { __frames: number }).__frames);
 }
 
+/**
+ * Opens the page as a machine without WebGL would: the world gives up at once
+ * and the DOM headline stays. For tests of the page's content and navigation,
+ * which shouldn't wait on the world compiling and drawing in software WebGL,
+ * nor share the CPU with it (a starved main thread delays client navigation).
+ */
+export async function withoutWorld(page: Page) {
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      type: string,
+      ...rest: unknown[]
+    ) {
+      if (type.includes("webgl")) return null;
+      return (getContext as (...args: unknown[]) => unknown).call(
+        this,
+        type,
+        ...rest,
+      );
+    } as typeof getContext;
+  });
+}
+
+/**
+ * Opens home in a page of its own, for a serial group of tests to share (so
+ * the world compiles once for all of them): watched from the first byte, with
+ * any other init scripts from `prepare`, and waited on `until` the world has
+ * drawn, or has settled into `settled` or `reduced`.
+ */
+export async function openHome(
+  browser: Browser,
+  testInfo: TestInfo,
+  {
+    skip = false,
+    until,
+    prepare,
+    ...options
+  }: Pick<
+    BrowserContextOptions,
+    "viewport" | "deviceScaleFactor" | "hasTouch" | "reducedMotion"
+  > & {
+    skip?: boolean;
+    until: "drawn" | "settled" | "reduced";
+    prepare?: (page: Page) => Promise<unknown>;
+  },
+) {
+  const context = await browser.newContext({
+    baseURL: testInfo.project.use.baseURL,
+    ...options,
+  });
+  const page = await context.newPage();
+  await watchHero(page, { skip });
+  await prepare?.(page);
+  await page.goto("/");
+  if (until === "drawn") {
+    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+  } else {
+    await settledWorld(page, until);
+  }
+  return page;
+}
+
 /** The world has drawn, the hero is in `state`, and nothing is still landing. */
 export async function settledWorld(page: Page, state: "settled" | "reduced") {
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
@@ -94,8 +165,11 @@ export async function settledWorld(page: Page, state: "settled" | "reduced") {
   await expect(heroRoot(page)).toHaveAttribute("data-state", state, {
     timeout: SCENE_TIMEOUT,
   });
-  // A half-faded button fails contrast, so wait for the copy to land.
+  // A half-faded button fails contrast, so wait for the copy to land (which
+  // a busy machine's slow frames can stretch out).
   await expect
-    .poll(() => page.evaluate(() => document.getAnimations().length))
+    .poll(() => page.evaluate(() => document.getAnimations().length), {
+      timeout: SCENE_TIMEOUT,
+    })
     .toBe(0);
 }

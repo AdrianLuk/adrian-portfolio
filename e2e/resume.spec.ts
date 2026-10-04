@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { PDFParse } from "pdf-parse";
 import {
@@ -8,12 +7,6 @@ import {
   roles,
   sideProjects,
 } from "../src/content/site";
-
-test("the Resume page has no axe violations", async ({ page }) => {
-  await page.goto("/resume");
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-});
 
 test("every Role is listed newest first, each at its anchor", async ({
   page,

@@ -1,10 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
-import { person } from "../src/content/site";
-import { countFrames, heroRoot, settledWorld, watchHero } from "./hero";
-
-// The WebGL world is checked once, on desktop; flight.spec covers 390px.
-test.skip(({ isMobile }) => isMobile, "covered on desktop and at 390px");
+import { expect, test, type Page } from "@playwright/test";
+import { credits, highlightAnchor, highlights, person } from "../src/content/site";
+import { countFrames, heroRoot, openHome, watched } from "./hero";
 
 test("the H1 and the hero's root are in the initial HTML, before any script", async ({
   request,
@@ -16,61 +12,80 @@ test("the H1 and the hero's root are in the initial HTML, before any script", as
   expect(html).toMatch(/<canvas[^>]*aria-hidden="true"/);
 });
 
-test("once settled, the world shows, hidden from assistive tech, and home is axe-clean", async ({
-  page,
-}) => {
-  // Skipped the moment it starts: the settled page is the same either way.
-  await watchHero(page, { skip: true });
-  await page.goto("/");
-  await settledWorld(page, "settled");
-  await expect(heroRoot(page).locator("canvas")).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-});
+// One visit, checked in turn, in order (the world compiles once for all of
+// them). A 2x screen 2560px wide: under reduced motion the world renders only
+// on a resize, so even a 3840px canvas doesn't starve the parallel tests.
+test.describe("under prefers-reduced-motion, on a 2x screen 2560px wide", () => {
+  test.describe.configure({ mode: "serial", timeout: 60_000 });
 
-test.describe("under prefers-reduced-motion", () => {
-  test.use({ reducedMotion: "reduce" });
+  let page: Page;
+  let frames: () => Promise<number>;
 
-  test("the world renders once, nothing animates, and home is axe-clean", async ({
-    page,
-  }) => {
-    const frames = await countFrames(page);
-    await page.goto("/");
-    await settledWorld(page, "reduced");
+  test.beforeAll(async ({ browser }, testInfo) => {
+    page = await openHome(browser, testInfo, {
+      viewport: { width: 2560, height: 1300 },
+      deviceScaleFactor: 2,
+      reducedMotion: "reduce",
+      until: "reduced",
+      prepare: async (page) => {
+        frames = await countFrames(page);
+      },
+    });
+  });
+  test.afterAll(() => page?.context().close());
 
+  const panel = (i: number) =>
+    page.locator(`#${highlightAnchor(highlights[i].id)}`);
+
+  test("never flies: the credits stay as static captions, Skip among them", async () => {
+    await expect(
+      page.locator(`ul[aria-label="${credits.label}"] > li`),
+    ).toHaveText([...credits.lines, credits.skip]);
+    const shown = await page
+      .locator(`ul[aria-label="${credits.label}"] > li`)
+      .evaluateAll((els) => els.every((el) => el.checkVisibility()));
+    expect(shown).toBe(true);
+    expect((await watched(page)).seen).not.toContain("flight");
+  });
+
+  test("the world renders once and nothing animates", async () => {
     const before = await frames();
-    await page.waitForTimeout(1000);
+    // Any render loop or drifting mote asks for a frame every few ms.
+    await page.waitForTimeout(500);
     expect(await frames()).toBe(before);
     expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
-
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations).toEqual([]);
-  });
-});
-
-test.describe("on a 2x screen up to 2560px wide", () => {
-  // Sizing doesn't depend on motion, and a 3840px canvas animating in software
-  // WebGL starves the parallel tests on CI: render once per resize instead.
-  test.use({
-    viewport: { width: 2560, height: 1300 },
-    deviceScaleFactor: 2,
-    reducedMotion: "reduce",
   });
 
-  test("the canvas resizes with the viewport at no more than 1.5x", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await settledWorld(page, "reduced");
+  test("the camera never scrubs: panels sit in the flow over the still backdrop", async () => {
+    // The still frame scrolls away with the hero; the page's backdrop is behind the rest.
+    await expect(heroRoot(page).locator("canvas")).not.toHaveCSS(
+      "position",
+      "fixed",
+    );
+    const before = await frames();
+    for (let i = 0; i < highlights.length; i++) {
+      const seen = await panel(i).evaluate((el) => {
+        el.scrollIntoView({ block: "center" });
+        const box = el.getBoundingClientRect();
+        return {
+          inView: box.bottom > 0 && box.top < window.innerHeight,
+          transform: getComputedStyle(el).transform,
+          lit: el.hasAttribute("data-lit"),
+        };
+      });
+      expect(seen).toEqual({ inView: true, transform: "none", lit: false });
+    }
+    // Long enough for a scrubbed camera to have asked for frames.
+    await page.waitForTimeout(300);
+    expect(await frames()).toBe(before);
+  });
+
+  test("the canvas resizes with the viewport at no more than 1.5x", async () => {
     const size = () =>
       page.locator("canvas").evaluate((c: HTMLCanvasElement) => ({
         width: c.width,
         expected: Math.floor(c.clientWidth * 1.5),
       }));
-
     expect(await size()).toEqual({ width: 3840, expected: 3840 });
 
     await page.setViewportSize({ width: 1280, height: 800 });

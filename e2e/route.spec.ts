@@ -1,33 +1,49 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { highlightAnchor, highlights, hrefFor } from "../src/content/site";
 import {
-  countFrames,
-  heroRoot,
-  SCENE_TIMEOUT,
-  settledWorld,
-  watchHero,
-} from "./hero";
+  credits,
+  hero,
+  highlightAnchor,
+  highlights,
+  hrefFor,
+} from "../src/content/site";
+import { heroRoot, openHome, SCENE_TIMEOUT, watched } from "./hero";
 
-// The route runs on desktop; the last tests cover a 390px phone.
-test.skip(({ isMobile }) => isMobile, "covered on desktop and at 390px");
+// Each group visits home once and checks it in turn, in order: the world
+// compiles and draws in software WebGL (as on CI), which is the slow part,
+// and every round trip to the page waits on one of its frames, so each
+// check is made in as few round trips as it can be.
+test.describe.configure({ mode: "serial", timeout: 60_000 });
 
 const panel = (page: Page, i: number) =>
   page.locator(`#${highlightAnchor(highlights[i].id)}`);
 
-// With the world rendering every frame in software WebGL (as on CI), each
-// round trip to the page waits on a slow frame: these tests are slow, and
-// each check is made in as few round trips as it can be.
-
-/** Scrolls so panel `i` is centred, as a reader would stop to read it. */
-const scrollToPanel = (page: Page, i: number) =>
-  panel(page, i).evaluate((el) => {
+/**
+ * Scrolls so panel `i` is centred, as a reader would stop to read it, and
+ * waits in the page (one round trip, not a poll of several) for its site to
+ * light. Returns where it scrolled to, and whether the site lit.
+ */
+const visitPanel = (page: Page, i: number) =>
+  panel(page, i).evaluate(async (el) => {
     const box = el.getBoundingClientRect();
     const y = Math.round(
       window.scrollY + box.top + box.height / 2 - window.innerHeight / 2,
     );
     window.scrollTo(0, y);
-    return y;
+    const lit = await new Promise<boolean>((resolve) => {
+      const done = () => {
+        observer.disconnect();
+        clearTimeout(timer);
+        resolve(el.hasAttribute("data-lit"));
+      };
+      const observer = new MutationObserver(() => {
+        if (el.hasAttribute("data-lit")) done();
+      });
+      observer.observe(el, { attributeFilter: ["data-lit"] });
+      const timer = setTimeout(done, 10_000);
+      if (el.hasAttribute("data-lit")) done();
+    });
+    return { y, lit };
   });
 
 /**
@@ -50,28 +66,44 @@ const scrollState = (page: Page) =>
     },
   }));
 
-test.describe("with motion allowed", () => {
-  test.slow();
-  // Small enough to render quickly in software WebGL; behaviour, not looks.
-  test.use({ viewport: { width: 960, height: 600 } });
+test.describe("with motion allowed, the opening skipped", () => {
+  let page: Page;
 
-  test.beforeEach(async ({ page }) => {
-    await watchHero(page, { skip: true });
-    await page.goto("/");
-    await settledWorld(page, "settled");
+  test.beforeAll(async ({ browser }, testInfo) => {
+    // Small enough to render quickly in software WebGL; behaviour, not looks.
+    page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+    });
+  });
+  test.afterAll(() => page?.context().close());
+
+  test("Skip settles it at once, hands focus on, and the credits go", async () => {
+    const { at } = await watched(page);
+    expect(at.settled - at.flight).toBeLessThan(250);
+    await expect(
+      page.getByRole("link", { name: hero.primaryAction.label }),
+    ).toBeFocused();
+    // Still in the DOM, but hidden: never along the scroll, nor tabbable.
+    await expect(
+      page.locator(`ul[aria-label="${credits.label}"] > li`),
+    ).toHaveText([...credits.lines, credits.skip]);
+    await expect(page.getByRole("list", { name: credits.label })).toBeHidden();
   });
 
-  test("each site lights as its panel enters, at native scroll, nothing pinned or snapped", async ({
-    page,
-  }) => {
+  test("settled, the world stands behind the whole page, hidden from assistive tech, and home is axe-clean", async () => {
+    const canvas = heroRoot(page).locator("canvas");
+    await expect(canvas).toHaveAttribute("aria-hidden", "true");
+    await expect(canvas).toHaveCSS("position", "fixed");
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("each site lights as its panel enters, at native scroll, nothing pinned or snapped", async () => {
     const { terms: before } = await scrollState(page);
     expect(before.snapping).toEqual([]);
     expect(before.pinned).toBe(0);
-    // Behind the whole page now, not just the hero.
-    await expect(heroRoot(page).locator("canvas")).toHaveCSS(
-      "position",
-      "fixed",
-    );
 
     // At the top, the sites of the panels still below the fold are dark.
     const atTop = await page.evaluate(
@@ -88,8 +120,8 @@ test.describe("with motion allowed", () => {
     expect(atTop).toEqual(atTop.map(() => ({ below: true, lit: false })));
 
     for (let i = 0; i < highlights.length; i++) {
-      const y = await scrollToPanel(page, i);
-      await expect(panel(page, i)).toHaveAttribute("data-lit", "");
+      const { y, lit } = await visitPanel(page, i);
+      expect(lit, highlights[i].title).toBe(true);
       // The page went exactly where it was sent and stays there.
       expect(await scrollState(page)).toEqual({ y, terms: before });
     }
@@ -102,9 +134,13 @@ test.describe("with motion allowed", () => {
       .toEqual({ y: y + 300, terms: before });
   });
 
-  test("every panel link is reached by keyboard mid-route, in view and on top", async ({
-    page,
-  }) => {
+  test("home stays axe-clean mid-route", async () => {
+    expect((await visitPanel(page, 2)).lit).toBe(true);
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("every panel link is reached by keyboard mid-route, in view and on top", async () => {
     /** The focused element: its link, whether it is in view, and on top. */
     const focused = () =>
       page.evaluate(() => {
@@ -127,78 +163,65 @@ test.describe("with motion allowed", () => {
         };
       });
 
+    // Focus is still on "See the work", where Skip handed it: Tab on from
+    // there, wherever the page has scrolled to.
     for (const highlight of highlights) {
       const anchor = highlightAnchor(highlight.id);
-      // Tab on until the panel's link has focus.
       let stop = null;
       for (let i = 0; i < 20 && stop?.panel !== anchor; i++) {
         await page.keyboard.press("Tab");
         stop = await focused();
       }
       expect(stop?.panel).toBe(anchor);
-      // In view and on top once the page has settled round it.
-      await expect.poll(focused).toEqual({
+      // In view and on top: usually at once, else once the page has settled
+      // round it.
+      const want = {
         href: hrefFor(highlight.link),
         panel: anchor,
         inView: true,
         onTop: true,
-      });
+      };
+      if (JSON.stringify(stop) !== JSON.stringify(want)) {
+        await expect.poll(focused).toEqual(want);
+      }
     }
-  });
-
-  test("home stays axe-clean mid-route", async ({ page }) => {
-    await scrollToPanel(page, 2);
-    await expect(panel(page, 2)).toHaveAttribute("data-lit", "");
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations).toEqual([]);
-  });
-});
-
-test.describe("under prefers-reduced-motion", () => {
-  test.use({ reducedMotion: "reduce" });
-
-  test("the camera never scrubs: panels sit in the flow over the still backdrop", async ({
-    page,
-  }) => {
-    const frames = await countFrames(page);
-    await page.goto("/");
-    await settledWorld(page, "reduced");
-    // The still frame scrolls away with the hero; the page's backdrop is behind the rest.
-    await expect(heroRoot(page).locator("canvas")).not.toHaveCSS(
-      "position",
-      "fixed",
-    );
-
-    const before = await frames();
-    for (let i = 0; i < highlights.length; i++) {
-      await scrollToPanel(page, i);
-      await expect(panel(page, i)).toBeInViewport();
-      await expect(panel(page, i)).toHaveCSS("transform", "none");
-      await expect(panel(page, i)).not.toHaveAttribute("data-lit");
-    }
-    await page.waitForTimeout(500);
-    expect(await frames()).toBe(before);
   });
 });
 
 test.describe("on a 390px phone, portrait", () => {
-  test.slow();
-  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  let page: Page;
 
-  test("every panel stays inside the screen, with the world behind it", async ({
-    page,
-  }) => {
-    await watchHero(page, { skip: true });
-    await page.goto("/");
+  test.beforeAll(async ({ browser }, testInfo) => {
+    // The opening plays out here, so it lands on the phone's own layout.
+    page = await openHome(browser, testInfo, {
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      until: "drawn",
+    });
+  });
+  test.afterAll(() => page?.context().close());
+
+  const overflow = () =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+
+  test("the flight lands on the stacked plate without scrolling sideways", async () => {
+    expect(await overflow()).toBeLessThanOrEqual(0);
     await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
       timeout: SCENE_TIMEOUT,
     });
-    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
-      timeout: SCENE_TIMEOUT,
-    });
+    expect(await overflow()).toBeLessThanOrEqual(0);
+    // Stacked: LUK sits on its own line below ADRIAN.
+    const [adrian, luk] = await page
+      .locator("[data-plate-word]")
+      .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top));
+    expect(luk).toBeGreaterThan(adrian);
+  });
+
+  test("every panel stays inside the screen, with the world behind it", async () => {
     for (let i = 0; i < highlights.length; i++) {
-      await scrollToPanel(page, i);
-      await expect(panel(page, i)).toHaveAttribute("data-lit", "");
+      expect((await visitPanel(page, i)).lit, highlights[i].title).toBe(true);
       const seen = await panel(page, i).evaluate((el) => {
         const box = el.getBoundingClientRect();
         const canvas = document.querySelector("canvas")!;

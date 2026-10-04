@@ -90,6 +90,9 @@ async function tab(page: Page): Promise<Stop> {
 test("a keyboard walk reaches every link in order with visible focus", async ({
   page,
 }) => {
+  // The recordings stay paused: a playing video hides its controls after a
+  // few seconds, taking the focus with them should a slow step let it.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(path);
   const siteLinks = study.links.filter(
     (l) => !study.tools.some((t) => t.url === l.href),
@@ -155,18 +158,45 @@ test.describe("recordings", () => {
     test.use({ reducedMotion: "reduce" });
 
     test("no video element is playing", async ({ page }) => {
+      // Every play, from the first byte.
+      await page.addInitScript(() => {
+        const w = window as unknown as { __played: number };
+        w.__played = 0;
+        document.addEventListener("play", () => w.__played++, true);
+      });
       await page.goto(path);
       const videos = page.locator("video");
       const count = await videos.count();
       expect(count).toBeGreaterThanOrEqual(1);
+      // Wait for React to take the recordings over (it tags their elements),
+      // so their effects are what is under test, not the server HTML.
+      await expect
+        .poll(() =>
+          videos.evaluateAll((els) =>
+            els.every((el) =>
+              Object.keys(el).some((k) => k.startsWith("__reactFiber")),
+            ),
+          ),
+        )
+        .toBe(true);
       for (let i = 0; i < count; i++) {
         await videos.nth(i).scrollIntoViewIfNeeded();
+        // Visibility is reported with the next frames' rendering.
+        await page.evaluate(
+          () =>
+            new Promise((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(done)),
+            ),
+        );
       }
-      await page.waitForTimeout(1500);
-      const playing = await videos.evaluateAll((els) =>
-        (els as HTMLVideoElement[]).filter((v) => !v.paused).length,
-      );
-      expect(playing).toBe(0);
+      expect(
+        await page.evaluate(() => ({
+          played: (window as unknown as { __played: number }).__played,
+          playing: Array.from(document.querySelectorAll("video")).filter(
+            (v) => !v.paused,
+          ).length,
+        })),
+      ).toEqual({ played: 0, playing: 0 });
     });
   });
 });

@@ -12,10 +12,13 @@ import {
   person,
   roles,
 } from "../src/content/site";
+import { withoutWorld } from "./hero";
 
-// Content and navigation, not the opening (flight.spec.ts plays that): the
-// still hero is quicker to load, and nothing moves under the tests.
+// Content and navigation, not the opening or the world (flight, world and
+// route specs cover those): the still hero, without WebGL, loads at once,
+// and nothing moves or competes for the CPU under the tests.
 test.use({ reducedMotion: "reduce" });
+test.beforeEach(({ page }) => withoutWorld(page));
 
 test.describe("before any script runs", () => {
   test.use({ javaScriptEnabled: false });
