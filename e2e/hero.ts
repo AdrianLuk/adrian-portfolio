@@ -7,22 +7,43 @@ export const SCENE_TIMEOUT = 20_000;
 export const heroRoot = (page: Page) =>
   page.getByRole("region", { name: hero.label });
 
-type Watch = { at: Record<string, number>; seen: string[] };
+type Watch = {
+  at: Record<string, number>;
+  seen: string[];
+  /** The fullest opacity each title card reached, by its index. */
+  cardPeaks: number[];
+};
 
 /**
- * Records, from the first byte, every state the hero passes through and when.
- * With `skip`, presses Skip the instant the flight begins, so a test reaches
- * the settled page at once and a slow machine can't let the opening run out
- * first.
+ * Records, from the first byte, every state the hero passes through and when,
+ * and how fully each title card showed (in the page, so a slow machine's
+ * round trips can't miss a card's moment). With `skip`, presses Skip the
+ * instant the flight begins, so a test reaches the settled page at once and
+ * a slow machine can't let the opening run out first.
  */
 export async function watchHero(page: Page, { skip = false } = {}) {
   await page.addInitScript(
     ({ skip, name }) => {
       const w = window as unknown as { __hero: Watch };
-      w.__hero = { at: {}, seen: [] };
+      w.__hero = { at: {}, seen: [], cardPeaks: [] };
       new MutationObserver((records) => {
         for (const r of records) {
-          const state = (r.target as Element).getAttribute("data-state");
+          const el = r.target as HTMLElement;
+          if (r.attributeName === "style") {
+            if (!el.hasAttribute("data-credit-card")) continue;
+            const i = Array.from(
+              document.querySelectorAll("[data-credit-card]"),
+            ).indexOf(el);
+            const opacity = parseFloat(el.style.opacity);
+            if (opacity >= 0) {
+              w.__hero.cardPeaks[i] = Math.max(
+                w.__hero.cardPeaks[i] ?? 0,
+                opacity,
+              );
+            }
+            continue;
+          }
+          const state = el.getAttribute("data-state");
           if (!state) continue;
           w.__hero.seen.push(state);
           w.__hero.at[state] ??= performance.now();
@@ -37,7 +58,7 @@ export async function watchHero(page: Page, { skip = false } = {}) {
       }).observe(document, {
         subtree: true,
         attributes: true,
-        attributeFilter: ["data-state"],
+        attributeFilter: ["data-state", "style"],
       });
     },
     { skip, name: credits.skip },

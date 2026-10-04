@@ -29,24 +29,21 @@ test.describe("with motion allowed", () => {
       "aria-hidden",
       "true",
     );
-    const shown = () =>
-      cards.evaluateAll((els) =>
-        els.findIndex((el) => getComputedStyle(el).opacity === "1"),
-      );
-    await expect.poll(shown, { timeout: SCENE_TIMEOUT }).toBeGreaterThan(-1);
-    const nameSize = await cards
-      .nth(Math.max(0, await shown()))
-      .locator("span")
-      .last()
-      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    expect(nameSize).toBeGreaterThanOrEqual(32);
+    const nameSizes = await cards.evaluateAll((els) =>
+      els.map((el) =>
+        parseFloat(getComputedStyle(el.lastElementChild!).fontSize),
+      ),
+    );
+    for (const size of nameSizes) expect(size).toBeGreaterThanOrEqual(32);
 
     await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
       timeout: SCENE_TIMEOUT,
     });
     // Timed in the page: the opening's own budget, apart from page load.
-    const { at } = await watched(page);
+    const { at, cardPeaks } = await watched(page);
     expect(at.settled - at.flight).toBeLessThan(7_000);
+    // Recorded in the page as they played: a card came into full view.
+    expect(Math.max(0, ...cardPeaks)).toBe(1);
   });
 
   test("Skip settles it at once, hands focus on, and the credits go", async ({
