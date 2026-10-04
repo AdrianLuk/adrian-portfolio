@@ -16,8 +16,10 @@ import type { CreditPlacement, Measurement, World } from "./world/scene";
 
 /**
  * data-state, the opening:
- * loading: server HTML, before any script (static headline and captions),
- *   until the fly-in's timeline has loaded.
+ * loading: server HTML, before any script, until the fly-in's timeline has
+ *   loaded. With motion allowed it already looks like the flight's start (the
+ *   `opening` variant), so the settled frame never shows first; without
+ *   scripts it is the still hero, headline and captions.
  * flight: the fly-in is playing; the credits appear in the scene in turn.
  * settled: the fly-in finished, or was skipped.
  * reduced: prefers-reduced-motion. It never flies: the settled frame, with
@@ -116,9 +118,8 @@ function moveTo(el: HTMLElement, root: HTMLElement, at: CreditPlacement) {
 }
 
 /**
- * The hero's root, its world and its opening. The server-rendered headline is
- * what paints first (and is the LCP); then, with motion allowed, the fly-in
- * plays: a GSAP timeline (loaded only then) drives the camera down the canyon
+ * The hero's root, its world and its opening. With motion allowed, the hero
+ * holds its copy back from the first paint, and the fly-in plays: a GSAP timeline (loaded only then) drives the camera down the canyon
  * to the name plate while the credits appear one at a time, and the hero copy
  * lands once it settles. The Three.js scene loads after first paint and joins
  * the flight wherever the timeline has got to.
@@ -385,7 +386,7 @@ export function HeroWorld({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0 [mask-image:linear-gradient(to_bottom,black_88%,transparent)] group-data-[state=flight]:fixed group-data-[state=flight]:h-lvh group-data-[state=flight]:[mask-image:none] group-data-[state=settled]:fixed group-data-[state=settled]:h-lvh group-data-[state=settled]:[mask-image:none] group-data-[world=drawn]:opacity-100 motion-safe:transition-opacity motion-safe:duration-1000"
+        className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0 [mask-image:linear-gradient(to_bottom,black_88%,transparent)] opening:fixed opening:h-lvh opening:[mask-image:none] group-data-[state=settled]:fixed group-data-[state=settled]:h-lvh group-data-[state=settled]:[mask-image:none] group-data-[world=drawn]:opacity-100 motion-safe:transition-opacity motion-safe:duration-1000"
       />
       {children}
     </section>

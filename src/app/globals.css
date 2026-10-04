@@ -21,6 +21,21 @@
   --font-body: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* The hero's opening: while it flies, and from the first paint until then
+   wherever it is going to (motion allowed, scripts on), so the settled frame
+   never flashes up before the flight. Without scripts, or with motion reduced,
+   the server's still hero shows as it is. */
+@custom-variant opening {
+  &:is(:where(.group)[data-state="flight"] *) {
+    @slot;
+  }
+  @media (prefers-reduced-motion: no-preference) and (scripting: enabled) {
+    &:is(:where(.group)[data-state="loading"] *) {
+      @slot;
+    }
+  }
+}
+
 html {
   background-color: var(--color-night);
   color-scheme: dark;
