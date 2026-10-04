@@ -1,0 +1,20 @@
+name: Build
+description: >
+  The production build, with Next's build cache restored first so Turbopack
+  starts warm.
+
+runs:
+  using: composite
+  steps:
+    # Keyed on the source, falling back to the latest cache for the same
+    # dependencies when the source has changed (the usual case).
+    - name: Cache the Next build
+      uses: actions/cache@v4
+      with:
+        path: .next/cache
+        key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'public/**', 'next.config.ts', 'postcss.config.mjs', 'tsconfig.json') }}
+        restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
+    - name: Build
+      shell: bash
+      run: npm run build

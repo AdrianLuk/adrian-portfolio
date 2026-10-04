@@ -1,22 +1,27 @@
 name: CI
 
+# Pull requests, and main once they merge: a branch with a PR open isn't
+# checked twice (once as a push, once as the PR).
 on:
   push:
+    branches: [main]
   pull_request:
 
+# A newer commit on a PR supersedes the run in progress. Every merge to main
+# is still checked in full.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  check:
+  # Lint, types, unit tests, then the build Lighthouse audits.
+  checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
+      - uses: ./.github/actions/setup
 
       - name: Lint
         run: npm run lint
@@ -27,32 +32,55 @@ jobs:
       - name: Vitest
         run: npm test
 
-      - name: Build
-        run: npm run build
-
-      # Headless runs use Chromium's headless shell alone; it is kept between
-      # runs until the Playwright version changes.
-      - name: Cache Playwright browser
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps --only-shell chromium
-
-      - name: Playwright
-        run: npm run test:e2e
+      - uses: ./.github/actions/build
 
       - name: Lighthouse CI
         run: npm run lhci
 
-      - name: Upload reports
+      - name: Upload the Lighthouse reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: reports
-          path: |
-            playwright-report/
-            .lighthouseci/
+          name: lighthouse
+          path: .lighthouseci/
+          retention-days: 14
+
+  # The browser tests, alongside the checks.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - uses: ./.github/actions/build
+
+      - name: Find the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Headless runs use Chromium's headless shell alone, kept between runs
+      # until Playwright's version changes. Its system libraries are already
+      # on the runner (it ships with Chrome), so nothing is installed with apt.
+      - name: Cache the Playwright browser
+        id: browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-headless-shell
+
+      - name: Install the Playwright browser
+        if: steps.browser.outputs.cache-hit != 'true'
+        run: npx playwright install --only-shell chromium
+
+      - name: Playwright
+        run: npm run test:e2e
+
+      - name: Upload the Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright
+          path: playwright-report/
           retention-days: 14
