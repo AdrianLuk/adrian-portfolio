@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 3100;
+// E2E_PORT lets a second checkout (a worktree, say) run its suite alongside.
+const PORT = Number(process.env.E2E_PORT) || 3100;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -14,7 +15,14 @@ export default defineConfig({
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "phone", use: { ...devices["Pixel 7"] } },
+    // Every route is audited at phone width too. Behaviour that differs on a
+    // phone (the stacked plate, the panels at 390px) is tested at that width
+    // in the desktop project, so the rest isn't run twice.
+    {
+      name: "phone",
+      use: { ...devices["Pixel 7"] },
+      testMatch: "a11y.spec.ts",
+    },
   ],
   // Always the production build. CI builds once in an earlier step and reuses it.
   webServer: {
