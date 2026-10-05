@@ -14,32 +14,93 @@ import { seededRandom } from "./noise";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
 import { OUTPOST, SITES } from "./route";
 import {
+  createSkylineMeshes,
+  DOWNTOWN,
+  HAZE,
+  layoutSkyline,
+  type Box,
+} from "./skyline";
+import {
   corridorHalfWidth,
   valleyCentre,
   valleyHeight,
   WORLD_BACK,
 } from "./terrain";
 
-type Box = {
-  x: number;
-  y: number;
-  z: number;
-  w: number;
-  h: number;
-  d: number;
-  color: Color;
-};
+export type { Box };
+
+/**
+ * The heights the hero's camera stands at across layouts (it rises with the
+ * headline's place on screen): the eyes the skyline is kept under the
+ * mountains from.
+ */
+const EYES = [11, 16, 22];
+
+/**
+ * The share of the rise from a tower's foot to the ridge behind it (as the
+ * hero sees it) the tower may fill: the mountains always crest above the
+ * skyline.
+ */
+const SKYLINE = 0.85;
+
+/**
+ * The tallest a tower standing at (x, z) on `ground` can be and still sit
+ * under the ridge behind it, from every eye the hero's camera might have.
+ */
+function underRidge(x: number, z: number, ground: number) {
+  const near = Math.hypot(x, z);
+  return Math.min(
+    ...EYES.map((eye) => {
+      const elevation = (y: number, d: number) => Math.atan2(y - eye, d);
+      let crest = -Math.PI / 2;
+      for (let d = near + 6; d < 1600; d += 8) {
+        const px = (x / near) * d;
+        const pz = (z / near) * d;
+        crest = Math.max(crest, elevation(valleyHeight(px, pz), d));
+      }
+      const foot = elevation(ground, near);
+      const top = foot + (crest - foot) * SKYLINE;
+      return eye + near * Math.tan(top) - ground;
+    }),
+  );
+}
+
+/**
+ * Lit windows on a vertical face, 1.7 wide and 2.3 high on the face's own
+ * axes: a scatter of them lit in the building's light, a few in white.
+ */
+const WINDOW_LIGHT = /* glsl */ `
+  vec3 windowLight(vec3 world, vec3 n, vec3 light) {
+    if (abs(n.y) >= 0.5) return vec3(0.0);
+    vec2 face = vec2(abs(n.x) > 0.5 ? world.z : world.x, world.y);
+    vec2 cell = floor(face / vec2(1.7, 2.3));
+    vec2 f = fract(face / vec2(1.7, 2.3));
+    float pane = step(0.18, f.x) * step(f.x, 0.82) * step(0.25, f.y) * step(f.y, 0.75);
+    float h = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+    vec3 tint = mix(light, vec3(0.92, 0.95, 1.0), step(0.9, h) * 0.6);
+    return tint * step(0.7, h) * pane * (0.35 + 0.4 * fract(h * 7.0));
+  }
+`;
 
 /**
  * Tower bodies: faceted and moonlit like the terrain, and lit from within
  * near the top in their own light colour, which falls off down the shaft.
+ * With `windows`, the faces carry the city's lit windows, so a block reads as
+ * a building; `dark` sets it in near-black, as TD Centre's towers are; `haze`
+ * is how much of the world's fog it takes.
  */
-function bodyMaterial() {
+function bodyMaterial({ windows = false, dark = false, haze = 1 } = {}) {
   return new ShaderMaterial({
     uniforms: {
       ...fogUniforms(),
-      uBase: { value: palette.night.clone().lerp(palette.dusk, 0.7) },
+      uBase: {
+        value: dark
+          ? palette.night.clone().multiplyScalar(0.55)
+          : palette.night.clone().lerp(palette.dusk, 0.7),
+      },
       uMoon: { value: MOON },
+      uWindows: { value: windows ? 1 : 0 },
+      uHaze: { value: haze },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorld;
@@ -55,16 +116,20 @@ function bodyMaterial() {
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uBase, uMoon;
+      uniform float uWindows, uHaze;
       varying vec3 vWorld;
       varying vec3 vLight;
       varying float vHeight;
       ${fogChunk}
+      ${WINDOW_LIGHT}
       void main() {
         vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
         float diffuse = max(dot(n, uMoon), 0.0);
         vec3 col = uBase * (0.55 + 1.1 * diffuse);
-        col += vLight * pow(vHeight, 7.0) * 0.55;
-        col = mix(col, uFogColor, fogAmount(vWorld));
+        col += vLight * pow(vHeight, 7.0) * 0.55 * (1.0 - 0.6 * uWindows);
+        col += uWindows * windowLight(vWorld, n, vLight)
+          * step(0.04, vHeight) * step(vHeight, 0.97);
+        col = mix(col, uFogColor, fogAmount(vWorld) * uHaze);
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }
@@ -73,14 +138,19 @@ function bodyMaterial() {
 }
 
 /**
- * The light-structures: towers along the valley walls, lit from within and
- * carrying cyan and violet seams and rings, twin pylons marking gates further
- * out, and runway lights down the floor. Each emitter also throws a pool of
- * light onto the ground at its foot.
+ * Where everything stands, as pure data (unit tested without WebGL): a city
+ * of tall, wide towers along the valley's walls and down the opening's
+ * canyon, windowed and lit from within, kept under the mountains; Toronto's
+ * skyline on the right-hand wall (skyline.ts), which the city makes way for;
+ * slim light masts at the lit sites, the outpost and two gates; and runway
+ * lights down the floor. Each emitter also throws a pool of light onto the
+ * ground at its foot.
  */
-export function createStructures() {
+export function layoutStructures() {
   const random = seededRandom(0x11ad);
-  const bodies: Box[] = [];
+  /** The city's buildings, windowed; and the masts, which are not. */
+  const buildings: Box[] = [];
+  const masts: Box[] = [];
   const bands: Box[] = [];
   const glows: Glow[] = [];
   const pools: Pool[] = [];
@@ -93,20 +163,27 @@ export function createStructures() {
     width: number,
     facing: number,
     light: Color,
+    building?: { depth: number; underRidge: boolean },
   ) {
+    const depth = building?.depth ?? width;
     const ground = Math.min(
-      valleyHeight(x - width, z),
-      valleyHeight(x + width, z),
+      valleyHeight(x - width / 2, z - depth / 2),
+      valleyHeight(x + width / 2, z - depth / 2),
+      valleyHeight(x - width / 2, z + depth / 2),
+      valleyHeight(x + width / 2, z + depth / 2),
       valleyHeight(x, z),
     );
+    if (building?.underRidge) {
+      height = Math.max(8, Math.min(height, underRidge(x, z, ground)));
+    }
     const top = ground + height;
-    bodies.push({
+    (building ? buildings : masts).push({
       x,
       y: ground - 2 + (height + 2) / 2,
       z,
       w: width,
       h: height + 2,
-      d: width,
+      d: depth,
       color: light,
     });
     // A vertical seam of light on the face looking into the valley.
@@ -116,7 +193,7 @@ export function createStructures() {
       z,
       w: 0.16,
       h: height * 0.78,
-      d: Math.max(0.4, width * 0.22),
+      d: Math.max(0.4, depth * 0.22),
       color: light,
     });
     // Rings of light near the top.
@@ -128,7 +205,7 @@ export function createStructures() {
         z,
         w: width + 0.22,
         h: 0.28,
-        d: width + 0.22,
+        d: depth + 0.22,
         color: light,
       });
     }
@@ -140,26 +217,37 @@ export function createStructures() {
       size: 3.2 + random() * 2.5,
       seed: random(),
     });
+    // Long in z: seen at a grazing angle, a round pool would read as a line.
+    // A mast's width, even under a building: any wider floods the floor.
+    const spill = Math.min(width, 3.8);
     pools.push({
       x,
       y: valleyHeight(x, z),
       z,
-      // Long in z: seen at a grazing angle, a round pool would read as a line.
-      width: width * 6,
-      depth: width * 14,
+      width: spill * 6,
+      depth: spill * 14,
       color: light,
     });
   }
 
-  // Towers along both walls, from just behind the plate to the far end.
+  // The city along both walls, from just behind the plate to the far end:
+  // wide and deep, one in five a tall one, every one under the ridge behind,
+  // making way for downtown. (Its draws are made either way, so the rest of
+  // the city stands where it did.)
   for (let i = 0; i < 46; i++) {
     const z = -110 - i * 19 - random() * 12;
     const side = i % 2 === 0 ? -1 : 1;
     const w = corridorHalfWidth(z);
     const x = valleyCentre(z) + side * (w - 6 + random() * 46);
-    const height = 12 + random() * 34;
-    const width = 1.6 + random() * 2.2;
-    tower(x, z, height, width, -side, lightOf());
+    const tall = random() < 0.2;
+    const height = tall ? 58 + random() * 28 : 18 + random() * 40;
+    const width = 6 + random() * 8;
+    const light = lightOf();
+    const depth = 5 + random() * 7;
+    const downtown =
+      side === DOWNTOWN.side && z < DOWNTOWN.near && z > DOWNTOWN.far;
+    if (downtown) continue;
+    tower(x, z, height, width, -side, light, { depth, underRidge: true });
   }
 
   // Gates: twin pylons either side of the floor, far enough out to clear the
@@ -197,15 +285,18 @@ export function createStructures() {
     }
   }
 
-  // The canyon the opening flight comes down (behind the settled view): towers
-  // close along both walls, so they stream past either side. Last, so the
-  // settled view's random draws are unchanged.
+  // The canyon the opening flight comes down (behind the settled view): the
+  // city close along both walls, so it streams past either side. Last, so
+  // the settled view's random draws are unchanged.
   for (let i = 0; i < 26; i++) {
     const z = 150 + i * 21 + random() * 10;
     const side = i % 2 === 0 ? -1 : 1;
     const w = corridorHalfWidth(z);
     const x = valleyCentre(z) + side * (w - 4 + random() * 22);
-    tower(x, z, 14 + random() * 30, 1.6 + random() * 2, -side, lightOf());
+    tower(x, z, 14 + random() * 30, 5 + random() * 7, -side, lightOf(), {
+      depth: 5 + random() * 6,
+      underRidge: false,
+    });
   }
 
   // The runway carried on from the plate towards the camera, each light
@@ -249,19 +340,36 @@ export function createStructures() {
     color: palette.cyan,
   });
 
+  const skyline = layoutSkyline();
+  return {
+    buildings,
+    masts,
+    bands,
+    glows: [...glows, ...skyline.glows],
+    pools: [...pools, ...skyline.pools],
+    skyline,
+  };
+}
+
+/** The structures as meshes, one instanced draw per kind of box. */
+export function createStructures() {
+  const { buildings, masts, bands, glows, pools, skyline } = layoutStructures();
   const geometry = new BoxGeometry(1, 1, 1);
-  const bodyMesh = new InstancedMesh(geometry, bodyMaterial(), bodies.length);
-  const bandMesh = new InstancedMesh(
-    geometry,
-    new MeshBasicMaterial(),
-    bands.length,
-  );
   const m = new Matrix4();
   const q = new Quaternion();
-  for (const [mesh, boxes] of [
-    [bodyMesh, bodies],
-    [bandMesh, bands],
-  ] as const) {
+  const meshes = (
+    [
+      [bodyMaterial({ windows: true }), buildings],
+      [bodyMaterial({ windows: true, haze: HAZE }), skyline.towers],
+      [
+        bodyMaterial({ windows: true, dark: true, haze: HAZE }),
+        skyline.darkTowers,
+      ],
+      [bodyMaterial(), masts],
+      [new MeshBasicMaterial(), bands],
+    ] as const
+  ).map(([material, boxes]) => {
+    const mesh = new InstancedMesh(geometry, material, boxes.length);
     boxes.forEach((b, i) => {
       mesh.setMatrixAt(
         i,
@@ -270,7 +378,15 @@ export function createStructures() {
       mesh.setColorAt(i, b.color);
     });
     mesh.computeBoundingSphere();
-  }
+    return mesh;
+  });
 
-  return { meshes: [bodyMesh, bandMesh], glows, pools };
+  return {
+    meshes: [
+      ...meshes,
+      ...createSkylineMeshes(skyline.solids, skyline.rings, WINDOW_LIGHT),
+    ],
+    glows,
+    pools,
+  };
 }
