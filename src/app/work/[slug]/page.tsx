@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Recording } from "@/components/recording";
+import { WorldBackdrop } from "@/components/world-backdrop";
 import {
   caseStudies,
+  shareCards,
   type CaseStudy,
   type Image as ImageContent,
   type PlayerTool,
   type Showcase,
 } from "@/content/site";
+import { shareMetadata } from "../../share";
 
 export function generateStaticParams() {
   return caseStudies.map((c) => ({ slug: c.slug }));
@@ -23,7 +26,7 @@ export async function generateMetadata({
 }: PageProps<"/work/[slug]">): Promise<Metadata> {
   const study = find((await params).slug);
   if (!study) return {};
-  return { title: study.metaTitle, description: study.metaDescription };
+  return shareMetadata(shareCards[study.slug]);
 }
 
 const linkClass =
@@ -120,8 +123,9 @@ export default async function CaseStudyPage({
   return (
     <article
       aria-labelledby="case-study-heading"
-      className="mx-auto max-w-4xl px-4 py-16 sm:px-6"
+      className="relative isolate mx-auto max-w-4xl px-4 py-16 sm:px-6"
     >
+      <WorldBackdrop />
       <header>
         <p className={eyebrowClass}>Case study · {study.byline}</p>
         <h2

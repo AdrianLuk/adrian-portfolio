@@ -1,5 +1,13 @@
 import type { Metadata } from "next";
-import { displayUrl, resume, roles, sideProjects } from "@/content/site";
+import { WorldBackdrop } from "@/components/world-backdrop";
+import {
+  displayUrl,
+  resume,
+  roles,
+  shareCards,
+  sideProjects,
+} from "@/content/site";
+import { shareMetadata } from "../share";
 import {
   entryTitle,
   metaLine,
@@ -9,10 +17,7 @@ import {
   textLink,
 } from "../styles";
 
-export const metadata: Metadata = {
-  title: resume.metaTitle,
-  description: resume.metaDescription,
-};
+export const metadata: Metadata = shareMetadata(shareCards.resume);
 
 function Bullets({ items }: { items: readonly string[] }) {
   return (
@@ -26,7 +31,9 @@ function Bullets({ items }: { items: readonly string[] }) {
 
 export default function ResumePage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+    // Its own stacking context, for the backdrop at the back of it.
+    <div className="relative isolate mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <WorldBackdrop />
       <header className="flex max-w-3xl flex-col items-start gap-4">
         <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
           {resume.heading}

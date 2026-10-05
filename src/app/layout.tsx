@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import { Anybody, Hanken_Grotesk } from "next/font/google";
-import { meta, nav, person } from "@/content/site";
+import { ViewTransition } from "react";
+import { nav, person, shareCards } from "@/content/site";
+import { shareMetadata } from "./share";
 import "./globals.css";
 
 // "optional": a face that misses first paint is never swapped in, because the
@@ -20,10 +22,8 @@ const hanken = Hanken_Grotesk({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: meta.title,
-  description: meta.description,
-};
+// Home's, and so the 404's, which has no metadata of its own.
+export const metadata: Metadata = shareMetadata(shareCards.home);
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -54,7 +54,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </ul>
           </nav>
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          {/* Each navigation updates it: a short crossfade between routes. */}
+          <ViewTransition>{children}</ViewTransition>
+        </main>
         {/* Positioned, so it paints over the home page's world, which is held
           fixed behind the page as the camera flies. */}
         <footer className="relative border-t border-fog px-4 py-6 text-center text-sm text-ink/70 sm:px-6">

@@ -114,6 +114,24 @@ export const meta = {
     "Senior frontend engineer in Toronto. React and TypeScript, plus the back end when it needs building.",
 } as const;
 
+/** Where the site lives; link previews resolve their images against it. */
+export const siteUrl = "https://adrianluk.com";
+
+/**
+ * A route's link preview. The image is a 1200 by 630 still in public/, drawn
+ * by scripts/share-stills.mjs from the settled hero frame; every route but
+ * home captions it with its own title.
+ */
+export type ShareCard = {
+  path: string;
+  title: string;
+  description: string;
+  image: string;
+  imageAlt: string;
+  caption?: { eyebrow?: string; title: string };
+};
+
+
 export const nav = [
   { label: "Work", href: "/#work" },
   { label: "Resume", href: "/resume" },
@@ -536,6 +554,53 @@ export const notFound = {
   heading: "Lost in the fog",
   body: "Nothing out here but fog. This page doesn't exist, or it drifted off.",
   homeLink: "Back to the home page",
+} as const;
+
+const settledFrameAlt =
+  "Adrian Luk's name in lit 3D letters on a night valley floor, between glowing towers, with Toronto's skyline and the CN Tower behind.";
+
+const juiceBros = caseStudies[0];
+
+export const shareCards = {
+  home: {
+    path: "/",
+    title: meta.title,
+    description: meta.description,
+    image: "/share/home.png",
+    imageAlt: settledFrameAlt,
+  },
+  resume: {
+    path: "/resume",
+    title: resume.metaTitle,
+    description: resume.metaDescription,
+    image: "/share/resume.png",
+    imageAlt: `${settledFrameAlt} Captioned "Resume".`,
+    caption: { title: resume.heading },
+  },
+  "juice-bros": {
+    path: `/work/${juiceBros.slug}`,
+    title: juiceBros.metaTitle,
+    description: juiceBros.metaDescription,
+    image: `/share/work-${juiceBros.slug}.png`,
+    imageAlt: `${settledFrameAlt} Captioned "Case study: ${juiceBros.title}".`,
+    caption: { eyebrow: "Case study", title: juiceBros.title },
+  },
+} as const satisfies Record<"home" | "resume" | CaseStudySlug, ShareCard>;
+
+/**
+ * The quieter world behind every route but home: stills of the valley, drawn
+ * by scripts/share-stills.mjs, landscape up to a 4K screen and portrait for
+ * phones.
+ */
+export const backdrop = {
+  landscape: [1280, 1920, 2560, 3840].map((width) => ({
+    src: `/world/backdrop-${width}.webp`,
+    width,
+  })),
+  portrait: [645, 1290].map((width) => ({
+    src: `/world/backdrop-portrait-${width}.webp`,
+    width,
+  })),
 } as const;
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */

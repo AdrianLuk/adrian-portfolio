@@ -1,0 +1,78 @@
+import type { CSSProperties } from "react";
+import { backdrop } from "@/content/site";
+
+const srcSet = (stills: readonly { src: string; width: number }[]) =>
+  stills.map((s) => `${s.src} ${s.width}w`).join(", ");
+
+/** A small seeded generator (mulberry32), so every render scatters the same. */
+function seeded(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** The drifting motes: magenta, as in the world, with the odd cyan one. */
+const MOTES = (() => {
+  const random = seeded(9);
+  return Array.from({ length: 28 }, (_, i) => ({
+    key: i,
+    cyan: i % 5 === 0,
+    style: {
+      left: `${(random() * 100).toFixed(2)}%`,
+      top: `${(random() * 100).toFixed(2)}%`,
+      "--mote-size": `${(2 + random() * 2.5).toFixed(1)}px`,
+      "--mote-dx": `${(random() * 80 - 40).toFixed(0)}px`,
+      "--mote-dy": `${(-30 - random() * 70).toFixed(0)}px`,
+      "--mote-time": `${(14 + random() * 16).toFixed(1)}s`,
+      "--mote-delay": `${(-random() * 30).toFixed(1)}s`,
+    } as CSSProperties,
+  }));
+})();
+
+/**
+ * The quieter night behind every route but home: a still of the valley,
+ * dimmed so the page reads over it, with motes drifting across (none under
+ * reduced motion, where the still's own motes stand as scenery). Held fixed
+ * behind the page: its parent sets the stacking context it sits at the back
+ * of, over the body's sky.
+ */
+export function WorldBackdrop() {
+  return (
+    <div
+      aria-hidden="true"
+      data-backdrop
+      className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-lvh overflow-hidden"
+    >
+      <picture>
+        <source
+          media="(orientation: portrait)"
+          srcSet={srcSet(backdrop.portrait)}
+          sizes="100vw"
+        />
+        {/* Art-directed stills at fixed widths, drawn once by
+          scripts/share-stills.mjs: next/image would only resize them again. */}
+        <img
+          src={backdrop.landscape[1].src}
+          srcSet={srcSet(backdrop.landscape)}
+          sizes="100vw"
+          alt=""
+          decoding="async"
+          className="size-full object-cover"
+        />
+      </picture>
+      <div className="absolute inset-0 bg-linear-to-b from-night/80 via-night/70 to-night/85" />
+      <div className="absolute inset-0 motion-reduce:hidden">
+        {MOTES.map((mote) => (
+          <span
+            key={mote.key}
+            className={`mote ${mote.cyan ? "bg-cyan text-cyan" : "bg-magenta text-magenta"}`}
+            style={mote.style}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
