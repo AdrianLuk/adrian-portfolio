@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { WorldBackdrop } from "@/components/world-backdrop";
 import { notFound } from "@/content/site";
 
 export default function NotFound() {
   return (
     <section
       aria-labelledby="not-found-heading"
-      className="mx-auto flex min-h-[60svh] max-w-3xl flex-col justify-center gap-4 px-4 py-24 sm:px-6"
+      className="relative isolate mx-auto flex min-h-[60svh] max-w-3xl flex-col justify-center gap-4 px-4 py-24 sm:px-6"
     >
+      <WorldBackdrop />
       <h2
         id="not-found-heading"
         className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]"

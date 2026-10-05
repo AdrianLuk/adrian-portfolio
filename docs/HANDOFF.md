@@ -55,6 +55,8 @@ The source of truth for the site's scope, locked decisions and content-accuracy 
 - `middleware.ts` is renamed `proxy.ts` in Next 16. The portfolio shouldn't need it.
 - GSAP and motion sections are client components; everything else stays a server component. Respect `prefers-reduced-motion`.
 - Accessibility bar: axe-clean, keyboard navigable, visible focus.
+- The link previews (`public/share/`) and the night backdrop behind every route but home (`public/world/`) are stills of the world, photographed by `scripts/share-stills.mjs` against the production build. Re-run it whenever the world or a share card changes.
+- Past a 1920px screen the root font size grows at half the viewport's rate (24px at 3840 wide), so the hero's name and copy hold the frame on large monitors and TVs.
 
 ## Content accuracy (important)
 

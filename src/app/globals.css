@@ -41,6 +41,15 @@ html {
   color-scheme: dark;
 }
 
+/* Past a 1920px screen the whole page grows with it, at half the rate (24px
+   type at 3840 wide, a 4K TV at 1x), so the hero's name and copy hold the
+   frame rather than sitting small in the middle of it. */
+@media (min-width: 1920px) {
+  html {
+    font-size: max(100%, calc(50% + 0.4167vw));
+  }
+}
+
 body {
   background: linear-gradient(
     to bottom,
@@ -72,5 +81,57 @@ body {
   }
   to {
     box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-cyan) 0%, transparent);
+  }
+}
+
+/* The backdrop's motes: glowing points drifting slowly up and across, in and
+   out of the dark. Only with motion allowed; the backdrop hides them otherwise. */
+.mote {
+  position: absolute;
+  width: var(--mote-size);
+  height: var(--mote-size);
+  border-radius: 9999px;
+  box-shadow: 0 0 calc(var(--mote-size) * 3) currentColor;
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mote {
+    animation: mote-drift var(--mote-time) ease-in-out var(--mote-delay)
+      infinite alternate;
+  }
+}
+
+@keyframes mote-drift {
+  from {
+    translate: 0 0;
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  to {
+    translate: var(--mote-dx) var(--mote-dy);
+    opacity: 0.25;
+  }
+}
+
+/* Between routes, a short crossfade over the night, the old page out as the
+   new one comes in. Clicks pass through to the new page meanwhile. Under
+   reduced motion the swap is instant. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 260ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }
