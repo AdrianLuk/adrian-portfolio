@@ -1,8 +1,7 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
-import type { HighlightId } from "@/content/site";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
-import { SITE_PLAN } from "./rigs";
+import { SITE_PLAN, type SitePlan } from "./rigs";
 import { valleyCentre, valleyHeight } from "./terrain";
 
 /**
@@ -16,16 +15,8 @@ import { valleyCentre, valleyHeight } from "./terrain";
  * flies at an even speed and turns smoothly from one framing to the next.
  */
 
-/**
- * The Highlight a lit site stands for, where it stands, which side of the
- * valley (+1 = right, +x), and the light it burns (its panel's accent).
- */
-export type Site = {
-  highlight: HighlightId;
-  position: Vector3;
-  side: 1 | -1;
-  light: "cyan" | "violet";
-};
+/** A lit site from its plan, standing where it stands. */
+export type Site = Omit<SitePlan, "z"> & { position: Vector3 };
 
 /** Height of a site's light above the valley floor. */
 const SITE_HEIGHT = 24;
@@ -39,32 +30,18 @@ function above(z: number, height: number, offset = 0) {
   return new Vector3(x, valleyHeight(x, z) + height, z);
 }
 
-function site(
-  highlight: HighlightId,
-  z: number,
-  side: 1 | -1,
-  light: Site["light"],
-): Site {
-  return {
-    highlight,
-    position: above(z, SITE_HEIGHT, side * SITE_OFFSET),
-    side,
-    light,
-  };
+function site({ z, ...plan }: SitePlan): Site {
+  return { ...plan, position: above(z, SITE_HEIGHT, plan.side * SITE_OFFSET) };
 }
 
 /** The four lit sites, from their plan in ./rigs. */
-export const SITES: readonly Site[] = SITE_PLAN.map((s) =>
-  site(s.highlight, s.z, s.side, s.light),
-);
+export const SITES: readonly Site[] = SITE_PLAN.map(site);
 
 /** The outpost at the route's end, on the valley's centre line. */
 export const OUTPOST = above(-1130, 14);
 
 /** Stops along the route: the settled view, each site, the outpost. */
 export const ROUTE_STOPS = SITES.length + 2;
-
-export { routeRig, type RouteRig } from "./rigs";
 
 /** How far short of a site the camera stops to frame it. */
 const STOP_LEAD = 80;

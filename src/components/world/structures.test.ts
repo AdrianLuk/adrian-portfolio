@@ -1,6 +1,7 @@
 import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { createFlightPath, SETTLED_RIG, type FlightRig } from "./flight";
+import { createFlightPath } from "./flight";
+import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { CAMERA } from "./pose";
 import { createRoute, ROUTE_STOPS } from "./route";
 import { layoutStructures, type Box } from "./structures";

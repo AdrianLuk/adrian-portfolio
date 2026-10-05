@@ -45,19 +45,24 @@ export const SETTLED_RIG: Readonly<FlightRig> = {
 export const FLIGHT_TIMING = { flight: 3.6, turn: 1.9 } as const;
 
 /**
- * The four lit sites, in the Highlights' order, alternating sides of the
- * valley: on a wide screen the panels alternate left and right, so each site
- * stands on the side its panel leaves clear. The first is the light on the
- * horizon once the camera settles. z is its depth down the valley, side which
- * side it stands (+1 = right, +x), light the light it burns (its panel's
+ * A lit site's plan: the Highlight it stands for, its depth down the valley,
+ * which side it stands (+1 = right, +x), and the light it burns (its panel's
  * accent).
  */
-export const SITE_PLAN: readonly {
+export type SitePlan = {
   highlight: HighlightId;
   z: number;
   side: 1 | -1;
   light: "cyan" | "violet";
-}[] = [
+};
+
+/**
+ * The four lit sites, in the Highlights' order, alternating sides of the
+ * valley: on a wide screen the panels alternate left and right, so each site
+ * stands on the side its panel leaves clear. The first is the light on the
+ * horizon once the camera settles.
+ */
+export const SITE_PLAN: readonly SitePlan[] = [
   { highlight: "control-d", z: -420, side: 1, light: "cyan" },
   { highlight: "life-house", z: -600, side: -1, light: "cyan" },
   { highlight: "juice-bros", z: -780, side: 1, light: "violet" },

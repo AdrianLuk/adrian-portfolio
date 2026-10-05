@@ -1,12 +1,8 @@
 import { Euler, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import {
-  createFlightPath,
-  FLIGHT_TIMING,
-  SETTLED_RIG,
-  type FlightRig,
-} from "./flight";
+import { createFlightPath } from "./flight";
 import { CAMERA } from "./pose";
+import { FLIGHT_TIMING, SETTLED_RIG, type FlightRig } from "./rigs";
 import {
   corridorHalfWidth,
   valleyCentre,

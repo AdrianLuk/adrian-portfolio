@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { heroRoot, openHome, SCENE_TIMEOUT } from "./hero";
+import { countDraws, heroRoot, openHome, SCENE_TIMEOUT } from "./hero";
 
 // The world's libraries are the page's heaviest code: none of it may hold up
 // the first paint. Told apart by what's inside each script, not by its name
@@ -16,7 +16,12 @@ test("home's first paint comes before any of Three.js or GSAP is asked for", asy
   // Small enough to render quickly in software WebGL.
   await page.setViewportSize({ width: 960, height: 600 });
   await page.goto("/");
-  // Both are in by then: the world draws, and the opening has its timeline.
+  // Both are in by then: the opening runs on its timeline, and the world draws.
+  await expect(heroRoot(page)).toHaveAttribute(
+    "data-state",
+    /^(flight|settled)$/,
+    { timeout: SCENE_TIMEOUT },
+  );
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });
@@ -26,7 +31,7 @@ test("home's first paint comes before any of Three.js or GSAP is asked for", asy
       null,
     scripts: performance
       .getEntriesByType("resource")
-      .filter((r) => r.name.endsWith(".js"))
+      .filter((r) => new URL(r.name).pathname.endsWith(".js"))
       .map((r) => ({ url: r.name, start: r.startTime })),
   }));
   expect(paint).not.toBeNull();
@@ -51,35 +56,21 @@ test("home's first paint comes before any of Three.js or GSAP is asked for", asy
 test("the world stops drawing while the tab is hidden, and starts again when it's back", async ({
   browser,
 }, testInfo) => {
+  let draws: () => Promise<number> = async () => 0;
   const page = await openHome(browser, testInfo, {
     viewport: { width: 960, height: 600 },
     skip: true,
     until: "settled",
-    // Counts the world's draw calls (frames alone would count GSAP's ticker too).
-    prepare: (page) =>
-      page.addInitScript(() => {
-        const w = window as unknown as { __draws: number };
-        w.__draws = 0;
-        for (const proto of [
-          WebGL2RenderingContext.prototype,
-          WebGLRenderingContext.prototype,
-        ]) {
-          const draw = proto.drawElements;
-          proto.drawElements = function (this: WebGLRenderingContext, ...args) {
-            w.__draws++;
-            return draw.apply(this, args);
-          } as typeof draw;
-        }
-      }),
+    prepare: async (page) => {
+      draws = await countDraws(page);
+    },
   });
   /** Draw calls the world makes over half a second. */
-  const drawsOver = () =>
-    page.evaluate(async () => {
-      const w = window as unknown as { __draws: number };
-      const before = w.__draws;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return w.__draws - before;
-    });
+  const drawsOver = async () => {
+    const before = await draws();
+    await page.waitForTimeout(500);
+    return (await draws()) - before;
+  };
   /** Shows or hides the tab, as switching away from it would. */
   const setHidden = (hidden: boolean) =>
     page.evaluate((hidden) => {

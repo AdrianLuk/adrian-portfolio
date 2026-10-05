@@ -93,6 +93,29 @@ export async function countFrames(page: Page) {
 }
 
 /**
+ * Counts the world's WebGL draw calls from the first byte (animation frames
+ * alone would count GSAP's ticker too). Returns a reader for the count.
+ */
+export async function countDraws(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __draws: number };
+    w.__draws = 0;
+    for (const proto of [
+      WebGL2RenderingContext.prototype,
+      WebGLRenderingContext.prototype,
+    ]) {
+      const draw = proto.drawElements;
+      proto.drawElements = function (this: WebGLRenderingContext, ...args) {
+        w.__draws++;
+        return draw.apply(this, args);
+      } as typeof draw;
+    }
+  });
+  return () =>
+    page.evaluate(() => (window as unknown as { __draws: number }).__draws);
+}
+
+/**
  * Opens the page as a machine without WebGL would: the world gives up at once
  * and the DOM headline stays. For tests of the page's content and navigation,
  * which shouldn't wait on the world compiling and drawing in software WebGL,

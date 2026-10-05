@@ -22,13 +22,6 @@ import { valleyCentre, valleyHeight } from "./terrain";
 
 export type Pose = { position: Vector3; quaternion: Quaternion };
 
-export {
-  FLIGHT_START_RIG,
-  FLIGHT_TIMING,
-  SETTLED_RIG,
-  type FlightRig,
-} from "./rigs";
-
 /** How far round the turn-in starts from the final view, in radians. */
 export const TURN_IN = (40 * Math.PI) / 180;
 

@@ -52,7 +52,7 @@
           }
         },
         {
-          "matchingUrlPattern": ":3200/$",
+          "matchingUrlPattern": "^https?://[^/]+/$",
           "assertions": {
             "largest-contentful-paint": [
               "warn",

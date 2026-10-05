@@ -1,7 +1,7 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { litAt, routeAnchors, stopAt, type PanelBox } from "./route-anchors";
-import type { RouteRig } from "./world/route";
+import type { RouteRig } from "./world/rigs";
 import type { World } from "./world/scene";
 
 gsap.registerPlugin(ScrollTrigger);
