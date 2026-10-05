@@ -1,4 +1,4 @@
-import { Euler, Quaternion, Vector3 } from "three";
+import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { createFlightPath, SETTLED_RIG, type FlightRig } from "./flight";
 import { CAMERA } from "./pose";
@@ -74,14 +74,15 @@ function crosses(a: Vector3, b: Vector3, box: Box) {
   return true;
 }
 
-const { buildings, masts } = layoutStructures();
-const towers = [...buildings, ...masts];
+const { buildings, masts, skyline } = layoutStructures();
+const towers = [...buildings, ...masts, ...skyline.bounds];
+const { cnTower } = skyline;
 
 describe("the city", () => {
-  it("is wide: every building is broader than any mast", () => {
-    const widest = Math.max(...masts.map((m) => Math.min(m.w, m.d)));
-    for (const b of buildings) {
-      expect(Math.min(b.w, b.d)).toBeGreaterThan(widest);
+  it("is topped by the CN Tower: no building stands taller from its foot", () => {
+    const height = cnTower.tip - cnTower.foot;
+    for (const b of [...buildings, ...skyline.towers, ...skyline.darkTowers]) {
+      expect(b.h).toBeLessThan(height);
     }
   });
 
@@ -105,6 +106,35 @@ describe("the city", () => {
           }
           const top = elevation(b.y + b.h / 2, distance - b.d / 2);
           expect(top, `building at z ${b.z.toFixed(0)}`).toBeLessThan(crest);
+        }
+      });
+
+      it("shows the CN Tower whole from the hero, pod and tip in frame under the nav", () => {
+        const camera = new PerspectiveCamera(CAMERA.fovY, aspect, 0.5, 2600);
+        camera.position.copy(settled.position);
+        camera.quaternion.copy(settled.quaternion);
+        camera.updateMatrixWorld();
+        for (const y of [cnTower.pod, cnTower.tip]) {
+          const ndc = new Vector3(cnTower.x, y, cnTower.z).project(camera);
+          expect(Math.abs(ndc.x)).toBeLessThan(0.9);
+          expect(ndc.y).toBeGreaterThan(-0.2);
+          // The nav bar covers about the top 6% of the screen.
+          expect(ndc.y).toBeLessThan(0.85);
+        }
+      });
+
+      it("sees the CN Tower's pod over every ridge and building between", () => {
+        const pod = new Vector3(cnTower.x, cnTower.pod, cnTower.z);
+        for (let k = 1; k < 200; k++) {
+          const q = eye.clone().lerp(pod, k / 200);
+          expect(q.y).toBeGreaterThan(valleyHeight(q.x, q.z));
+        }
+        for (const b of [
+          ...buildings,
+          ...skyline.towers,
+          ...skyline.darkTowers,
+        ]) {
+          expect(crosses(eye, pod, b)).toBe(false);
         }
       });
 
