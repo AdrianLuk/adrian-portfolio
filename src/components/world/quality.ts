@@ -28,9 +28,24 @@ export function tierFor(viewportWidth: number, devicePixelRatio: number): Tier {
 /**
  * How the name plate is finished on each tier. An envSize of 0 skips the
  * environment bake: the plate is then lit by its own emissive light alone.
+ * The segment counts round the letters' curves (per quadratic in the outline)
+ * and their chamfer: the camera ends close on the plate, where large screens
+ * would see the lite counts facet.
  */
 export function plateFinishFor(tier: Tier) {
   return tier === "full"
-    ? { envSize: 256, clearcoat: 1, iridescence: 0.22 }
-    : { envSize: 0, clearcoat: 0, iridescence: 0 };
+    ? {
+        envSize: 256,
+        clearcoat: 1,
+        iridescence: 0.22,
+        curveSegments: 16,
+        bevelSegments: 6,
+      }
+    : {
+        envSize: 0,
+        clearcoat: 0,
+        iridescence: 0,
+        curveSegments: 6,
+        bevelSegments: 3,
+      };
 }

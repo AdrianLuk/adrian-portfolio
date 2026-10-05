@@ -55,6 +55,32 @@ export function outlineToShapes(outline: string) {
   return path.toShapes();
 }
 
+/**
+ * One word of the plate, extruded with its chamfer, the face toward the
+ * camera at z = 0. The tier's segment counts set how finely its curves and
+ * chamfer are rounded.
+ */
+export function wordGeometry(
+  outline: string,
+  {
+    curveSegments,
+    bevelSegments,
+  }: Pick<ReturnType<typeof plateFinishFor>, "curveSegments" | "bevelSegments">,
+) {
+  const geometry = new ExtrudeGeometry(outlineToShapes(outline), {
+    depth: EXTRUDE.depth,
+    bevelEnabled: true,
+    bevelThickness: EXTRUDE.bevel,
+    bevelSize: EXTRUDE.bevel,
+    bevelSegments,
+    curveSegments,
+  });
+  // The face toward the camera is the extrusion's far cap: bring it to z = 0.
+  geometry.translate(0, 0, -(EXTRUDE.depth + EXTRUDE.bevel));
+  smoothFlanks(geometry);
+  return geometry;
+}
+
 function createBeam(
   color: Color,
   shared: SharedUniforms,
@@ -283,17 +309,7 @@ export function createNamePlate(
 
   const words = new Map<string, Mesh>();
   for (const [text, word] of Object.entries(nameGlyphs.words)) {
-    const geometry = new ExtrudeGeometry(outlineToShapes(word.outline), {
-      depth: EXTRUDE.depth,
-      bevelEnabled: true,
-      bevelThickness: EXTRUDE.bevel,
-      bevelSize: EXTRUDE.bevel,
-      bevelSegments: 3,
-      curveSegments: 6,
-    });
-    // The face toward the camera is the extrusion's far cap: bring it to z = 0.
-    geometry.translate(0, 0, -(EXTRUDE.depth + EXTRUDE.bevel));
-    smoothFlanks(geometry);
+    const geometry = wordGeometry(word.outline, finish);
     const mesh = new Mesh(geometry, [cap, sides]);
     mesh.visible = false;
     words.set(text, mesh);
