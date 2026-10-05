@@ -36,8 +36,11 @@ export default function Home() {
     <div className="relative isolate">
       <HeroWorld label={hero.label} className="min-h-[88svh]">
         {/* Out of the flow at the hero's foot, so hiding the credits never
-          moves anything, but first in it: Skip is the hero's first stop. */}
-        <div className="absolute inset-x-0 bottom-0">
+          moves anything, but first in it: Skip is the hero's first stop. On
+          a phone the hero grows past the screen to fit the stacked name, so
+          while the opening plays (and as it fades) the credits stand at the
+          foot of the screen instead, letting taps through once hidden. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 max-md:opening:fixed max-md:group-data-[state=settled]:fixed">
           <div className="mx-auto max-w-6xl px-4 pb-6 sm:px-6">
             {/* The opening credits: static captions (the accessible list, and
               the reduced-motion version). During the fly-in they give way to
@@ -45,10 +48,15 @@ export default function Home() {
               control is the last credit and the hero's first stop. */}
             <ul
               aria-label={credits.label}
-              className={`space-y-1 ${metaLine} max-md:text-center group-data-[state=settled]:invisible group-data-[state=settled]:opacity-0 motion-safe:transition-[opacity,visibility] motion-safe:duration-700`}
+              className={`pointer-events-auto space-y-1 ${metaLine} max-md:text-center group-data-[state=settled]:invisible group-data-[state=settled]:opacity-0 motion-safe:transition-[opacity,visibility] motion-safe:duration-700`}
             >
               {credits.lines.map((line) => (
-                <li key={line} className="opening:opacity-0">
+                // Hidden through the opening and after it: only Skip, the
+                // one credit shown while it plays, fades as it settles.
+                <li
+                  key={line}
+                  className="opening:opacity-0 group-data-[state=settled]:opacity-0"
+                >
                   {line}
                 </li>
               ))}
