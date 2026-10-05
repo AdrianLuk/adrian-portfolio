@@ -131,7 +131,6 @@ export type ShareCard = {
   caption?: { eyebrow?: string; title: string };
 };
 
-
 export const nav = [
   { label: "Work", href: "/#work" },
   { label: "Resume", href: "/resume" },
@@ -574,7 +573,7 @@ export const shareCards = {
     title: resume.metaTitle,
     description: resume.metaDescription,
     image: "/share/resume.png",
-    imageAlt: `${settledFrameAlt} Captioned "Resume".`,
+    imageAlt: `${settledFrameAlt} Captioned "${resume.heading}".`,
     caption: { title: resume.heading },
   },
   "juice-bros": {
@@ -590,14 +589,14 @@ export const shareCards = {
 /**
  * The quieter world behind every route but home: stills of the valley, drawn
  * by scripts/share-stills.mjs, landscape up to a 4K screen and portrait for
- * phones.
+ * phones and tablets.
  */
 export const backdrop = {
   landscape: [1280, 1920, 2560, 3840].map((width) => ({
     src: `/world/backdrop-${width}.webp`,
     width,
   })),
-  portrait: [645, 1290].map((width) => ({
+  portrait: [645, 1290, 2048].map((width) => ({
     src: `/world/backdrop-portrait-${width}.webp`,
     width,
   })),

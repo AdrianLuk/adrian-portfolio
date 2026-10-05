@@ -5,7 +5,8 @@
 //   their own title to the same frame.
 // - public/world/backdrop-*.webp: the quieter night behind every route but
 //   home, the valley as the scroll route sees it past the plate. Landscape up
-//   to 3840 wide (2560 at 1.5x, a 4K screen at 1x) and portrait for phones.
+//   to 3840 wide (2560 at 1.5x, a 4K screen at 1x) and portrait for phones
+//   and tablets (2048 wide, a portrait iPad at 2x).
 //
 // Run against the production build, on a machine with a GPU:
 //
@@ -120,7 +121,7 @@ async function backdropStills(browser) {
   mkdirSync("public/world", { recursive: true });
   const shots = [
     { viewport: { width: 2560, height: 1440 }, sizes: backdrop.landscape },
-    { viewport: { width: 860, height: 1864 }, sizes: backdrop.portrait },
+    { viewport: { width: 1366, height: 2960 }, sizes: backdrop.portrait },
   ];
   for (const { viewport, sizes } of shots) {
     const page = await openHome(browser, { viewport, motion: true });

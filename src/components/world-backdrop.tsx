@@ -35,7 +35,7 @@ const MOTES = (() => {
 /**
  * The quieter night behind every route but home: a still of the valley,
  * dimmed so the page reads over it, with motes drifting across (none under
- * reduced motion, where the still's own motes stand as scenery). Held fixed
+ * reduced motion, where the still stands alone). Held fixed
  * behind the page: its parent sets the stacking context it sits at the back
  * of, over the body's sky.
  */

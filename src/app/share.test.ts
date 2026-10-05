@@ -105,7 +105,7 @@ describe("link previews", () => {
 });
 
 describe("the night backdrop", () => {
-  it("has landscape stills up to 3840 wide (2560 at 1.5x, a 4K TV at 1x) and portrait ones for phones", () => {
+  it("has landscape stills up to 3840 wide (2560 at 1.5x, a 4K TV at 1x) and portrait ones for phones and tablets", () => {
     for (const still of [...backdrop.landscape, ...backdrop.portrait]) {
       expect(webpSize(publicFile(still.src)).width, still.src).toBe(still.width);
     }
@@ -115,7 +115,7 @@ describe("the night backdrop", () => {
       expect(size.width / size.height).toBeCloseTo(16 / 9, 1);
     }
     const portrait = backdrop.portrait.map((s) => webpSize(publicFile(s.src)));
-    expect(Math.max(...portrait.map((s) => s.width))).toBeGreaterThanOrEqual(1290);
+    expect(Math.max(...portrait.map((s) => s.width))).toBeGreaterThanOrEqual(2048);
     for (const size of portrait) expect(size.height).toBeGreaterThan(size.width);
   });
 });
