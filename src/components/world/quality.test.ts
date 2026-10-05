@@ -62,4 +62,19 @@ describe("plateFinishFor", () => {
     expect(lite.clearcoat).toBe(0);
     expect(lite.iridescence).toBe(0);
   });
+
+  it("rounds the letters' curves and chamfer finer on the full tier", () => {
+    // The camera ends close on the plate, where the lite counts facet.
+    const full = plateFinishFor("full");
+    const lite = plateFinishFor("lite");
+    expect(full.curveSegments).toBeGreaterThanOrEqual(2 * lite.curveSegments);
+    expect(full.bevelSegments).toBeGreaterThan(lite.bevelSegments);
+  });
+
+  it("keeps the lite tier's cheaper counts", () => {
+    expect(plateFinishFor("lite")).toMatchObject({
+      curveSegments: 6,
+      bevelSegments: 3,
+    });
+  });
 });

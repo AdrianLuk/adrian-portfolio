@@ -21,7 +21,7 @@ import { nameGlyphs } from "./name-glyphs";
 import { fogUniforms, palette } from "./palette";
 import type { WordFit } from "./plate-fit";
 import { CAMERA } from "./pose";
-import type { plateFinishFor } from "./quality";
+import type { PlateFinish } from "./quality";
 import type { SharedUniforms } from "./shared";
 import { valleyHeight } from "./terrain";
 
@@ -53,6 +53,32 @@ export function outlineToShapes(outline: string) {
     }
   }
   return path.toShapes();
+}
+
+/**
+ * One word of the plate, extruded with its chamfer, the face toward the
+ * camera at z = 0. The tier's segment counts set how finely its curves and
+ * chamfer are rounded.
+ */
+export function wordGeometry(
+  outline: string,
+  {
+    curveSegments,
+    bevelSegments,
+  }: Pick<PlateFinish, "curveSegments" | "bevelSegments">,
+) {
+  const geometry = new ExtrudeGeometry(outlineToShapes(outline), {
+    depth: EXTRUDE.depth,
+    bevelEnabled: true,
+    bevelThickness: EXTRUDE.bevel,
+    bevelSize: EXTRUDE.bevel,
+    bevelSegments,
+    curveSegments,
+  });
+  // The face toward the camera is the extrusion's far cap: bring it to z = 0.
+  geometry.translate(0, 0, -(EXTRUDE.depth + EXTRUDE.bevel));
+  smoothFlanks(geometry);
+  return geometry;
 }
 
 function createBeam(
@@ -153,7 +179,7 @@ export function createNamePlate(
   }: {
     /** The baked night environment, or null on the lite tier. */
     envMap: Texture | null;
-    finish: ReturnType<typeof plateFinishFor>;
+    finish: PlateFinish;
   },
 ) {
   const group = new Group();
@@ -283,17 +309,7 @@ export function createNamePlate(
 
   const words = new Map<string, Mesh>();
   for (const [text, word] of Object.entries(nameGlyphs.words)) {
-    const geometry = new ExtrudeGeometry(outlineToShapes(word.outline), {
-      depth: EXTRUDE.depth,
-      bevelEnabled: true,
-      bevelThickness: EXTRUDE.bevel,
-      bevelSize: EXTRUDE.bevel,
-      bevelSegments: 3,
-      curveSegments: 6,
-    });
-    // The face toward the camera is the extrusion's far cap: bring it to z = 0.
-    geometry.translate(0, 0, -(EXTRUDE.depth + EXTRUDE.bevel));
-    smoothFlanks(geometry);
+    const geometry = wordGeometry(word.outline, finish);
     const mesh = new Mesh(geometry, [cap, sides]);
     mesh.visible = false;
     words.set(text, mesh);
