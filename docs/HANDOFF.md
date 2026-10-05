@@ -34,7 +34,7 @@ The source of truth for the site's scope, locked decisions and content-accuracy 
   - Content is readable immediately and never waits on an animation.
   - No scroll-jacking: native scroll speed, no snapping. Pinning is allowed only inside the Case study.
   - `prefers-reduced-motion` gets a fully static version that's just as good.
-  - No layout shift. Mobile LCP is reported, not gated (revised 2026-10-03): the opening's title cards are big type that paints seconds in, by design, so they become the LCP. The experience was chosen over the number.
+  - No layout shift. The home page's mobile LCP is reported, not gated (revised 2026-10-03): the opening's title cards are big type that paints seconds in, by design, so they become the LCP. The experience was chosen over the number. The Case study and Resume page are gated at 2.5s (2026-10-05).
   - Time-boxed so motion doesn't delay launch by more than a few days.
 
   - **Opening:** a first-person flight down a valley of lit ridges and structures, the camera banking left and right with the terrain (fighter-jet style), the name plate glowing dead centre ahead, then arrival; 5 to 6s, skippable, with the full name in the nav bar from the first frame. The name plate is a monumental extruded 3D letterform that the camera arrives at, turns in and settles frontal on (the 20th Century Fox arrival as the device, none of its fanfare, plinth or composition), with the DOM H1 matching its final pose. No post-processing bloom; glow comes from emissive materials and light sprites. During it, four self-aware opening credits appear as cards in the world (Deadpool-style fourth-wall titles; the device only, never the film's lines or marks). The credits are the only humour on the home page until one bookend on the contact line; no credits along the scroll, and the Highlights are played straight.
@@ -55,6 +55,7 @@ The source of truth for the site's scope, locked decisions and content-accuracy 
 - `middleware.ts` is renamed `proxy.ts` in Next 16. The portfolio shouldn't need it.
 - GSAP and motion sections are client components; everything else stays a server component. Respect `prefers-reduced-motion`.
 - Accessibility bar: axe-clean, keyboard navigable, visible focus.
+- Lighthouse CI (`lighthouserc.json`, run in the `checks` job) audits home, the Case study and the Resume page at a mobile profile, three runs each. It fails the build on any layout shift or an accessibility score under 100 on any of them, and on a median LCP over 2.5s on the Case study or Resume page; home's LCP only warns. Three.js and GSAP load after the first paint: the hero imports only `src/components/world/rigs.ts` (plain data) up front, and `e2e/performance.spec.ts` fails if either library is asked for before it.
 - The link previews (`public/share/`) and the night backdrop behind every route but home (`public/world/`) are stills of the world, photographed by `scripts/share-stills.mjs` against the production build. Re-run it whenever the world or a share card changes.
 - Past a 1920px screen the root font size grows at half the viewport's rate (24px at 3840 wide), so the hero's name and copy hold the frame on large monitors and TVs.
 

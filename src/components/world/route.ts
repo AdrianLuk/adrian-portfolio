@@ -2,6 +2,7 @@ import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import type { HighlightId } from "@/content/site";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
+import { SITE_PLAN } from "./rigs";
 import { valleyCentre, valleyHeight } from "./terrain";
 
 /**
@@ -52,18 +53,10 @@ function site(
   };
 }
 
-/**
- * The four lit sites, in the Highlights' order, alternating sides of the
- * valley: on a wide screen the panels alternate left and right, so each site
- * stands on the side its panel leaves clear. The first is the light on the
- * horizon once the camera settles.
- */
-export const SITES: readonly Site[] = [
-  site("control-d", -420, 1, "cyan"),
-  site("life-house", -600, -1, "cyan"),
-  site("juice-bros", -780, 1, "violet"),
-  site("bt-cup", -960, -1, "cyan"),
-];
+/** The four lit sites, from their plan in ./rigs. */
+export const SITES: readonly Site[] = SITE_PLAN.map((s) =>
+  site(s.highlight, s.z, s.side, s.light),
+);
 
 /** The outpost at the route's end, on the valley's centre line. */
 export const OUTPOST = above(-1130, 14);
@@ -71,13 +64,7 @@ export const OUTPOST = above(-1130, 14);
 /** Stops along the route: the settled view, each site, the outpost. */
 export const ROUTE_STOPS = SITES.length + 2;
 
-/**
- * What the scroll drives. at: the stop the camera is at (0, the settled view,
- * until the visitor scrolls); lit: how lit each site is, 0 to 1.
- */
-export type RouteRig = { at: number; lit: number[] };
-
-export const routeRig = (): RouteRig => ({ at: 0, lit: SITES.map(() => 0) });
+export { routeRig, type RouteRig } from "./rigs";
 
 /** How far short of a site the camera stops to frame it. */
 const STOP_LEAD = 80;

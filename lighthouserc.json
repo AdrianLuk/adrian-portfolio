@@ -4,10 +4,13 @@
       "startServerCommand": "npm run start -- --port 3200",
       "startServerReadyPattern": "Ready",
       "url": [
-        "http://localhost:3200/"
+        "http://localhost:3200/",
+        "http://localhost:3200/work/juice-bros",
+        "http://localhost:3200/resume"
       ],
-      "numberOfRuns": 1,
+      "numberOfRuns": 3,
       "settings": {
+        "formFactor": "mobile",
         "throttlingMethod": "devtools",
         "onlyCategories": [
           "performance",
@@ -16,29 +19,51 @@
       }
     },
     "assert": {
-      "assertions": {
-        "largest-contentful-paint": [
-          "warn",
-          {
-            "maxNumericValue": 2500,
-            "aggregationMethod": "median-run"
+      "assertMatrix": [
+        {
+          "matchingUrlPattern": ".*",
+          "assertions": {
+            "cumulative-layout-shift": [
+              "error",
+              {
+                "maxNumericValue": 0,
+                "aggregationMethod": "pessimistic"
+              }
+            ],
+            "categories:accessibility": [
+              "error",
+              {
+                "minScore": 1,
+                "aggregationMethod": "pessimistic"
+              }
+            ]
           }
-        ],
-        "cumulative-layout-shift": [
-          "error",
-          {
-            "maxNumericValue": 0,
-            "aggregationMethod": "pessimistic"
+        },
+        {
+          "matchingUrlPattern": "/(work/[^/]+|resume)$",
+          "assertions": {
+            "largest-contentful-paint": [
+              "error",
+              {
+                "maxNumericValue": 2500,
+                "aggregationMethod": "median-run"
+              }
+            ]
           }
-        ],
-        "categories:accessibility": [
-          "error",
-          {
-            "minScore": 1,
-            "aggregationMethod": "median-run"
+        },
+        {
+          "matchingUrlPattern": ":3200/$",
+          "assertions": {
+            "largest-contentful-paint": [
+              "warn",
+              {
+                "maxNumericValue": 2500,
+                "aggregationMethod": "median-run"
+              }
+            ]
           }
-        ]
-      }
+        }
+      ]
     },
     "upload": {
       "target": "filesystem",

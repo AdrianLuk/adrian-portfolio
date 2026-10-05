@@ -9,9 +9,15 @@ import {
   type ReactNode,
 } from "react";
 import type { ScrollRoute } from "./scroll-route";
-import { FLIGHT_START_RIG, SETTLED_RIG, type FlightRig } from "./world/flight";
 import { highlightAnchor } from "@/content/site";
-import { routeRig, SITES } from "./world/route";
+// Plain data only: Three.js and GSAP load after the first paint.
+import {
+  FLIGHT_START_RIG,
+  routeRig,
+  SETTLED_RIG,
+  SITE_PLAN,
+  type FlightRig,
+} from "./world/rigs";
 import type { CreditPlacement, Measurement, World } from "./world/scene";
 
 /**
@@ -181,6 +187,8 @@ export function HeroWorld({
     /** True from asking for the scroll route until it is stopped. */
     let routing = false;
     let flying = false;
+    /** True once the hero has landed, for good: the flight never replays. */
+    let hasLanded = false;
     let cancelled = false;
 
     function placeCredits() {
@@ -210,6 +218,7 @@ export function HeroWorld({
 
     /** Lands on the settled pose, whether the flight ran out or was skipped. */
     function land() {
+      hasLanded = true;
       flying = false;
       Object.assign(rig, SETTLED_RIG);
       setLanded(true);
@@ -233,7 +242,7 @@ export function HeroWorld({
       scrollRoute = createScrollRoute({
         route,
         // Each site's own panel, by its Highlight.
-        panels: SITES.map((site) =>
+        panels: SITE_PLAN.map((site) =>
           document.getElementById(highlightAnchor(site.highlight)),
         ).filter((el) => el !== null),
         locateSite: () => world?.placeSite ?? null,
@@ -349,12 +358,16 @@ export function HeroWorld({
     };
     reduced.addEventListener("change", onPreference);
 
-    if (!reduced.matches) fly();
-
-    // A frame callback runs just before the next paint; the task it queues runs after it.
+    // A frame callback runs just before the next paint; the task it queues
+    // runs after it. Both the flight's timeline and the world load from there,
+    // so neither library holds up the first paint. A preference changed in
+    // the meantime has already landed the hero: then there's no flight.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const frame = requestAnimationFrame(() => {
-      timer = setTimeout(start, 0);
+      timer = setTimeout(() => {
+        if (!reduced.matches && !hasLanded) fly();
+        start();
+      }, 0);
     });
 
     return () => {

@@ -5,6 +5,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
+import { FLIGHT_TIMING, type FlightRig } from "./rigs";
 import { valleyCentre, valleyHeight } from "./terrain";
 
 /**
@@ -21,43 +22,12 @@ import { valleyCentre, valleyHeight } from "./terrain";
 
 export type Pose = { position: Vector3; quaternion: Quaternion };
 
-/**
- * What the timeline animates. flight runs 0 to 1 at a constant speed down the
- * canyon, turn 0 to 1 round the turn-in arc (easing out to rest), settle 0 to
- * 1 from the plate-centred view to the settled framing. beams, sweep and
- * beacon light the arrival: the beams' brightness (1 at rest), the angle their
- * sweep is offset by, and the first lit site's glow at the horizon.
- */
-export type FlightRig = {
-  flight: number;
-  turn: number;
-  settle: number;
-  beams: number;
-  sweep: number;
-  beacon: number;
-};
-
-/** Where the flight starts: far down the canyon, beams low, the site dark. */
-export const FLIGHT_START_RIG: Readonly<FlightRig> = {
-  flight: 0,
-  turn: 0,
-  settle: 0,
-  beams: 0.45,
-  sweep: 1,
-  beacon: 0,
-};
-
-export const SETTLED_RIG: Readonly<FlightRig> = {
-  flight: 1,
-  turn: 1,
-  settle: 1,
-  beams: 1,
-  sweep: 0,
-  beacon: 1,
-};
-
-/** Seconds; the timeline's flight runs linearly, its turn eases out (power2). */
-export const FLIGHT_TIMING = { flight: 3.6, turn: 1.9 } as const;
+export {
+  FLIGHT_START_RIG,
+  FLIGHT_TIMING,
+  SETTLED_RIG,
+  type FlightRig,
+} from "./rigs";
 
 /** How far round the turn-in starts from the final view, in radians. */
 export const TURN_IN = (40 * Math.PI) / 180;
