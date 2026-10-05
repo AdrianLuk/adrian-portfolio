@@ -49,3 +49,5 @@ export function plateFinishFor(tier: Tier) {
         bevelSegments: 3,
       };
 }
+
+export type PlateFinish = ReturnType<typeof plateFinishFor>;

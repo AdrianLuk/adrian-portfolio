@@ -21,7 +21,7 @@ import { nameGlyphs } from "./name-glyphs";
 import { fogUniforms, palette } from "./palette";
 import type { WordFit } from "./plate-fit";
 import { CAMERA } from "./pose";
-import type { plateFinishFor } from "./quality";
+import type { PlateFinish } from "./quality";
 import type { SharedUniforms } from "./shared";
 import { valleyHeight } from "./terrain";
 
@@ -65,7 +65,7 @@ export function wordGeometry(
   {
     curveSegments,
     bevelSegments,
-  }: Pick<ReturnType<typeof plateFinishFor>, "curveSegments" | "bevelSegments">,
+  }: Pick<PlateFinish, "curveSegments" | "bevelSegments">,
 ) {
   const geometry = new ExtrudeGeometry(outlineToShapes(outline), {
     depth: EXTRUDE.depth,
@@ -179,7 +179,7 @@ export function createNamePlate(
   }: {
     /** The baked night environment, or null on the lite tier. */
     envMap: Texture | null;
-    finish: ReturnType<typeof plateFinishFor>;
+    finish: PlateFinish;
   },
 ) {
   const group = new Group();

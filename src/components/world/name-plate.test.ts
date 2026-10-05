@@ -1,3 +1,4 @@
+import { QuadraticBezierCurve } from "three";
 import { describe, expect, it } from "vitest";
 import { person } from "../../content/site";
 import { nameGlyphs } from "./name-glyphs";
@@ -39,25 +40,25 @@ function plateTriangles(tier: Tier) {
 }
 
 /**
- * The most any chord turns, in degrees: each quadratic in the outline turns
- * from its first tangent to its last, split evenly over its segments.
+ * The most any chord of the outline's curves turns from the one before it, in
+ * degrees: each quadratic sampled at its segments, as three.js extrudes it.
  */
 function steepestChord(outline: string, curveSegments: number) {
-  const t = outline.split(" ");
-  let at = { x: 0, y: 0 };
   let steepest = 0;
-  for (let i = 0; i < t.length; ) {
-    const op = t[i++];
-    if (op === "m" || op === "l") at = { x: +t[i++], y: +t[i++] };
-    else if (op === "q") {
-      const c = { x: +t[i++], y: +t[i++] };
-      const end = { x: +t[i++], y: +t[i++] };
-      const a = Math.atan2(c.y - at.y, c.x - at.x);
-      const b = Math.atan2(end.y - c.y, end.x - c.x);
-      let turn = Math.abs(b - a);
-      if (turn > Math.PI) turn = 2 * Math.PI - turn;
-      steepest = Math.max(steepest, (turn * 180) / Math.PI / curveSegments);
-      at = end;
+  for (const shape of outlineToShapes(outline)) {
+    for (const path of [shape, ...shape.holes]) {
+      for (const curve of path.curves) {
+        if (!(curve instanceof QuadraticBezierCurve)) continue;
+        const points = curve.getPoints(curveSegments);
+        for (let i = 2; i < points.length; i++) {
+          const before = points[i - 1].clone().sub(points[i - 2]);
+          const after = points[i].clone().sub(points[i - 1]);
+          const turn = Math.abs(
+            Math.atan2(before.cross(after), before.dot(after)),
+          );
+          steepest = Math.max(steepest, (turn * 180) / Math.PI);
+        }
+      }
     }
   }
   return steepest;
@@ -68,16 +69,24 @@ describe("wordGeometry", () => {
     expect(plateTriangles("lite")).toBe(3564);
   });
 
-  it("smooths the full plate within a small budget (the scene is ~67,000)", () => {
-    const full = plateTriangles("full");
-    expect(full).toBeGreaterThan(plateTriangles("lite"));
-    expect(full).toBeLessThanOrEqual(16_000);
+  it("smooths the full plate in 12,972 triangles (the scene is ~118,000)", () => {
+    expect(plateTriangles("full")).toBe(12_972);
   });
 
-  it("turns no chord of the full plate's curves by more than 6 degrees", () => {
+  it("turns no chord of the full plate's curves by more than 5 degrees", () => {
     const { curveSegments } = plateFinishFor("full");
     for (const word of Object.values(nameGlyphs.words)) {
-      expect(steepestChord(word.outline, curveSegments)).toBeLessThanOrEqual(6);
+      expect(steepestChord(word.outline, curveSegments)).toBeLessThanOrEqual(5);
     }
+  });
+
+  it("turns the lite plate's chords further, which is why large screens get the full one", () => {
+    const { curveSegments } = plateFinishFor("lite");
+    const steepest = Math.max(
+      ...Object.values(nameGlyphs.words).map((w) =>
+        steepestChord(w.outline, curveSegments),
+      ),
+    );
+    expect(steepest).toBeGreaterThan(5);
   });
 });
