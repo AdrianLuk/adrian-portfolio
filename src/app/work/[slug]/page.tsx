@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Recording } from "@/components/recording";
 import { WorldBackdrop } from "@/components/world-backdrop";
@@ -137,9 +138,15 @@ export default async function CaseStudyPage({
         <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-lg">
           {siteLinks.map((link) => (
             <li key={link.href}>
-              <a href={link.href} className={linkClass}>
-                {link.label}
-              </a>
+              {link.href.startsWith("/") ? (
+                <Link href={link.href} className={linkClass}>
+                  {link.label}
+                </Link>
+              ) : (
+                <a href={link.href} className={linkClass}>
+                  {link.label}
+                </a>
+              )}
             </li>
           ))}
         </ul>

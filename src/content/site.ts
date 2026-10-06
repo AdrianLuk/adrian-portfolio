@@ -76,6 +76,8 @@ export type Highlight = {
   /** Two verified numbers; Juice Bros has none (no stable figures, and usage numbers are never claimed). */
   keyNumbers: readonly [] | readonly [KeyNumber, KeyNumber];
   link: HighlightLink;
+  /** A plain link under `link`. Only Juice Bros has one: its court's Rally game. */
+  secondLink?: { label: string; href: string };
 };
 
 export type Role = {
@@ -159,6 +161,9 @@ export const work = { heading: "Work" } as const;
 
 const mediaBase = "/case-studies/juice-bros";
 
+/** Into the Rally game, from the Juice Bros Highlight and Case study. Plain: the jokes stay inside the game. */
+export const rallyLink = { label: "Play a rally on the court", href: "/play" } as const;
+
 export const caseStudies = [
   {
     slug: "juice-bros",
@@ -210,6 +215,7 @@ export const caseStudies = [
         label: "Read the juice-bros source on GitHub",
         href: "https://github.com/AdrianLuk/juice-bros",
       },
+      rallyLink,
       {
         label: "Open Booking Buddy",
         href: "https://juicebrospickleball.com/booking-buddy",
@@ -393,6 +399,7 @@ export const highlights = [
       "I'm the sole engineer on Juice Bros, a pickleball media brand. I scoped a deliberately tight MVP, chose the stack (Next.js App Router, TypeScript, Tailwind, shadcn/ui, Vercel), modeled content as typed data so the site could grow without a CMS, and integrated the podcast's YouTube feed and a Beehiiv newsletter. On top of that I built a suite of free web tools for pickleball players.",
     keyNumbers: [],
     link: { kind: "case-study", slug: "juice-bros" },
+    secondLink: rallyLink,
   },
   {
     id: "bt-cup",

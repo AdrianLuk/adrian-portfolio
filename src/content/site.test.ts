@@ -51,6 +51,15 @@ describe("Highlights", () => {
     );
   });
 
+  it("give Juice Bros, and only Juice Bros, a second link: to the Rally game", () => {
+    const withSecond = highlights.filter((h) => "secondLink" in h);
+    expect(withSecond.map((h) => h.id)).toEqual(["juice-bros"]);
+    expect(withSecond[0].secondLink).toEqual({
+      label: "Play a rally on the court",
+      href: "/play",
+    });
+  });
+
   it("anchor each panel by its id, and 'See the work' goes to the first", () => {
     expect(highlightAnchor("control-d")).toBe("highlight-control-d");
     expect(site.hero.primaryAction.href).toBe(
@@ -177,6 +186,13 @@ describe("Juice Bros Case study", () => {
     expect(new Set(study.links.map((l) => l.label)).size).toBe(
       study.links.length,
     );
+  });
+
+  it("links to the Rally game on its court, with the Highlight's wording", () => {
+    expect(study.links).toContainEqual({
+      label: "Play a rally on the court",
+      href: "/play",
+    });
   });
 
   it("covers the current Player tools without counting them", () => {

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { rally } from "../src/content/site";
+import { highlightAnchor, rally, rallyLink } from "../src/content/site";
 import { heroRoot, SCENE_TIMEOUT } from "./hero";
 
 const { game: copy } = rally;
@@ -165,7 +165,7 @@ test.describe("under reduced motion", () => {
   });
 });
 
-test("the home page never asks for the game's code", async ({
+test("the home page never asks for the game's code, even with its link on screen", async ({
   page,
   request,
 }) => {
@@ -173,6 +173,14 @@ test("the home page never asks for the game's code", async ({
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });
+  // A link in view is prefetched, code and all, unless it opts out; Next
+  // starts it a beat after the page goes quiet.
+  await page
+    .locator(`#${highlightAnchor("juice-bros")}`)
+    .getByRole("link", { name: rallyLink.label })
+    .scrollIntoViewIfNeeded();
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(1_000);
   const scripts = await page.evaluate(() =>
     performance
       .getEntriesByType("resource")
