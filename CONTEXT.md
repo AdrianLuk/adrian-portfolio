@@ -16,6 +16,14 @@ _Avoid_: Work item, project page, portfolio piece
 A short entry on the home page for one Project: a verified paragraph and key numbers. It links to the Project's Case study if it has one, otherwise to its Role on the Resume page.
 _Avoid_: Card, teaser, work item
 
+**Lit site**:
+The place in the home page's world where one Highlight's Project stands, which the scroll route stops beside and lights as its Highlight's panel enters. Four, in Highlight order.
+_Avoid_: Stop, beacon, mast
+
+**Landmark**:
+The light structure at a Lit site that shows its Project: Control D's shielded gate, Life House's hotel tower, Juice Bros' pickleball court, BT Cup's stadium bowl. Built from light, recognisable by its silhouette, and carrying its site's light.
+_Avoid_: Model, building, monument
+
 **Role**:
 A position Adrian held, with company, title and dates, such as Senior Software Engineer at Control D (Windscribe). A Role can include several Projects.
 _Avoid_: Job, position, experience entry

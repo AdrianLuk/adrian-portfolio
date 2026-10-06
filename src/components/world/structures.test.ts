@@ -4,7 +4,7 @@ import { createFlightPath } from "./flight";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { FOG_DENSITY } from "./palette";
 import { CAMERA } from "./pose";
-import { createRoute, ROUTE_STOPS } from "./route";
+import { createRoute, ROUTE_STOPS, SITES } from "./route";
 import { HERO_SIGHT, layoutStructures, type Box } from "./structures";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 
@@ -81,10 +81,11 @@ const {
   darkBuildings,
   district,
   masts,
+  landmarks,
   skyline,
 } = layoutStructures();
 const buildings = [...lit, ...darkBuildings];
-const towers = [...buildings, ...masts, ...skyline.bounds];
+const towers = [...buildings, ...masts, ...landmarks.parts, ...skyline.bounds];
 const { cnTower } = skyline;
 
 describe("the city", () => {
@@ -102,9 +103,48 @@ describe("the city", () => {
 
   it("is topped by the CN Tower: no building stands taller from its foot", () => {
     const height = cnTower.tip - cnTower.foot;
-    for (const b of [...buildings, ...skyline.towers, ...skyline.darkTowers]) {
+    for (const b of [
+      ...buildings,
+      ...landmarks.bounds,
+      ...skyline.towers,
+      ...skyline.darkTowers,
+    ]) {
       expect(b.h).toBeLessThan(height);
     }
+  });
+
+  it("raises a landmark at each lit site, not a mast", () => {
+    expect(landmarks.bounds).toHaveLength(SITES.length);
+    for (const site of SITES) {
+      const { x, z } = site.position;
+      for (const mast of masts) {
+        expect(Math.hypot(mast.x - x, mast.z - z)).toBeGreaterThan(10);
+      }
+    }
+  });
+
+  it("keeps every landmark clear of the city, the gates and the skyline", () => {
+    const overlaps = (a: Box, b: Box) =>
+      Math.abs(a.x - b.x) < (a.w + b.w) / 2 &&
+      Math.abs(a.y - b.y) < (a.h + b.h) / 2 &&
+      Math.abs(a.z - b.z) < (a.d + b.d) / 2;
+    for (const landmark of landmarks.bounds) {
+      for (const other of [...buildings, ...masts, ...skyline.bounds]) {
+        expect(overlaps(landmark, other)).toBe(false);
+      }
+    }
+  });
+
+  it("carries each site's light at the top of its landmark", () => {
+    SITES.forEach((site, i) => {
+      const b = landmarks.bounds[i];
+      const light = site.position;
+      expect(Math.abs(light.x - b.x)).toBeLessThan(b.w / 2);
+      expect(Math.abs(light.z - b.z)).toBeLessThan(b.d / 2);
+      const top = b.y + b.h / 2;
+      expect(light.y, site.highlight).toBeGreaterThan(top - 4);
+      expect(light.y, site.highlight).toBeLessThan(top + 2);
+    });
   });
 
   for (const [name, { settled, plateCentre, aspect }] of Object.entries(
@@ -118,7 +158,7 @@ describe("the city", () => {
         const inSight = (b: Box) =>
           b.z < eye.z - 100 &&
           Math.hypot(b.x - eye.x, b.z - eye.z) < HERO_SIGHT;
-        for (const b of buildings.filter(inSight)) {
+        for (const b of [...buildings, ...landmarks.parts].filter(inSight)) {
           const dx = b.x - eye.x;
           const dz = b.z - eye.z;
           const distance = Math.hypot(dx, dz);
@@ -155,6 +195,7 @@ describe("the city", () => {
         }
         for (const b of [
           ...buildings,
+          ...landmarks.parts,
           ...skyline.towers,
           ...skyline.darkTowers,
         ]) {

@@ -10,9 +10,11 @@ import {
 } from "three";
 import type { Glow } from "./glow-points";
 import type { Pool } from "./ground-pools";
+import { createBalls, createTrophies, layoutLandmarks } from "./landmarks";
 import { seededRandom } from "./noise";
 import { FOG_DENSITY, fogChunk, fogUniforms, MOON, palette } from "./palette";
 import { OUTPOST, SITES } from "./route";
+import type { SharedUniforms } from "./shared";
 import {
   createSkylineMeshes,
   DOWNTOWN,
@@ -26,6 +28,8 @@ import {
   valleyHeight,
   WORLD_BACK,
 } from "./terrain";
+import { createPortals, createShields } from "./shield";
+import { createVeils } from "./veil";
 
 export type { Box };
 
@@ -148,8 +152,9 @@ function bodyMaterial({ windows = false, dark = false, haze = 1 } = {}) {
  * of tall, wide towers along the valley's walls and down the opening's
  * canyon, windowed and lit from within, kept under the mountains; Toronto's
  * skyline on the right-hand wall (skyline.ts), which the city makes way for;
- * a financial district at the outpost, where the route ends; slim light masts
- * at the lit sites and two gates; and runway lights down the floor. Each emitter also throws a pool of light onto the
+ * a financial district at the outpost, where the route ends; a landmark at
+ * each lit site (landmarks.ts); slim light masts at the two gates; and runway
+ * lights down the floor. Each emitter also throws a pool of light onto the
  * ground at its foot.
  */
 export function layoutStructures() {
@@ -165,6 +170,14 @@ export function layoutStructures() {
   const glows: Glow[] = [];
   const pools: Pool[] = [];
   const lightOf = () => (random() < 0.62 ? palette.cyan : palette.violet);
+  const landmarks = layoutLandmarks();
+  /** True if a w by d footprint at (x, z) meets a landmark's, with a gap. */
+  const onLandmark = (x: number, z: number, w: number, d: number) =>
+    landmarks.bounds.some(
+      (b) =>
+        Math.abs(x - b.x) < (w + b.w) / 2 + 2 &&
+        Math.abs(z - b.z) < (d + b.d) / 2 + 2,
+    );
 
   function tower(
     x: number,
@@ -250,8 +263,8 @@ export function layoutStructures() {
 
   // The city along both walls, from just behind the plate to the far end:
   // wide and deep, one in five a tall one, every one under the ridge behind,
-  // making way for downtown. (Its draws are made either way, so the rest of
-  // the city stands where it did.)
+  // making way for downtown and the landmarks. (Its draws are made either
+  // way, so the rest of the city stands where it did.)
   for (let i = 0; i < 46; i++) {
     const z = -110 - i * 19 - random() * 12;
     const side = i % 2 === 0 ? -1 : 1;
@@ -264,7 +277,7 @@ export function layoutStructures() {
     const depth = 5 + random() * 7;
     const downtown =
       side === DOWNTOWN.side && z < DOWNTOWN.near && z > DOWNTOWN.far;
-    if (downtown) continue;
+    if (downtown || onLandmark(x, z, width, depth)) continue;
     tower(x, z, height, width, -side, light, { depth, underRidge: true });
   }
 
@@ -331,15 +344,13 @@ export function layoutStructures() {
     }
   }
 
-  // The scroll route's lit sites: a tall mast at each, its light at the top
-  // (the scene brightens it as the site's panel enters). Last, so the random
-  // draws above are unchanged.
+  // The scroll route's lit sites: a landmark at each, carrying the site's
+  // light (the scene brightens it as the site's panel enters), and a pool of
+  // that light round it.
   for (const site of SITES) {
-    const { x, y, z } = site.position;
-    const light = palette[site.light];
-    const ground = valleyHeight(x, z);
-    tower(x, z, y - ground - 2.5, 3.4, -site.side, light);
-    pools.push({ x, y: ground, z, width: 34, depth: 60, color: light });
+    const { x, z } = site.position;
+    const y = valleyHeight(x, z);
+    pools.push({ x, y, z, width: 34, depth: 60, color: palette[site.light] });
   }
 
   // The outpost at the route's end: a financial district on the valley floor
@@ -413,30 +424,42 @@ export function layoutStructures() {
     district,
     masts,
     bands,
-    glows: [...glows, ...skyline.glows],
+    landmarks,
+    glows: [...glows, ...landmarks.glows, ...skyline.glows],
     pools: [...pools, ...skyline.pools],
     skyline,
   };
 }
 
-/** The structures as meshes, one instanced draw per kind of box. */
-export function createStructures() {
-  const { buildings, darkBuildings, masts, bands, glows, pools, skyline } =
-    layoutStructures();
+/**
+ * The structures as meshes, one instanced draw per kind of box; the
+ * landmarks' shields and trophies move with the world's clock.
+ */
+export function createStructures(shared: SharedUniforms) {
+  const {
+    buildings,
+    darkBuildings,
+    masts,
+    bands,
+    landmarks,
+    glows,
+    pools,
+    skyline,
+  } = layoutStructures();
   const geometry = new BoxGeometry(1, 1, 1);
   const m = new Matrix4();
   const q = new Quaternion();
   const meshes = (
     [
-      [bodyMaterial({ windows: true }), buildings],
+      [bodyMaterial({ windows: true }), [...buildings, ...landmarks.rooms]],
       [bodyMaterial({ windows: true, dark: true }), darkBuildings],
       [bodyMaterial({ windows: true, haze: HAZE }), skyline.towers],
       [
         bodyMaterial({ windows: true, dark: true, haze: HAZE }),
         skyline.darkTowers,
       ],
-      [bodyMaterial(), masts],
-      [new MeshBasicMaterial(), bands],
+      [bodyMaterial(), [...masts, ...landmarks.bodies]],
+      [new MeshBasicMaterial(), [...bands, ...landmarks.bands]],
     ] as const
   ).map(([material, boxes]) => {
     const mesh = new InstancedMesh(geometry, material, boxes.length);
@@ -455,6 +478,15 @@ export function createStructures() {
     meshes: [
       ...meshes,
       ...createSkylineMeshes(skyline.solids, skyline.rings, WINDOW_LIGHT),
+      ...createSkylineMeshes(landmarks.solids, landmarks.rings, WINDOW_LIGHT, {
+        haze: 1,
+        insideRings: true,
+      }),
+      createVeils(landmarks.veils),
+      createShields(landmarks.shields, shared),
+      createPortals(landmarks.portals),
+      ...createTrophies(landmarks.trophies, shared),
+      ...createBalls(landmarks.balls),
     ],
     glows,
     pools,

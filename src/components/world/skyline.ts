@@ -2,11 +2,15 @@ import {
   BufferGeometry,
   Color,
   CylinderGeometry,
+  DoubleSide,
   Float32BufferAttribute,
+  FrontSide,
+  LatheGeometry,
   Mesh,
   MeshBasicMaterial,
   ShaderMaterial,
   SphereGeometry,
+  Vector2,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Glow } from "./glow-points";
@@ -22,7 +26,8 @@ import { valleyCentre, valleyHeight } from "./terrain";
  * Rogers Centre's dome on the left, the CN Tower beside it, the tallest thing
  * in the world and the one thing that rises over the mountains, and the
  * financial core to the right (TD Centre's dark slabs, Scotia Plaza's
- * stepped crown, First Canadian Place). Scaled like a postcard, not a map.
+ * stepped crown, First Canadian Place) with the Royal York's copper roofs in
+ * front of it. Scaled like a postcard, not a map.
  */
 
 /** A box, as the city's buildings are. */
@@ -37,12 +42,13 @@ export type Box = {
 };
 
 /**
- * A round solid standing on its base: a cylinder or cone (a frustum), or a
- * shallow dome. `windows` lays the city's lit windows on it; `wash` floods it
- * with its light, as the CN Tower's shaft is lit at night.
+ * A round solid standing on its base: a cylinder or cone (a frustum), a
+ * shallow dome, or a lathe, its `profile` ([radius, height] pairs) turned
+ * round its axis. `windows` lays the city's lit windows on it; `wash` floods
+ * it with its light, as the CN Tower's shaft is lit at night.
  */
 export type Solid = {
-  shape: "frustum" | "dome";
+  shape: "frustum" | "dome" | "lathe";
   x: number;
   y: number;
   z: number;
@@ -53,6 +59,9 @@ export type Solid = {
   color: Color;
   windows?: boolean;
   wash?: number;
+  profile?: readonly (readonly [number, number])[];
+  /** Turned round its axis: a 4-sided frustum turned an eighth is square on. */
+  turn?: number;
 };
 
 /** A ring of light round a solid: the CN Tower's pods, the dome's rim. */
@@ -64,6 +73,34 @@ export type Ring = {
   h: number;
   color: Color;
 };
+
+/**
+ * A steep hipped roof in copper (verdigris, so cyan), as on a château: a
+ * four-sided frustum turned square on over a square `size` across, from `y`
+ * to `top`, overhanging a little.
+ */
+export function hippedRoof(
+  x: number,
+  z: number,
+  size: number,
+  y: number,
+  top: number,
+): Solid {
+  const corner = (size / 2) * Math.SQRT2;
+  return {
+    shape: "frustum",
+    x,
+    y,
+    z,
+    rBottom: corner + 0.3,
+    rTop: corner * 0.18,
+    h: top - y,
+    segments: 4,
+    turn: Math.PI / 4,
+    color: palette.cyan,
+    wash: 0.55,
+  };
+}
 
 /** The stretch of the valley's right side the skyline takes over from the city. */
 export const DOWNTOWN = { side: 1, near: -455, far: -640 } as const;
@@ -314,9 +351,78 @@ export function layoutSkyline() {
   core(66, -565, 72, 10, 10, cyan);
   // Towers round the core, so it reads as a downtown, not a row.
   core(78, -560, 44, 9, 8, cyan);
-  core(36, -530, 34, 9, 9, violet);
   core(74, -505, 38, 8, 8, cyan);
   core(84, -590, 30, 10, 8, violet);
+
+  // The Fairmont Royal York, on Front Street in front of the core, right of
+  // the tower as the hero sees it: a château, its centre block rising between
+  // two lower wings, each under a steep copper roof.
+  const york = onWall(36, -530);
+  const BLOCK = { w: 8, h: 26, roof: 7 };
+  const WING = { w: 7, d: 6, h: 19, roof: 3.6 };
+  const yorkGround = Math.min(
+    valleyHeight(york.x - WING.w / 2, york.z - BLOCK.w / 2 - WING.d),
+    valleyHeight(york.x + WING.w / 2, york.z - BLOCK.w / 2 - WING.d),
+    valleyHeight(york.x - WING.w / 2, york.z + BLOCK.w / 2 + WING.d),
+    valleyHeight(york.x + WING.w / 2, york.z + BLOCK.w / 2 + WING.d),
+  );
+  const block = {
+    x: york.x,
+    y: yorkGround - 2 + (BLOCK.h + 2) / 2,
+    z: york.z,
+    w: BLOCK.w,
+    h: BLOCK.h + 2,
+    d: BLOCK.w,
+    color: cyan,
+  };
+  towers.push(block);
+  bounds.push(block);
+  solids.push(
+    hippedRoof(
+      york.x,
+      york.z,
+      BLOCK.w,
+      yorkGround + BLOCK.h,
+      yorkGround + BLOCK.h + BLOCK.roof,
+    ),
+  );
+  for (const end of [-1, 1]) {
+    const wing = {
+      x: york.x,
+      y: yorkGround - 2 + (WING.h + 2) / 2,
+      z: york.z + end * (BLOCK.w / 2 + WING.d / 2),
+      w: WING.w,
+      h: WING.h + 2,
+      d: WING.d,
+      color: cyan,
+    };
+    towers.push(wing);
+    bounds.push(wing);
+    solids.push(
+      hippedRoof(
+        wing.x,
+        wing.z,
+        WING.d,
+        yorkGround + WING.h,
+        yorkGround + WING.h + WING.roof,
+      ),
+    );
+  }
+  bounds.push({
+    ...block,
+    y: yorkGround + BLOCK.h + BLOCK.roof / 2,
+    h: BLOCK.roof,
+    w: BLOCK.w + 1,
+    d: BLOCK.w + 1,
+  });
+  glows.push({
+    x: york.x,
+    y: yorkGround + BLOCK.h + BLOCK.roof + 0.6,
+    z: york.z,
+    color: cyan,
+    size: 3,
+    seed: 0.8,
+  });
 
   return {
     solids,
@@ -360,7 +466,12 @@ function boxAround(
 /** One solid as geometry, standing on its base, tagged for the shader. */
 function solidGeometry(s: Solid): BufferGeometry {
   const g =
-    s.shape === "dome"
+    s.shape === "lathe"
+      ? new LatheGeometry(
+          (s.profile ?? []).map(([r, y]) => new Vector2(r, y)),
+          s.segments,
+        ).toNonIndexed()
+      : s.shape === "dome"
       ? new SphereGeometry(
           s.rBottom,
           s.segments,
@@ -375,7 +486,7 @@ function solidGeometry(s: Solid): BufferGeometry {
       : new CylinderGeometry(s.rTop, s.rBottom, s.h, s.segments, 1)
           .translate(0, s.h / 2, 0)
           .toNonIndexed();
-  g.translate(s.x, s.y, s.z);
+  g.rotateY(s.turn ?? 0).translate(s.x, s.y, s.z);
   g.deleteAttribute("normal");
   g.deleteAttribute("uv");
   const n = g.getAttribute("position").count;
@@ -417,12 +528,15 @@ function ringGeometry(r: Ring): BufferGeometry {
 
 /**
  * The landmarks' round solids, shaded like the city (moonlit facets, lit
- * windows, fog) in one draw, and their rings of light in another.
+ * windows, fog) in one draw, and their rings of light in another. `haze` is
+ * how much of the world's fog they take; rings seen from inside, as a
+ * stadium's are, need `insideRings`.
  */
 export function createSkylineMeshes(
   solids: readonly Solid[],
   rings: readonly Ring[],
   windowLight: string,
+  { haze = HAZE, insideRings = false } = {},
 ) {
   const material = new ShaderMaterial({
     uniforms: {
@@ -455,7 +569,7 @@ export function createSkylineMeshes(
       varying float vWash;
       ${fogChunk}
       ${windowLight}
-      const float HAZE = ${HAZE.toFixed(2)};
+      const float HAZE = ${haze.toFixed(2)};
       void main() {
         vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
         float diffuse = max(dot(n, uMoon), 0.0);
@@ -472,7 +586,11 @@ export function createSkylineMeshes(
   const light = new Mesh(
     mergeGeometries(rings.map(ringGeometry)),
     // Unfogged: the rings carry the skyline's shape through the haze.
-    new MeshBasicMaterial({ vertexColors: true, fog: false }),
+    new MeshBasicMaterial({
+      vertexColors: true,
+      fog: false,
+      side: insideRings ? DoubleSide : FrontSide,
+    }),
   );
   return [body, light];
 }
