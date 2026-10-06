@@ -14,7 +14,7 @@ import { metaLine, primaryAction, sectionLabel, textLink } from "./styles";
 
 /** Skip, set on a card at the foot of the hero while the fly-in plays. */
 const skipCard =
-  "relative w-fit max-w-full max-md:mx-auto opening:before:absolute opening:before:-inset-x-3 opening:before:-inset-y-1.5 opening:before:-z-10 opening:before:rounded-lg opening:before:bg-night/70 opening:before:backdrop-blur-sm";
+  "relative w-fit max-w-full mx-auto opening:before:absolute opening:before:-inset-x-3 opening:before:-inset-y-1.5 opening:before:-z-10 opening:before:rounded-lg opening:before:bg-night/70 opening:before:backdrop-blur-sm";
 
 /** "A portfolio by: Adrian Luk" as its role and its name, for a title card. */
 function creditParts(line: string) {
@@ -48,7 +48,7 @@ export default function Home() {
               control is the last credit and the hero's first stop. */}
             <ul
               aria-label={credits.label}
-              className={`pointer-events-auto space-y-1 ${metaLine} max-md:text-center group-data-[state=settled]:invisible group-data-[state=settled]:opacity-0 motion-safe:transition-[opacity,visibility] motion-safe:duration-700`}
+              className={`pointer-events-auto space-y-1 ${metaLine} text-center group-data-[state=settled]:invisible group-data-[state=settled]:opacity-0 motion-safe:transition-[opacity,visibility] motion-safe:duration-700`}
             >
               {credits.lines.map((line) => (
                 // Hidden through the opening and after it: only Skip, the
@@ -65,7 +65,7 @@ export default function Home() {
                   the last caption, the joke intact. */}
                 <button
                   type="button"
-                  className="cursor-pointer text-left uppercase max-md:text-center underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan"
+                  className="cursor-pointer text-center uppercase underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan"
                 >
                   {credits.skip}
                 </button>
@@ -74,9 +74,9 @@ export default function Home() {
           </div>
         </div>
         {/* The headline (and the plate standing on it) about 40% of the
-          way down the screen, centred on a phone; the foot is kept clear for
+          way down the screen, centred; the foot is kept clear for
           the credits. */}
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 max-md:text-center pt-[max(4rem,calc(40svh-3.25rem))] pb-44 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 text-center pt-[max(4rem,calc(40svh-3.25rem))] pb-44 sm:px-6">
           {/* The accessible name is the H1 in the nav; this is its display echo.
             The 3D name plate stands exactly over it, word for word, and it
             fades out once the plate has rendered (or while it flies in). */}
@@ -94,7 +94,7 @@ export default function Home() {
               </Fragment>
             ))}
           </p>
-          <div className={`max-w-2xl space-y-2 ${landsAfterFlight}`}>
+          <div className={`mx-auto max-w-2xl space-y-2 ${landsAfterFlight}`}>
             <p className="font-display text-2xl font-semibold text-cyan [font-stretch:110%]">
               {hero.titleLine}
             </p>
