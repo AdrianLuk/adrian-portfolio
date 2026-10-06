@@ -5,6 +5,20 @@ import { heroRoot, SCENE_TIMEOUT, watched, watchHero, withoutWorld } from "./her
 // The opening as it plays. Skip is checked in route.spec.ts (which skips it
 // on its way down the route), reduced motion in world.spec.ts, and the
 // opening at 390px in route.spec.ts.
+test.describe("on a wide screen", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("every title card holds its longest word, so none runs off the screen", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const overflow = await page
+      .locator("[data-credit-card]")
+      .evaluateAll((els) => els.map((el) => el.scrollWidth - el.clientWidth));
+    expect(overflow).toEqual(overflow.map(() => 0));
+  });
+});
+
 test.describe("with motion allowed", () => {
   // Small enough to render quickly in software WebGL; behaviour, not looks.
   test.use({ viewport: { width: 960, height: 600 } });
