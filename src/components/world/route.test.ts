@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { highlights } from "../../content/site";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
-import { createRoute, OUTPOST, ROUTE_STOPS, SITES } from "./route";
+import {
+  createRoute,
+  OUTPOST,
+  outpostPose,
+  ROUTE_STOPS,
+  SITES,
+} from "./route";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
@@ -133,6 +139,13 @@ describe("the scroll route", () => {
         expect(x).toBeLessThan(0.7);
         expect(Math.abs(y)).toBeLessThan(0.6);
         expect(clearView(pose.position, OUTPOST)).toBe(true);
+      });
+
+      it("ends on the outpost's own pose, which needs no route to find", () => {
+        const end = route.poseAt(ROUTE_STOPS - 1);
+        const pose = outpostPose(aspect);
+        expect(pose.position.distanceTo(end.position)).toBeLessThan(1e-6);
+        expect(pose.quaternion.angleTo(end.quaternion)).toBeLessThan(1e-6);
       });
     });
   }

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { PanelCorners } from "@/components/highlight-panel";
+import { OutpostWorld } from "@/components/outpost-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import {
   displayUrl,
@@ -31,9 +33,12 @@ function Bullets({ items }: { items: readonly string[] }) {
 
 export default function ResumePage() {
   return (
-    // Its own stacking context, for the backdrop at the back of it.
+    // Its own stacking context, for the world and its backdrop at the back of
+    // it: the outpost, live, over the still that paints first.
     <div className="relative isolate mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <WorldBackdrop />
+      <OutpostWorld>
+        <WorldBackdrop />
+      </OutpostWorld>
       <header className="flex max-w-3xl flex-col items-start gap-4">
         <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
           {resume.heading}
@@ -55,10 +60,18 @@ export default function ResumePage() {
         </h3>
         <ol className="mt-8 space-y-12 border-l border-fog pl-6 sm:pl-8">
           {roles.map((role) => (
-            <li key={role.id} id={role.id} className="relative scroll-mt-24">
+            // On a panel at every width: the district's lit towers stand
+            // behind the copy column.
+            <li
+              key={role.id}
+              id={role.id}
+              className="relative scroll-mt-24 rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8"
+            >
+              <PanelCorners className="border-cyan" />
+              {/* On the timeline, level with the title. */}
               <span
                 aria-hidden="true"
-                className="absolute top-2 -left-[calc(1.5rem+4.5px)] size-2 rounded-full bg-cyan sm:-left-[calc(2rem+4.5px)]"
+                className="absolute top-8 -left-[calc(1.5rem+4.5px)] size-2 rounded-full bg-cyan sm:top-10 sm:-left-[calc(2rem+4.5px)]"
               />
               <h4 className={entryTitle}>
                 {role.title}, {role.company}

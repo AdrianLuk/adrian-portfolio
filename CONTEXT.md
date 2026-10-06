@@ -24,6 +24,10 @@ _Avoid_: Stop, beacon, mast
 The light structure at a Lit site that shows its Project: Control D's shielded gate, Life House's hotel tower, Juice Bros' pickleball court, BT Cup's stadium bowl. Built from light, recognisable by its silhouette, and carrying its site's light.
 _Avoid_: Model, building, monument
 
+**Outpost**:
+The financial district at the far end of the home page's world, where the scroll route ends and the Resume page stands. The Resume page shows it live from the route's last stop, the camera still.
+_Avoid_: Downtown, skyline (Toronto's skyline is another part of the world), end stop
+
 **Role**:
 A position Adrian held, with company, title and dates, such as Senior Software Engineer at Control D (Windscribe). A Role can include several Projects.
 _Avoid_: Job, position, experience entry

@@ -20,7 +20,7 @@ import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight } from "./pose";
-import { createRoute, SITES, type Route } from "./route";
+import { createRoute, outpostPose, SITES, type Route } from "./route";
 import type { FlightRig, RouteRig } from "./rigs";
 import {
   moteCountFor,
@@ -42,9 +42,18 @@ export type Measurement = {
   words: { text: string; rect: PxRect }[];
 };
 
-export type WorldOptions = {
+/** What every view of the world needs. */
+export type ViewOptions = {
   /** False under prefers-reduced-motion: render on demand, never loop. */
   motion: boolean;
+  /** Called after the first frame has rendered. */
+  onFrame: () => void;
+  /** The GPU dropped the context: the canvas is blank until it is restored. */
+  onLost: () => void;
+};
+
+/** The hero's world: the name plate, posed on the headline, and its rigs. */
+export type WorldOptions = ViewOptions & {
   /**
    * The opening flight's state, read on every frame (the GSAP timeline
    * animates it in place); SETTLED_RIG holds the settled pose.
@@ -56,19 +65,24 @@ export type WorldOptions = {
    */
   route: Readonly<RouteRig>;
   measure: () => Measurement;
-  /** Called after the first frame has rendered. */
-  onFrame: () => void;
-  /** The GPU dropped the context: the canvas is blank until it is restored. */
-  onLost: () => void;
 };
+
+type HeroOptions = Pick<WorldOptions, "rig" | "route" | "measure">;
+
+type NamePlate = ReturnType<typeof createNamePlate>;
 
 /** Where a credit card stands on the canvas, in canvas pixels. */
 export type CreditPlacement = { x: number; y: number; scale: number };
 
-export type World = {
-  /** Re-measures the headline and re-poses (after a resize or reflow). */
+/** A view of the world on a canvas. */
+export type View = {
+  /** Re-measures and re-poses (after a resize or reflow). */
   layout(): void;
   setMotion(motion: boolean): void;
+  dispose(): void;
+};
+
+export type World = View & {
   /**
    * Where credit `index` stands now. The first call anchors it in the world
    * where the camera sees `spot` (normalised device coordinates); later calls
@@ -87,7 +101,6 @@ export type World = {
    * is posed, or while the site is behind the camera.
    */
   placeSite(index: number, at?: number): { x: number; y: number } | null;
-  dispose(): void;
 };
 
 /** Lets the browser paint and handle input before the next setup step. */
@@ -151,9 +164,7 @@ function createMotes(shared: SharedUniforms, width: number, height: number) {
       seed: random(),
     });
   }
-  const motes = createGlowPoints(glows, shared, { drift: 26, intensity: 0.9 });
-  motes.points.position.y = valleyHeight(0, -90);
-  return motes;
+  return createGlowPoints(glows, shared, { drift: 26, intensity: 0.9 });
 }
 
 /**
@@ -161,9 +172,31 @@ function createMotes(shared: SharedUniforms, width: number, height: number) {
  * compiled (off the main thread where the browser allows). Resolves to null
  * when WebGL is unavailable, in which case the DOM headline simply stays.
  */
-export async function createWorld(
+export function createWorld(
   canvas: HTMLCanvasElement,
   options: WorldOptions,
+): Promise<World | null> {
+  return build(canvas, options, options);
+}
+
+/**
+ * The world seen from the outpost, the scroll route's last stop, for the
+ * Resume page: no name plate, no headline to measure, and a camera that holds
+ * still while the scene moves round it. Drawn as the hero's world is; null
+ * when WebGL is unavailable, in which case the page's still backdrop stays.
+ */
+export function createOutpostView(
+  canvas: HTMLCanvasElement,
+  options: ViewOptions,
+): Promise<View | null> {
+  return build(canvas, options, null);
+}
+
+/** The world on `canvas`: the hero's, or (with no `hero`) the outpost's. */
+async function build(
+  canvas: HTMLCanvasElement,
+  options: ViewOptions,
+  hero: HeroOptions | null,
 ): Promise<World | null> {
   let renderer: WebGLRenderer;
   try {
@@ -194,18 +227,22 @@ export async function createWorld(
 
   // The plate is the hero object: large screens get its full finish, and only
   // they bake (and reflect) an environment.
-  const finish = plateFinishFor(
-    tierFor(window.innerWidth, window.devicePixelRatio),
-  );
+  const finish = hero
+    ? plateFinishFor(tierFor(window.innerWidth, window.devicePixelRatio))
+    : null;
   const bake = () =>
-    finish.envSize > 0 ? bakePlateEnvironment(renderer, finish.envSize) : null;
+    finish && finish.envSize > 0
+      ? bakePlateEnvironment(renderer, finish.envSize)
+      : null;
   let environment = bake();
   await nextTask();
 
-  const plate = createNamePlate(shared, {
-    envMap: environment?.texture ?? null,
-    finish,
-  });
+  const plate = finish
+    ? createNamePlate(shared, {
+        envMap: environment?.texture ?? null,
+        finish,
+      })
+    : null;
   const lights = createGlowPoints(structures.glows, shared);
   const sites = createSiteLights(shared);
   const pools = createGroundPools(structures.pools.length + 3, 0.32);
@@ -218,7 +255,7 @@ export async function createWorld(
     lights.points,
     ...sites.map((s) => s.points),
     ...createMist(shared),
-    plate.group,
+    ...(plate ? [plate.group] : []),
   );
 
   let motes: ReturnType<typeof createMotes> | null = null;
@@ -229,7 +266,10 @@ export async function createWorld(
   let running = false;
   let loopStart: number | null = null;
   let firstFrame = true;
-  /** True once every headline word stands on the plate; nothing draws before. */
+  /**
+   * True once the camera is posed: for the hero, once every headline word
+   * stands on the plate. Nothing draws before.
+   */
   let posed = false;
   let compiled = false;
   let path: FlightPath | null = null;
@@ -242,11 +282,13 @@ export async function createWorld(
   /**
    * Puts the camera where the rigs say (the opening's flight, then the scroll
    * route once the visitor scrolls), and lights the arrival and the sites.
+   * The outpost's camera holds the pose its layout gave it, and the sites,
+   * all behind it, stay dark.
    */
   function pose() {
-    if (!path || !route) return;
-    const { rig } = options;
-    const { at, lit } = options.route;
+    if (!hero || !plate || !path || !route) return;
+    const { rig } = hero;
+    const { at, lit } = hero.route;
     const { position, quaternion } =
       at > 0 ? route.poseAt(at) : path.poseAt(rig);
     camera.position.copy(position);
@@ -263,7 +305,7 @@ export async function createWorld(
   function render() {
     if (!posed || !compiled) return;
     pose();
-    plate.sweep(shared.uTime.value);
+    plate?.sweep(shared.uTime.value);
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
     renderer.render(scene, camera);
     if (firstFrame) {
@@ -273,7 +315,9 @@ export async function createWorld(
   }
 
   function layout() {
-    const { width, height, words } = options.measure();
+    const { width, height, words } = hero
+      ? hero.measure()
+      : { width: canvas.clientWidth, height: canvas.clientHeight, words: [] };
     if (width === 0 || height === 0) return;
 
     const ratio = pixelRatioFor(window.devicePixelRatio);
@@ -284,7 +328,7 @@ export async function createWorld(
     camera.updateProjectionMatrix();
     canvasSize.width = width;
     canvasSize.height = height;
-    for (const glow of [lights, plate.flares, ...sites, motes])
+    for (const glow of [lights, plate?.flares, ...sites, motes])
       glow?.setViewportHeight(height);
 
     // Motes scale with the canvas area; rebuild only when the count bucket moves.
@@ -301,6 +345,35 @@ export async function createWorld(
       motesFor = count;
     }
 
+    posed = plate ? placePlate(plate, words, width, height) : placeOutpost();
+    if (!posed) return;
+    // The motes rise round where the camera stands.
+    const { x, z } = camera.position;
+    motes?.points.position.set(x, valleyHeight(x, z - 90), z);
+    // The loop, when it runs, draws the new pose on its next frame.
+    if (!running) render();
+  }
+
+  /** The outpost's fixed pose, for the screen's shape. */
+  function placeOutpost() {
+    const { position, quaternion } = outpostPose(camera.aspect);
+    camera.position.copy(position);
+    camera.quaternion.copy(quaternion);
+    camera.updateMatrixWorld();
+    pools.set(structures.pools);
+    return true;
+  }
+
+  /**
+   * Stands the plate where the DOM headline is, and the settled camera before
+   * it; true once every word is on it.
+   */
+  function placePlate(
+    plate: NamePlate,
+    words: Measurement["words"],
+    width: number,
+    height: number,
+  ) {
     const perPx = unitsPerPixel(CAMERA.fovY, CAMERA.plateDepth, height);
     const shown = words.filter((w) => w.rect.width > 0);
     const placed: PlacedWord[] = [];
@@ -320,8 +393,7 @@ export async function createWorld(
       });
     }
     // A partial plate is worse than none: keep the DOM headline instead.
-    posed = placed.length > 0 && placed.length === shown.length;
-    if (!posed) return;
+    if (placed.length === 0 || placed.length !== shown.length) return false;
 
     // The plate stands where the settled camera sees the headline; the flight
     // is planned back from that pose.
@@ -342,8 +414,7 @@ export async function createWorld(
     }
     credits.clear();
     pools.set([...structures.pools, ...plate.pools()]);
-    // The loop, when it runs, draws the new pose on its next frame.
-    if (!running) render();
+    return true;
   }
 
   function loop(ms: number) {
@@ -378,7 +449,7 @@ export async function createWorld(
     // The baked environment lived in a render target, which the loss wiped.
     environment?.dispose();
     environment = bake();
-    plate.setEnvironment(environment?.texture ?? null);
+    plate?.setEnvironment(environment?.texture ?? null);
     layout();
     sync();
   };
@@ -451,7 +522,7 @@ export async function createWorld(
    * route at stop `at` (the camera's own stop by default). Null until the
    * plate is posed, or while the site is behind the camera.
    */
-  function placeSite(index: number, at = options.route.at) {
+  function placeSite(index: number, at = hero?.route.at ?? 0) {
     if (!posed || !route) return null;
     const { position, quaternion } = route.poseAt(at);
     probe.position.copy(position);

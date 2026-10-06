@@ -9,7 +9,10 @@ const routes = [
   { name: "404", path: "/this-page-does-not-exist" },
 ];
 
-/** The routes that stand on the quieter backdrop, and a heading on each. */
+/**
+ * The routes that stand on the quieter backdrop, and a heading on each (the
+ * Resume page's first paint, under the outpost's world).
+ */
 const backdropRoutes = [
   { name: "Juice Bros case study", path: routes[1].path, heading: caseStudies[0].title },
   { name: "Resume page", path: "/resume", heading: resume.heading },
@@ -158,6 +161,9 @@ const resumeLink = (page: Page) =>
     .getByRole("link", { name: nav[1].label });
 
 test.describe("between routes", () => {
+  // Navigation only: the Resume page's world would share the CPU with it.
+  test.beforeEach(({ page }) => withoutWorld(page));
+
   test("a short crossfade carries the page across", async ({ page }) => {
     const transitions = await watchTransitions(page);
     await page.goto(routes[1].path);
