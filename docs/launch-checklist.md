@@ -1,6 +1,6 @@
 # Launch checklist
 
-Run against production (https://adrianluk.com) on 2026-10-06, from the commit that was `main` at the time (4a1e5fa). Re-run it after any change to the domain, analytics, the 404 or the resume files.
+Run against production (https://adrianluk.com) on 2026-10-06, when it served `main` at 4a1e5fa; the credits and bookend copy changed after that, which none of these checks touch. Re-run it after any change to the domain, analytics, the 404, the resume files or the site's copy.
 
 | Check | Result | How it was checked |
 | --- | --- | --- |

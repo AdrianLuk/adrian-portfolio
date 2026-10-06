@@ -40,7 +40,7 @@ The site is itself the proof. The strongest craft work of his career (a GSAP scr
 ## Brand Commitments
 
 - Name: Adrian Luk. Domain: adrianluk.com.
-- Voice: first person, plain and specific in every factual passage (Highlights, Case study, Resume page). Humour is welcome only in two deliberate places where personality is expected (the opening credits and the closing bookend), in the register of his GitHub bio ("Slapping the keyboard till something good happens"). A joke never sits inside a claim.
+- Voice: first person, plain and specific in every factual passage (Highlights, Case study, Resume page). Humour is welcome only in two deliberate places where personality is expected (the opening credits and the closing bookend), in the register of his GitHub bio ("Slapping the keyboard till something good happens"). A joke never sits inside a claim. Everywhere else the copy is plain; the 404's "Lost in the fog" is themed, not a joke.
 - Hero positioning: "Senior frontend engineer" leads, with one supporting line on backend depth ("React and TypeScript, plus the back end when it needs building.").
 - Naming: product leads, company in the byline ("Control D" / Windscribe; "BT Cup" / Elite Digital Agency for PepsiCo Canada (spelled "BT Cup" on the site)).
 - Visual direction: a luminous night world of Adrian's own, techy and cyberpunk-esque, in the spirit of a world the camera flies into but never any film's IP (no Na'vi, no named Pandora places or creatures) and with no flora required, with a cinematic fly-in that settles on his name. Ambition level: extravagant, worthy of Awwwards. Dark as a night sky is in; dark as a flat background with a neon accent is out. The world is built procedurally in code (WebGL), not from supplied imagery.
