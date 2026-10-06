@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createGame,
+  landing,
   scoreCall,
   setPaused,
   setSlow,
@@ -9,6 +10,7 @@ import {
   type Game,
   type GameEvent,
   type Input,
+  type Side,
 } from "./rules";
 
 const FRAME = 1 / 60;
@@ -219,11 +221,16 @@ describe("the rules the swing keeps", () => {
   });
 });
 
+/** Where the perfect player plays from once it may volley: a step outside its kitchen. */
+const PLAYER_NET = 8.5;
+
 /**
  * A player who sees the future: it plays the game on (with itself out of
- * the way) to find where the ball will be just after it bounces on its side,
- * and stands there, the ball off its paddle's edge away from the AI, so its
- * shot goes to the open side of the court.
+ * the way) to find where it can meet the ball, and stands there, the ball
+ * off its paddle's edge away from the AI, so its shot goes to the open side
+ * of the court. Like a good player, it comes up to the kitchen line once
+ * the two-bounce rule lets it volley, and volleys there when the ball
+ * passes low enough; otherwise it takes the ball just after the bounce.
  */
 function perfectPlayer() {
   let plan: { shots: number; at: { x: number; z: number } } | null = null;
@@ -234,18 +241,23 @@ function perfectPlayer() {
     if (coming && plan?.shots !== g.shots) {
       let ahead: Game = { ...g, player: { x: 40, z: 40 } };
       let after = Infinity;
+      let volley: Game | null = null;
       while (ahead.phase === "rally" && after > 0) {
         ahead = step(ahead, FRAME);
         if (ahead.events.some((e) => e.type === "bounce")) after = 0.25;
         else after -= FRAME;
+        const crossing = after === Infinity && ahead.ball.z >= PLAYER_NET;
+        if (g.shots >= 3 && crossing && !volley && ahead.ball.y < 5) volley = ahead;
       }
+      const meet = volley ?? ahead;
       const away = g.ai.x > 0 ? -1 : 1;
       plan = {
         shots: g.shots,
-        at: { x: ahead.ball.x - away * 2.6, z: ahead.ball.z },
+        at: { x: meet.ball.x - away * 2.6, z: volley ? PLAYER_NET : meet.ball.z },
       };
     }
-    const to = coming && plan ? plan.at : { x: 0, z: 20 };
+    const ready = { x: 0, z: g.shots >= 2 ? PLAYER_NET : 20 };
+    const to = coming && plan ? plan.at : ready;
     const dx = to.x - g.player.x;
     const dz = to.z - g.player.z;
     const far = Math.hypot(dx, dz);
@@ -286,6 +298,101 @@ describe("the AI's swing", () => {
   it("never volleys from inside the kitchen: it waits for the bounce", () => {
     const hit = aiHit(aiInFlight(5));
     if (hit?.type === "hit") expect(hit.volley).toBe(false);
+  });
+});
+
+describe("Dinkbot at the kitchen line", () => {
+  /**
+   * Where Dinkbot stands `after` seconds past its hit of shot `shot`, the
+   * player then standing still, out of the ball's way.
+   */
+  function afterHit(server: Side, shot: number, after: number) {
+    // The first game in which that shot is in play, not one of its misses.
+    for (let seed = 1; seed < 30; seed++) {
+      const hit = runUntil(
+        startGame(createGame({ seed, server })),
+        (g, events) =>
+          events.some((e) => e.type === "point") ||
+          (g.lastHitter === "ai" && g.shots === shot),
+        perfectPlayer(),
+      ).game;
+      const lands = landing(hit.ball);
+      if (hit.shots !== shot || lands.z < 0 || lands.z > 22 || Math.abs(lands.x) > 10) {
+        continue;
+      }
+      return run({ ...hit, player: { x: 14, z: 29 } }, after).game.ai;
+    }
+    throw new Error(`no game reached shot ${shot} in play`);
+  }
+
+  it("comes up to the kitchen line after its return of serve, staying out of the kitchen", () => {
+    const at = afterHit("player", 2, 1.3);
+    expect(at.z).toBeLessThan(-7);
+    expect(at.z).toBeGreaterThan(-9);
+  });
+
+  /** Every event of six full games against the perfect player. */
+  const games = [1, 2, 3, 4, 5, 6].flatMap(
+    (seed) =>
+      runUntil(
+        startGame(createGame({ seed })),
+        (g) => g.phase === "over",
+        perfectPlayer(),
+      ).events,
+  );
+
+  it("volleys up the court: at the kitchen line, or on its way up to it", () => {
+    const volleys = games.filter(
+      (e) => e.type === "hit" && e.side === "ai" && e.volley,
+    );
+    expect(volleys.length).toBeGreaterThan(3);
+    for (const v of volleys) {
+      if (v.type !== "hit") continue;
+      expect(v.z).toBeLessThan(-7);
+      expect(v.z).toBeGreaterThan(-13);
+    }
+  });
+
+  it("dinks: soft shots that land in the player's kitchen", () => {
+    // Each of its shots: its pace off the paddle, and where it first lands
+    // (if the player doesn't volley it first).
+    const shots: { pace: number; lands?: { z: number; in: boolean } }[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      let g = startGame(createGame({ seed }));
+      const play = perfectPlayer();
+      let last: (typeof shots)[number] | null = null;
+      while (g.phase !== "over") {
+        g = step(g, FRAME, play(g));
+        for (const e of g.events) {
+          if (e.type === "hit") {
+            last = null;
+            if (e.side === "ai") {
+              last = { pace: Math.hypot(g.ball.vx, g.ball.vz) };
+              shots.push(last);
+            }
+          }
+          if (e.type === "bounce" && last && !last.lands) {
+            last.lands = { z: e.z, in: e.in };
+          }
+        }
+      }
+    }
+    const dinks = shots.filter(
+      (s) => s.lands?.in && s.lands.z > 0 && s.lands.z < 7,
+    );
+    expect(dinks.length).toBeGreaterThan(5);
+    for (const dink of dinks) expect(dink.pace).toBeLessThan(20);
+    // And it still drives, more often than not.
+    const drives = shots.filter((s) => s.pace > 25);
+    expect(drives.length).toBeGreaterThan(dinks.length);
+  });
+
+  it("stays back after its own serve, and comes up after its third shot", () => {
+    const serving = startGame(createGame({ server: "ai" }));
+    const served = runUntil(serving, (g) => g.phase === "rally").game;
+    expect(run(served, 0.8).game.ai.z).toBeLessThan(-18);
+    const at = afterHit("ai", 3, 1.3);
+    expect(at.z).toBeGreaterThan(-9);
   });
 });
 

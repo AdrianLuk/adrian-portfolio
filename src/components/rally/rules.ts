@@ -64,7 +64,8 @@ export type Game = {
   /** Where the AI is heading, and how long until it reacts to the last shot. */
   aiTarget: Vec;
   aiWait: number;
-  /** The AI's next shot: how deep it lands, or the miss it will be. */
+  /** The AI's next shot: a dink or a drive, how deep it lands, or the miss it will be. */
+  aiDink: boolean;
   aiDepth: number;
   /** Where on its paddle the AI means to meet the ball: -1 its left edge to 1 its right. */
   aiOff: number;
@@ -126,10 +127,28 @@ export const AI_MAX_SPEED = 13;
 export const AI_ERROR_RATE = 0.12;
 export const AI_ANGLE = [0.2, 1] as const;
 export const AI_DEPTH = [10, 19] as const;
+/**
+ * How often the AI dinks instead of driving (playing at the net, and from
+ * further back, where it's a drop), and how deep its dinks land: inside the
+ * player's kitchen, feet past the net.
+ */
+export const AI_DINK_RATE = { net: 0.4, back: 0.1 } as const;
+export const AI_DINK_DEPTH = [2.5, 6] as const;
+/** A dink's pace along the court, its clearance over the net, and its longest flight. */
+const DINK_SPEED = 14;
+const DINK_CLEARANCE = 0.5;
+const DINK_TIME = 1.6;
 /** How long after its bounce the AI means to take the ball. */
 const AI_TAKE = 0.3;
-/** Where the AI waits between shots. */
+/**
+ * Where the AI waits between shots: back at the baseline until the
+ * two-bounce rule lets it volley, then up at the kitchen line, a step
+ * outside the kitchen, where it can volley and dink.
+ */
 const AI_READY: Vec = { x: 0, z: -(BASELINE - 1) };
+const AI_NET: Vec = { x: 0, z: -(KITCHEN + 0.6) };
+/** How far behind the kitchen line the AI still volleys from where it stands. */
+const AI_VOLLEY_BACK = 6;
 
 type Miss = "wide" | "long" | "net";
 const MISSES: readonly Miss[] = ["wide", "long", "net"];
@@ -180,6 +199,7 @@ function toServe(game: Game): Game {
     bounces: 0,
     aiTarget: at.ai,
     aiWait: 0,
+    aiDink: false,
     aiDepth: SHOT_DEPTH,
     aiOff: 0,
     aiMiss: null,
@@ -216,6 +236,7 @@ export function createGame({
     clock: 0,
     aiTarget: AI_READY,
     aiWait: 0,
+    aiDink: false,
     aiDepth: SHOT_DEPTH,
     aiOff: 0,
     aiMiss: null,
@@ -347,6 +368,24 @@ function advance(was: Ball, dt: number): { ball: Ball; bounced: boolean } {
   return { ball: b, bounced: true };
 }
 
+/**
+ * Where the ball crosses depth `z` on its way down the court, before it
+ * bounces and low enough for a paddle; null if it bounces first or passes
+ * too high.
+ */
+function crossing(ball: Ball, z: number): Vec | null {
+  let b = ball;
+  for (let t = 0; t < 5; t += TICK) {
+    const next = advance(b, TICK);
+    if (next.bounced) return null;
+    b = next.ball;
+    if (Math.sign(b.vz) * (b.z - z) >= 0) {
+      return b.y <= REACH_HIGH - 0.5 ? { x: b.x, z: b.z } : null;
+    }
+  }
+  return null;
+}
+
 /** Where the ball will be `after` seconds past its next bounce. */
 function pastBounce(ball: Ball, after: number): Vec {
   let b = ball;
@@ -427,9 +466,11 @@ const between = ([low, high]: readonly [number, number], roll: number) =>
 
 /**
  * The AI reads the shot coming at it: after its reaction time, it heads for
- * where it can take the ball just after the bounce, its paddle off centre so
- * its return angles away from the player; it lets a ball landing out go. It
- * also picks its return's depth now, or the miss it will be.
+ * where it can volley it (up the court, once the rules allow) or take it
+ * just after the bounce, its paddle off centre so its return angles away
+ * from the player; it lets a ball landing out go. It also picks its return
+ * now: a dink, more often when it's up at the net, or a drive, and how deep
+ * it lands; or the miss it will be.
  */
 function readShot(game: Game): Game {
   let seed = game.seed;
@@ -440,7 +481,9 @@ function readShot(game: Game): Game {
   [roll, seed] = random(seed);
   const off = open * between(AI_ANGLE, roll);
   [roll, seed] = random(seed);
-  const aiDepth = between(AI_DEPTH, roll);
+  const deep = roll;
+  [roll, seed] = random(seed);
+  const soft = roll;
   [roll, seed] = random(seed);
   let miss: Miss | null = null;
   if (roll < AI_ERROR_RATE) {
@@ -449,15 +492,26 @@ function readShot(game: Game): Game {
   }
   const lands = landing(game.ball);
   const take = pastBounce(game.ball, AI_TAKE);
-  const aiTarget = inCourt(lands.x, lands.z)
-    ? clampTo("ai", { x: take.x - off * REACH, z: take.z })
-    : AI_READY;
+  // Up the court, with volleys allowed: meet it in the air where it stands.
+  const depth = Math.min(game.ai.z, -(KITCHEN + 0.6));
+  const volley =
+    game.shots >= 3 && depth > -(KITCHEN + AI_VOLLEY_BACK)
+      ? crossing(game.ball, depth)
+      : null;
+  const aiTarget = !inCourt(lands.x, lands.z)
+    ? game.shots >= 3 ? AI_NET : AI_READY
+    : volley
+      ? clampTo("ai", { x: volley.x - off * REACH * 0.8, z: depth })
+      : clampTo("ai", { x: take.x - off * REACH, z: take.z });
+  const atNet = aiTarget.z > -(KITCHEN + AI_VOLLEY_BACK);
+  const aiDink = soft < (atNet ? AI_DINK_RATE.net : AI_DINK_RATE.back);
   return {
     ...game,
     seed,
     aiTarget,
     aiWait: AI_REACTION_MS / 1000,
-    aiDepth,
+    aiDink,
+    aiDepth: between(aiDink ? AI_DINK_DEPTH : AI_DEPTH, deep),
     aiOff: off,
     aiMiss: miss,
   };
@@ -475,8 +529,9 @@ function missed(miss: Miss | null, off: number) {
 /**
  * `side` hits the ball: deep into the other half, angled by where the ball
  * meets the paddle. Off the paddle's right edge it goes right, off its
- * centre straight; the AI meets it where it planned to. The AI's planned
- * miss, if any, goes wide, long or into the net instead.
+ * centre straight; the AI meets it where it planned to. The AI's dink drops
+ * softly into the player's kitchen instead, and its planned miss, if any,
+ * goes wide, long or into the net.
  */
 function swing(game: Game, side: Side): Game {
   const at = game[side];
@@ -486,13 +541,17 @@ function swing(game: Game, side: Side): Game {
       ? game.aiOff
       : Math.max(-1, Math.min(1, (ball.x - at.x) / REACH));
   const miss = side === "ai" ? missed(game.aiMiss, off) : {};
-  const tx = miss.x ?? off * (HALF_W - SHOT_INSIDE);
+  const dink = side === "ai" && game.aiDink && !game.aiMiss;
+  // A dink angles less: cross-court into the kitchen, not at the sideline.
+  const tx = miss.x ?? off * (HALF_W - SHOT_INSIDE) * (dink ? 0.7 : 1);
   const depth = side === "ai" ? game.aiDepth : SHOT_DEPTH;
   const tz = miss.z ?? -sign(side) * depth;
   const along = Math.hypot(tx - ball.x, tz - ball.z);
   Object.assign(
     ball,
-    aim(ball, tx, tz, along / SHOT_SPEED, miss.clearance ?? 1),
+    dink
+      ? aim(ball, tx, tz, Math.min(along / DINK_SPEED, DINK_TIME), DINK_CLEARANCE)
+      : aim(ball, tx, tz, along / SHOT_SPEED, miss.clearance ?? 1),
   );
   const volley = game.bounces === 0;
   const hit: Game = {
@@ -508,7 +567,14 @@ function swing(game: Game, side: Side): Game {
   };
   return side === "player"
     ? readShot(hit)
-    : { ...hit, aiTarget: AI_READY, aiWait: 0, aiMiss: null };
+    : {
+        ...hit,
+        // Its return, or its third shot when it served: the ball coming
+        // back may be volleyed, so it comes up.
+        aiTarget: hit.shots >= 2 ? AI_NET : AI_READY,
+        aiWait: 0,
+        aiMiss: null,
+      };
 }
 
 /** The AI's movement for one tick, once it has reacted. */

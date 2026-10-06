@@ -580,7 +580,7 @@ export const rally = {
       "This browser can't draw the court (WebGL is off or unsupported), so the game can't run here.",
     start: {
       title: "Ready when you are",
-      line: "First to 7, win by 2. Dinkbot has been practising.",
+      line: "First to 7, win by 2. Dinkbot lives at the kitchen line: come up and meet it.",
       action: "Start",
     },
     slowMode: {
