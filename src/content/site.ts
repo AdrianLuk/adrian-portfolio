@@ -150,7 +150,7 @@ export const credits = {
     "A portfolio by: Adrian Luk",
     "Starring: Adrian Luk, as himself",
     "Motion by: Adrian Luk (yes, also me)",
-    "Budget: one Vercel Hobby plan",
+    "Budget: one Claude subscription",
   ],
   skip: "You can skip this. I'd rather you didn't.",
 } as const;

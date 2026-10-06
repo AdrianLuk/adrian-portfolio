@@ -42,7 +42,7 @@ export const SETTLED_RIG: Readonly<FlightRig> = {
 };
 
 /** Seconds; the timeline's flight runs linearly, its turn eases out (power2). */
-export const FLIGHT_TIMING = { flight: 3.6, turn: 1.9 } as const;
+export const FLIGHT_TIMING = { flight: 5.2, turn: 2.75 } as const;
 
 /**
  * A lit site's plan: the Highlight it stands for, its depth down the valley,
