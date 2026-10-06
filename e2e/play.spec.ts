@@ -118,6 +118,31 @@ test("is played with the keyboard alone, and pauses and resumes on Escape and P"
   await expect(gameRoot(page)).toHaveAttribute("data-paused", "true");
 });
 
+test("holding Space on the court, or the Dink pad, holds a dink until it's let go", async ({
+  page,
+}) => {
+  await openPlay(page);
+  const pad = page.locator("[data-dink-pad]");
+  await expect(pad).toBeHidden();
+  await page.getByRole("button", { name: copy.start.action }).click();
+  await expect(pad).toBeVisible();
+
+  await expect(court(page)).toBeFocused();
+  await page.keyboard.down("Space");
+  await expect(pad).toHaveAttribute("data-held", "true");
+  await page.keyboard.up("Space");
+  await expect(pad).toHaveAttribute("data-held", "false");
+
+  // Under the court: it may be below the fold.
+  await pad.scrollIntoViewIfNeeded();
+  const box = (await pad.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await expect(pad).toHaveAttribute("data-held", "true");
+  await page.mouse.up();
+  await expect(pad).toHaveAttribute("data-held", "false");
+});
+
 test("has no axe violations mid-game, playing and paused", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await openPlay(page);

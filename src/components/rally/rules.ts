@@ -30,13 +30,18 @@ export type Input = {
   drag?: Vec;
   /** Serve, when it's the player's serve. */
   serve?: boolean;
+  /** Held: the player's next shot is a dink, not a drive. */
+  dink?: boolean;
 };
 
 export type PointReason = "out" | "net" | "double-bounce" | "fault";
 
+/** How a shot was hit: driven deep, or dinked softly into the kitchen. */
+export type Shot = "drive" | "dink";
+
 export type GameEvent =
   | { type: "serve"; side: Side }
-  | { type: "hit"; side: Side; volley: boolean; x: number; z: number }
+  | { type: "hit"; side: Side; shot: Shot; volley: boolean; x: number; z: number }
   | { type: "bounce"; side: Side; in: boolean; x: number; z: number }
   | { type: "point"; winner: Side; reason: PointReason }
   | { type: "over"; winner: Side };
@@ -61,6 +66,8 @@ export type Game = {
   bounces: number;
   /** Game time in the current phase, in seconds. */
   clock: number;
+  /** Whether the AI plays this rally at the net. */
+  aiAtNet: boolean;
   /** Where the AI is heading, and how long until it reacts to the last shot. */
   aiTarget: Vec;
   aiWait: number;
@@ -133,11 +140,15 @@ export const AI_DEPTH = [10, 19] as const;
  * player's kitchen, feet past the net.
  */
 export const AI_DINK_RATE = { net: 0.4, back: 0.1 } as const;
+/** How often the AI plays a rally at the net, coming up once the rules let it volley; otherwise it stays back. */
+export const AI_NET_RATE = 0.4;
 export const AI_DINK_DEPTH = [2.5, 6] as const;
 /** A dink's pace along the court, its clearance over the net, and its longest flight. */
 const DINK_SPEED = 14;
 const DINK_CLEARANCE = 0.5;
 const DINK_TIME = 1.6;
+/** How deep the player's dink lands past the net: mid-kitchen. */
+const PLAYER_DINK_DEPTH = 4.5;
 /** How long after its bounce the AI means to take the ball. */
 const AI_TAKE = 0.3;
 /**
@@ -186,8 +197,12 @@ function toServe(game: Game): Game {
     [game.server]: servePosition(game.server, serverScore),
     [other(game.server)]: servePosition(other(game.server), serverScore),
   } as Record<Side, Vec>;
+  // Whether the AI plays this rally at the net, or from the baseline.
+  const [roll, seed] = random(game.seed);
   return {
     ...game,
+    seed,
+    aiAtNet: roll < AI_NET_RATE,
     phase: "serving",
     clock: 0,
     player: at.player,
@@ -234,6 +249,7 @@ export function createGame({
     shots: 0,
     bounces: 0,
     clock: 0,
+    aiAtNet: false,
     aiTarget: AI_READY,
     aiWait: 0,
     aiDink: false,
@@ -499,7 +515,7 @@ function readShot(game: Game): Game {
       ? crossing(game.ball, depth)
       : null;
   const aiTarget = !inCourt(lands.x, lands.z)
-    ? game.shots >= 3 ? AI_NET : AI_READY
+    ? recover(game)
     : volley
       ? clampTo("ai", { x: volley.x - off * REACH * 0.8, z: depth })
       : clampTo("ai", { x: take.x - off * REACH, z: take.z });
@@ -517,6 +533,18 @@ function readShot(game: Game): Game {
   };
 }
 
+/**
+ * Where the AI goes after its shot. Back to the baseline until the ball
+ * coming back may be volleyed (after its return, or its third shot when it
+ * served); then up to the kitchen line if it's playing this rally at the
+ * net, or if the ball has already drawn it in close. Otherwise it stays back.
+ */
+function recover(game: Game): Vec {
+  if (game.shots < 2) return AI_READY;
+  const drawnIn = game.ai.z > -(KITCHEN + AI_VOLLEY_BACK);
+  return game.aiAtNet || drawnIn ? AI_NET : AI_READY;
+}
+
 /** The AI's shot, if it's one that misses: its line, and how it clears the net. */
 function missed(miss: Miss | null, off: number) {
   if (miss === "wide") return { x: Math.sign(off || 1) * (HALF_W + 3) };
@@ -529,11 +557,12 @@ function missed(miss: Miss | null, off: number) {
 /**
  * `side` hits the ball: deep into the other half, angled by where the ball
  * meets the paddle. Off the paddle's right edge it goes right, off its
- * centre straight; the AI meets it where it planned to. The AI's dink drops
- * softly into the player's kitchen instead, and its planned miss, if any,
- * goes wide, long or into the net.
+ * centre straight; the AI meets it where it planned to. A dink (the AI's
+ * when it chose one, the player's while they hold it) drops softly into the
+ * other kitchen instead, and the AI's planned miss, if any, goes wide, long
+ * or into the net.
  */
-function swing(game: Game, side: Side): Game {
+function swing(game: Game, side: Side, playerDinks: boolean): Game {
   const at = game[side];
   const ball = { ...game.ball };
   const off =
@@ -541,10 +570,12 @@ function swing(game: Game, side: Side): Game {
       ? game.aiOff
       : Math.max(-1, Math.min(1, (ball.x - at.x) / REACH));
   const miss = side === "ai" ? missed(game.aiMiss, off) : {};
-  const dink = side === "ai" && game.aiDink && !game.aiMiss;
+  const dink =
+    side === "ai" ? game.aiDink && !game.aiMiss : playerDinks;
   // A dink angles less: cross-court into the kitchen, not at the sideline.
   const tx = miss.x ?? off * (HALF_W - SHOT_INSIDE) * (dink ? 0.7 : 1);
-  const depth = side === "ai" ? game.aiDepth : SHOT_DEPTH;
+  const depth =
+    side === "ai" ? game.aiDepth : dink ? PLAYER_DINK_DEPTH : SHOT_DEPTH;
   const tz = miss.z ?? -sign(side) * depth;
   const along = Math.hypot(tx - ball.x, tz - ball.z);
   Object.assign(
@@ -562,16 +593,14 @@ function swing(game: Game, side: Side): Game {
     bounces: 0,
     events: [
       ...game.events,
-      { type: "hit", side, volley, x: at.x, z: at.z },
+      { type: "hit", side, shot: dink ? "dink" : "drive", volley, x: at.x, z: at.z },
     ],
   };
   return side === "player"
     ? readShot(hit)
     : {
         ...hit,
-        // Its return, or its third shot when it served: the ball coming
-        // back may be volleyed, so it comes up.
-        aiTarget: hit.shots >= 2 ? AI_NET : AI_READY,
+        aiTarget: recover(hit),
         aiWait: 0,
         aiMiss: null,
       };
@@ -650,7 +679,7 @@ export function step(game: Game, dt: number, input: Input = {}): Game {
       game = fly(game, tick);
       for (const side of ["player", "ai"] as const) {
         if (game.phase === "rally" && canHit(game, side)) {
-          game = swing(game, side);
+          game = swing(game, side, !!input.dink);
         }
       }
     } else if (game.phase === "point" && game.clock >= POINT_PAUSE) {

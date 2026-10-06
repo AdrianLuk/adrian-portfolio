@@ -568,8 +568,8 @@ export const rally = {
   eyebrow: "Rally game",
   heading: "Juice Bros court",
   hint: {
-    keys: "Arrow keys move. Space serves. Esc or P pauses.",
-    touch: "Drag anywhere on the court to move. Tap to serve.",
+    keys: "Arrow keys move. Space serves; hold it to dink. Esc or P pauses.",
+    touch: "Drag anywhere on the court to move. Tap to serve; hold Dink to dink.",
     swing: "Your swing is automatic: get to the ball.",
   },
   caseStudyLink: { label: "Read the Juice Bros case study", href: "/work/juice-bros" },
@@ -580,7 +580,7 @@ export const rally = {
       "This browser can't draw the court (WebGL is off or unsupported), so the game can't run here.",
     start: {
       title: "Ready when you are",
-      line: "First to 7, win by 2. Dinkbot lives at the kitchen line: come up and meet it.",
+      line: "First to 7, win by 2. Dinkbot dinks. So can you.",
       action: "Start",
     },
     slowMode: {
@@ -596,6 +596,7 @@ export const rally = {
     /** Who serves, as the score call says it: "5–3, you serve". */
     serves: { player: "you serve", ai: "Dinkbot serves" },
     serveHint: "Space or tap to serve",
+    dink: "Dink",
     point: {
       won: "Point to you",
       lost: "Point to Dinkbot",
