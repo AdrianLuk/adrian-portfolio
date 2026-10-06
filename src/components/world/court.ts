@@ -110,7 +110,6 @@ export function layoutCourt({ x, z, level, scale, color }: CourtOptions) {
   const netHeight = COURT.netHeight * scale;
   const postOff = W / 2 + COURT.postOut * scale;
   const net: Veil = {
-    kind: "net",
     x,
     y: level + netHeight / 2,
     z,

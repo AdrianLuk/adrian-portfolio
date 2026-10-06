@@ -28,6 +28,7 @@ import {
   valleyHeight,
   WORLD_BACK,
 } from "./terrain";
+import { createPortals, createShields } from "./shield";
 import { createVeils } from "./veil";
 
 export type { Box };
@@ -432,7 +433,7 @@ export function layoutStructures() {
 
 /**
  * The structures as meshes, one instanced draw per kind of box; the
- * landmarks' veils and trophies move with the world's clock.
+ * landmarks' shields and trophies move with the world's clock.
  */
 export function createStructures(shared: SharedUniforms) {
   const {
@@ -481,7 +482,9 @@ export function createStructures(shared: SharedUniforms) {
         haze: 1,
         insideRings: true,
       }),
-      createVeils(landmarks.veils, shared),
+      createVeils(landmarks.veils),
+      createShields(landmarks.shields, shared),
+      createPortals(landmarks.portals),
       ...createTrophies(landmarks.trophies, shared),
       ...createBalls(landmarks.balls),
     ],

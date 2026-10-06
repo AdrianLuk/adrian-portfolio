@@ -18,8 +18,9 @@ import type { Glow } from "./glow-points";
 import { fogChunk, fogUniforms, palette } from "./palette";
 import { SITES, type Site } from "./route";
 import type { SharedUniforms } from "./shared";
-import type { Box, Ring, Solid } from "./skyline";
+import { hippedRoof, type Box, type Ring, type Solid } from "./skyline";
 import { valleyHeight } from "./terrain";
+import type { Portal, Shield } from "./shield";
 import type { Veil } from "./veil";
 
 /**
@@ -39,6 +40,26 @@ export type Trophy = { x: number; y: number; z: number; color: Color };
  */
 const TROPHY = { height: 7.4, light: 5.4, reach: 3.8 };
 
+/** The HOTEL sign's letters: their size, their neon's width, and the gap between. */
+const LETTER = { w: 1.35, h: 1.85, stroke: 0.28, gap: 0.3 };
+
+/** Each letter's strokes of neon, as [u0, v0, u1, v1] across its face. */
+const NEON: Record<string, [number, number, number, number][]> = (() => {
+  const { w, h, stroke: s } = LETTER;
+  const mid = (h - s) / 2;
+  const left: [number, number, number, number] = [0, 0, s, h];
+  const right: [number, number, number, number] = [w - s, 0, w, h];
+  const top: [number, number, number, number] = [0, h - s, w, h];
+  const bottom: [number, number, number, number] = [0, 0, w, s];
+  return {
+    H: [left, right, [0, mid, w, mid + s]],
+    O: [left, right, top, bottom],
+    T: [top, [(w - s) / 2, 0, (w + s) / 2, h]],
+    E: [left, top, [0, mid, w * 0.8, mid + s], bottom],
+    L: [left, bottom],
+  };
+})();
+
 /** A ball of light: Juice Bros' pickleball, the site's light. */
 export type Ball = { x: number; y: number; z: number; r: number; color: Color };
 
@@ -55,6 +76,8 @@ export type Landmarks = {
   solids: Solid[];
   rings: Ring[];
   veils: Veil[];
+  shields: Shield[];
+  portals: Portal[];
   trophies: Trophy[];
   balls: Ball[];
   glows: Glow[];
@@ -99,6 +122,8 @@ export function layoutLandmarks(): Landmarks {
     solids: [],
     rings: [],
     veils: [],
+    shields: [],
+    portals: [],
     trophies: [],
     balls: [],
     glows: [],
@@ -127,6 +152,18 @@ export function layoutLandmarks(): Landmarks {
       d: 2 * Math.max(s.rTop, s.rBottom),
       color: s.color,
     })),
+    ...out.shields.map((d) =>
+      standing(d.x, d.z, d.y, d.y + d.h, 2 * d.r, 2 * d.r, d.color),
+    ),
+    ...out.portals.map((g) => ({
+      x: g.x,
+      y: g.y,
+      z: g.z,
+      w: 2 * (g.r + g.tube),
+      h: 2 * (g.r + g.tube),
+      d: 2 * g.tube,
+      color: g.color,
+    })),
     ...out.trophies.map((t) => ({
       x: t.x,
       y: t.y + TROPHY.height / 2,
@@ -140,175 +177,259 @@ export function layoutLandmarks(): Landmarks {
   return out;
 
   /**
-   * Control D: a gate facing up the valley, two pylons under a lintel, the
-   * site's light its glowing core on top, and a barrier held across it.
+   * Control D: a shield, a dome of hex cells of light, over a gate, a ring
+   * standing on a dais and facing up the valley; the site's light is the
+   * dome's apex.
    */
   function gate({ position: p }: Site, light: Color) {
-    const SPAN = 15;
-    const PYLON = 2.6;
-    const DEPTH = 3;
-    const width = SPAN + PYLON;
-    const foot = groundUnder(p.x, p.z, width, DEPTH).low - 2;
-    const lintel = p.y - 1.6;
-    const inner = SPAN / 2 - PYLON / 2;
-    for (const end of [-1, 1]) {
-      const x = p.x + (end * SPAN) / 2;
-      out.bodies.push(standing(x, p.z, foot, lintel, PYLON, DEPTH, light));
-      // Seams of light up the inner face, where the barrier is held, and
-      // up the face looking up the valley.
-      out.bands.push(
-        standing(
-          p.x + end * (inner - 0.04),
-          p.z,
-          foot,
-          lintel - 2,
-          0.14,
-          0.7,
-          light,
-        ),
-        standing(
-          x,
-          p.z + DEPTH / 2 + 0.04,
-          foot,
-          lintel - 0.6,
-          0.5,
-          0.12,
-          light,
-        ),
-      );
-      out.glows.push(
-        {
-          x: p.x + end * inner,
-          y: foot + 2.6,
-          z: p.z,
-          color: light,
-          size: 3.2,
-          seed: 0.2,
-        },
-        {
-          x: p.x + end * inner,
-          y: lintel - 2,
-          z: p.z,
-          color: light,
-          size: 2.6,
-          seed: 0.7,
-        },
-      );
-    }
-    out.bodies.push(
-      standing(p.x, p.z, lintel - 2, lintel, width, DEPTH, light),
-      standing(p.x, p.z, lintel, lintel + 1.2, 4.5, 2, light),
-    );
-    out.bands.push(
-      // The lintel's underside and its face, lit along their length.
-      standing(p.x, p.z, lintel - 2.06, lintel - 1.98, 2 * inner, 0.7, light),
-      standing(
-        p.x,
-        p.z + DEPTH / 2 + 0.04,
-        lintel - 1.1,
-        lintel - 0.8,
-        width - 1,
-        0.12,
-        light,
-      ),
-    );
-    const ground = foot + 2;
-    out.veils.push({
-      kind: "barrier",
+    const DOME = 18;
+    const RING = 7.5;
+    const TUBE = 0.7;
+    const DAIS = { r: 10.5, h: 1 };
+    const foot = groundUnder(p.x, p.z, 2 * DOME, 2 * DOME).low - 2;
+    const ground = valleyHeight(p.x, p.z);
+    const apex = p.y - 0.5;
+    out.shields.push({
       x: p.x,
-      y: (ground + lintel - 2) / 2,
+      y: foot,
       z: p.z,
-      w: 2 * inner,
-      h: lintel - 2 - ground,
+      r: DOME,
+      h: apex - foot,
       color: light,
     });
-    return standing(p.x, p.z, foot, lintel + 1.2, width, DEPTH, light);
+    out.solids.push({
+      shape: "frustum",
+      x: p.x,
+      y: foot,
+      z: p.z,
+      rBottom: DAIS.r,
+      rTop: DAIS.r - 0.5,
+      h: ground + DAIS.h - foot,
+      segments: 40,
+      color: light,
+      wash: 0.3,
+    });
+    const dais = ground + DAIS.h;
+    out.rings.push(
+      {
+        x: p.x,
+        y: dais - 0.25,
+        z: p.z,
+        r: DAIS.r - 0.45,
+        h: 0.3,
+        color: light,
+      },
+      { x: p.x, y: ground + 0.2, z: p.z, r: DOME - 0.4, h: 0.4, color: light },
+    );
+    out.portals.push({
+      x: p.x,
+      y: dais + TUBE + RING,
+      z: p.z,
+      r: RING,
+      tube: TUBE,
+      color: light,
+    });
+    // The gate's mouth, and the lights on the dais either side of it.
+    out.glows.push(
+      {
+        x: p.x,
+        y: dais + TUBE + RING,
+        z: p.z,
+        color: light,
+        size: 7,
+        seed: 0.6,
+      },
+      ...[-1, 1].map((end) => ({
+        x: p.x + end * (RING + 1.6),
+        y: dais + 0.5,
+        z: p.z,
+        color: light,
+        size: 2.6,
+        seed: (end + 1) / 4,
+      })),
+    );
+    return standing(p.x, p.z, foot, apex, 2 * DOME, 2 * DOME, light);
   }
 
   /**
-   * Life House: a hotel, a slim tower of lit rooms on a podium,
-   * the site's light a beacon crowning its roof.
+   * Life House: a château-style hotel, a tower of lit rooms between two
+   * lower wings, each under a steep copper roof with dormers; a neon HOTEL
+   * sign down its face and a covered drop-off at its door; the site's light
+   * on the tower roof's finial.
    */
   function hotel({ position: p, side }: Site, light: Color) {
-    const TOWER = 9;
-    const PODIUM = { w: 15, h: 4.5, d: 12 };
-    const foot = groundUnder(p.x, p.z, PODIUM.w, PODIUM.d).low - 2;
-    const ground = foot + 2;
-    const roof = p.y - 2.2;
+    const TOWER = 9.5;
+    const WING = { w: 7, d: 6, h: 10 };
+    const CANOPY = { out: 4.5, d: 7, h: 3.6 };
     const facing = -side;
-    out.rooms.push(
-      standing(p.x, p.z, foot, roof, TOWER, TOWER, light),
-      standing(p.x, p.z, foot, ground + PODIUM.h, PODIUM.w, PODIUM.d, light),
+    const span = TOWER + 2 * WING.d;
+    const reach = TOWER / 2 + CANOPY.out;
+    const foot = groundUnder(p.x, p.z, 2 * reach, span).low - 2;
+    const ground = valleyHeight(p.x, p.z);
+    const eave = ground + 15.5;
+    const peak = p.y - 0.8;
+    const copper = palette.cyan;
+    const roof = (x: number, z: number, size: number, y: number, top: number) =>
+      out.solids.push(hippedRoof(x, z, size, y, top));
+
+    out.rooms.push(standing(p.x, p.z, foot, eave, TOWER, TOWER, light));
+    roof(p.x, p.z, TOWER, eave, peak);
+    // The finial the light stands on.
+    out.bands.push(standing(p.x, p.z, peak, p.y - 0.3, 0.25, 0.25, copper));
+    for (const end of [-1, 1]) {
+      const z = p.z + end * (TOWER / 2 + WING.d / 2);
+      const top = ground + WING.h;
+      out.rooms.push(standing(p.x, z, foot, top, WING.w, WING.d, light));
+      roof(p.x, z, WING.w - 0.5, top, top + 3.4);
+    }
+    // Dormers, two on each face of the tower's roof, each a lit window.
+    const rise = 1.6;
+    const inset =
+      TOWER / 2 + 0.3 - rise * (((TOWER / 2) * 0.82) / (peak - eave));
+    for (const [u, v] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      for (const along of [-2.2, 2.2]) {
+        const x = p.x + u * (inset - 0.5) + v * along;
+        const z = p.z + v * (inset - 0.5) + u * along;
+        out.bodies.push(
+          standing(
+            x,
+            z,
+            eave + 0.6,
+            eave + 2.4,
+            u ? 1.2 : 1.3,
+            u ? 1.3 : 1.2,
+            copper,
+          ),
+        );
+        out.bands.push(
+          standing(
+            x + u * 0.62,
+            z + v * 0.62,
+            eave + 1,
+            eave + 2,
+            u ? 0.06 : 0.7,
+            u ? 0.7 : 0.06,
+            palette.ink,
+          ),
+        );
+      }
+    }
+
+    // The covered drop-off: a canopy on two posts out from the door, lit
+    // along its edge and from beneath.
+    const face = p.x + (facing * TOWER) / 2;
+    const canopyX = face + (facing * CANOPY.out) / 2;
+    const tip = face + facing * (CANOPY.out - 0.3);
+    out.bodies.push(
+      standing(
+        canopyX,
+        p.z,
+        ground + CANOPY.h,
+        ground + CANOPY.h + 0.5,
+        CANOPY.out,
+        CANOPY.d,
+        light,
+      ),
+      ...[-1, 1].map((end) =>
+        standing(
+          tip,
+          p.z + end * (CANOPY.d / 2 - 0.3),
+          foot,
+          ground + CANOPY.h,
+          0.35,
+          0.35,
+          light,
+        ),
+      ),
     );
-    // The crown: a setback on the roof, ringed in light.
-    out.bodies.push(standing(p.x, p.z, roof, roof + 1.4, 6, 6, light));
     out.bands.push(
       standing(
-        p.x,
+        face + facing * (CANOPY.out + 0.02),
         p.z,
-        roof - 0.7,
-        roof - 0.4,
-        TOWER + 0.22,
-        TOWER + 0.22,
-        light,
-      ),
-      standing(p.x, p.z, roof + 1.1, roof + 1.4, 6.22, 6.22, light),
-      // A seam of light up the face looking into the valley, and the
-      // entrance's canopy under it.
-      standing(
-        p.x + (facing * TOWER) / 2,
-        p.z,
-        ground + PODIUM.h,
-        roof - 1,
-        0.16,
-        1.6,
+        ground + CANOPY.h + 0.1,
+        ground + CANOPY.h + 0.4,
+        0.06,
+        CANOPY.d,
         light,
       ),
       standing(
-        p.x + (facing * PODIUM.w) / 2,
+        canopyX,
         p.z,
-        ground + 2.6,
-        ground + 3.1,
-        0.3,
-        6,
-        light,
+        ground + CANOPY.h - 0.04,
+        ground + CANOPY.h,
+        CANOPY.out - 0.4,
+        CANOPY.d - 0.4,
+        palette.ink.clone().multiplyScalar(0.55),
       ),
     );
-    // A slab at every other floor, on the city's floor lines (its windows'
-    // rows are 2.3 apart): balconies, so the tower reads as a hotel.
-    for (
-      let y = Math.ceil((ground + PODIUM.h) / 4.6) * 4.6;
-      y < roof - 1;
-      y += 4.6
-    ) {
-      out.bands.push(
-        standing(
-          p.x,
-          p.z,
-          y - 0.08,
-          y + 0.08,
-          TOWER + 0.5,
-          TOWER + 0.5,
-          light.clone().multiplyScalar(0.7),
-        ),
-      );
-    }
-    for (const [u, v] of [
-      [-1, -1],
-      [-1, 1],
-      [1, -1],
-      [1, 1],
-    ]) {
+    for (const along of [-2.2, 0, 2.2]) {
       out.glows.push({
-        x: p.x + u * 3,
-        y: roof + 1.6,
-        z: p.z + v * 3,
-        color: light,
-        size: 1.8,
-        seed: (u + 2 * v + 3) / 6,
+        x: canopyX,
+        y: ground + CANOPY.h - 0.4,
+        z: p.z + along,
+        color: palette.ink,
+        size: 2.2,
+        seed: (along + 2.2) / 4.4,
       });
     }
-    return standing(p.x, p.z, foot, roof + 1.4, PODIUM.w, PODIUM.d, light);
+
+    // The HOTEL sign: a blade out from the face, on the side nearer up the
+    // valley, its letters in neon down both sides.
+    // Clear of the canopy below it, and out over the street.
+    const blade = {
+      x: face + facing * 1.6,
+      z: p.z + TOWER / 2 - 0.9,
+      top: eave - 0.4,
+    };
+    const bottom = blade.top - 0.3 - 5 * LETTER.h - 4 * LETTER.gap;
+    out.bodies.push(
+      standing(
+        blade.x,
+        blade.z,
+        bottom - 0.3,
+        blade.top,
+        3.1,
+        0.35,
+        palette.night,
+      ),
+    );
+    const neon = palette.magenta.clone().lerp(palette.ink, 0.25);
+    "HOTEL".split("").forEach((letter, i) => {
+      const y = blade.top - 0.3 - (i + 1) * LETTER.h - i * LETTER.gap;
+      for (const toward of [-1, 1]) {
+        for (const [u0, v0, u1, v1] of NEON[letter]) {
+          // Read left to right from whichever side it's seen from.
+          const a = toward * (u0 - LETTER.w / 2);
+          const b = toward * (u1 - LETTER.w / 2);
+          out.bands.push({
+            x: blade.x + (a + b) / 2,
+            y: y + (v0 + v1) / 2,
+            z: blade.z + toward * 0.22,
+            w: Math.abs(b - a),
+            h: v1 - v0,
+            d: 0.08,
+            color: neon,
+          });
+        }
+      }
+    });
+    out.glows.push(
+      ...[0.2, 0.5, 0.8].map((t) => ({
+        x: blade.x,
+        y: bottom + t * (blade.top - bottom),
+        z: blade.z + 0.6,
+        color: palette.magenta,
+        size: 6,
+        seed: t,
+      })),
+    );
+
+    return standing(p.x, p.z, foot, p.y - 0.3, 2 * reach, span, light);
   }
 
   /**
