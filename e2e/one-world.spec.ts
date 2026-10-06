@@ -191,8 +191,12 @@ test.describe("between routes", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: resume.heading }),
     ).toBeVisible();
-    // Nothing animates, transition or not.
-    for (const durations of await transitions()) expect(durations).toEqual([]);
+    // Nothing takes any time, transition or not. (On a loaded machine React
+    // can start a second transition and pin its groups with zero-length
+    // animations of its own: instant, so they pass.)
+    for (const durations of await transitions()) {
+      expect(durations.filter((d) => d > 0)).toEqual([]);
+    }
   });
 });
 
