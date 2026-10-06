@@ -6,8 +6,8 @@ import type { Veil } from "./veil";
 /**
  * A pickleball court, in feet: 20 wide and 44 long, the net across the
  * middle at 34 inches (36 at the posts), and the kitchen (the non-volley
- * zone) 7 deep on each side of it. Juice Bros' landmark, and the court the
- * game on /play is played on.
+ * zone) 7 deep on each side of it. Juice Bros' landmark; its own module, so
+ * another scene can lay the same court out.
  */
 export const COURT = {
   width: 20,
@@ -17,10 +17,7 @@ export const COURT = {
   postHeight: 36 / 12,
   /** How far outside the sidelines the posts stand. */
   postOut: 1,
-  /**
-   * The plinth's lip round the court, beside it and behind each baseline:
-   * narrow, so the court fits between the gate's pylons in the world.
-   */
+  /** The plinth's lip round the court, beside it and behind each baseline. */
   side: 1,
   back: 1,
 } as const;

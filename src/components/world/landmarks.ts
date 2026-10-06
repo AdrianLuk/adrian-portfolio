@@ -61,8 +61,8 @@ export type Landmarks = {
   /** Each site's landmark, whole, in the sites' order. */
   bounds: Box[];
   /**
-   * Every solid part as a box, for keeping the camera clear of them (the
-   * ball is a light, as the glows are, not a part).
+   * Every part as a box, for keeping the camera clear of them and under the
+   * ridge (the ball is a light, as the glows are, not a part).
    */
   parts: Box[];
 };
@@ -117,6 +117,7 @@ export function layoutLandmarks(): Landmarks {
   out.parts.push(
     ...out.bodies,
     ...out.rooms,
+    ...out.bands,
     ...out.solids.map((s) => ({
       x: s.x,
       y: s.y + s.h / 2,
@@ -225,7 +226,7 @@ export function layoutLandmarks(): Landmarks {
   }
 
   /**
-   * Life House: a boutique hotel, a slim tower of lit rooms on a podium,
+   * Life House: a hotel, a slim tower of lit rooms on a podium,
    * the site's light a beacon crowning its roof.
    */
   function hotel({ position: p, side }: Site, light: Color) {

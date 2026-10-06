@@ -195,6 +195,7 @@ describe("the city", () => {
         }
         for (const b of [
           ...buildings,
+          ...landmarks.parts,
           ...skyline.towers,
           ...skyline.darkTowers,
         ]) {
