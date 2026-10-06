@@ -1,7 +1,7 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { litAt, routeAnchors, stopAt, type PanelBox } from "./route-anchors";
-import type { RouteRig } from "./world/rigs";
+import { SITE_PLAN, type RouteRig } from "./world/rigs";
 import type { World } from "./world/scene";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -68,13 +68,21 @@ export function createScrollRoute({
     const width = document.documentElement.clientWidth;
     // Every read, then every write, so the page lays out once.
     const next = panels.map((el, i) => {
-      const now = locate?.(i);
       const atStop = locate?.(i, i + 1);
-      if (!now || !atStop) return 0;
+      if (!locate || !atStop) return 0;
+      // Once the camera flies on past its stop, a site runs off its own side
+      // of the screen and then falls behind the camera, where it has no place
+      // on screen: the panel holds at that edge rather than snapping back.
+      const now = locate(i);
+      const x = now
+        ? Math.min(Math.max(now.x, 0), width)
+        : SITE_PLAN[i].side > 0
+          ? width
+          : 0;
       const box = el.getBoundingClientRect();
       const left = box.left - shifts[i];
       const right = box.right - shifts[i];
-      const want = PANEL_PARALLAX * (now.x - atStop.x);
+      const want = PANEL_PARALLAX * (x - atStop.x);
       return Math.round(
         Math.min(Math.max(want, EDGE - left), Math.max(0, width - EDGE - right)),
       );
