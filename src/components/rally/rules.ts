@@ -101,7 +101,7 @@ const PLAYER_SPEED = 12;
 const ROOM_BACK = 8;
 const ROOM_SIDE = 5;
 /** How far from a player the paddle reaches, and how high. */
-const REACH = 3;
+export const REACH = 3;
 const REACH_HIGH = 6;
 /** A shot's pace along the court (feet per second), its depth past the net, and its widest line in from a sideline. */
 const SHOT_SPEED = 34;
