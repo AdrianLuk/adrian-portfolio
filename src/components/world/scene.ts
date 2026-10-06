@@ -188,7 +188,7 @@ export async function createWorld(
 
   // Setup yields between its heavier steps, so no one task blocks input long.
   const sky = createSky(shared);
-  const structures = createStructures();
+  const structures = createStructures(shared);
   const terrain = createTerrain();
   await nextTask();
 

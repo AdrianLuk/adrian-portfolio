@@ -2,11 +2,15 @@ import {
   BufferGeometry,
   Color,
   CylinderGeometry,
+  DoubleSide,
   Float32BufferAttribute,
+  FrontSide,
+  LatheGeometry,
   Mesh,
   MeshBasicMaterial,
   ShaderMaterial,
   SphereGeometry,
+  Vector2,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Glow } from "./glow-points";
@@ -37,12 +41,13 @@ export type Box = {
 };
 
 /**
- * A round solid standing on its base: a cylinder or cone (a frustum), or a
- * shallow dome. `windows` lays the city's lit windows on it; `wash` floods it
- * with its light, as the CN Tower's shaft is lit at night.
+ * A round solid standing on its base: a cylinder or cone (a frustum), a
+ * shallow dome, or a lathe, its `profile` ([radius, height] pairs) turned
+ * round its axis. `windows` lays the city's lit windows on it; `wash` floods
+ * it with its light, as the CN Tower's shaft is lit at night.
  */
 export type Solid = {
-  shape: "frustum" | "dome";
+  shape: "frustum" | "dome" | "lathe";
   x: number;
   y: number;
   z: number;
@@ -53,6 +58,7 @@ export type Solid = {
   color: Color;
   windows?: boolean;
   wash?: number;
+  profile?: readonly (readonly [number, number])[];
 };
 
 /** A ring of light round a solid: the CN Tower's pods, the dome's rim. */
@@ -360,7 +366,12 @@ function boxAround(
 /** One solid as geometry, standing on its base, tagged for the shader. */
 function solidGeometry(s: Solid): BufferGeometry {
   const g =
-    s.shape === "dome"
+    s.shape === "lathe"
+      ? new LatheGeometry(
+          (s.profile ?? []).map(([r, y]) => new Vector2(r, y)),
+          s.segments,
+        ).toNonIndexed()
+      : s.shape === "dome"
       ? new SphereGeometry(
           s.rBottom,
           s.segments,
@@ -417,12 +428,15 @@ function ringGeometry(r: Ring): BufferGeometry {
 
 /**
  * The landmarks' round solids, shaded like the city (moonlit facets, lit
- * windows, fog) in one draw, and their rings of light in another.
+ * windows, fog) in one draw, and their rings of light in another. `haze` is
+ * how much of the world's fog they take; rings seen from inside, as a
+ * stadium's are, need `insideRings`.
  */
 export function createSkylineMeshes(
   solids: readonly Solid[],
   rings: readonly Ring[],
   windowLight: string,
+  { haze = HAZE, insideRings = false } = {},
 ) {
   const material = new ShaderMaterial({
     uniforms: {
@@ -455,7 +469,7 @@ export function createSkylineMeshes(
       varying float vWash;
       ${fogChunk}
       ${windowLight}
-      const float HAZE = ${HAZE.toFixed(2)};
+      const float HAZE = ${haze.toFixed(2)};
       void main() {
         vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
         float diffuse = max(dot(n, uMoon), 0.0);
@@ -472,7 +486,11 @@ export function createSkylineMeshes(
   const light = new Mesh(
     mergeGeometries(rings.map(ringGeometry)),
     // Unfogged: the rings carry the skyline's shape through the haze.
-    new MeshBasicMaterial({ vertexColors: true, fog: false }),
+    new MeshBasicMaterial({
+      vertexColors: true,
+      fog: false,
+      side: insideRings ? DoubleSide : FrontSide,
+    }),
   );
   return [body, light];
 }
