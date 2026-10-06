@@ -229,14 +229,14 @@ export function layoutLandmarks(): Landmarks {
       tube: TUBE,
       color: light,
     });
-    // The gate's mouth, and the lights on the dais either side of it.
+    // The shield in the gate's mouth, and the lights on the dais either side.
     out.glows.push(
       {
         x: p.x,
         y: dais + TUBE + RING,
         z: p.z,
         color: light,
-        size: 7,
+        size: 4.5,
         seed: 0.6,
       },
       ...[-1, 1].map((end) => ({

@@ -1,11 +1,15 @@
 import {
   AdditiveBlending,
+  BufferGeometry,
   Color,
   DoubleSide,
   Float32BufferAttribute,
   Mesh,
   MeshBasicMaterial,
+  Path,
   ShaderMaterial,
+  Shape,
+  ShapeGeometry,
   SphereGeometry,
   TorusGeometry,
 } from "three";
@@ -140,34 +144,91 @@ export function createShields(
   return new Mesh(geometry, material);
 }
 
-/** The portals, each a bright ring with a hot inner edge, in one draw. */
-export function createPortals(portals: readonly Portal[]) {
-  const geometry = mergeGeometries(
-    portals.flatMap((p) =>
-      [
-        { r: p.r, tube: p.tube, color: p.color },
-        {
-          r: p.r - p.tube * 0.8,
-          tube: p.tube * 0.3,
-          color: p.color.clone().lerp(new Color(1, 1, 1), 0.6),
-        },
-      ].map(({ r, tube, color }) => {
-        const g = new TorusGeometry(r, tube, 10, 64)
-          .translate(p.x, p.y, p.z)
-          .toNonIndexed();
-        g.deleteAttribute("uv");
-        g.deleteAttribute("normal");
-        const n = g.getAttribute("position").count;
-        g.setAttribute(
-          "color",
-          new Float32BufferAttribute(
-            Array.from({ length: n }, () => color.toArray()).flat(),
-            3,
-          ),
-        );
-        return g;
-      }),
+/**
+ * A heater shield's outline, `w` wide and `h` tall, centred on the origin:
+ * a flat top, straight sides, and curves meeting in a point below.
+ */
+function heater(w: number, h: number) {
+  const shape = new Shape();
+  const top = h * 0.45;
+  const shoulder = h * 0.05;
+  shape.moveTo(-w / 2, top);
+  shape.lineTo(w / 2, top);
+  shape.lineTo(w / 2, shoulder);
+  shape.quadraticCurveTo(w / 2, -h * 0.32, 0, -h * 0.55);
+  shape.quadraticCurveTo(-w / 2, -h * 0.32, -w / 2, shoulder);
+  shape.closePath();
+  return shape;
+}
+
+/** A heater shield's band, `w` wide and `h` tall, `t` thick, inside its edge. */
+function heaterBand(w: number, h: number, t: number) {
+  const band = heater(w, h);
+  band.holes.push(new Path(heater(w - 2 * t, h - 2 * t).getPoints(24)));
+  return band;
+}
+
+/** Geometry carrying one colour on every vertex, for a vertex-coloured draw. */
+function painted(g: BufferGeometry, color: Color) {
+  const flat = g.toNonIndexed();
+  flat.deleteAttribute("uv");
+  flat.deleteAttribute("normal");
+  const n = flat.getAttribute("position").count;
+  flat.setAttribute(
+    "color",
+    new Float32BufferAttribute(
+      Array.from({ length: n }, () => color.toArray()).flat(),
+      3,
     ),
   );
-  return new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true }));
+  return flat;
+}
+
+/**
+ * The portals in one draw: each a bright ring with a hot inner edge, and in
+ * its mouth a shield of light facing up the valley, filled faintly, edged
+ * bright, with a second edge inside.
+ */
+export function createPortals(portals: readonly Portal[]) {
+  const white = new Color(1, 1, 1);
+  const geometry = mergeGeometries(
+    portals.flatMap((p) => {
+      const hot = p.color.clone().lerp(white, 0.6);
+      const h = p.r * 1.25;
+      const w = h * 0.8;
+      const at = (g: BufferGeometry) => g.translate(p.x, p.y, p.z);
+      // The outline's middle sits 0.05 of its height below its origin.
+      const mid = (g: BufferGeometry) => at(g.translate(0, h * 0.05, 0));
+      return [
+        painted(at(new TorusGeometry(p.r, p.tube, 10, 64)), p.color),
+        painted(
+          at(new TorusGeometry(p.r - p.tube * 0.8, p.tube * 0.3, 10, 64)),
+          hot,
+        ),
+        painted(
+          mid(new ShapeGeometry(heater(w, h), 24)),
+          p.color.clone().multiplyScalar(0.35),
+        ),
+        painted(
+          mid(
+            new ShapeGeometry(heaterBand(w, h, 0.5), 24).translate(0, 0, 0.05),
+          ),
+          hot,
+        ),
+        painted(
+          mid(
+            new ShapeGeometry(
+              heaterBand(w * 0.72, h * 0.72, 0.18),
+              24,
+            ).translate(0, -h * 0.014, 0.05),
+          ),
+          p.color.clone().lerp(white, 0.3),
+        ),
+      ];
+    }),
+  );
+  return new Mesh(
+    geometry,
+    new MeshBasicMaterial({ vertexColors: true, side: DoubleSide }),
+  );
 }
