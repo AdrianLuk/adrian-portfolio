@@ -151,7 +151,7 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 1440, height: 900 },
 ]) {
-  test(`at ${viewport.width}px every Role stands on a panel`, async ({
+  test(`at ${viewport.width}px the header and every Role stand on a panel`, async ({
     page,
   }) => {
     await withoutWorld(page);
@@ -161,9 +161,14 @@ for (const viewport of [
       .getByRole("region", { name: resume.rolesHeading })
       .locator("ol > li");
     await expect(items).toHaveCount(roles.length);
-    const backgrounds = await items.evaluateAll((els) =>
-      els.map((el) => getComputedStyle(el).backgroundColor),
-    );
+    const header = page.locator("main header");
+    await expect(header).toContainText(resume.intro);
+    const backgrounds = await items
+      .or(header)
+      .evaluateAll((els) =>
+        els.map((el) => getComputedStyle(el).backgroundColor),
+      );
+    expect(backgrounds).toHaveLength(roles.length + 1);
     for (const background of backgrounds) {
       expect(background).not.toBe("rgba(0, 0, 0, 0)");
     }
