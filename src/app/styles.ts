@@ -2,9 +2,12 @@
  * Class strings the pages share, so a change to the theme's look is one edit.
  */
 
-/** The small violet label above each section. */
+/**
+ * The small label above each section: ink after a violet rule, shadowed in
+ * the night so it holds over the world's lit ridges and towers.
+ */
 export const sectionLabel =
-  "font-display text-sm tracking-[0.3em] text-violet uppercase [font-stretch:75%]";
+  "flex items-center gap-3 font-display text-sm font-bold tracking-[0.3em] text-ink uppercase [font-stretch:75%] [text-shadow:0_0_12px_var(--color-night),0_1px_3px_var(--color-night)] before:h-0.5 before:w-8 before:bg-violet";
 
 /** The cyan HUD line under a title: dates, bylines. */
 export const metaLine =
