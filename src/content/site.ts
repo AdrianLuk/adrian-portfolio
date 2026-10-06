@@ -149,10 +149,10 @@ export const credits = {
   lines: [
     "A portfolio by: Adrian Luk",
     "Starring: Adrian Luk, as himself",
-    "Motion by: Adrian Luk (yes, also him)",
+    "Motion by: Adrian Luk (yes, also me)",
     "Budget: one Vercel Hobby plan",
   ],
-  skip: "You can skip this. He'd rather you didn't.",
+  skip: "You can skip this. I'd rather you didn't.",
 } as const;
 
 export const work = { heading: "Work" } as const;
@@ -540,7 +540,7 @@ export const contact = {
       href: "https://github.com/AdrianLuk",
     },
   ],
-  bookend: "The end. (Hire him.)",
+  bookend: "The end. (Hire me.)",
 } as const satisfies {
   heading: string;
   lead: string;

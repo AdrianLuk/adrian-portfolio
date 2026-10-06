@@ -256,3 +256,22 @@ describe("Rejected wording", () => {
     expect(strings.filter((s) => pattern.test(s))).toEqual([]);
   });
 });
+
+describe("Register", () => {
+  const thirdPerson = /\b(he|him|his|himself|he'd)\b/i;
+
+  it("keeps the hero, the credits and the contact copy in the first person", () => {
+    // "Starring: Adrian Luk, as himself" is a credit's own idiom; every other
+    // string in these three groups is the author speaking.
+    const strings = allStrings({
+      hero: site.hero,
+      credits: {
+        ...site.credits,
+        lines: site.credits.lines.filter((line) => !line.startsWith("Starring")),
+      },
+      contact: site.contact,
+    });
+    expect(strings.length).toBeGreaterThan(5);
+    expect(strings.filter((s) => thirdPerson.test(s))).toEqual([]);
+  });
+});
