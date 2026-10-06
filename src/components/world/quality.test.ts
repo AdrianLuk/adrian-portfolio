@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   moteCountFor,
   pixelRatioFor,
+  precipitationCountFor,
   plateFinishFor,
   tierFor,
 } from "./quality";
@@ -29,6 +30,27 @@ describe("moteCountFor", () => {
     expect(moteCountFor(200, 200)).toBe(60);
     expect(moteCountFor(2560, 1440)).toBe(260);
     expect(moteCountFor(7680, 4320)).toBe(260);
+  });
+});
+
+describe("precipitationCountFor", () => {
+  it("scales snow and rain with the canvas, so phones draw fewer", () => {
+    for (const weather of ["snow", "rain"] as const) {
+      expect(precipitationCountFor(weather, 390, 760)).toBeLessThan(
+        precipitationCountFor(weather, 1440, 820),
+      );
+    }
+  });
+
+  it("stays within a floor and a ceiling", () => {
+    expect(precipitationCountFor("snow", 200, 200)).toBe(800);
+    expect(precipitationCountFor("snow", 7680, 4320)).toBe(1800);
+    expect(precipitationCountFor("rain", 200, 200)).toBe(1100);
+    expect(precipitationCountFor("rain", 7680, 4320)).toBe(2400);
+  });
+
+  it("draws nothing under a clear sky", () => {
+    expect(precipitationCountFor("clear", 1440, 820)).toBe(0);
   });
 });
 

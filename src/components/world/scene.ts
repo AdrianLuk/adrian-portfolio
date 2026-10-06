@@ -1,6 +1,7 @@
 import {
   InstancedMesh,
   FogExp2,
+  Line,
   Material,
   Mesh,
   PerspectiveCamera,
@@ -13,9 +14,10 @@ import {
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
-import { createGroundPools } from "./ground-pools";
+import { createGroundPools, type Pool } from "./ground-pools";
 import { createMist } from "./mist";
 import { createNamePlate, type PlacedWord } from "./name-plate";
+import { createPrecipitation } from "./precipitation";
 import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
@@ -26,6 +28,7 @@ import {
   moteCountFor,
   pixelRatioFor,
   plateFinishFor,
+  precipitationCountFor,
   tierFor,
 } from "./quality";
 import { seededRandom } from "./noise";
@@ -34,6 +37,7 @@ import { createSky } from "./sky";
 import { createStructures } from "./structures";
 import { createTerrain } from "./terrain-mesh";
 import { valleyHeight } from "./terrain";
+import type { Weather } from "./weather";
 
 /** The canvas size and the headline's word boxes, in canvas pixels. */
 export type Measurement = {
@@ -45,6 +49,11 @@ export type Measurement = {
 export type WorldOptions = {
   /** False under prefers-reduced-motion: render on demand, never loop. */
   motion: boolean;
+  /**
+   * Toronto's weather. Snow or rain falls only while the world moves; the
+   * ground shows it either way (settled snow, a wet floor).
+   */
+  weather: Weather;
   /**
    * The opening flight's state, read on every frame (the GSAP timeline
    * animates it in place); SETTLED_RIG holds the settled pose.
@@ -157,6 +166,21 @@ function createMotes(shared: SharedUniforms, width: number, height: number) {
 }
 
 /**
+ * On a wet floor, light pools stretch towards the camera like reflections,
+ * and brighten a little.
+ */
+const WET_POOLS = { width: 0.75, depth: 1.6, intensity: 0.42 };
+const POOL_INTENSITY = 0.32;
+
+function wetPools(pools: readonly Pool[]) {
+  return pools.map((p) => ({
+    ...p,
+    width: p.width * WET_POOLS.width,
+    depth: p.depth * WET_POOLS.depth,
+  }));
+}
+
+/**
  * Builds the world on `canvas` and draws its first frame once every shader has
  * compiled (off the main thread where the browser allows). Resolves to null
  * when WebGL is unavailable, in which case the DOM headline simply stays.
@@ -189,7 +213,8 @@ export async function createWorld(
   // Setup yields between its heavier steps, so no one task blocks input long.
   const sky = createSky(shared);
   const structures = createStructures(shared);
-  const terrain = createTerrain();
+  const { weather } = options;
+  const terrain = createTerrain(weather);
   await nextTask();
 
   // The plate is the hero object: large screens get its full finish, and only
@@ -208,7 +233,11 @@ export async function createWorld(
   });
   const lights = createGlowPoints(structures.glows, shared);
   const sites = createSiteLights(shared);
-  const pools = createGroundPools(structures.pools.length + 3, 0.32);
+  const wet = weather === "rain";
+  const pools = createGroundPools(
+    structures.pools.length + 3,
+    wet ? WET_POOLS.intensity : POOL_INTENSITY,
+  );
   // Every material is self-lit or moonlit in its shader: the scene has no lights.
   scene.add(
     ...sky.objects,
@@ -223,6 +252,8 @@ export async function createWorld(
 
   let motes: ReturnType<typeof createMotes> | null = null;
   let motesFor = 0;
+  let falling: ReturnType<typeof createPrecipitation> | null = null;
+  let fallingFor = 0;
 
   let motion = options.motion;
   let onScreen = true;
@@ -284,7 +315,7 @@ export async function createWorld(
     camera.updateProjectionMatrix();
     canvasSize.width = width;
     canvasSize.height = height;
-    for (const glow of [lights, plate.flares, ...sites, motes])
+    for (const glow of [lights, plate.flares, ...sites, motes, falling])
       glow?.setViewportHeight(height);
 
     // Motes scale with the canvas area; rebuild only when the count bucket moves.
@@ -299,6 +330,22 @@ export async function createWorld(
       motes.setViewportHeight(height);
       scene.add(motes.points);
       motesFor = count;
+    }
+
+    // Snow or rain, likewise: rebuilt only when its count bucket moves.
+    const fallCount = precipitationCountFor(weather, width, height);
+    if (weather !== "clear" && fallCount !== fallingFor) {
+      if (falling) {
+        scene.remove(falling.object);
+        falling.object.geometry.dispose();
+        (falling.object.material as Material).dispose();
+      }
+      falling = createPrecipitation(weather, fallCount, shared);
+      falling.setViewportHeight(height);
+      // Nothing falls under reduced motion: the ground shows the weather.
+      falling.object.visible = motion;
+      scene.add(falling.object);
+      fallingFor = fallCount;
     }
 
     const perPx = unitsPerPixel(CAMERA.fovY, CAMERA.plateDepth, height);
@@ -341,7 +388,8 @@ export async function createWorld(
       pathFor = key;
     }
     credits.clear();
-    pools.set([...structures.pools, ...plate.pools()]);
+    const lit = [...structures.pools, ...plate.pools()];
+    pools.set(wet ? wetPools(lit) : lit);
     // The loop, when it runs, draws the new pose on its next frame.
     if (!running) render();
   }
@@ -393,7 +441,11 @@ export async function createWorld(
     canvas.removeEventListener("webglcontextrestored", onContextRestored);
     scene.traverse((object) => {
       if (object instanceof InstancedMesh) object.dispose();
-      if (object instanceof Mesh || object instanceof Points) {
+      if (
+        object instanceof Mesh ||
+        object instanceof Points ||
+        object instanceof Line
+      ) {
         object.geometry.dispose();
         const materials = Array.isArray(object.material)
           ? object.material
@@ -473,6 +525,7 @@ export async function createWorld(
     placeSite,
     setMotion(next) {
       motion = next;
+      if (falling) falling.object.visible = motion;
       if (!motion) {
         shared.uTime.value = STILL_TIME;
         loopStart = null;

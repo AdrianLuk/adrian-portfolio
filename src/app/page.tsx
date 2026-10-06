@@ -11,6 +11,11 @@ import {
 import Link from "next/link";
 import { Fragment } from "react";
 import { metaLine, primaryAction, sectionLabel, textLink } from "./styles";
+import { torontoWeather } from "./toronto-weather";
+
+// Rebuilt at most hourly, for the weather (WEATHER_REVALIDATE): segment
+// config must be a literal.
+export const revalidate = 3600;
 
 /** Skip, set on a card at the foot of the hero while the fly-in plays. */
 const skipCard =
@@ -29,12 +34,17 @@ function creditParts(line: string) {
 const landsAfterFlight =
   "opening:translate-y-3 opening:opacity-0 motion-safe:group-data-[state=settled]:transition-[opacity,translate] motion-safe:group-data-[state=settled]:duration-700";
 
-export default function Home() {
+export default async function Home() {
+  const weather = await torontoWeather();
   return (
     // Its own stacking context: once the camera flies, the world's canvas is
     // held at the back of it, behind the whole page and over the body's sky.
     <div className="relative isolate">
-      <HeroWorld label={hero.label} className="min-h-[88svh]">
+      <HeroWorld
+        label={hero.label}
+        weather={weather}
+        className="min-h-[88svh]"
+      >
         {/* Out of the flow at the hero's foot, so hiding the credits never
           moves anything, but first in it: Skip is the hero's first stop. On
           a phone the hero grows past the screen to fit the stacked name, so
