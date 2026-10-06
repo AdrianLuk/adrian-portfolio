@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFlightTimeline } from "./flight-timeline";
-import { SETTLED_RIG, type FlightRig } from "./world/flight";
+import { SETTLED_RIG, type FlightRig } from "./world/rigs";
 
 function setup() {
   const rig: FlightRig = { ...SETTLED_RIG };

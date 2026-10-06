@@ -11,7 +11,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { bakePlateEnvironment } from "./environment";
-import { createFlightPath, type FlightPath, type FlightRig } from "./flight";
+import { createFlightPath, type FlightPath } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
 import { createGroundPools } from "./ground-pools";
 import { createMist } from "./mist";
@@ -20,7 +20,8 @@ import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight } from "./pose";
-import { createRoute, SITES, type Route, type RouteRig } from "./route";
+import { createRoute, SITES, type Route } from "./route";
+import type { FlightRig, RouteRig } from "./rigs";
 import {
   moteCountFor,
   pixelRatioFor,

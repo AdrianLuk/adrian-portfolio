@@ -4,7 +4,7 @@ import {
   FLIGHT_TIMING,
   SETTLED_RIG,
   type FlightRig,
-} from "./world/flight";
+} from "./world/rigs";
 
 /** Anything GSAP can fade: the credit elements, or plain objects in tests. */
 type Fadeable = HTMLElement | { opacity: number };
