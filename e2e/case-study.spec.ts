@@ -50,7 +50,7 @@ test("every screenshot loads, and nothing is embedded live", async ({
   await expect(page.locator("iframe, embed, object")).toHaveCount(0);
 });
 
-test("every link has an accessible name", async ({ page }) => {
+test("every outbound link has an accessible name", async ({ page }) => {
   await page.goto(path);
   const main = page.getByRole("main");
   for (const link of study.links) {

@@ -13,6 +13,7 @@ import {
   rally,
   rallyLink,
   roles,
+  type Highlight,
 } from "../src/content/site";
 import { withoutWorld } from "./hero";
 
@@ -118,7 +119,9 @@ test.describe("a keyboard walk", () => {
       ...nav.map((n) => n.href),
       null, // the Skip control: a button, so no href
       hero.primaryAction.href,
-      ...highlights.map((h) => hrefFor(h.link)),
+      ...highlights.flatMap((h: Highlight) =>
+        h.secondLink ? [hrefFor(h.link), h.secondLink.href] : [hrefFor(h.link)],
+      ),
       contact.resume.href,
       ...contact.channels.map((c) => c.href),
     ];

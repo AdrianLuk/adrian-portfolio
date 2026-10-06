@@ -1,6 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-import { highlightAnchor, rally, rallyLink } from "../src/content/site";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
+import { highlightAnchor, hrefFor, rally, rallyLink } from "../src/content/site";
 import { heroRoot, SCENE_TIMEOUT } from "./hero";
 
 const { game: copy } = rally;
@@ -165,20 +170,14 @@ test.describe("under reduced motion", () => {
   });
 });
 
-test("the home page never asks for the game's code, even with its link on screen", async ({
-  page,
-  request,
-}) => {
-  await page.goto("/");
-  await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
-    timeout: SCENE_TIMEOUT,
-  });
+/**
+ * Fails if `page` has asked for any of the Rally game's code. Told apart by
+ * what's inside, not by name: the rules' point reasons and the game's
+ * announcer survive minification.
+ */
+async function expectNoGameCode(page: Page, request: APIRequestContext) {
   // A link in view is prefetched, code and all, unless it opts out; Next
   // starts it a beat after the page goes quiet.
-  await page
-    .locator(`#${highlightAnchor("juice-bros")}`)
-    .getByRole("link", { name: rallyLink.label })
-    .scrollIntoViewIfNeeded();
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(1_000);
   const scripts = await page.evaluate(() =>
@@ -187,10 +186,34 @@ test("the home page never asks for the game's code, even with its link on screen
       .map((r) => r.name)
       .filter((url) => new URL(url).pathname.endsWith(".js")),
   );
-  // Told apart by what's inside, not by name: the rules' point reasons and
-  // the game's announcer survive minification.
   for (const url of scripts) {
     const body = await (await request.get(url)).text();
     expect(body, url).not.toMatch(/double-bounce|createRallyView/);
   }
+}
+
+test("the home page never asks for the game's code, even with its link on screen", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
+    timeout: SCENE_TIMEOUT,
+  });
+  await page
+    .locator(`#${highlightAnchor("juice-bros")}`)
+    .getByRole("link", { name: rallyLink.label })
+    .scrollIntoViewIfNeeded();
+  await expectNoGameCode(page, request);
+});
+
+test("the Case study never asks for the game's code, though its link is on screen", async ({
+  page,
+  request,
+}) => {
+  await page.goto(hrefFor({ kind: "case-study", slug: "juice-bros" }));
+  await expect(
+    page.getByRole("main").getByRole("link", { name: rallyLink.label }),
+  ).toBeInViewport();
+  await expectNoGameCode(page, request);
 });
