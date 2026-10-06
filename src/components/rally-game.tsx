@@ -437,7 +437,10 @@ export function RallyGame({
                 >
                   {shown.phase === "over" ? copy.over.action : copy.start.action}
                 </button>
-                {!ready && <p className="text-sm text-ink/70">{copy.loading}</p>}
+                {/* Kept in the flow once the court is lit, so the centred overlay doesn't shift. */}
+                <p className={`text-sm text-ink/70 ${ready ? "invisible" : ""}`}>
+                  {copy.loading}
+                </p>
               </>
             )}
           </Overlay>
