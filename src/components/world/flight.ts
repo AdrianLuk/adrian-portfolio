@@ -6,6 +6,7 @@ import {
   Vector3,
 } from "three";
 import { FLIGHT_TIMING, type FlightRig } from "./rigs";
+import { smoothstep } from "./noise";
 import { valleyCentre, valleyHeight } from "./terrain";
 
 /**
@@ -13,8 +14,10 @@ import { valleyCentre, valleyHeight } from "./terrain";
  * looks for a given state of the rig the GSAP timeline drives. Unit tested
  * without WebGL.
  *
- * The camera comes down the canyon behind the settled viewpoint (+z), the
- * plate dead centre ahead the whole way, banking through each bend; near the
+ * The camera opens high on the canyon's right shoulder and pans across it,
+ * sliding sideways and dropping onto the canyon's line, then comes down the
+ * canyon behind the settled viewpoint (+z), the plate dead centre ahead the
+ * whole way, banking through each bend; near the
  * plate it swings round from about 40 degrees off the final view (the turn-in,
  * from the left, the side the canyon comes in on, so the view barely swings
  * out first) and settles exactly on the settled pose.
@@ -30,6 +33,15 @@ const TURN_RADIUS = 125;
 
 /** The run-in's Bezier handles, as a fraction of the distance they span. */
 const RUN_IN_HANDLE = { exit: 0.3, entry: 0.55 };
+
+/**
+ * The opening pan, a steady right-hand arc onto the canyon's line: how far
+ * round it starts (radians, heading off to the left of the canyon), how far
+ * above the cruise height, and the straight it leaves before the canyon's
+ * mouth, so the bank levels out before the run-in leans the other way. Its
+ * radius sets the flight's length.
+ */
+const PAN = { swing: (70 * Math.PI) / 180, lift: 35, straight: 40 };
 
 /** World units between the points the path's spline passes through. */
 const SPACING = 10;
@@ -63,7 +75,7 @@ function arcPoint(centre: Vector3, end: Vector3, s: number) {
   return new Vector3(centre.x + r * Math.sin(a), 0, centre.z + r * Math.cos(a));
 }
 
-function buildCurve(settled: Pose, plateCentre: Vector3, startZ: number) {
+function buildCurve(settled: Pose, plateCentre: Vector3, radius: number) {
   const end = settled.position;
   const arcStart = arcPoint(plateCentre, end, 0);
 
@@ -73,24 +85,47 @@ function buildCurve(settled: Pose, plateCentre: Vector3, startZ: number) {
   const cruise = (x: number, z: number, height: number) =>
     new Vector3(x, valleyHeight(x, z) + height, z);
 
-  // Down the canyon's centre line, towards the open valley.
   const canyonEnd = 200;
-  for (let z = startZ; z > canyonEnd + 1; z -= SPACING) {
-    points.push(cruise(valleyCentre(z), z, CRUISE_HEIGHT));
-  }
-
-  // Out of the canyon along its own heading and down the valley's left side,
-  // banking right at the end onto the line the arc opens on (it opens heading
-  // across the plate).
   const exit = new Vector3(valleyCentre(canyonEnd), 0, canyonEnd);
   const exitHeading = new Vector3(
     valleyCentre(canyonEnd - 10) - valleyCentre(canyonEnd + 10),
     0,
     -20,
   ).normalize();
-  const opening = arcPoint(plateCentre, end, 0.02)
-    .sub(arcStart)
-    .normalize();
+
+  // The opening pan: from high on the canyon's right shoulder, sliding left
+  // across it and dropping, curving onto its line; then a short straight to
+  // its mouth. Heights are over the canyon's floor, not the shoulder's bumps.
+  const ahead = exitHeading;
+  const toLeft = new Vector3(ahead.z, 0, -ahead.x);
+  const join = exit.clone().addScaledVector(ahead, -PAN.straight);
+  const centre = join.clone().addScaledVector(toLeft, -radius);
+  const panSteps = Math.max(2, Math.round((radius * PAN.swing) / SPACING));
+  const floored = (x: number, z: number, lift: number) =>
+    new Vector3(x, valleyHeight(valleyCentre(z), z) + CRUISE_HEIGHT + lift, z);
+  for (let i = 0; i < panSteps; i++) {
+    const s = i / panSteps;
+    // The heading, swung back left the rest of the way round.
+    const back = PAN.swing * (1 - s);
+    const heading = ahead
+      .clone()
+      .multiplyScalar(Math.cos(back))
+      .addScaledVector(toLeft, Math.sin(back));
+    const p = centre
+      .clone()
+      .addScaledVector(new Vector3(heading.z, 0, -heading.x), radius);
+    points.push(floored(p.x, p.z, PAN.lift * (1 - smoothstep(0, 1, s))));
+  }
+  const straightSteps = Math.round(PAN.straight / SPACING);
+  for (let i = 0; i < straightSteps; i++) {
+    const p = join.clone().lerp(exit, i / straightSteps);
+    points.push(floored(p.x, p.z, 0));
+  }
+
+  // Out of the canyon along its own heading and down the valley's left side,
+  // banking right at the end onto the line the arc opens on (it opens heading
+  // across the plate).
+  const opening = arcPoint(plateCentre, end, 0.02).sub(arcStart).normalize();
   const handle = exit.distanceTo(arcStart);
   const runIn = new CubicBezierCurve3(
     exit,
@@ -126,22 +161,23 @@ function buildCurve(settled: Pose, plateCentre: Vector3, startZ: number) {
   const lengths = curve.getLengths((points.length - 1) * perSegment);
   const total = lengths[lengths.length - 1];
   const toTurn = lengths[arcFrom * perSegment];
-  return { curve, total, toTurn };
+  return { curve, total, toTurn, panLength: radius * PAN.swing };
 }
 
 /**
- * Builds the path for one layout. The canyon run is lengthened or shortened
- * so the flight's constant speed meets the turn's opening speed (power2.out
+ * Builds the path for one layout. The pan's arc is widened or tightened so
+ * the flight's constant speed meets the turn's opening speed (power2.out
  * starts at twice its average) with no lurch at the join.
  */
 export function createFlightPath(settled: Pose, plateCentre: Vector3) {
-  let startZ = 600;
-  let built = buildCurve(settled, plateCentre, startZ);
-  for (let i = 0; i < 4; i++) {
+  let radius = 100;
+  let built = buildCurve(settled, plateCentre, radius);
+  for (let i = 0; i < 6; i++) {
     const turnLength = built.total - built.toTurn;
     const wanted = (2 * turnLength * FLIGHT_TIMING.flight) / FLIGHT_TIMING.turn;
-    startZ += wanted - built.toTurn;
-    built = buildCurve(settled, plateCentre, startZ);
+    // The pan's length grows in proportion to its radius.
+    radius *= 1 + (wanted - built.toTurn) / built.panLength;
+    built = buildCurve(settled, plateCentre, radius);
   }
   const { curve, total, toTurn } = built;
   const turnStart = toTurn / total;

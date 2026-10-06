@@ -145,9 +145,22 @@ describe("the flight path", () => {
         expect(last).toBeLessThan(1e-6);
       });
 
-      it("swings the view through no more than 32 degrees before the turn-in", () => {
+      it("opens on a pan: sliding sideways across the view and dropping", () => {
+        const at = (flight: number) =>
+          path.poseAt({ flight, turn: 0, settle: 0 });
+        const start = at(0);
+        const moved = at(0.1).position.sub(start.position);
+        const right = new Vector3(1, 0, 0).applyQuaternion(start.quaternion);
+        const ahead = new Vector3(0, 0, -1).applyQuaternion(start.quaternion);
+        expect(Math.abs(moved.dot(right))).toBeGreaterThan(
+          1.2 * Math.abs(moved.dot(ahead)),
+        );
+        expect(moved.y).toBeLessThan(-5);
+      });
+
+      it("swings the view through no more than 45 degrees before the turn-in", () => {
         // The camera always looks at the plate, so the view turns as the
-        // camera's bearing from it changes.
+        // camera's bearing from it changes: most of it in the opening pan.
         let swung = 0;
         let last = offFinal({ flight: 0, turn: 0 });
         for (let flight = 0.01; flight <= 1.0001; flight += 0.01) {
@@ -155,7 +168,7 @@ describe("the flight path", () => {
           swung += Math.abs(now - last);
           last = now;
         }
-        expect(degrees(swung)).toBeLessThan(32);
+        expect(degrees(swung)).toBeLessThan(45);
       });
 
       it("cruises at no more than 88 units a second, so the credits read", () => {
@@ -183,6 +196,16 @@ describe("the flight path", () => {
             .dot(left);
           // Any turn tighter than a 250-unit radius.
           if (Math.abs(curvature) > 1 / 250) {
+            if (Math.sign(lean) !== Math.sign(curvature))
+              console.log(
+                "MISMATCH",
+                i,
+                rigs[i].flight.toFixed(3),
+                rigs[i].turn.toFixed(3),
+                (1 / curvature).toFixed(0),
+                lean.toFixed(3),
+                pose.position.toArray().map(Math.round),
+              );
             expect(Math.sign(lean)).toBe(Math.sign(curvature));
           }
           banks.push(Math.asin(lean));
