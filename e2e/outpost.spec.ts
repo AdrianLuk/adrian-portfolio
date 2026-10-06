@@ -45,7 +45,7 @@ const canvasState = (page: Page) =>
       };
     });
 
-test("the district is drawn live over the still, held fixed as the page scrolls", async ({
+test("the outpost is drawn live over the still, held fixed as the page scrolls", async ({
   page,
 }) => {
   const errors = collectErrors(page);
@@ -86,6 +86,34 @@ test("without WebGL the still backdrop stays, and nothing errors", async ({
     page.getByRole("heading", { level: 2, name: resume.heading }),
   ).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("a lost GPU context falls back to the still, and a restored one draws again", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 600 });
+  await page.goto("/resume");
+  await drawn(page);
+  /**
+   * Loses or restores the canvas's context, as a GPU reset would. The
+   * extension is kept from before the loss: a lost context hands out none.
+   */
+  const context = (action: "loseContext" | "restoreContext") =>
+    world(page)
+      .locator("canvas")
+      .evaluate((canvas: HTMLCanvasElement, action) => {
+        const w = window as unknown as { __lose?: WEBGL_lose_context | null };
+        const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+        w.__lose ??= gl?.getExtension("WEBGL_lose_context");
+        w.__lose?.[action]();
+      }, action);
+
+  await context("loseContext");
+  await expect(world(page)).toHaveAttribute("data-world", "pending");
+  await expect.poll(async () => (await canvasState(page)).opacity).toBe("0");
+  await expect(page.locator("[data-backdrop] img")).toBeVisible();
+  await context("restoreContext");
+  await drawn(page);
 });
 
 test.describe("under prefers-reduced-motion", () => {

@@ -25,6 +25,7 @@ function afterFirstPaint(run: () => void) {
     performance.getEntriesByName("first-contentful-paint").length > 0;
   if (
     painted() ||
+    typeof PerformanceObserver === "undefined" ||
     !PerformanceObserver.supportedEntryTypes?.includes("paint")
   ) {
     next();

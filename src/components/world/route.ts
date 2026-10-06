@@ -88,7 +88,7 @@ function framing(from: Vector3, at: Vector3, ndcX: number, aspect: number) {
  * Where the camera stops to frame `target`: `STOP_LEAD` short of it down the
  * valley, with `target` sitting `ndcX` across the screen.
  */
-function stopFraming(target: Vector3, ndcX: number, aspect: number): Pose {
+function stopPose(target: Vector3, ndcX: number, aspect: number): Pose {
   const position = above(target.z + STOP_LEAD, STOP_HEIGHT);
   return { position, quaternion: framing(position, target, ndcX, aspect) };
 }
@@ -99,7 +99,7 @@ function stopFraming(target: Vector3, ndcX: number, aspect: number): Pose {
  * It doesn't depend on the layout, so it needs no route to find.
  */
 export function outpostPose(aspect: number): Pose {
-  return stopFraming(OUTPOST, siteScreenX(aspect), aspect);
+  return stopPose(OUTPOST, siteScreenX(aspect), aspect);
 }
 
 /** Builds the route for one layout (the settled pose and the screen's shape). */
@@ -139,7 +139,7 @@ export function createRoute(
 
   for (const s of SITES) {
     const aim = s.position.clone().setY(s.position.y - AIM_BELOW);
-    stopAt(stopFraming(aim, s.side * siteScreenX(aspect), aspect));
+    stopAt(stopPose(aim, s.side * siteScreenX(aspect), aspect));
   }
   // To the right, clear of the contact copy, which sits on the left.
   stopAt(outpostPose(aspect));

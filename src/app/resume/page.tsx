@@ -60,7 +60,7 @@ export default function ResumePage() {
         </h3>
         <ol className="mt-8 space-y-12 border-l border-fog pl-6 sm:pl-8">
           {roles.map((role) => (
-            // On a panel at every width: the district's lit towers stand
+            // On a panel at every width: the outpost's lit towers stand
             // behind the copy column.
             <li
               key={role.id}
