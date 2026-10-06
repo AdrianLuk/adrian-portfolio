@@ -19,6 +19,7 @@ import {
   type FlightRig,
 } from "./world/rigs";
 import type { CreditPlacement, Measurement, World } from "./world/scene";
+import { parseWeather, type Weather } from "./world/weather";
 
 /**
  * data-state, the opening:
@@ -132,15 +133,20 @@ function moveTo(el: HTMLElement, root: HTMLElement, at: CreditPlacement) {
  */
 export function HeroWorld({
   label,
+  weather,
   className = "",
   children,
 }: {
   label: string;
+  /** Toronto's weather, as the server last saw it. */
+  weather: Weather;
   className?: string;
   children: ReactNode;
 }) {
   const rootRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // The world is built once, with the weather the page arrived with.
+  const weatherRef = useRef(weather);
   const reducedMotion = useSyncExternalStore(
     subscribeToMotion,
     prefersReducedMotion,
@@ -307,6 +313,12 @@ export function HeroWorld({
         if (cancelled) return;
         const created = await createWorld(canvas, {
           motion: !reduced.matches,
+          // ?weather=snow|rain|clear previews a condition. Read here, not on
+          // the server, so the page itself stays static.
+          weather:
+            parseWeather(
+              new URLSearchParams(window.location.search).get("weather"),
+            ) ?? weatherRef.current,
           rig,
           route,
           measure: () => measure(canvas, root),

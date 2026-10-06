@@ -1,3 +1,5 @@
+import type { Weather } from "./weather";
+
 /** Device-dependent budgets for the world, kept here so they are tested. */
 
 const MAX_PIXEL_RATIO = 1.5;
@@ -12,6 +14,26 @@ export function pixelRatioFor(devicePixelRatio: number) {
 export function moteCountFor(cssWidth: number, cssHeight: number) {
   const count = Math.round((cssWidth * cssHeight) / 4500);
   return Math.min(260, Math.max(60, count));
+}
+
+const PRECIPITATION = {
+  snow: { perPixels: 700, min: 800, max: 1800 },
+  rain: { perPixels: 550, min: 1100, max: 2400 },
+} as const;
+
+/**
+ * Flakes or drops falling round the camera: like the motes, scaled with the
+ * canvas area between a floor and a ceiling. A clear sky draws none.
+ */
+export function precipitationCountFor(
+  weather: Weather,
+  cssWidth: number,
+  cssHeight: number,
+) {
+  if (weather === "clear") return 0;
+  const { perPixels, min, max } = PRECIPITATION[weather];
+  const count = Math.round((cssWidth * cssHeight) / perPixels);
+  return Math.min(max, Math.max(min, count));
 }
 
 /**
