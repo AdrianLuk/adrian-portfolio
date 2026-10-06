@@ -73,6 +73,8 @@ export function OutpostWorld({ children }: { children: ReactNode }) {
         if (cancelled) return;
         const created = await createOutpostView(canvas, {
           motion,
+          // The page has no weather of its own: the outpost stands clear.
+          weather: "clear",
           onFrame: () => {
             if (!cancelled) setState("drawn");
           },
