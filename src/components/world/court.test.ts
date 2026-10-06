@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { COURT, layoutCourt } from "./court";
+import { layoutCourt } from "./court";
+import { COURT } from "./court-size";
 import { palette } from "./palette";
 
 const scale = 0.8;

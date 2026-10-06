@@ -87,6 +87,21 @@ test("the Resume page's first paint comes before any of Three.js is asked for", 
   await libraryStarts(page, request, ["three"]);
 });
 
+test("the Rally game's first paint comes before any of Three.js is asked for", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 960, height: 600 });
+  await page.goto("/play");
+  // In by then: the court has drawn.
+  await expect(page.locator("[data-world]").first()).toHaveAttribute(
+    "data-world",
+    "drawn",
+    { timeout: SCENE_TIMEOUT },
+  );
+  await libraryStarts(page, request, ["three"]);
+});
+
 test("the world stops drawing while the tab is hidden, and starts again when it's back", async ({
   browser,
 }, testInfo) => {

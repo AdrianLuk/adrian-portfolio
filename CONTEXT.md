@@ -28,6 +28,10 @@ _Avoid_: Model, building, monument
 The financial district at the far end of the home page's world, where the scroll route ends and the Resume page stands. The Resume page shows it live from the route's last stop, the camera still.
 _Avoid_: Downtown, skyline (Toronto's skyline is another part of the world), end stop
 
+**Rally game**:
+The short pickleball game on `/play`: singles against an AI, Dinkbot, on the Juice Bros court, rally scoring to 7, win by 2. Its own UI is the one place outside the opening credits and the closing bookend where the copy jokes.
+_Avoid_: Mini-game, minigame, Pong
+
 **Role**:
 A position Adrian held, with company, title and dates, such as Senior Software Engineer at Control D (Windscribe). A Role can include several Projects.
 _Avoid_: Job, position, experience entry

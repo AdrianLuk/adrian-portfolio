@@ -10,6 +10,7 @@ const routes = [
   { name: "home", path: "/" },
   { name: "Juice Bros case study", path: "/work/juice-bros" },
   { name: "Resume page", path: "/resume" },
+  { name: "Rally game", path: "/play" },
   { name: "404", path: missingPath },
 ];
 

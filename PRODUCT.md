@@ -29,18 +29,18 @@ The site is itself the proof. The strongest craft work of his career (a GSAP scr
 ## Capabilities and Constraints
 
 - Static site: Next.js App Router, TypeScript, Tailwind v4, deployed on Vercel. No auth, no database, no backend, no contact form.
-- v1 surfaces: home page (hero, four Highlights in the order Control D, Life House, Juice Bros, BT Cup, a line linking to the Resume page, contact), one Case study (Juice Bros), the Resume page, and a 404.
+- v1 surfaces: home page (hero, four Highlights in the order Control D, Life House, Juice Bros, BT Cup, a line linking to the Resume page, contact), one Case study (Juice Bros), the Resume page, and a 404. After launch: the Rally game on `/play`.
 - Contact: `mailto:` to a Gmail address, LinkedIn (linkedin.com/in/adrian-luk), GitHub (github.com/AdrianLuk).
 - Analytics: Vercel Web Analytics only (cookieless, no banner).
 - GSAP motion lives in client components; everything else is a server component.
-- Motion guardrails (binding): content readable immediately and never waiting on an animation; no scroll-jacking (native scroll speed, no snapping; pinning only inside the Case study); a fully static `prefers-reduced-motion` version that is just as good; no layout shift; the Case study and Resume page hold a mobile LCP under 2.5s (the home page's is reported, not gated); motion is time-boxed so a launch doesn't slip more than a few days.
+- Motion guardrails (binding): content readable immediately and never waiting on an animation; no scroll-jacking (native scroll speed, no snapping; pinning only inside the Case study); a fully static `prefers-reduced-motion` version that is just as good (except the Rally game, which moves only once the player starts it, in slow mode under reduced motion); no layout shift; the Case study, Resume page and `/play` hold a mobile LCP under 2.5s (the home page's is reported, not gated); motion is time-boxed so a launch doesn't slip more than a few days.
 - If scope gets tight, motion polish is cut first; content accuracy and accessibility are never cut.
 - Never shows or links to Adrian's private tools.
 
 ## Brand Commitments
 
 - Name: Adrian Luk. Domain: adrianluk.com.
-- Voice: first person, plain and specific in every factual passage (Highlights, Case study, Resume page). Humour is welcome only in two deliberate places where personality is expected (the opening credits and the closing bookend), in the register of his GitHub bio ("Slapping the keyboard till something good happens"). A joke never sits inside a claim. Everywhere else the copy is plain; the 404's "Lost in the fog" is themed, not a joke.
+- Voice: first person, plain and specific in every factual passage (Highlights, Case study, Resume page). Humour is welcome only in three deliberate places where personality is expected (the opening credits, the closing bookend, and the Rally game's own UI on `/play`, never its page copy), in the register of his GitHub bio ("Slapping the keyboard till something good happens"). A joke never sits inside a claim. Everywhere else the copy is plain; the 404's "Lost in the fog" is themed, not a joke.
 - Hero positioning: "Senior frontend engineer" leads, with one supporting line on backend depth ("React and TypeScript, plus the back end when it needs building.").
 - Naming: product leads, company in the byline ("Control D" / Windscribe; "BT Cup" / Elite Digital Agency for PepsiCo Canada (spelled "BT Cup" on the site)).
 - Visual direction: a luminous night world of Adrian's own, techy and cyberpunk-esque, in the spirit of a world the camera flies into but never any film's IP (no Na'vi, no named Pandora places or creatures) and with no flora required, with a cinematic fly-in that settles on his name. Ambition level: extravagant, worthy of Awwwards. Dark as a night sky is in; dark as a flat background with a neon accent is out. The world is built procedurally in code (WebGL), not from supplied imagery.

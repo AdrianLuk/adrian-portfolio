@@ -555,6 +555,66 @@ export const notFound = {
   homeLink: "Back to the home page",
 } as const;
 
+/**
+ * The Rally game on /play. The page's own copy is plain; the game's UI (the
+ * start, pause and game-over screens and the point lines) is the one place
+ * after the credits and the bookend where the copy may joke, and it makes no
+ * claims about Juice Bros.
+ */
+export const rally = {
+  metaTitle: "Rally on the Juice Bros court | Adrian Luk",
+  metaDescription:
+    "A short pickleball game on the Juice Bros court, against a bot: rally scoring, first to 7, win by 2.",
+  eyebrow: "Rally game",
+  heading: "Juice Bros court",
+  hint: {
+    keys: "Arrow keys move. Space serves. Esc or P pauses.",
+    touch: "Drag anywhere on the court to move. Tap to serve.",
+    swing: "Your swing is automatic: get to the ball.",
+  },
+  caseStudyLink: { label: "Read the Juice Bros case study", href: "/work/juice-bros" },
+  game: {
+    label: "Pickleball rally",
+    loading: "Lighting the court…",
+    unavailable:
+      "This browser can't draw the court (WebGL is off or unsupported), so the game can't run here.",
+    start: {
+      title: "Ready when you are",
+      line: "First to 7, win by 2. Dinkbot lives at the kitchen line: come up and meet it.",
+      action: "Start",
+    },
+    slowMode: {
+      label: "Slow mode",
+      description: "Half speed, for the ball and Dinkbot alike.",
+    },
+    pause: "Pause",
+    resume: "Resume",
+    paused: {
+      title: "Paused",
+      line: "Dinkbot is pretending not to mind.",
+    },
+    /** Who serves, as the score call says it: "5–3, you serve". */
+    serves: { player: "you serve", ai: "Dinkbot serves" },
+    serveHint: "Space or tap to serve",
+    point: {
+      won: "Point to you",
+      lost: "Point to Dinkbot",
+      reasons: {
+        out: "out",
+        net: "into the net",
+        "double-bounce": "two bounces",
+        fault: "a fault",
+      },
+    },
+    over: {
+      won: "You win. Dinkbot would like a word.",
+      lost: "Dinkbot wins. It's been practising.",
+      action: "Play again",
+    },
+    score: { player: "You", ai: "Dinkbot" },
+  },
+} as const;
+
 const settledFrameAlt =
   "Adrian Luk's name in lit 3D letters on a night valley floor, between glowing towers, with Toronto's skyline and the CN Tower behind.";
 
@@ -584,7 +644,15 @@ export const shareCards = {
     imageAlt: `${settledFrameAlt} Captioned "Case study: ${juiceBros.title}".`,
     caption: { eyebrow: "Case study", title: juiceBros.title },
   },
-} as const satisfies Record<"home" | "resume" | CaseStudySlug, ShareCard>;
+  play: {
+    path: "/play",
+    title: rally.metaTitle,
+    description: rally.metaDescription,
+    image: "/share/play.png",
+    imageAlt: `${settledFrameAlt} Captioned "${rally.eyebrow}: ${rally.heading}".`,
+    caption: { eyebrow: rally.eyebrow, title: rally.heading },
+  },
+} as const satisfies Record<"home" | "resume" | "play" | CaseStudySlug, ShareCard>;
 
 /**
  * The quieter world behind every route but home: stills of the valley, drawn
