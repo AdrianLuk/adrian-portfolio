@@ -91,11 +91,13 @@ export function RallyGame({
   const frameRef = useRef(0);
   const keysHeld = useRef(new Set<string>());
   const serveRef = useRef(false);
+  const dinkRef = useRef(false);
   const drag = useRef({ x: 0, z: 0 });
   const pointer = useRef<{ id: number; x: number; y: number; moved: number } | null>(null);
 
   const [view, setView] = useState<WorldState>("pending");
   const [announcement, setAnnouncement] = useState("");
+  const [dinkHeld, setDinkHeld] = useState(false);
   const [hud, setHud] = useState<Hud>(() => hudFor(gameRef.current, ""));
 
   function hudFor(game: Game, call: string): Hud {
@@ -136,6 +138,7 @@ export function RallyGame({
         move,
         drag: drag.current,
         serve: serveRef.current,
+        dink: dinkRef.current,
       });
       serveRef.current = false;
       drag.current = { x: 0, z: 0 };
@@ -225,6 +228,8 @@ export function RallyGame({
       const game = gameRef.current;
       if (!isLive(game.phase) || game.paused === paused) return;
       keysHeld.current.clear();
+      dinkRef.current = false;
+      setDinkHeld(false);
       gameRef.current = setPaused(game, paused);
       setHud((s) => ({ ...s, paused }));
       setAnnouncement(paused ? copy.paused.title : copy.resume);
@@ -293,13 +298,22 @@ export function RallyGame({
       event.preventDefault();
       keysHeld.current.add(event.key);
     } else if (event.key === " ") {
+      // Pressed, it serves; held, the next shot is a dink.
       event.preventDefault();
-      serveRef.current = true;
+      if (!event.repeat) serveRef.current = true;
+      setDinking(true);
     }
   }
 
   function onKeyUp(event: KeyboardEvent<HTMLDivElement>) {
     keysHeld.current.delete(event.key);
+    if (event.key === " ") setDinking(false);
+  }
+
+  /** Space or the Dink pad held: kept in a ref for the loop, and in state for the pad's look. */
+  function setDinking(on: boolean) {
+    dinkRef.current = on;
+    setDinkHeld(on);
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -402,7 +416,6 @@ export function RallyGame({
             )}
           </p>
         )}
-
         {!playing && (
           <Overlay>
             {hud.phase === "over" ? (
@@ -456,6 +469,30 @@ export function RallyGame({
             </button>
           </Overlay>
         )}
+      </div>
+
+      {/* A pad for touch, under the court so it covers none of it: held,
+        your next shot is a dink. Keyboard players hold Space on the court
+        instead, so the pad stays out of the tab order and the accessibility
+        tree. Its row is always there, so showing it shifts nothing. */}
+      <div className="flex justify-end pt-3">
+        <div
+          aria-hidden="true"
+          data-dink-pad
+          data-held={dinkHeld}
+          className={`flex h-14 min-w-36 touch-none items-center justify-center rounded-full border-2 border-violet/80 bg-night/70 px-8 font-display text-sm font-bold tracking-widest text-ink uppercase select-none [font-stretch:90%] data-[held=true]:bg-violet data-[held=true]:text-night ${playing && !hud.paused ? "" : "invisible"}`}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setDinking(true);
+          }}
+          // Pressing it mustn't take focus off the court: that would pause the game.
+          onMouseDown={(event) => event.preventDefault()}
+          onPointerUp={() => setDinking(false)}
+          onPointerCancel={() => setDinking(false)}
+          onLostPointerCapture={() => setDinking(false)}
+        >
+          {copy.dink}
+        </div>
       </div>
 
       <p aria-live="polite" className="sr-only">

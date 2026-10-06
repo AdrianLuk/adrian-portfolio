@@ -304,11 +304,12 @@ describe("the AI's swing", () => {
 describe("Dinkbot at the kitchen line", () => {
   /**
    * Where Dinkbot stands `after` seconds past its hit of shot `shot`, the
-   * player then standing still, out of the ball's way.
+   * player then standing still, out of the ball's way: once for each of 40
+   * games in which that shot is in play (not one of its misses).
    */
   function afterHit(server: Side, shot: number, after: number) {
-    // The first game in which that shot is in play, not one of its misses.
-    for (let seed = 1; seed < 30; seed++) {
+    const spots: { x: number; z: number }[] = [];
+    for (let seed = 1; seed <= 40; seed++) {
       const hit = runUntil(
         startGame(createGame({ seed, server })),
         (g, events) =>
@@ -320,15 +321,20 @@ describe("Dinkbot at the kitchen line", () => {
       if (hit.shots !== shot || lands.z < 0 || lands.z > 22 || Math.abs(lands.x) > 10) {
         continue;
       }
-      return run({ ...hit, player: { x: 14, z: 29 } }, after).game.ai;
+      spots.push(run({ ...hit, player: { x: 14, z: 29 } }, after).game.ai);
     }
-    throw new Error(`no game reached shot ${shot} in play`);
+    return spots;
   }
+  const afterReturn = afterHit("player", 2, 1.3);
+  const up = (spots: { z: number }[]) => spots.filter((s) => s.z > -9.5);
 
-  it("comes up to the kitchen line after its return of serve, staying out of the kitchen", () => {
-    const at = afterHit("player", 2, 1.3);
-    expect(at.z).toBeLessThan(-7);
-    expect(at.z).toBeGreaterThan(-9);
+  it("comes up to the kitchen line after its return in some rallies, staying out of the kitchen", () => {
+    expect(up(afterReturn).length).toBeGreaterThan(3);
+    for (const spot of up(afterReturn)) expect(spot.z).toBeLessThan(-7);
+  });
+
+  it("stays back at the baseline in others", () => {
+    expect(afterReturn.filter((s) => s.z < -18).length).toBeGreaterThan(3);
   });
 
   /** Every event of six full games against the perfect player. */
@@ -387,12 +393,13 @@ describe("Dinkbot at the kitchen line", () => {
     expect(drives.length).toBeGreaterThan(dinks.length);
   });
 
-  it("stays back after its own serve, and comes up after its third shot", () => {
-    const serving = startGame(createGame({ server: "ai" }));
-    const served = runUntil(serving, (g) => g.phase === "rally").game;
-    expect(run(served, 0.8).game.ai.z).toBeLessThan(-18);
-    const at = afterHit("ai", 3, 1.3);
-    expect(at.z).toBeGreaterThan(-9);
+  it("always stays back after its own serve, and may come up after its third shot", () => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const serving = startGame(createGame({ seed, server: "ai" }));
+      const served = runUntil(serving, (g) => g.phase === "rally").game;
+      expect(run(served, 0.8).game.ai.z).toBeLessThan(-18);
+    }
+    expect(up(afterHit("ai", 3, 1.3)).length).toBeGreaterThan(1);
   });
 });
 
@@ -494,6 +501,35 @@ describe("the score call", () => {
     expect(scoreCall({ ...game, server: "player" }, serves)).toBe(
       "3–5, you serve",
     );
+  });
+});
+
+describe("the player's dink", () => {
+  /** The player's return of Dinkbot's serve, holding `dink` or not: how it was hit, its pace, and where it lands. */
+  function returnOfServe(dink: boolean) {
+    const { game, events } = runUntil(
+      startGame(createGame({ server: "ai" })),
+      (g) => g.lastHitter === "player",
+      { dink },
+    );
+    const hit = events.find((e) => e.type === "hit" && e.side === "player");
+    return { hit, pace: Math.hypot(game.ball.vx, game.ball.vz), lands: landing(game.ball) };
+  }
+
+  it("held, makes the shot a dink: soft, into Dinkbot's kitchen", () => {
+    const { hit, pace, lands } = returnOfServe(true);
+    expect(hit).toMatchObject({ shot: "dink" });
+    expect(pace).toBeLessThan(20);
+    expect(lands.z).toBeLessThan(0);
+    expect(lands.z).toBeGreaterThan(-7);
+    expect(Math.abs(lands.x)).toBeLessThan(10);
+  });
+
+  it("not held, the shot is a drive, deep", () => {
+    const { hit, pace, lands } = returnOfServe(false);
+    expect(hit).toMatchObject({ shot: "drive" });
+    expect(pace).toBeGreaterThan(25);
+    expect(lands.z).toBeLessThan(-7);
   });
 });
 
