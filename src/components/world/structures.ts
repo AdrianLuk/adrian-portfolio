@@ -11,7 +11,7 @@ import {
 import type { Glow } from "./glow-points";
 import type { Pool } from "./ground-pools";
 import { seededRandom } from "./noise";
-import { fogChunk, fogUniforms, MOON, palette } from "./palette";
+import { FOG_DENSITY, fogChunk, fogUniforms, MOON, palette } from "./palette";
 import { OUTPOST, SITES } from "./route";
 import {
   createSkylineMeshes,
@@ -42,6 +42,12 @@ const EYES = [11, 16, 22];
  * skyline.
  */
 const SKYLINE = 0.85;
+
+/**
+ * How far the hero can see: past this the fog hides 99% of anything, so a
+ * building beyond it needn't keep under the ridge (the outpost's district).
+ */
+export const HERO_SIGHT = Math.sqrt(Math.log(100)) / FOG_DENSITY;
 
 /**
  * The tallest a tower standing at (x, z) on `ground` can be and still sit
@@ -142,14 +148,18 @@ function bodyMaterial({ windows = false, dark = false, haze = 1 } = {}) {
  * of tall, wide towers along the valley's walls and down the opening's
  * canyon, windowed and lit from within, kept under the mountains; Toronto's
  * skyline on the right-hand wall (skyline.ts), which the city makes way for;
- * slim light masts at the lit sites, the outpost and two gates; and runway
- * lights down the floor. Each emitter also throws a pool of light onto the
+ * a financial district at the outpost, where the route ends; slim light masts
+ * at the lit sites and two gates; and runway lights down the floor. Each emitter also throws a pool of light onto the
  * ground at its foot.
  */
 export function layoutStructures() {
   const random = seededRandom(0x11ad);
-  /** The city's buildings, windowed; and the masts, which are not. */
+  /**
+   * The city's buildings, windowed (the district's dark-glass ones apart);
+   * and the masts, which are not.
+   */
   const buildings: Box[] = [];
+  const darkBuildings: Box[] = [];
   const masts: Box[] = [];
   const bands: Box[] = [];
   const glows: Glow[] = [];
@@ -163,7 +173,12 @@ export function layoutStructures() {
     width: number,
     facing: number,
     light: Color,
-    building?: { depth: number; underRidge: boolean },
+    building?: {
+      depth: number;
+      underRidge: boolean;
+      dark?: boolean;
+      pool?: boolean;
+    },
   ) {
     const depth = building?.depth ?? width;
     const ground = Math.min(
@@ -173,11 +188,11 @@ export function layoutStructures() {
       valleyHeight(x + width / 2, z + depth / 2),
       valleyHeight(x, z),
     );
-    if (building?.underRidge) {
+    if (building?.underRidge && Math.hypot(x, z) < HERO_SIGHT) {
       height = Math.max(8, Math.min(height, underRidge(x, z, ground)));
     }
     const top = ground + height;
-    (building ? buildings : masts).push({
+    (building?.dark ? darkBuildings : building ? buildings : masts).push({
       x,
       y: ground - 2 + (height + 2) / 2,
       z,
@@ -220,6 +235,7 @@ export function layoutStructures() {
     // Long in z: seen at a grazing angle, a round pool would read as a line.
     // A mast's width, even under a building: any wider floods the floor.
     const spill = Math.min(width, 3.8);
+    if (building?.pool === false) return { ground, top };
     pools.push({
       x,
       y: valleyHeight(x, z),
@@ -228,6 +244,7 @@ export function layoutStructures() {
       depth: spill * 14,
       color: light,
     });
+    return { ground, top };
   }
 
   // The city along both walls, from just behind the plate to the far end:
@@ -314,8 +331,7 @@ export function layoutStructures() {
   }
 
   // The scroll route's lit sites: a tall mast at each, its light at the top
-  // (the scene brightens it as the site's panel enters), and the outpost at
-  // the route's end, a ring of masts round its light. Last, so the random
+  // (the scene brightens it as the site's panel enters). Last, so the random
   // draws above are unchanged.
   for (const site of SITES) {
     const { x, y, z } = site.position;
@@ -324,25 +340,68 @@ export function layoutStructures() {
     tower(x, z, y - ground - 2.5, 3.4, -site.side, light);
     pools.push({ x, y: ground, z, width: 34, depth: 60, color: light });
   }
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 + 0.4;
-    const x = OUTPOST.x + Math.sin(a) * 16;
-    const z = OUTPOST.z + Math.cos(a) * 16;
-    const light = i % 2 ? palette.violet : palette.cyan;
-    tower(x, z, 16 + random() * 14, 2.2, x < OUTPOST.x ? 1 : -1, light);
+
+  // The outpost at the route's end: a financial district standing past its
+  // light, in rows that climb from the front to the tallest at the back and
+  // middle, one in four in dark glass, the tallest crowned. The hero can't
+  // see this far, so it may rise over the ridge; never over the CN Tower.
+  const { cyan, violet } = palette;
+  const plot = seededRandom(0xf1d);
+  const first = buildings.length;
+  for (let row = 0; row < 5; row++) {
+    const z = OUTPOST.z - 90 - row * 30 - plot() * 8;
+    for (let col = 0; col < 6; col++) {
+      const across = -12 + col * 17 + plot() * 7;
+      const middle = 1 - Math.abs(across - 30) / 50;
+      const height = Math.min(
+        86,
+        (22 + row * 12) * (0.6 + 0.6 * middle) + plot() * 16,
+      );
+      const x = valleyCentre(z) + across;
+      tower(
+        x,
+        z,
+        height,
+        8 + plot() * 5,
+        across < 0 ? 1 : -1,
+        plot() < 0.6 ? cyan : violet,
+        {
+          depth: 7 + plot() * 5,
+          underRidge: true,
+          dark: plot() < 0.25,
+          pool: false,
+        },
+      );
+    }
   }
+  // The tallest gets a stepped crown, two setbacks on its roof.
+  const tallest = buildings
+    .slice(first)
+    .reduce((a, b) => (b.y + b.h / 2 > a.y + a.h / 2 ? b : a));
+  const roof = tallest.y + tallest.h / 2;
+  buildings.push(
+    { ...tallest, y: roof + 2, w: tallest.w * 0.7, h: 4, d: tallest.d * 0.65 },
+    {
+      ...tallest,
+      y: roof + 5.25,
+      w: tallest.w * 0.4,
+      h: 2.5,
+      d: tallest.d * 0.35,
+    },
+  );
   pools.push({
     x: OUTPOST.x,
     y: valleyHeight(OUTPOST.x, OUTPOST.z),
     z: OUTPOST.z,
-    width: 50,
-    depth: 80,
-    color: palette.cyan,
+    width: 70,
+    depth: 90,
+    color: cyan,
   });
 
   const skyline = layoutSkyline();
   return {
     buildings,
+    darkBuildings,
     masts,
     bands,
     glows: [...glows, ...skyline.glows],
@@ -353,13 +412,15 @@ export function layoutStructures() {
 
 /** The structures as meshes, one instanced draw per kind of box. */
 export function createStructures() {
-  const { buildings, masts, bands, glows, pools, skyline } = layoutStructures();
+  const { buildings, darkBuildings, masts, bands, glows, pools, skyline } =
+    layoutStructures();
   const geometry = new BoxGeometry(1, 1, 1);
   const m = new Matrix4();
   const q = new Quaternion();
   const meshes = (
     [
       [bodyMaterial({ windows: true }), buildings],
+      [bodyMaterial({ windows: true, dark: true }), darkBuildings],
       [bodyMaterial({ windows: true, haze: HAZE }), skyline.towers],
       [
         bodyMaterial({ windows: true, dark: true, haze: HAZE }),

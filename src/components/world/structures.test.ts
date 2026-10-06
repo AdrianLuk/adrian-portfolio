@@ -2,9 +2,10 @@ import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { createFlightPath } from "./flight";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
+import { FOG_DENSITY } from "./palette";
 import { CAMERA } from "./pose";
 import { createRoute, ROUTE_STOPS } from "./route";
-import { layoutStructures, type Box } from "./structures";
+import { HERO_SIGHT, layoutStructures, type Box } from "./structures";
 import { valleyHeight } from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
@@ -75,11 +76,17 @@ function crosses(a: Vector3, b: Vector3, box: Box) {
   return true;
 }
 
-const { buildings, masts, skyline } = layoutStructures();
+const { buildings: lit, darkBuildings, masts, skyline } = layoutStructures();
+const buildings = [...lit, ...darkBuildings];
 const towers = [...buildings, ...masts, ...skyline.bounds];
 const { cnTower } = skyline;
 
 describe("the city", () => {
+  it("is lost in the fog past the hero's sight", () => {
+    const fog = 1 - Math.exp(-((HERO_SIGHT * FOG_DENSITY) ** 2));
+    expect(fog).toBeGreaterThanOrEqual(0.99);
+  });
+
   it("is topped by the CN Tower: no building stands taller from its foot", () => {
     const height = cnTower.tip - cnTower.foot;
     for (const b of [...buildings, ...skyline.towers, ...skyline.darkTowers]) {
@@ -93,9 +100,12 @@ describe("the city", () => {
     describe(name, () => {
       const eye = settled.position;
 
-      it("keeps the mountains above it: the ridge behind crests over every building", () => {
+      it("keeps the mountains above it: the ridge behind crests over every building in sight", () => {
         const elevation = (y: number, d: number) => Math.atan2(y - eye.y, d);
-        for (const b of buildings.filter((b) => b.z < eye.z - 100)) {
+        const inSight = (b: Box) =>
+          b.z < eye.z - 100 &&
+          Math.hypot(b.x - eye.x, b.z - eye.z) < HERO_SIGHT;
+        for (const b of buildings.filter(inSight)) {
           const dx = b.x - eye.x;
           const dz = b.z - eye.z;
           const distance = Math.hypot(dx, dz);
