@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { PanelCorners } from "@/components/highlight-panel";
+import { OutpostWorld } from "@/components/outpost-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import {
   displayUrl,
@@ -19,6 +21,13 @@ import {
 
 export const metadata: Metadata = shareMetadata(shareCards.resume);
 
+/**
+ * The panel the copy stands on over the outpost: its lit towers stand behind
+ * the copy column at every width.
+ */
+const overOutpost =
+  "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8";
+
 function Bullets({ items }: { items: readonly string[] }) {
   return (
     <ul className="mt-4 list-disc space-y-3 pl-5 leading-relaxed text-ink/90 marker:text-cyan">
@@ -31,10 +40,16 @@ function Bullets({ items }: { items: readonly string[] }) {
 
 export default function ResumePage() {
   return (
-    // Its own stacking context, for the backdrop at the back of it.
+    // Its own stacking context, for the world and its backdrop at the back of
+    // it: the outpost, live, over the still that paints first.
     <div className="relative isolate mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <WorldBackdrop />
-      <header className="flex max-w-3xl flex-col items-start gap-4">
+      <OutpostWorld>
+        <WorldBackdrop />
+      </OutpostWorld>
+      <header
+        className={`flex max-w-3xl flex-col items-start gap-4 ${overOutpost}`}
+      >
+        <PanelCorners className="border-cyan" />
         <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
           {resume.heading}
         </h2>
@@ -55,10 +70,16 @@ export default function ResumePage() {
         </h3>
         <ol className="mt-8 space-y-12 border-l border-fog pl-6 sm:pl-8">
           {roles.map((role) => (
-            <li key={role.id} id={role.id} className="relative scroll-mt-24">
+            <li
+              key={role.id}
+              id={role.id}
+              className={`scroll-mt-24 ${overOutpost}`}
+            >
+              <PanelCorners className="border-cyan" />
+              {/* On the timeline, level with the title. */}
               <span
                 aria-hidden="true"
-                className="absolute top-2 -left-[calc(1.5rem+4.5px)] size-2 rounded-full bg-cyan sm:-left-[calc(2rem+4.5px)]"
+                className="absolute top-8 -left-[calc(1.5rem+4.5px)] size-2 rounded-full bg-cyan sm:top-10 sm:-left-[calc(2rem+4.5px)]"
               />
               <h4 className={entryTitle}>
                 {role.title}, {role.company}

@@ -84,6 +84,24 @@ function framing(from: Vector3, at: Vector3, ndcX: number, aspect: number) {
   return new Quaternion().setFromAxisAngle(UP, yaw).multiply(quaternion);
 }
 
+/**
+ * Where the camera stops to frame `target`: `STOP_LEAD` short of it down the
+ * valley, with `target` sitting `ndcX` across the screen.
+ */
+function stopPose(target: Vector3, ndcX: number, aspect: number): Pose {
+  const position = above(target.z + STOP_LEAD, STOP_HEIGHT);
+  return { position, quaternion: framing(position, target, ndcX, aspect) };
+}
+
+/**
+ * The route's last stop, the outpost framed right of the copy (the contact
+ * copy on home, the Resume page's on its own), for a screen of this shape.
+ * It doesn't depend on the layout, so it needs no route to find.
+ */
+export function outpostPose(aspect: number): Pose {
+  return stopPose(OUTPOST, siteScreenX(aspect), aspect);
+}
+
 /** Builds the route for one layout (the settled pose and the screen's shape). */
 export function createRoute(
   settled: Pose,
@@ -108,28 +126,23 @@ export function createRoute(
     above(from, CRUISE_HEIGHT + CLIMB.extra),
   );
 
-  /**
-   * Cruises on down the valley and stops `STOP_LEAD` short of `target`,
-   * framed `ndcX` across the screen.
-   */
-  function stopBefore(target: Vector3, ndcX: number) {
-    const stopZ = target.z + STOP_LEAD;
-    for (let z = from - SPACING; z > stopZ + SPACING / 2; z -= SPACING) {
+  /** Cruises on down the valley to a stop. */
+  function stopAt({ position, quaternion }: Pose) {
+    for (let z = from - SPACING; z > position.z + SPACING / 2; z -= SPACING) {
       points.push(above(z, CRUISE_HEIGHT));
     }
-    const at = above(stopZ, STOP_HEIGHT);
     stopPoints.push(points.length);
-    points.push(at);
-    views.push(framing(at, target, ndcX, aspect));
-    from = stopZ;
+    points.push(position);
+    views.push(quaternion);
+    from = position.z;
   }
 
   for (const s of SITES) {
     const aim = s.position.clone().setY(s.position.y - AIM_BELOW);
-    stopBefore(aim, s.side * siteScreenX(aspect));
+    stopAt(stopPose(aim, s.side * siteScreenX(aspect), aspect));
   }
   // To the right, clear of the contact copy, which sits on the left.
-  stopBefore(OUTPOST, siteScreenX(aspect));
+  stopAt(outpostPose(aspect));
 
   const curve = new CatmullRomCurve3(points, false, "centripetal");
   const perSegment = 12;

@@ -1,4 +1,9 @@
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import { countDraws, heroRoot, openHome, SCENE_TIMEOUT } from "./hero";
 
 // The world's libraries are the page's heaviest code: none of it may hold up
@@ -8,6 +13,45 @@ const LIBRARIES = {
   three: /REVISION\s*=\s*"\d+"|WebGLRenderer/,
   gsap: /GreenSock|_gsap/,
 };
+
+/**
+ * When the page's first paint came, and which of `libraries` it asked for,
+ * by when: told apart by what's inside each script.
+ */
+async function libraryStarts(
+  page: Page,
+  request: APIRequestContext,
+  libraries: (keyof typeof LIBRARIES)[],
+) {
+  const { paint, scripts } = await page.evaluate(() => ({
+    paint:
+      performance.getEntriesByName("first-contentful-paint")[0]?.startTime ??
+      null,
+    scripts: performance
+      .getEntriesByType("resource")
+      .filter((r) => new URL(r.name).pathname.endsWith(".js"))
+      .map((r) => ({ url: r.name, start: r.startTime })),
+  }));
+  expect(paint).not.toBeNull();
+
+  const found = Object.fromEntries(
+    libraries.map((name) => [name, [] as number[]]),
+  );
+  for (const script of scripts) {
+    const body = await (await request.get(script.url)).text();
+    for (const name of libraries) {
+      if (LIBRARIES[name].test(body)) found[name].push(script.start);
+    }
+  }
+  for (const [name, starts] of Object.entries(found)) {
+    expect(starts.length, `${name} was loaded at all`).toBeGreaterThan(0);
+    for (const start of starts) {
+      expect(start, `${name} asked for before first paint`).toBeGreaterThan(
+        paint!,
+      );
+    }
+  }
+}
 
 test("home's first paint comes before any of Three.js or GSAP is asked for", async ({
   page,
@@ -25,32 +69,22 @@ test("home's first paint comes before any of Three.js or GSAP is asked for", asy
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });
-  const { paint, scripts } = await page.evaluate(() => ({
-    paint:
-      performance.getEntriesByName("first-contentful-paint")[0]?.startTime ??
-      null,
-    scripts: performance
-      .getEntriesByType("resource")
-      .filter((r) => new URL(r.name).pathname.endsWith(".js"))
-      .map((r) => ({ url: r.name, start: r.startTime })),
-  }));
-  expect(paint).not.toBeNull();
+  await libraryStarts(page, request, ["three", "gsap"]);
+});
 
-  const found: Record<string, number[]> = { three: [], gsap: [] };
-  for (const script of scripts) {
-    const body = await (await request.get(script.url)).text();
-    for (const [name, marker] of Object.entries(LIBRARIES)) {
-      if (marker.test(body)) found[name].push(script.start);
-    }
-  }
-  for (const [name, starts] of Object.entries(found)) {
-    expect(starts.length, `${name} was loaded at all`).toBeGreaterThan(0);
-    for (const start of starts) {
-      expect(start, `${name} asked for before first paint`).toBeGreaterThan(
-        paint!,
-      );
-    }
-  }
+test("the Resume page's first paint comes before any of Three.js is asked for", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 960, height: 600 });
+  await page.goto("/resume");
+  // In by then: the outpost has drawn.
+  await expect(page.locator("[data-world]")).toHaveAttribute(
+    "data-world",
+    "drawn",
+    { timeout: SCENE_TIMEOUT },
+  );
+  await libraryStarts(page, request, ["three"]);
 });
 
 test("the world stops drawing while the tab is hidden, and starts again when it's back", async ({
