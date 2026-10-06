@@ -79,6 +79,7 @@ export function RallyGame({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
+  const againRef = useRef<HTMLButtonElement>(null);
   const viewRef = useRef<RallyView | null>(null);
   const gameRef = useRef<Game>(createGame());
   const frameRef = useRef(0);
@@ -247,10 +248,13 @@ export function RallyGame({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [pause]);
 
-  // Paused: focus the way back in. Playing: focus the court, which takes the keys.
+  // Paused or over: focus the way back in. (Playing, the court has focus: it takes the keys.)
   useEffect(() => {
     if (shown.paused) resumeRef.current?.focus();
   }, [shown.paused]);
+  useEffect(() => {
+    if (shown.phase === "over") againRef.current?.focus();
+  }, [shown.phase]);
 
   function begin() {
     const fresh = startGame(
@@ -424,7 +428,13 @@ export function RallyGame({
               <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
             ) : (
               <>
-                <button type="button" className={primary} disabled={!ready} onClick={begin}>
+                <button
+                  ref={againRef}
+                  type="button"
+                  className={primary}
+                  disabled={!ready}
+                  onClick={begin}
+                >
                   {shown.phase === "over" ? copy.over.action : copy.start.action}
                 </button>
                 {!ready && <p className="text-sm text-ink/70">{copy.loading}</p>}

@@ -243,6 +243,23 @@ describe("Juice Bros Case study", () => {
   });
 });
 
+describe("Rally game copy", () => {
+  const strings = allStrings(site.rally);
+
+  it("never claims Juice Bros traffic, users or adoption, or counts the Player tools", () => {
+    expect(strings.length).toBeGreaterThan(10);
+    const claims = /\b(visitors?|users?|traffic|downloads?|adoption|monthly|subscribers?|members?|players? (use|love|play))\b/i;
+    const countWords = /\b(\d+|two|three|four|five|six|several|a handful of)\s+(free\s+)?(player\s+)?tools\b/i;
+    expect(strings.filter((s) => claims.test(s) || countWords.test(s))).toEqual([]);
+  });
+
+  it("links back to the Juice Bros Case study", () => {
+    expect(site.rally.caseStudyLink.href).toBe(
+      hrefFor({ kind: "case-study", slug: "juice-bros" }),
+    );
+  });
+});
+
 describe("Rejected wording", () => {
   const strings = allStrings({ ...site });
 
