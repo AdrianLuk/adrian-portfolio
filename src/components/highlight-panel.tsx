@@ -113,6 +113,18 @@ export function HighlightPanel({
           {linkLabelFor(highlight)}
         </Link>
       </p>
+      {highlight.secondLink && (
+        <p className="mt-3">
+          {/* Not prefetched: that would load the Rally game's code on home. */}
+          <Link
+            href={highlight.secondLink.href}
+            prefetch={false}
+            className={textLink}
+          >
+            {highlight.secondLink.label}
+          </Link>
+        </p>
+      )}
     </section>
   );
 }

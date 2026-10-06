@@ -10,7 +10,10 @@ import {
   linkLabelFor,
   nav,
   person,
+  rally,
+  rallyLink,
   roles,
+  type Highlight,
 } from "../src/content/site";
 import { withoutWorld } from "./hero";
 
@@ -38,6 +41,24 @@ test.describe("before any script runs", () => {
     await expect(page.getByText(hero.backendLine)).toBeVisible();
     const headings = page.locator("#work").getByRole("heading", { level: 3 });
     await expect(headings).toHaveText(highlights.map((h) => h.title));
+  });
+
+  test("Juice Bros' panel alone has a second link, to the Rally game", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    for (const highlight of highlights) {
+      const links = page
+        .locator(`#${highlightAnchor(highlight.id)}`)
+        .getByRole("link");
+      if (highlight.id !== "juice-bros") {
+        await expect(links).toHaveCount(1);
+        continue;
+      }
+      await expect(links).toHaveCount(2);
+      await expect(links.nth(1)).toHaveText(rallyLink.label);
+      await expect(links.nth(1)).toHaveAttribute("href", rallyLink.href);
+    }
   });
 
   test("every panel carries its text, its key numbers and its link", async ({
@@ -98,7 +119,9 @@ test.describe("a keyboard walk", () => {
       ...nav.map((n) => n.href),
       null, // the Skip control: a button, so no href
       hero.primaryAction.href,
-      ...highlights.map((h) => hrefFor(h.link)),
+      ...highlights.flatMap((h: Highlight) =>
+        h.secondLink ? [hrefFor(h.link), h.secondLink.href] : [hrefFor(h.link)],
+      ),
       contact.resume.href,
       ...contact.channels.map((c) => c.href),
     ];
@@ -174,6 +197,23 @@ test.describe("every Highlight link", () => {
       }
     });
   }
+
+  test("Juice Bros' Rally game link responds 200 and lands on the game's heading", async ({
+    page,
+    request,
+  }) => {
+    expect((await request.get(rallyLink.href)).status()).toBe(200);
+
+    await page.goto("/");
+    await page
+      .locator(`#${highlightAnchor("juice-bros")}`)
+      .getByRole("link", { name: rallyLink.label })
+      .click();
+    await expect(page).toHaveURL(rallyLink.href);
+    await expect(
+      page.getByRole("main").getByRole("heading", { level: 2 }),
+    ).toHaveText(rally.heading);
+  });
 });
 
 test("the opening has five credit lines, the last being the Skip control", async ({

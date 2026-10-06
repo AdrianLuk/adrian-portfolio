@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { caseStudies, hrefFor, nav } from "../src/content/site";
+import { caseStudies, hrefFor, nav, rally, rallyLink } from "../src/content/site";
 
 const study = caseStudies[0];
 const path = hrefFor({ kind: "case-study", slug: study.slug });
@@ -63,8 +63,26 @@ test("every outbound link has an accessible name", async ({ page }) => {
     .evaluateAll((els) =>
       els.map((e) => e.getAttribute("aria-label") ?? e.textContent?.trim()),
     );
-  expect(names).toHaveLength(study.links.length);
+  expect(names).toHaveLength(
+    study.links.filter((l) => l.href.startsWith("http")).length,
+  );
   expect(names.every((n) => n && n.length > 0)).toBe(true);
+});
+
+test.describe("with scripting off", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("its Rally game link lands on the game's heading", async ({ page }) => {
+    await page.goto(path);
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: rallyLink.label, exact: true })
+      .click();
+    await expect(page).toHaveURL(rallyLink.href);
+    await expect(
+      page.getByRole("main").getByRole("heading", { level: 2 }),
+    ).toHaveText(rally.heading);
+  });
 });
 
 type Stop = { href: string | null; tag: string; focusVisible: boolean };
