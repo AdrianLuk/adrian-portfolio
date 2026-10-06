@@ -6,7 +6,7 @@ import { FOG_DENSITY } from "./palette";
 import { CAMERA } from "./pose";
 import { createRoute, ROUTE_STOPS } from "./route";
 import { HERO_SIGHT, layoutStructures, type Box } from "./structures";
-import { valleyHeight } from "./terrain";
+import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
 function settledLayout(height: number, plateX: number, centreHeight: number) {
@@ -76,12 +76,25 @@ function crosses(a: Vector3, b: Vector3, box: Box) {
   return true;
 }
 
-const { buildings: lit, darkBuildings, masts, skyline } = layoutStructures();
+const {
+  buildings: lit,
+  darkBuildings,
+  district,
+  masts,
+  skyline,
+} = layoutStructures();
 const buildings = [...lit, ...darkBuildings];
 const towers = [...buildings, ...masts, ...skyline.bounds];
 const { cnTower } = skyline;
 
 describe("the city", () => {
+  it("ends in a district on the valley floor, clear of the walls' slopes", () => {
+    for (const b of district) {
+      const off = Math.abs(b.x - valleyCentre(b.z)) + b.w / 2;
+      expect(off).toBeLessThan(corridorHalfWidth(b.z));
+    }
+  });
+
   it("is lost in the fog past the hero's sight", () => {
     const fog = 1 - Math.exp(-((HERO_SIGHT * FOG_DENSITY) ** 2));
     expect(fog).toBeGreaterThanOrEqual(0.99);

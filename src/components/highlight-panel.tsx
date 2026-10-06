@@ -35,6 +35,17 @@ const corners = [
   "bottom-0 right-0 border-b-2 border-r-2",
 ];
 
+/** A holographic panel's corner brackets, in `className`'s border colour. */
+export function PanelCorners({ className }: { className: string }) {
+  return corners.map((corner) => (
+    <span
+      key={corner}
+      aria-hidden="true"
+      className={`pointer-events-none absolute size-5 ${className} ${corner}`}
+    />
+  ));
+}
+
 /**
  * A holographic panel standing at one site: the verified text, its key numbers
  * and the link on. A server component, so it reads fully with scripting off.
@@ -60,13 +71,7 @@ export function HighlightPanel({
       tabIndex={-1}
       className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${accent.glow} ${className}`}
     >
-      {corners.map((corner) => (
-        <span
-          key={corner}
-          aria-hidden="true"
-          className={`pointer-events-none absolute size-5 ${accent.bracket} ${corner}`}
-        />
-      ))}
+      <PanelCorners className={accent.bracket} />
       <h3
         id={`${id}-heading`}
         className="font-display text-3xl font-bold [font-stretch:120%]"

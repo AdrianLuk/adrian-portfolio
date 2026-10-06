@@ -1,5 +1,5 @@
 import { HeroWorld } from "@/components/hero-world";
-import { HighlightPanel } from "@/components/highlight-panel";
+import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
 import {
   contact,
   credits,
@@ -177,24 +177,29 @@ export default function Home() {
         <h2 id="contact-heading" className={sectionLabel}>
           {contact.heading}
         </h2>
-        <p className="mt-6 max-w-2xl text-lg text-ink/90">{contact.lead}</p>
-        <p className="mt-4 text-lg">
-          <Link href={contact.resume.href} className={textLink}>
-            {contact.resume.label}
-          </Link>
-        </p>
-        <ul className="mt-6 space-y-3 text-lg">
-          {contact.channels.map((channel) => (
-            <li key={channel.id}>
-              <span className="mr-3 font-display text-sm tracking-widest text-ink/70 uppercase [font-stretch:75%]">
-                {channel.label}
-              </span>
-              <a href={channel.href} className={textLink}>
-                {channel.text}
-              </a>
-            </li>
-          ))}
-        </ul>
+        {/* On a phone the district stands behind the copy, so it sits on a
+          panel there, as the Highlights do; wider, it has the left clear. */}
+        <div className="relative mt-6 max-md:rounded-sm max-md:bg-dusk/80 max-md:p-6 max-md:shadow-2xl max-md:shadow-cyan/10">
+          <PanelCorners className="border-cyan md:hidden" />
+          <p className="max-w-2xl text-lg text-ink/90">{contact.lead}</p>
+          <p className="mt-4 text-lg">
+            <Link href={contact.resume.href} className={textLink}>
+              {contact.resume.label}
+            </Link>
+          </p>
+          <ul className="mt-6 space-y-3 text-lg">
+            {contact.channels.map((channel) => (
+              <li key={channel.id}>
+                <span className="mr-3 font-display text-sm tracking-widest text-ink/70 uppercase [font-stretch:75%]">
+                  {channel.label}
+                </span>
+                <a href={channel.href} className={textLink}>
+                  {channel.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
         <p className="mt-16 font-display text-2xl font-bold [font-stretch:120%]">
           {contact.bookend}
         </p>
