@@ -6,9 +6,8 @@ import type { Veil } from "./veil";
 
 /**
  * Juice Bros' landmark, a pickleball court (sized in `court-size`); its own
- * module, so another scene can lay the same court out.
+ * module, so another scene (the Rally game's) can lay the same court out.
  */
-export { COURT };
 
 /** How wide the court's lines are drawn, in world units: wider than life, to read. */
 const LINE = 0.35;

@@ -40,6 +40,35 @@ test("sets its title and description from the content module", async ({
   await expect(
     page.getByRole("link", { name: rally.caseStudyLink.label }),
   ).toHaveAttribute("href", rally.caseStudyLink.href);
+  await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+  for (const line of Object.values(rally.hint)) {
+    await expect(page.getByText(line)).toBeVisible();
+  }
+});
+
+test("shows the focus ring on every control, from the nav to the Case study link", async ({
+  page,
+}) => {
+  await openPlay(page);
+  const reached: string[] = [];
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press("Tab");
+    // A control's visible name: its label's text for the switch.
+    const name = await page.evaluate(() => {
+      const el = document.activeElement as HTMLInputElement;
+      return (el.labels?.[0] ?? el).textContent?.trim() ?? "";
+    });
+    expect(await focusRing(page), `focus ring on "${name}"`).toBe(true);
+    reached.push(name);
+    if (name === rally.caseStudyLink.label) break;
+  }
+  expect(reached).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining(copy.slowMode.label),
+      copy.start.action,
+      rally.caseStudyLink.label,
+    ]),
+  );
 });
 
 test("is played with the keyboard alone, and pauses and resumes on Escape and P", async ({

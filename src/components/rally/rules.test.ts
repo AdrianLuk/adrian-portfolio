@@ -257,6 +257,38 @@ function perfectPlayer() {
   };
 }
 
+describe("the AI's swing", () => {
+  /**
+   * The rally just after the player's third shot, the AI held still in that
+   * shot's flight `depth` feet from the net, where it could volley it.
+   */
+  function aiInFlight(depth: number) {
+    const third = runUntil(
+      startGame(createGame({ seed: 2 })),
+      (g) => g.lastHitter === "player" && g.shots >= 3,
+      perfectPlayer(),
+    ).game;
+    // Where the ball crosses `depth`, the AI out of its way.
+    let ahead: Game = { ...third, ai: { x: 40, z: -40 }, aiWait: 99 };
+    while (ahead.ball.z > -depth) ahead = step(ahead, FRAME / 4);
+    const spot = { x: ahead.ball.x, z: -depth };
+    return { ...third, ai: spot, aiTarget: spot, aiWait: 99 };
+  }
+  const aiHit = (g: Game) =>
+    runUntil(g, (_, events) =>
+      events.some((e) => e.type === "point" || (e.type === "hit" && e.side === "ai")),
+    ).events.find((e) => e.type === "hit" && e.side === "ai");
+
+  it("volleys a third shot from outside the kitchen", () => {
+    expect(aiHit(aiInFlight(9))).toMatchObject({ volley: true });
+  });
+
+  it("never volleys from inside the kitchen: it waits for the bounce", () => {
+    const hit = aiHit(aiInFlight(5));
+    if (hit?.type === "hit") expect(hit.volley).toBe(false);
+  });
+});
+
 describe("the AI", () => {
   it("is beaten by a perfect player", () => {
     for (const seed of [1, 2, 3, 4, 5]) {
@@ -311,6 +343,28 @@ describe("slow mode", () => {
   });
 });
 
+describe("a touch drag", () => {
+  /** How far the player has moved, `seconds` after one 8 ft drag sideways mid-rally. */
+  function dragged(slow: boolean, seconds: number) {
+    const rally = run(setSlow(startGame(createGame()), slow), 0.2, {
+      serve: true,
+    }).game;
+    let game = step(rally, FRAME, { drag: { x: -8, z: 0 } });
+    game = run(game, seconds - FRAME).game;
+    return rally.player.x - game.player.x;
+  }
+
+  it("moves the player as far as the finger did, no faster than the keys", () => {
+    // 12 ft/s, the keys' top speed: a quarter second covers 3 ft, not 8.
+    expect(dragged(false, 0.25)).toBeCloseTo(3, 0);
+    expect(dragged(false, 1.5)).toBeCloseTo(8, 1);
+  });
+
+  it("runs at half speed in slow mode, like everything else", () => {
+    expect(dragged(true, 0.25)).toBeCloseTo(1.5, 0);
+  });
+});
+
 describe("pausing", () => {
   it("stops everything until it's resumed, at any point", () => {
     const rally = run(startGame(createGame()), 0.4, { serve: true }).game;
@@ -327,9 +381,10 @@ describe("pausing", () => {
 
 describe("the score call", () => {
   it("calls the server's score first, then who serves", () => {
+    const serves = { player: "you serve", ai: "Bot serves" };
     const game = createGame({ score: { player: 3, ai: 5 }, server: "ai" });
-    expect(scoreCall(game, "Bot")).toBe("5–3, Bot serves");
-    expect(scoreCall({ ...game, server: "player" }, "Bot")).toBe(
+    expect(scoreCall(game, serves)).toBe("5–3, Bot serves");
+    expect(scoreCall({ ...game, server: "player" }, serves)).toBe(
       "3–5, you serve",
     );
   });

@@ -29,11 +29,11 @@ The site is itself the proof. The strongest craft work of his career (a GSAP scr
 ## Capabilities and Constraints
 
 - Static site: Next.js App Router, TypeScript, Tailwind v4, deployed on Vercel. No auth, no database, no backend, no contact form.
-- v1 surfaces: home page (hero, four Highlights in the order Control D, Life House, Juice Bros, BT Cup, a line linking to the Resume page, contact), one Case study (Juice Bros), the Resume page, and a 404.
+- v1 surfaces: home page (hero, four Highlights in the order Control D, Life House, Juice Bros, BT Cup, a line linking to the Resume page, contact), one Case study (Juice Bros), the Resume page, and a 404. After launch: the Rally game on `/play`.
 - Contact: `mailto:` to a Gmail address, LinkedIn (linkedin.com/in/adrian-luk), GitHub (github.com/AdrianLuk).
 - Analytics: Vercel Web Analytics only (cookieless, no banner).
 - GSAP motion lives in client components; everything else is a server component.
-- Motion guardrails (binding): content readable immediately and never waiting on an animation; no scroll-jacking (native scroll speed, no snapping; pinning only inside the Case study); a fully static `prefers-reduced-motion` version that is just as good; no layout shift; the Case study and Resume page hold a mobile LCP under 2.5s (the home page's is reported, not gated); motion is time-boxed so a launch doesn't slip more than a few days.
+- Motion guardrails (binding): content readable immediately and never waiting on an animation; no scroll-jacking (native scroll speed, no snapping; pinning only inside the Case study); a fully static `prefers-reduced-motion` version that is just as good (except the Rally game, which moves only once the player starts it, in slow mode under reduced motion); no layout shift; the Case study, Resume page and `/play` hold a mobile LCP under 2.5s (the home page's is reported, not gated); motion is time-boxed so a launch doesn't slip more than a few days.
 - If scope gets tight, motion polish is cut first; content accuracy and accessibility are never cut.
 - Never shows or links to Adrian's private tools.
 

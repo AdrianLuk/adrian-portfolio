@@ -575,7 +575,6 @@ export const rally = {
   caseStudyLink: { label: "Read the Juice Bros case study", href: "/work/juice-bros" },
   game: {
     label: "Pickleball rally",
-    opponent: "Dinkbot",
     loading: "Lighting the court…",
     unavailable:
       "This browser can't draw the court (WebGL is off or unsupported), so the game can't run here.",
@@ -594,7 +593,8 @@ export const rally = {
       title: "Paused",
       line: "Dinkbot is pretending not to mind.",
     },
-    serve: { player: "Your serve", ai: "Dinkbot serves" },
+    /** Who serves, as the score call says it: "5–3, you serve". */
+    serves: { player: "you serve", ai: "Dinkbot serves" },
     serveHint: "Space or tap to serve",
     point: {
       won: "Point to you",

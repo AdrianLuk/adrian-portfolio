@@ -50,6 +50,8 @@ export type Game = {
   server: Side;
   winner: Side | null;
   player: Vec;
+  /** The part of the player's touch drag they haven't covered yet. */
+  dragLeft: Vec;
   ai: Vec;
   ball: Ball;
   /** Who hit the ball last (the serve counts), and how many shots the rally has had. */
@@ -170,6 +172,7 @@ function toServe(game: Game): Game {
     phase: "serving",
     clock: 0,
     player: at.player,
+    dragLeft: { x: 0, z: 0 },
     ai: at.ai,
     ball: { ...held(at[game.server]), vx: 0, vy: 0, vz: 0 },
     lastHitter: null,
@@ -204,6 +207,7 @@ export function createGame({
     server,
     winner: null,
     player: { x: 0, z: 0 },
+    dragLeft: { x: 0, z: 0 },
     ai: { x: 0, z: 0 },
     ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 },
     lastHitter: null,
@@ -237,14 +241,16 @@ export function setSlow(game: Game, slow: boolean): Game {
 }
 
 /**
- * The score as it's called: the server's score first, then who serves, e.g.
- * "5–3, you serve". `opponent` names the AI.
+ * The score as it's called: the server's score first, then who serves, in
+ * the words `serves` gives each side, e.g. "5–3, you serve".
  */
-export function scoreCall(game: Game, opponent: string): string {
+export function scoreCall(game: Game, serves: Record<Side, string>): string {
   const { server, score } = game;
-  const who = server === "player" ? "you serve" : `${opponent} serves`;
-  return `${score[server]}–${score[other(server)]}, ${who}`;
+  return `${score[server]}–${score[other(server)]}, ${serves[server]}`;
 }
+
+/** Whether the game is under way: started, and not yet over. */
+export const isLive = (phase: Phase) => phase !== "ready" && phase !== "over";
 
 /**
  * The ball's velocity to land at (tx, tz) from where it is, clearing the net
@@ -527,20 +533,36 @@ function clampTo(side: Side, at: Vec): Vec {
   return { x: Math.min(Math.max(at.x, -reach), reach), z: s * near };
 }
 
-/** The player's movement for one tick: keys at top speed, the drag as it is. */
-function movePlayer(at: Vec, input: Input, dt: number, drag: Vec): Vec {
+/**
+ * The player's movement for one tick, at top speed: along the keys, and
+ * through as much of the drag still to cover as that speed allows. A drag
+ * that runs into the edge of the player's room is dropped.
+ */
+function movePlayer(game: Game, input: Input, dt: number): Game {
   const move = input.move ?? { x: 0, z: 0 };
   const length = Math.hypot(move.x, move.z);
   const scale = length > 1 ? 1 / length : 1;
-  return clampTo("player", {
-    x: at.x + (move.x * scale * PLAYER_SPEED * dt + drag.x),
-    z: at.z + (move.z * scale * PLAYER_SPEED * dt + drag.z),
-  });
+  const { dragLeft } = game;
+  const left = Math.hypot(dragLeft.x, dragLeft.z);
+  const share = left > 0 ? Math.min(1, (PLAYER_SPEED * dt) / left) : 0;
+  const wanted = {
+    x: game.player.x + move.x * scale * PLAYER_SPEED * dt + dragLeft.x * share,
+    z: game.player.z + move.z * scale * PLAYER_SPEED * dt + dragLeft.z * share,
+  };
+  const player = clampTo("player", wanted);
+  const blocked = player.x !== wanted.x || player.z !== wanted.z;
+  return {
+    ...game,
+    player,
+    dragLeft: blocked
+      ? { x: 0, z: 0 }
+      : { x: dragLeft.x * (1 - share), z: dragLeft.z * (1 - share) },
+  };
 }
 
 export function step(game: Game, dt: number, input: Input = {}): Game {
   game = { ...game, events: [] };
-  if (game.paused || game.phase === "ready" || game.phase === "over") {
+  if (game.paused || !isLive(game.phase)) {
     return game;
   }
   const time = dt * (game.slow ? 0.5 : 1);
@@ -549,13 +571,15 @@ export function step(game: Game, dt: number, input: Input = {}): Game {
     game = serve(game);
   }
 
-  let drag = input.drag ?? { x: 0, z: 0 };
+  if (game.phase === "rally" && input.drag) {
+    const { x, z } = game.dragLeft;
+    game = { ...game, dragLeft: { x: x + input.drag.x, z: z + input.drag.z } };
+  }
   for (let t = 0; t < time - 1e-9; t += TICK) {
     const tick = Math.min(TICK, time - t);
     game = { ...game, clock: game.clock + tick };
     if (game.phase === "rally") {
-      game = { ...game, player: movePlayer(game.player, input, tick, drag) };
-      drag = { x: 0, z: 0 };
+      game = movePlayer(game, input, tick);
       game = moveAi(game, tick);
       game = fly(game, tick);
       for (const side of ["player", "ai"] as const) {

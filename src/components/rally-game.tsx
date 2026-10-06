@@ -10,8 +10,10 @@ import {
 } from "react";
 import type { rally } from "@/content/site";
 import { afterFirstPaint } from "./after-first-paint";
+import type { WorldState } from "./hero-world";
 import {
   createGame,
+  isLive,
   scoreCall,
   setPaused,
   setSlow,
@@ -43,10 +45,8 @@ const KEYS: Record<string, { x: number; z: number }> = {
   ArrowDown: { x: 0, z: 1 },
 };
 
-type View = "pending" | "drawn" | "unavailable";
-
-/** What the page shows of the game: kept in React state, changed only by events. */
-type Shown = {
+/** What the game's UI shows: kept in React state, changed only by events. */
+type Hud = {
   phase: Phase;
   paused: boolean;
   slow: boolean;
@@ -61,6 +61,12 @@ const button =
 
 const primary =
   "rounded-full bg-ember px-7 py-3 font-display font-bold tracking-wide text-night uppercase [font-stretch:110%] disabled:opacity-60";
+
+const overlayTitle =
+  "font-display text-3xl font-extrabold uppercase [font-stretch:120%]";
+
+/** The final score, the player's first. */
+const finalScore = (score: Record<Side, number>) => `${score.player}–${score.ai}`;
 
 /**
  * The Rally game: the court drawn by Three.js (loaded after the first paint),
@@ -79,20 +85,20 @@ export function RallyGame({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
-  const againRef = useRef<HTMLButtonElement>(null);
+  const actionRef = useRef<HTMLButtonElement>(null);
   const viewRef = useRef<RallyView | null>(null);
   const gameRef = useRef<Game>(createGame());
   const frameRef = useRef(0);
-  const held = useRef(new Set<string>());
+  const keysHeld = useRef(new Set<string>());
   const serveRef = useRef(false);
   const drag = useRef({ x: 0, z: 0 });
   const pointer = useRef<{ id: number; x: number; y: number; moved: number } | null>(null);
 
-  const [view, setView] = useState<View>("pending");
+  const [view, setView] = useState<WorldState>("pending");
   const [announcement, setAnnouncement] = useState("");
-  const [shown, setShown] = useState<Shown>(() => show(gameRef.current, ""));
+  const [hud, setHud] = useState<Hud>(() => hudFor(gameRef.current, ""));
 
-  function show(game: Game, call: string): Shown {
+  function hudFor(game: Game, call: string): Hud {
     return {
       phase: game.phase,
       paused: game.paused,
@@ -105,8 +111,8 @@ export function RallyGame({
   }
 
   const callFor = useCallback(
-    (game: Game) => scoreCall(game, copy.opponent),
-    [copy.opponent],
+    (game: Game) => scoreCall(game, copy.serves),
+    [copy.serves],
   );
 
   const draw = useCallback(() => {
@@ -121,7 +127,7 @@ export function RallyGame({
       const dt = Math.min((now - last) / 1000, MAX_STEP);
       last = now;
       const move = { x: 0, z: 0 };
-      for (const key of held.current) {
+      for (const key of keysHeld.current) {
         move.x += KEYS[key].x;
         move.z += KEYS[key].z;
       }
@@ -141,24 +147,18 @@ export function RallyGame({
           const won = event.winner === "player";
           const line = `${won ? copy.point.won : copy.point.lost}: ${copy.point.reasons[event.reason]}.`;
           if (game.phase === "over") {
-            const result = `${game.score.player}–${game.score.ai}`;
-            const message = `${won ? copy.over.won : copy.over.lost} ${result}.`;
+            const message = `${won ? copy.over.won : copy.over.lost} ${finalScore(game.score)}.`;
             setAnnouncement(`${line} ${message}`);
-            setShown(show(game, message));
+            setHud(hudFor(game, message));
           } else {
             const call = callFor(game);
             setAnnouncement(`${line} ${call}.`);
-            setShown(show(game, `${line} ${call}`));
+            setHud(hudFor(game, `${line} ${call}`));
           }
         }
       }
-      if (before.phase !== "serving" && game.phase === "serving") {
-        setShown((s) => ({ ...s, phase: "serving" }));
-        if (before.phase === "ready") {
-          setAnnouncement(`${copy.serve.player}. ${callFor(game)}.`);
-        }
-      } else if (before.phase !== game.phase) {
-        setShown((s) => ({ ...s, phase: game.phase }));
+      if (before.phase !== game.phase) {
+        setHud((s) => ({ ...s, phase: game.phase }));
       }
 
       if (game.phase !== "over" && !game.paused) {
@@ -178,7 +178,7 @@ export function RallyGame({
       // Slow mode starts on under reduced motion, before Start can be pressed.
       if (window.matchMedia(REDUCED_MOTION).matches) {
         gameRef.current = setSlow(gameRef.current, true);
-        setShown((s) => ({ ...s, slow: true }));
+        setHud((s) => ({ ...s, slow: true }));
       }
       try {
         const { createRallyView } = await import("./rally/scene");
@@ -223,11 +223,10 @@ export function RallyGame({
   const pause = useCallback(
     (paused: boolean) => {
       const game = gameRef.current;
-      if (game.phase === "ready" || game.phase === "over") return;
-      if (game.paused === paused) return;
-      held.current.clear();
+      if (!isLive(game.phase) || game.paused === paused) return;
+      keysHeld.current.clear();
       gameRef.current = setPaused(game, paused);
-      setShown((s) => ({ ...s, paused }));
+      setHud((s) => ({ ...s, paused }));
       setAnnouncement(paused ? copy.paused.title : copy.resume);
       if (paused) {
         cancelAnimationFrame(frameRef.current);
@@ -250,19 +249,19 @@ export function RallyGame({
 
   // Paused or over: focus the way back in. (Playing, the court has focus: it takes the keys.)
   useEffect(() => {
-    if (shown.paused) resumeRef.current?.focus();
-  }, [shown.paused]);
+    if (hud.paused) resumeRef.current?.focus();
+  }, [hud.paused]);
   useEffect(() => {
-    if (shown.phase === "over") againRef.current?.focus();
-  }, [shown.phase]);
+    if (hud.phase === "over") actionRef.current?.focus();
+  }, [hud.phase]);
 
   function begin() {
     const fresh = startGame(
       createGame({ seed: Date.now() % 100_000, slow: gameRef.current.slow }),
     );
     gameRef.current = fresh;
-    setShown(show(fresh, callFor(fresh)));
-    setAnnouncement(`${copy.serve.player}. ${callFor(fresh)}.`);
+    setHud(hudFor(fresh, callFor(fresh)));
+    setAnnouncement(`${callFor(fresh)}.`);
     surfaceRef.current?.focus();
     draw();
     loop();
@@ -276,13 +275,13 @@ export function RallyGame({
   function toggleSlow(slow: boolean) {
     gameRef.current = setSlow(gameRef.current, slow);
     viewRef.current?.setEffects(!slow);
-    setShown((s) => ({ ...s, slow }));
+    setHud((s) => ({ ...s, slow }));
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" || event.key === "p" || event.key === "P") {
       const game = gameRef.current;
-      if (game.phase === "ready" || game.phase === "over") return;
+      if (!isLive(game.phase)) return;
       event.preventDefault();
       if (game.paused) resume();
       else pause(true);
@@ -292,7 +291,7 @@ export function RallyGame({
     if (event.target !== surfaceRef.current) return;
     if (event.key in KEYS) {
       event.preventDefault();
-      held.current.add(event.key);
+      keysHeld.current.add(event.key);
     } else if (event.key === " ") {
       event.preventDefault();
       serveRef.current = true;
@@ -300,7 +299,7 @@ export function RallyGame({
   }
 
   function onKeyUp(event: KeyboardEvent<HTMLDivElement>) {
-    held.current.delete(event.key);
+    keysHeld.current.delete(event.key);
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -332,23 +331,23 @@ export function RallyGame({
     }
   }
 
-  const playing = shown.phase !== "ready" && shown.phase !== "over";
-  const ready = view === "drawn";
+  const playing = isLive(hud.phase);
+  const lit = view === "drawn";
 
   return (
     <div
       className="relative"
       data-world={view}
-      data-phase={shown.phase}
-      data-paused={shown.paused}
-      data-slow={shown.slow}
+      data-phase={hud.phase}
+      data-paused={hud.paused}
+      data-slow={hud.slow}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
       onBlur={(event) => {
-        // Focus left the game for elsewhere on the page: pause it.
+        // Focus left the game (for elsewhere on the page, or nowhere, as a
+        // click on the page's text does): the keys can't reach it, so pause.
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          held.current.clear();
-          if (event.relatedTarget) pause(true);
+          pause(true);
         }
       }}
     >
@@ -356,20 +355,20 @@ export function RallyGame({
         <dl className="flex gap-6 font-display text-lg font-bold tracking-wide uppercase [font-stretch:110%]">
           <div className="flex items-baseline gap-2">
             <dt className="text-cyan">{copy.score.player}</dt>
-            <dd className="tabular-nums">{shown.score.player}</dd>
+            <dd className="tabular-nums">{hud.score.player}</dd>
           </div>
           <div className="flex items-baseline gap-2">
             <dt className="text-ink/80">{copy.score.ai}</dt>
-            <dd className="tabular-nums">{shown.score.ai}</dd>
+            <dd className="tabular-nums">{hud.score.ai}</dd>
           </div>
         </dl>
         <button
           type="button"
           className={`${button} ${playing ? "" : "invisible"}`}
-          onClick={() => (shown.paused ? resume() : pause(true))}
+          onClick={() => (hud.paused ? resume() : pause(true))}
           tabIndex={playing ? 0 : -1}
         >
-          {shown.paused ? copy.resume : copy.pause}
+          {hud.paused ? copy.resume : copy.pause}
         </button>
       </div>
 
@@ -392,13 +391,13 @@ export function RallyGame({
           onPointerUp={onPointerUp}
           onPointerCancel={() => (pointer.current = null)}
         />
-        {playing && !shown.paused && (
+        {playing && !hud.paused && (
           <p
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-0 top-0 bg-linear-to-b from-night/80 to-transparent px-4 pt-3 pb-6 text-center font-display text-sm tracking-widest uppercase [font-stretch:90%]"
           >
-            {shown.call}
-            {shown.phase === "serving" && shown.server === "player" && (
+            {hud.call}
+            {hud.phase === "serving" && hud.server === "player" && (
               <span className="block pt-1 text-cyan">{copy.serveHint}</span>
             )}
           </p>
@@ -406,39 +405,39 @@ export function RallyGame({
 
         {!playing && (
           <Overlay>
-            {shown.phase === "over" ? (
+            {hud.phase === "over" ? (
               <>
-                <h3 className="font-display text-3xl font-extrabold uppercase [font-stretch:120%]">
-                  {shown.winner === "player" ? copy.over.won : copy.over.lost}
+                <h3 className={overlayTitle}>
+                  {hud.winner === "player" ? copy.over.won : copy.over.lost}
                 </h3>
                 <p className="font-display text-5xl font-extrabold tabular-nums">
-                  {shown.score.player}–{shown.score.ai}
+                  {finalScore(hud.score)}
                 </p>
               </>
             ) : (
               <>
-                <h3 className="font-display text-3xl font-extrabold uppercase [font-stretch:120%]">
+                <h3 className={overlayTitle}>
                   {copy.start.title}
                 </h3>
                 <p className="text-ink/85">{copy.start.line}</p>
               </>
             )}
-            <SlowMode copy={copy.slowMode} checked={shown.slow} onChange={toggleSlow} />
+            <SlowMode copy={copy.slowMode} checked={hud.slow} onChange={toggleSlow} />
             {view === "unavailable" ? (
               <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
             ) : (
               <>
                 <button
-                  ref={againRef}
+                  ref={actionRef}
                   type="button"
                   className={primary}
-                  disabled={!ready}
+                  disabled={!lit}
                   onClick={begin}
                 >
-                  {shown.phase === "over" ? copy.over.action : copy.start.action}
+                  {hud.phase === "over" ? copy.over.action : copy.start.action}
                 </button>
                 {/* Kept in the flow once the court is lit, so the centred overlay doesn't shift. */}
-                <p className={`text-sm text-ink/70 ${ready ? "invisible" : ""}`}>
+                <p className={`text-sm text-ink/70 ${lit ? "invisible" : ""}`}>
                   {copy.loading}
                 </p>
               </>
@@ -446,9 +445,9 @@ export function RallyGame({
           </Overlay>
         )}
 
-        {playing && shown.paused && (
+        {playing && hud.paused && (
           <Overlay>
-            <h3 className="font-display text-3xl font-extrabold uppercase [font-stretch:120%]">
+            <h3 className={overlayTitle}>
               {copy.paused.title}
             </h3>
             <p className="text-ink/85">{copy.paused.line}</p>
