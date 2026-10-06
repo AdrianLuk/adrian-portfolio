@@ -256,3 +256,20 @@ describe("Rejected wording", () => {
     expect(strings.filter((s) => pattern.test(s))).toEqual([]);
   });
 });
+
+describe("Register", () => {
+  const thirdPerson = /\b(he|him|his|himself|he'd)\b/i;
+
+  it("keeps the hero lines, the credits' asides and the bookend in the first person", () => {
+    // "Starring: Adrian Luk, as himself" is a credit's own idiom, so only the
+    // credits' asides are checked, not every line.
+    const asides = [
+      site.hero.titleLine,
+      site.hero.backendLine,
+      site.credits.skip,
+      site.credits.lines.find((line) => line.startsWith("Motion by")) ?? "",
+      site.contact.bookend,
+    ];
+    expect(asides.filter((s) => thirdPerson.test(s))).toEqual([]);
+  });
+});

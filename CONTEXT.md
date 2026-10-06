@@ -29,7 +29,7 @@ The free Juice Bros tools for pickleball players, such as Booking Buddy, Pickle 
 _Avoid_: Tools (unqualified), apps
 
 **Private tools**:
-Adrian's personal tools at tools.adrianluk.com, such as the blurbs app. The portfolio never shows or links to them.
+Adrian's personal tools, hosted outside this repo. The portfolio never shows or links to them.
 _Avoid_: Tools (unqualified), dashboard
 
 **Resume page**:
