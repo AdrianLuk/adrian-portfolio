@@ -200,6 +200,7 @@ describe("Juice Bros Case study", () => {
       "Booking Buddy",
       "Pickle Point Pal",
       "Match Mixer",
+      "On Deck",
       "Drum Roll",
     ]);
     const countWords = /\b(\d+|two|three|four|five|six|several|a handful of)\s+(free\s+)?(player\s+)?tools\b/i;
