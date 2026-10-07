@@ -251,8 +251,13 @@ test.describe("between routes", () => {
 
 type TransitWatch = {
   seen: (string | null)[];
-  /** Each value data-arriving takes (null as it clears), and when, in ms. */
-  arriving: { value: string | null; at: number }[];
+  /**
+   * Each value data-arriving takes (null as it clears), and when, in ms. A
+   * clearing also carries the longest the page's main thread went without a
+   * frame while the hold was on, up to that moment: how late a timer could
+   * have fired.
+   */
+  arriving: { value: string | null; at: number; stall?: number }[];
   frames: number;
   bare: number;
 };
@@ -269,13 +274,22 @@ async function watchTransit(page: Page) {
   await page.addInitScript(() => {
     const w = window as unknown as { __transit: TransitWatch };
     w.__transit = { seen: [], arriving: [], frames: 0, bare: 0 };
+    let lastFrame = performance.now();
+    let stall = 0;
     new MutationObserver((records) => {
       for (const r of records) {
         const el = r.target as Element;
         if (!el.hasAttribute("data-world-root")) continue;
         const value = el.getAttribute(r.attributeName!);
+        const at = performance.now();
         if (r.attributeName === "data-transit") w.__transit.seen.push(value);
-        else w.__transit.arriving.push({ value, at: performance.now() });
+        else if (value) {
+          stall = 0;
+          w.__transit.arriving.push({ value, at });
+        } else {
+          stall = Math.max(stall, at - lastFrame);
+          w.__transit.arriving.push({ value, at, stall });
+        }
       }
     }).observe(document, {
       subtree: true,
@@ -283,6 +297,11 @@ async function watchTransit(page: Page) {
       attributeFilter: ["data-transit", "data-arriving"],
     });
     const frame = () => {
+      const now = performance.now();
+      if (document.querySelector("[data-arriving]")) {
+        stall = Math.max(stall, now - lastFrame);
+      }
+      lastFrame = now;
       if (w.__transit.seen.length > 0) {
         w.__transit.frames++;
         const backdrop = document.querySelector("[data-backdrop]");
@@ -306,23 +325,25 @@ async function watchTransit(page: Page) {
 }
 
 /**
- * How late a hold's release may run past the cap: CI's software renderer
- * stalls the main thread for whole frames, so timers fire late. Still well
- * short of the camera's own arrival limit, so a hold that waited on the
- * camera instead of the cap would fail.
+ * How late a hold's release may run past the cap, on top of the longest the
+ * main thread was blocked during it (CI's software renderer stalls it for
+ * whole frames, and a timer can't fire until it frees): about a frame.
  */
-const HOLD_GRACE = 750;
+const HOLD_GRACE = 50;
 
 /** The world's root, which carries data-transit while the camera flies. */
 const worldRoot = (page: Page) => page.locator("[data-world-root]");
 
 /**
- * How long each hold on the copy lasted, in ms: from data-arriving being set
- * (as the navigation starts) to its clearing.
+ * Each hold on the copy: how long it lasted, in ms, from data-arriving being
+ * set (as the navigation starts) to its clearing, and the longest the main
+ * thread was blocked meanwhile.
  */
 function holds({ arriving }: TransitWatch) {
   return arriving.flatMap(({ value, at }, i) =>
-    value && i + 1 < arriving.length ? [arriving[i + 1].at - at] : [],
+    value && i + 1 < arriving.length
+      ? [{ ms: arriving[i + 1].at - at, stall: arriving[i + 1].stall ?? 0 }]
+      : [],
   );
 }
 
@@ -476,11 +497,13 @@ test.describe("camera flights between home and the Resume page", () => {
     expect(seen.bare).toBe(0);
     expect(await crossfades()).toBe(0);
     // Every hold on the copy ended within the cap of its navigation's start
-    // (with grace for a busy machine's late timers).
+    // (late only by as long as the main thread was blocked).
     expect(seen.arriving.at(-1)?.value).toBeNull();
     expect(holds(seen).length).toBeGreaterThan(0);
-    for (const ms of holds(seen)) {
-      expect(ms).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS * 1000 + HOLD_GRACE);
+    for (const { ms, stall } of holds(seen)) {
+      expect(ms).toBeLessThanOrEqual(
+        TRANSIT_MAX_SECONDS * 1000 + stall + HOLD_GRACE,
+      );
     }
     await page.context().close();
   });
@@ -552,8 +575,10 @@ test.describe("camera flights between home and the Resume page", () => {
     );
     const seen = await transit();
     expect(seen.bare).toBe(0);
-    for (const ms of holds(seen)) {
-      expect(ms).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS * 1000 + HOLD_GRACE);
+    for (const { ms, stall } of holds(seen)) {
+      expect(ms).toBeLessThanOrEqual(
+        TRANSIT_MAX_SECONDS * 1000 + stall + HOLD_GRACE,
+      );
     }
     await page.context().close();
   });
