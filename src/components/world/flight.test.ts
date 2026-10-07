@@ -1,7 +1,7 @@
 import { Euler, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { createFlightPath } from "./flight";
-import { CAMERA } from "./pose";
+import { CAMERA, settledYaw } from "./pose";
 import { FLIGHT_TIMING, SETTLED_RIG, type FlightRig } from "./rigs";
 import {
   corridorHalfWidth,
@@ -15,9 +15,14 @@ import {
  * down the valley, the plate's centre `plateDepth` ahead in camera space and
  * standing `centreHeight` above the floor (the words stand on the ground).
  */
-function settledLayout(height: number, plateX: number, centreHeight: number) {
+function settledLayout(
+  height: number,
+  plateX: number,
+  centreHeight: number,
+  yaw = 0,
+) {
   const quaternion = new Quaternion().setFromEuler(
-    new Euler(-CAMERA.pitch, 0, 0, "YXZ"),
+    new Euler(-CAMERA.pitch, -yaw, 0, "YXZ"),
   );
   const position = new Vector3(0, height, 0);
   const { pitch, plateDepth } = CAMERA;
@@ -64,7 +69,7 @@ function turning(a: Vector3, b: Vector3, c: Vector3) {
 
 const layouts = {
   "desktop, one line lower left": settledLayout(21, -18, 7),
-  "phone, stacked": settledLayout(16, -3, 9),
+  "phone, stacked": settledLayout(16, -3, 9, settledYaw(0.46)),
 };
 
 describe("the flight path", () => {
