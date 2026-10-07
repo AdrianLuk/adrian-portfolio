@@ -54,6 +54,22 @@ const SKYLINE = 0.85;
 export const HERO_SIGHT = Math.sqrt(Math.log(100)) / FOG_DENSITY;
 
 /**
+ * The street of towers along the runway: where it starts (behind the plate)
+ * and ends (short of the outpost's district), how far off the valley's centre
+ * line its frontage stands (the runway's lights are 14 off it), and the plaza
+ * kept open round each lit site, from ahead of where the camera stops to
+ * frame it (80 short of it) to past it, and the clearance kept either side of
+ * the hero's line of sight to the first site.
+ */
+const STREET = {
+  start: -120,
+  end: -960,
+  setback: 20,
+  plaza: { before: 110, after: 30 },
+  sightline: 14,
+};
+
+/**
  * The tallest a tower standing at (x, z) on `ground` can be and still sit
  * under the ridge behind it, from every eye the hero's camera might have.
  */
@@ -416,6 +432,46 @@ export function layoutStructures() {
     depth: 90,
     color: cyan,
   });
+
+  // A street of towers lining the runway on both sides, set back a pavement
+  // from its lights, broken by cross streets, so the floor reads as a city
+  // street running down to downtown. Each lit site stands in a plaza open to
+  // the street the camera comes down to frame it, and the street opens on the
+  // hero's line of sight to the first, the beacon the arrival lights, as the
+  // valley bends; it makes way for downtown as the city does. Last, so the
+  // random draws above are unchanged.
+  const beacon = SITES[0].position;
+  /** True if a footprint `size` across at (x, z) stands between the hero and the beacon. */
+  const hidesBeacon = (x: number, z: number, size: number) =>
+    z > beacon.z &&
+    // The footprint's distance, in plan, from the line from the hero's camera
+    // (at the origin) to the beacon.
+    Math.abs(x * beacon.z - z * beacon.x) / Math.hypot(beacon.x, beacon.z) <
+      size / 2 + STREET.sightline;
+  for (const side of [-1, 1]) {
+    for (let z = STREET.start; z > STREET.end; z -= 10 + random() * 6) {
+      const crossStreet = random() < 0.18;
+      const width = 6 + random() * 5;
+      const depth = 6 + random() * 4;
+      const tall = random() < 0.15;
+      const height = tall ? 40 + random() * 16 : 14 + random() * 22;
+      const x =
+        valleyCentre(z) + side * (STREET.setback + width / 2 + random() * 5);
+      const light = lightOf();
+      const plaza = SITES.some(
+        (s) =>
+          s.side === side &&
+          z < s.position.z + STREET.plaza.before &&
+          z > s.position.z - STREET.plaza.after,
+      );
+      const downtown =
+        side === DOWNTOWN.side && z < DOWNTOWN.near && z > DOWNTOWN.far;
+      if (crossStreet || plaza || downtown) continue;
+      if (onLandmark(x, z, width, depth)) continue;
+      if (hidesBeacon(x, z, Math.hypot(width, depth))) continue;
+      tower(x, z, height, width, -side, light, { depth, underRidge: true });
+    }
+  }
 
   const skyline = layoutSkyline();
   return {
