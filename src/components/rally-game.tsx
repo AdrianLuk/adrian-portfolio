@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { rally } from "@/content/site";
 import { afterFirstPaint } from "./after-first-paint";
-import type { WorldState } from "./hero-world";
+import type { WorldState } from "./world-host";
 import {
   createGame,
   isLive,

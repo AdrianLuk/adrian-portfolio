@@ -4,6 +4,7 @@ import {
   Line,
   Material,
   Mesh,
+  Object3D,
   PerspectiveCamera,
   Points,
   Scene,
@@ -12,7 +13,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { bakePlateEnvironment } from "./environment";
-import { createFlightPath, type FlightPath } from "./flight";
+import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
 import { createGroundPools, type Pool } from "./ground-pools";
 import { createMist } from "./mist";
@@ -35,7 +36,7 @@ import { seededRandom } from "./noise";
 import type { SharedUniforms } from "./shared";
 import { createSky } from "./sky";
 import { createStructures } from "./structures";
-import { createTerrain } from "./terrain-mesh";
+import { createTerrain, setTerrainWeather } from "./terrain-mesh";
 import { valleyHeight } from "./terrain";
 import type { Weather } from "./weather";
 
@@ -61,7 +62,20 @@ export type ViewOptions = {
   onLost: () => void;
 };
 
-/** The hero's world: the name plate, posed on the headline, and its rigs. */
+/**
+ * What the world shows. hero: the home page's, the name plate posed on the
+ * headline that `measure` finds, the camera on the opening flight and then
+ * the scroll route. outpost: the Resume page's, the camera still at the
+ * route's last stop, the plate and the lit sites out of sight.
+ */
+export type WorldView =
+  | { kind: "hero"; measure: () => Measurement }
+  | { kind: "outpost" };
+
+/**
+ * The world: one scene, which any of its views can show, so changing view
+ * compiles nothing.
+ */
 export type WorldOptions = ViewOptions & {
   /**
    * The opening flight's state, read on every frame (the GSAP timeline
@@ -73,10 +87,9 @@ export type WorldOptions = ViewOptions & {
    * route once `at` leaves 0, and each site burns as brightly as it is lit.
    */
   route: Readonly<RouteRig>;
-  measure: () => Measurement;
+  /** The view it opens on; null draws nothing until it is given one. */
+  view: WorldView | null;
 };
-
-type HeroOptions = Pick<WorldOptions, "rig" | "route" | "measure">;
 
 type NamePlate = ReturnType<typeof createNamePlate>;
 
@@ -110,6 +123,26 @@ export type World = View & {
    * is posed, or while the site is behind the camera.
    */
   placeSite(index: number, at?: number): { x: number; y: number } | null;
+  /**
+   * Shows another view (null: none, the world parked and drawing nothing),
+   * re-measured and re-posed at once.
+   */
+  setView(view: WorldView | null): void;
+  /** Changes the weather in place: the ground, the pools and what falls. */
+  setWeather(weather: Weather): void;
+  /** Where the camera is now. */
+  cameraPose(): Pose;
+  /**
+   * Hands the camera to `source`, read on every frame in place of the view's
+   * own pose, until called with null.
+   */
+  steer(source: (() => Pose) | null): void;
+  /**
+   * The scroll route for the last hero layout measured, and its settled pose
+   * (stop 0); null until a hero view has posed the plate.
+   */
+  route(): Route | null;
+  settledPose(): Pose | null;
 };
 
 /** Lets the browser paint and handle input before the next setup step. */
@@ -192,35 +225,15 @@ function wetPools(pools: readonly Pool[]) {
 }
 
 /**
- * Builds the world on `canvas` and draws its first frame once every shader has
- * compiled (off the main thread where the browser allows). Resolves to null
- * when WebGL is unavailable, in which case the DOM headline simply stays.
+ * Builds the world on `canvas` and draws its first frame once every shader
+ * (of every view, the name plate's included) has compiled, off the main
+ * thread where the browser allows. Resolves to null when WebGL is
+ * unavailable, in which case the DOM headline, or the page's still backdrop,
+ * simply stays.
  */
-export function createWorld(
+export async function createWorld(
   canvas: HTMLCanvasElement,
   options: WorldOptions,
-): Promise<World | null> {
-  return build(canvas, options, options);
-}
-
-/**
- * The world seen from the outpost, the scroll route's last stop, for the
- * Resume page: no name plate, no headline to measure, and a camera that holds
- * still while the scene moves round it. Drawn as the hero's world is; null
- * when WebGL is unavailable, in which case the page's still backdrop stays.
- */
-export function createOutpostView(
-  canvas: HTMLCanvasElement,
-  options: ViewOptions,
-): Promise<View | null> {
-  return build(canvas, options, null);
-}
-
-/** The world on `canvas`: the hero's, or (with no `hero`) the outpost's. */
-async function build(
-  canvas: HTMLCanvasElement,
-  options: ViewOptions,
-  hero: HeroOptions | null,
 ): Promise<World | null> {
   let renderer: WebGLRenderer;
   try {
@@ -246,35 +259,32 @@ async function build(
   // Setup yields between its heavier steps, so no one task blocks input long.
   const sky = createSky(shared);
   const structures = createStructures(shared);
-  const { weather } = options;
+  let { weather, view } = options;
+  const wet = () => weather === "rain";
   const terrain = createTerrain(weather);
   await nextTask();
 
-  // The plate is the hero object: large screens get its full finish, and only
+  // The plate is the hero object, built whatever the view, so showing the
+  // hero later compiles nothing: large screens get its full finish, and only
   // they bake (and reflect) an environment.
-  const finish = hero
-    ? plateFinishFor(tierFor(window.innerWidth, window.devicePixelRatio))
-    : null;
+  const finish = plateFinishFor(
+    tierFor(window.innerWidth, window.devicePixelRatio),
+  );
   const bake = () =>
-    finish && finish.envSize > 0
-      ? bakePlateEnvironment(renderer, finish.envSize)
-      : null;
+    finish.envSize > 0 ? bakePlateEnvironment(renderer, finish.envSize) : null;
   let environment = bake();
   await nextTask();
 
-  const plate = finish
-    ? createNamePlate(shared, {
-        envMap: environment?.texture ?? null,
-        finish,
-      })
-    : null;
+  const plate = createNamePlate(shared, {
+    envMap: environment?.texture ?? null,
+    finish,
+  });
   const lights = createGlowPoints(structures.glows, shared);
   const sites = createSiteLights(shared);
-  const wet = weather === "rain";
-  const pools = createGroundPools(
-    structures.pools.length + 3,
-    wet ? WET_POOLS.intensity : POOL_INTENSITY,
-  );
+  const pools = createGroundPools(structures.pools.length + 3, poolIntensity());
+  function poolIntensity() {
+    return wet() ? WET_POOLS.intensity : POOL_INTENSITY;
+  }
   // Every material is self-lit or moonlit in its shader: the scene has no lights.
   scene.add(
     ...sky.objects,
@@ -284,13 +294,17 @@ async function build(
     lights.points,
     ...sites.map((s) => s.points),
     ...createMist(shared),
-    ...(plate ? [plate.group] : []),
+    plate.group,
   );
 
   let motes: ReturnType<typeof createMotes> | null = null;
   let motesFor = 0;
   let falling: ReturnType<typeof createPrecipitation> | null = null;
   let fallingFor = 0;
+  let fallingKind: Weather = "clear";
+  /** The camera's pose from outside the view (a flight between views). */
+  let steering: (() => Pose) | null = null;
+  let settled: Pose | null = null;
 
   let motion = options.motion;
   let onScreen = true;
@@ -310,21 +324,26 @@ async function build(
   const canvasSize = { width: 1, height: 1 };
   const credits = new Map<number, Vector3>();
 
-  /**
-   * Puts the camera where the rigs say (the opening's flight, then the scroll
-   * route once the visitor scrolls), and lights the arrival and the sites.
-   * The outpost's camera holds the pose its layout gave it, and the sites,
-   * all behind it, stay dark.
-   */
-  function pose() {
-    if (!hero || !plate || !path || !route) return;
-    const { rig } = hero;
-    const { at, lit } = hero.route;
-    const { position, quaternion } =
-      at > 0 ? route.poseAt(at) : path.poseAt(rig);
+  function placeCamera({ position, quaternion }: Pose) {
     camera.position.copy(position);
     camera.quaternion.copy(quaternion);
     camera.updateMatrixWorld();
+  }
+
+  /**
+   * Puts the camera where it is steered, or else, for the hero, where the
+   * rigs say (the opening's flight, then the scroll route once the visitor
+   * scrolls), and lights the arrival and the sites. The outpost's camera
+   * holds the pose its layout gave it, and the sites, all behind it, stay
+   * dark.
+   */
+  function pose() {
+    const hero = view?.kind === "hero" && path && route;
+    const { rig } = options;
+    const { at, lit } = options.route;
+    if (steering) placeCamera(steering());
+    else if (hero) placeCamera(at > 0 ? route!.poseAt(at) : path!.poseAt(rig));
+    if (!hero) return;
     plate.setArrival(rig.beams, rig.sweep);
     sites.forEach((site, i) => {
       // The first is the scroll cue, lit by the arrival; the rest wait dim.
@@ -334,9 +353,9 @@ async function build(
   }
 
   function render() {
-    if (!posed || !compiled) return;
+    if (!view || !posed || !compiled) return;
     pose();
-    plate?.sweep(shared.uTime.value);
+    plate.sweep(shared.uTime.value);
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
     renderer.render(scene, camera);
     if (firstFrame) {
@@ -346,9 +365,11 @@ async function build(
   }
 
   function layout() {
-    const { width, height, words } = hero
-      ? hero.measure()
-      : { width: canvas.clientWidth, height: canvas.clientHeight, words: [] };
+    if (!view) return;
+    const { width, height, words } =
+      view.kind === "hero"
+        ? view.measure()
+        : { width: canvas.clientWidth, height: canvas.clientHeight, words: [] };
     if (width === 0 || height === 0) return;
 
     const ratio = pixelRatioFor(window.devicePixelRatio);
@@ -359,7 +380,7 @@ async function build(
     camera.updateProjectionMatrix();
     canvasSize.width = width;
     canvasSize.height = height;
-    for (const glow of [lights, plate?.flares, ...sites, motes, falling])
+    for (const glow of [lights, plate.flares, ...sites, motes, falling])
       glow?.setViewportHeight(height);
 
     // Motes scale with the canvas area; rebuild only when the count bucket moves.
@@ -376,9 +397,13 @@ async function build(
       motesFor = count;
     }
 
-    // Snow or rain, likewise: rebuilt only when its count bucket moves.
+    // Snow or rain, likewise: rebuilt only when its count bucket (or the
+    // weather) changes. Kept, hidden, through a clear spell.
     const fallCount = precipitationCountFor(weather, width, height);
-    if (weather !== "clear" && fallCount !== fallingFor) {
+    if (
+      weather !== "clear" &&
+      (fallCount !== fallingFor || weather !== fallingKind)
+    ) {
       if (falling) {
         scene.remove(falling.object);
         falling.object.geometry.dispose();
@@ -386,13 +411,16 @@ async function build(
       }
       falling = createPrecipitation(weather, fallCount, shared);
       falling.setViewportHeight(height);
-      // Nothing falls under reduced motion: the ground shows the weather.
-      falling.object.visible = motion;
       scene.add(falling.object);
       fallingFor = fallCount;
+      fallingKind = weather;
     }
+    showFalling();
 
-    posed = plate ? placePlate(plate, words, width, height) : placeOutpost();
+    posed =
+      view.kind === "hero"
+        ? placePlate(plate, words, width, height)
+        : placeOutpost();
     if (!posed) return;
     // The motes rise round where the camera stands.
     const { x, z } = camera.position;
@@ -401,17 +429,19 @@ async function build(
     if (!running) render();
   }
 
+  /** Nothing falls under reduced motion, or in the clear: the ground shows it. */
+  function showFalling() {
+    if (falling) falling.object.visible = motion && weather !== "clear";
+  }
+
   /** Lays the light pools on the floor, stretched on a wet one. */
   function setPools(lit: readonly Pool[]) {
-    pools.set(wet ? wetPools(lit) : lit);
+    pools.set(wet() ? wetPools(lit) : lit);
   }
 
   /** The outpost's fixed pose, for the screen's shape. */
   function placeOutpost() {
-    const { position, quaternion } = outpostPose(camera.aspect);
-    camera.position.copy(position);
-    camera.quaternion.copy(quaternion);
-    camera.updateMatrixWorld();
+    placeCamera(outpostPose(camera.aspect));
     setPools(structures.pools);
     return true;
   }
@@ -456,7 +486,7 @@ async function build(
     const key = [camera.position.y, centre.x, centre.y, centre.z, camera.aspect]
       .join();
     if (key !== pathFor) {
-      const settled = {
+      settled = {
         position: camera.position.clone(),
         quaternion: camera.quaternion.clone(),
       };
@@ -476,7 +506,7 @@ async function build(
   }
 
   function sync() {
-    running = motion && onScreen && !document.hidden && compiled;
+    running = motion && onScreen && !document.hidden && compiled && !!view;
     renderer.setAnimationLoop(running ? loop : null);
   }
 
@@ -501,7 +531,7 @@ async function build(
     // The baked environment lived in a render target, which the loss wiped.
     environment?.dispose();
     environment = bake();
-    plate?.setEnvironment(environment?.texture ?? null);
+    plate.setEnvironment(environment?.texture ?? null);
     layout();
     sync();
   };
@@ -533,9 +563,37 @@ async function build(
     renderer.forceContextLoss();
   }
 
+  /**
+   * Fits the scene to its view: the plate shows only in the hero's, and the
+   * lit sites, all behind the outpost's camera, stay dark there.
+   */
+  function showView() {
+    plate.group.visible = view?.kind === "hero";
+    if (view?.kind !== "hero") for (const site of sites) site.setIntensity(0);
+  }
+
+  /**
+   * Compiles every shader the scene has, the ones hidden in this view or this
+   * weather included, so nothing compiles when either changes.
+   */
+  async function compileAll() {
+    const hidden: Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.visible) return;
+      hidden.push(object);
+      object.visible = true;
+    });
+    try {
+      await renderer.compileAsync(scene, camera);
+    } finally {
+      for (const object of hidden) object.visible = false;
+    }
+  }
+
   try {
+    showView();
     layout();
-    await renderer.compileAsync(scene, camera);
+    await compileAll();
   } catch {
     dispose();
     return null;
@@ -546,7 +604,7 @@ async function build(
   sync();
 
   function placeCredit(index: number, spot: { x: number; y: number }) {
-    if (!posed || !path) return null;
+    if (!posed || !path || view?.kind !== "hero") return null;
     pose();
     let anchor = credits.get(index);
     if (!anchor) {
@@ -578,8 +636,8 @@ async function build(
    * route at stop `at` (the camera's own stop by default). Null until the
    * plate is posed, or while the site is behind the camera.
    */
-  function placeSite(index: number, at = hero?.route.at ?? 0) {
-    if (!posed || !route) return null;
+  function placeSite(index: number, at = options.route.at) {
+    if (!posed || !route || view?.kind !== "hero") return null;
     const { position, quaternion } = route.poseAt(at);
     probe.position.copy(position);
     probe.quaternion.copy(quaternion);
@@ -600,7 +658,7 @@ async function build(
     placeSite,
     setMotion(next) {
       motion = next;
-      if (falling) falling.object.visible = motion;
+      showFalling();
       if (!motion) {
         shared.uTime.value = STILL_TIME;
         loopStart = null;
@@ -608,6 +666,36 @@ async function build(
       sync();
       if (!running) render();
     },
+    setView(next) {
+      view = next;
+      posed = false;
+      credits.clear();
+      showView();
+      layout();
+      sync();
+    },
+    setWeather(next) {
+      if (next === weather) return;
+      weather = next;
+      setTerrainWeather(terrain, weather);
+      pools.setIntensity(poolIntensity());
+      // Re-lays the pools, wet or dry, and brings in what falls.
+      layout();
+    },
+    cameraPose: () => ({
+      position: camera.position.clone(),
+      quaternion: camera.quaternion.clone(),
+    }),
+    steer(source) {
+      steering = source;
+      if (!running) render();
+    },
+    route: () => route,
+    settledPose: () =>
+      settled && {
+        position: settled.position.clone(),
+        quaternion: settled.quaternion.clone(),
+      },
     dispose,
   };
 }

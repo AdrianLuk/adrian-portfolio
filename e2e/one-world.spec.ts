@@ -1,6 +1,21 @@
 import { expect, test, type Page } from "@playwright/test";
-import { caseStudies, nav, notFound, resume } from "../src/content/site";
-import { heroRoot, withoutWorld } from "./hero";
+import {
+  caseStudies,
+  highlightAnchor,
+  highlights,
+  nav,
+  notFound,
+  person,
+  resume,
+} from "../src/content/site";
+import {
+  heroRoot,
+  openHome,
+  SCENE_TIMEOUT,
+  watched,
+  watchHero,
+  withoutWorld,
+} from "./hero";
 
 const routes = [
   { name: "home", path: "/" },
@@ -197,6 +212,151 @@ test.describe("between routes", () => {
     for (const durations of await transitions()) {
       expect(durations.filter((d) => d > 0)).toEqual([]);
     }
+  });
+});
+
+const homeLink = (page: Page) =>
+  page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: person.name });
+
+/**
+ * Counts the WebGL contexts the page creates from the first byte, and records
+ * the state each hero enters the page in (watchHero sees only changes).
+ */
+async function watchWorld(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __contexts: number; __entered: string[] };
+    w.__contexts = 0;
+    w.__entered = [];
+    const withContext = new WeakSet<HTMLCanvasElement>();
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      type: string,
+      ...rest: unknown[]
+    ) {
+      const context = (getContext as (...args: unknown[]) => unknown).call(
+        this,
+        type,
+        ...rest,
+      );
+      if (context && type.includes("webgl") && !withContext.has(this)) {
+        withContext.add(this);
+        w.__contexts++;
+      }
+      return context;
+    } as typeof getContext;
+    new MutationObserver((records) => {
+      for (const r of records) {
+        for (const node of r.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          const hero = node.matches("[data-state]")
+            ? node
+            : node.querySelector("[data-state]");
+          const state = hero?.getAttribute("data-state");
+          if (state) w.__entered.push(state);
+        }
+      }
+    }).observe(document, { subtree: true, childList: true });
+  });
+  return () =>
+    page.evaluate(() => {
+      const w = window as unknown as { __contexts: number; __entered: string[] };
+      return { contexts: w.__contexts, entered: w.__entered };
+    });
+}
+
+/** Tags the world's canvas, to tell later whether it is the same element. */
+const tagCanvas = (canvas: ReturnType<Page["locator"]>) =>
+  canvas.evaluate((c) => {
+    (c as unknown as { __tag: string }).__tag = "the world";
+  });
+const canvasTag = (canvas: ReturnType<Page["locator"]>) =>
+  canvas.evaluate((c) => (c as unknown as { __tag?: string }).__tag ?? null);
+
+test.describe("one world across home and the Resume page", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test("the canvas and its scene survive home → Resume page → home, and home comes back settled", async ({
+    browser,
+  }, testInfo) => {
+    let world: Awaited<ReturnType<typeof watchWorld>> = async () => ({
+      contexts: 0,
+      entered: [],
+    });
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+      prepare: async (page) => {
+        world = await watchWorld(page);
+      },
+    });
+    await tagCanvas(heroRoot(page).locator("canvas"));
+    expect((await world()).contexts).toBe(1);
+
+    await resumeLink(page).click();
+    await expect(page).toHaveURL(/\/resume$/);
+    const outpost = page.locator("[data-world]");
+    // Already drawn: the world was live when the page arrived.
+    await expect(outpost).toHaveAttribute("data-world", "drawn");
+    await expect(outpost.locator("canvas")).toHaveCSS("position", "fixed");
+    expect(await canvasTag(outpost.locator("canvas"))).toBe("the world");
+    await expect(page.locator("[data-backdrop]")).toHaveCount(1);
+
+    await page.evaluate(() => {
+      (window as unknown as { __hero: { seen: string[] } }).__hero.seen = [];
+    });
+    await homeLink(page).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(heroRoot(page).locator("canvas"))).toBe("the world");
+    // The opening never replays: home arrives settled, with no flight after.
+    const { contexts, entered } = await world();
+    expect(contexts).toBe(1);
+    expect(entered.at(-1)).toBe("settled");
+    expect((await watched(page)).seen).not.toContain("flight");
+    await page.context().close();
+  });
+
+  test("home reached from the Resume page joins its live world settled, and the scroll route carries the camera on", async ({
+    browser,
+  }, testInfo) => {
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const page = await context.newPage();
+    await watchHero(page);
+    const world = await watchWorld(page);
+    await page.goto("/resume");
+    const outpost = page.locator("[data-world]");
+    await expect(outpost).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await tagCanvas(outpost.locator("canvas"));
+
+    await homeLink(page).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(heroRoot(page).locator("canvas"))).toBe("the world");
+    const { contexts, entered } = await world();
+    expect(contexts).toBe(1);
+    expect(entered.at(-1)).toBe("settled");
+    expect((await watched(page)).seen).not.toContain("flight");
+
+    // The scroll route runs again: the first Highlight's site lights.
+    const first = page.locator(`#${highlightAnchor(highlights[0].id)}`);
+    await first.evaluate((el) =>
+      el.scrollIntoView({ block: "center", behavior: "instant" }),
+    );
+    await expect(first).toHaveAttribute("data-lit", /.*/, {
+      timeout: SCENE_TIMEOUT,
+    });
+    await context.close();
   });
 });
 
