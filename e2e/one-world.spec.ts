@@ -305,6 +305,14 @@ async function watchTransit(page: Page) {
     );
 }
 
+/**
+ * How late a hold's release may run past the cap: CI's software renderer
+ * stalls the main thread for whole frames, so timers fire late. Still well
+ * short of the camera's own arrival limit, so a hold that waited on the
+ * camera instead of the cap would fail.
+ */
+const HOLD_GRACE = 750;
+
 /** The world's root, which carries data-transit while the camera flies. */
 const worldRoot = (page: Page) => page.locator("[data-world-root]");
 
@@ -326,7 +334,9 @@ function holds({ arriving }: TransitWatch) {
 const heldCopy = (page: Page) =>
   page.evaluate(async (heading) => {
     const root = document.querySelector("[data-world-root]")!;
-    for (let i = 0; i < 600; i++) {
+    // Bounded by time, not frames: a software renderer's frames can be slow.
+    const until = performance.now() + 5000;
+    while (performance.now() < until) {
       const header = Array.from(document.querySelectorAll("h2"))
         .find((h) => h.textContent === heading)
         ?.closest("header");
@@ -466,11 +476,11 @@ test.describe("camera flights between home and the Resume page", () => {
     expect(seen.bare).toBe(0);
     expect(await crossfades()).toBe(0);
     // Every hold on the copy ended within the cap of its navigation's start
-    // (with a frame's grace for a busy machine's late timers).
+    // (with grace for a busy machine's late timers).
     expect(seen.arriving.at(-1)?.value).toBeNull();
     expect(holds(seen).length).toBeGreaterThan(0);
     for (const ms of holds(seen)) {
-      expect(ms).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS * 1000 + 100);
+      expect(ms).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS * 1000 + HOLD_GRACE);
     }
     await page.context().close();
   });
@@ -488,9 +498,14 @@ test.describe("camera flights between home and the Resume page", () => {
       },
     });
     await tagCanvas(heroRoot(page).locator("canvas"));
-    // Still in the opening (it runs 10.5s), the click flies at once.
-    const flying = await page.evaluate((label) => {
+    // Partway into the opening, the click flies at once. (Clicked in the page
+    // as the opening runs, so a slow first frame can't let it finish first.)
+    const flying = await page.evaluate(async (label) => {
       const hero = document.querySelector("[data-state]")!;
+      while (hero.getAttribute("data-state") === "loading") {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
       const state = hero.getAttribute("data-state");
       Array.from(
         document.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Main"] a'),
@@ -514,7 +529,7 @@ test.describe("camera flights between home and the Resume page", () => {
     const seen = await transit();
     expect(seen.bare).toBe(0);
     for (const ms of holds(seen)) {
-      expect(ms).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS * 1000 + 100);
+      expect(ms).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS * 1000 + HOLD_GRACE);
     }
     await page.context().close();
   });
