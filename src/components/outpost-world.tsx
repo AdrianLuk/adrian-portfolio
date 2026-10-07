@@ -1,39 +1,29 @@
 "use client";
 
-import {
-  useLayoutEffect,
-  useRef,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { afterFirstPaint } from "./after-first-paint";
-import { worldHost, type WorldState } from "./world-host";
-
-const serverWorldState = (): WorldState => "pending";
+import { useWorldState } from "./use-world-state";
+import { worldHost } from "./world-host";
 
 /**
- * The world seen from the outpost, where the home page's scroll route ends,
+ * The world seen from the Outpost, where the home page's scroll route ends,
  * held fixed behind the page. `children` is the still backdrop: the first
  * paint, and what stays without WebGL or while the GPU context is lost. On a
  * direct load the Three.js scene loads after the first paint and fades in
  * over it once its first frame has rendered; arriving from home, the world
- * is already live, and the camera flies down the valley to the Outpost
- * (world-flights.ts). The camera never moves;
- * with motion allowed the scene does (motes, lights, windows), and under
- * reduced motion it is one still frame, following the preference if it
- * changes.
+ * is already live, and the camera flies down the valley to the Outpost (a
+ * transit, world-transits.ts). Once there the camera holds still; with
+ * motion allowed the scene moves round it (motes, lights, windows), and
+ * under reduced motion it is one still frame, following the preference if
+ * it changes.
  */
 export function OutpostWorld({ children }: { children: ReactNode }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const host = worldHost();
-  const state = useSyncExternalStore(
-    host.subscribe,
-    host.state,
-    serverWorldState,
-  );
+  const state = useWorldState();
 
   // Before the page paints, so a page arriving into a live world never shows
-  // a frame without it (the still backdrop bare under a camera flight).
+  // a frame without it (the still backdrop bare under a transit).
   useLayoutEffect(() => {
     const pageCanvas = canvasRef.current;
     if (!pageCanvas) return;

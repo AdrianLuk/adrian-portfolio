@@ -1,5 +1,5 @@
 import { Quaternion } from "three";
-import type { Pose } from "./flight";
+import type { FlightPath, Pose } from "./flight";
 import { TRANSIT_MAX_SECONDS } from "./rigs";
 import { ROUTE_STOPS, type Route } from "./route";
 
@@ -114,7 +114,104 @@ function stopAtDepth(route: Route, samples: Samples, z: number) {
  */
 const JOIN = 0.4;
 
-/** A transit from `departure` along `route` to the stop `to`. */
+/** Seconds a transit flying `distance` world units takes, up to the cap. */
+function durationFor(distance: number) {
+  return distance === 0
+    ? 0
+    : Math.min(
+        TRANSIT_MAX_SECONDS,
+        TRANSIT_PACE.start + distance / TRANSIT_PACE.speed,
+      );
+}
+
+const copyOf = ({ position, quaternion }: Pose): Pose => ({
+  position: position.clone(),
+  quaternion: quaternion.clone(),
+});
+
+/**
+ * Where a transit leaves from: a camera's pose (on the scroll route, at the
+ * Outpost, partway through another transit), or a point in the opening
+ * flight, which the transit finishes before it takes the route (the opening
+ * runs down the canyon behind the plate, where the route can't reach).
+ */
+export type Departure =
+  | { pose: Pose }
+  | {
+      opening: FlightPath;
+      /** How far along the opening's path, 0 to 1 (`FlightPath.travel`). */
+      travel: number;
+      /** How far round to the settled framing, 0 to 1 (the rig's `settle`). */
+      settle: number;
+    };
+
+/** A transit from `departure` to the route's stop `to`. */
+export function transit(route: Route, departure: Departure, to: number) {
+  return "pose" in departure
+    ? transitPath(route, departure.pose, to)
+    : fromOpening(route, departure, to);
+}
+
+/**
+ * A transit that leaves from inside the opening: it finishes the opening's
+ * own path, quickened, to the settled view, and flies on from there along
+ * the route without stopping, the whole trip eased as one and within the cap.
+ */
+function fromOpening(
+  route: Route,
+  { opening, travel, settle }: Extract<Departure, { opening: FlightPath }>,
+  to: number,
+) {
+  const from = Math.min(1, Math.max(0, travel));
+  /** World units of the opening still to fly. */
+  const lead = (1 - from) * opening.length;
+  const rest = transitPath(route, opening.poseAlong(1, 1), to);
+  const distance = lead + rest.distance;
+  // The camera swings round to the settled framing over the turn-in (from
+  // where it is, if it is already in it).
+  const settling = Math.max(from, opening.turnStart);
+
+  /** The opening `d` world units on from the departure. */
+  function inOpening(d: number) {
+    const u = Math.min(1, from + d / opening.length);
+    const s =
+      u <= settling || settling >= 1
+        ? settle
+        : settle + (1 - settle) * ((u - settling) / (1 - settling));
+    return { u, s: d >= lead ? 1 : s };
+  }
+
+  /** The transit a fraction `f` of the way along its distance. */
+  function at(f: number) {
+    return Math.min(1, Math.max(0, f)) * distance;
+  }
+
+  return {
+    duration: durationFor(distance),
+    distance,
+    poseAt(t: number): Pose {
+      if (t <= 0) return opening.poseAlong(from, settle);
+      if (t >= 1) return route.poseAt(to);
+      const d = at(ease(t));
+      if (d < lead) {
+        const { u, s } = inOpening(d);
+        return opening.poseAlong(u, s);
+      }
+      return rest.along((d - lead) / Math.max(rest.distance, 1e-9));
+    },
+    /** Where a transit leaving `t` of the way through this one leaves from. */
+    departureAt(t: number): Departure {
+      const d = at(ease(Math.min(1, Math.max(0, t))));
+      if (d < lead) {
+        const { u, s } = inOpening(d);
+        return { opening, travel: u, settle: s };
+      }
+      return { pose: this.poseAt(t) };
+    },
+  };
+}
+
+/** A transit from the pose `departure` along `route` to the stop `to`. */
 export function transitPath(route: Route, departure: Pose, to: number) {
   const samples = measure(route);
   const fromStop = stopAtDepth(route, samples, departure.position.z);
@@ -132,36 +229,41 @@ export function transitPath(route: Route, departure: Pose, to: number) {
 
   const distance = Math.abs(toLength - fromLength) + offset.length();
 
+  /** The camera a fraction `f` (0 to 1) of the way along the distance. */
+  function along(f: number): Pose {
+    if (f <= 0) return copyOf(departure);
+    if (f >= 1) return route.poseAt(to);
+    const length = fromLength + (toLength - fromLength) * f;
+    const { position, quaternion } = route.poseAt(
+      lookup(samples, "length", length, "stop"),
+    );
+    const off = 1 - ease(Math.min(1, f / JOIN));
+    return {
+      position: position.addScaledVector(offset, off),
+      quaternion: straight.clone().slerp(turn, off).multiply(quaternion),
+    };
+  }
+
   return {
     /** Seconds the transit takes: longer the further it flies, up to the cap. */
-    duration:
-      distance === 0
-        ? 0
-        : Math.min(
-            TRANSIT_MAX_SECONDS,
-            TRANSIT_PACE.start + distance / TRANSIT_PACE.speed,
-          ),
+    duration: durationFor(distance),
+    /** World units it flies. */
+    distance,
+    along,
 
     /** The camera a fraction `t` (0 to 1) of the way through the transit. */
     poseAt(t: number): Pose {
-      if (t <= 0) {
-        return {
-          position: departure.position.clone(),
-          quaternion: departure.quaternion.clone(),
-        };
-      }
-      if (t >= 1) return route.poseAt(to);
-      const length = fromLength + (toLength - fromLength) * ease(t);
-      const { position, quaternion } = route.poseAt(
-        lookup(samples, "length", length, "stop"),
-      );
-      const off = 1 - ease(Math.min(1, t / JOIN));
-      return {
-        position: position.addScaledVector(offset, off),
-        quaternion: straight.clone().slerp(turn, off).multiply(quaternion),
-      };
+      return t <= 0 ? copyOf(departure) : along(ease(Math.min(1, t)));
+    },
+
+    /** Where a transit leaving `t` of the way through this one leaves from. */
+    departureAt(t: number): Departure {
+      return { pose: this.poseAt(t) };
     },
   };
 }
 
-export type Transit = ReturnType<typeof transitPath>;
+export type Transit = Pick<
+  ReturnType<typeof transitPath>,
+  "duration" | "poseAt" | "departureAt"
+>;

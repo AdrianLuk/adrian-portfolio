@@ -1,5 +1,6 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { pageLayout } from "./home-panels";
 import { litAt, routeAnchors, stopAt, type PanelBox } from "./route-anchors";
 import { SITE_PLAN, type RouteRig } from "./world/rigs";
 import type { World } from "./world/scene";
@@ -49,17 +50,10 @@ export function createScrollRoute({
   const shifts = panels.map(() => 0);
 
   function measure() {
-    viewport = window.innerHeight;
-    // A panel only ever shifts sideways, so its top is its place in the flow.
-    boxes = panels.map((el) => ({
-      top: el.getBoundingClientRect().top + window.scrollY,
-      height: el.offsetHeight,
-    }));
-    anchors = routeAnchors({
-      viewport,
-      maxScroll: ScrollTrigger.maxScroll(window),
-      panels: boxes,
-    });
+    const layout = pageLayout(panels, ScrollTrigger.maxScroll(window));
+    viewport = layout.viewport;
+    boxes = [...layout.panels];
+    anchors = routeAnchors(layout);
   }
 
   /** Sets each panel beside its site, in step with the camera. */

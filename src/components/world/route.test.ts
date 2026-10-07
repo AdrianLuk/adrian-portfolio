@@ -131,7 +131,7 @@ describe("the scroll route", () => {
         }
       });
 
-      it("ends at the outpost, framed right of the contact copy", () => {
+      it("ends at the Outpost, framed right of the contact copy", () => {
         const pose = route.poseAt(ROUTE_STOPS - 1);
         const { x, y, z } = onScreen(pose, OUTPOST, aspect);
         expect(z).toBeLessThan(1);
@@ -141,7 +141,7 @@ describe("the scroll route", () => {
         expect(clearView(pose.position, OUTPOST)).toBe(true);
       });
 
-      it("ends on the outpost's own pose, which needs no route to find", () => {
+      it("ends on the Outpost's own pose, which needs no route to find", () => {
         const end = route.poseAt(ROUTE_STOPS - 1);
         const pose = outpostPose(aspect);
         expect(pose.position.distanceTo(end.position)).toBeLessThan(1e-6);

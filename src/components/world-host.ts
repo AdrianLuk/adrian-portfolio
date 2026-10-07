@@ -1,6 +1,8 @@
-// Plain data and types only: Three.js loads after the first paint, and only on
-// a route that wants the world.
-import type { Pose } from "./world/flight";
+// No Three.js up front: it loads after the first paint, and only on a route
+// that wants the world.
+import { REDUCED_MOTION } from "./reduced-motion";
+import type { Place } from "./world-places";
+import type { FlightPath, Pose } from "./world/flight";
 import { FLIGHT_START_RIG, routeRig, type FlightRig } from "./world/rigs";
 import type { Route } from "./world/route";
 import type { Measurement, World, WorldView } from "./world/scene";
@@ -21,7 +23,7 @@ export type WorldState = "pending" | "drawn" | "unavailable";
  * camera still, the sky clear), any other page nothing (its still backdrop
  * stands in, and the world is parked, drawing nothing).
  */
-export type WorldIntent = "hero" | "outpost" | "none";
+export type WorldIntent = Place | "none";
 
 /**
  * A page's claim on the world: the view it wants, and its weather. The hero
@@ -34,8 +36,6 @@ export type WorldClaim =
       measure: (canvas: HTMLCanvasElement) => Measurement;
     }
   | { kind: "outpost" };
-
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 const viewFor = (
   claim: WorldClaim | null,
@@ -75,6 +75,9 @@ export function createWorldHost() {
   let building: Promise<World | null> | null = null;
   let state: WorldState = "pending";
   const listeners = new Set<() => void>();
+  /** Stops the world following the reduced-motion preference. */
+  let unfollow: (() => void) | null = null;
+  let disposed = false;
 
   function setState(next: WorldState) {
     if (next === state) return;
@@ -82,10 +85,10 @@ export function createWorldHost() {
     for (const listener of listeners) listener();
   }
 
-  /** True while a flight holds the weather it left in until it lands. */
+  /** True while a transit holds the weather it left in until it lands. */
   let weatherHeld = false;
 
-  /** Shows the claim's view, in its weather (unless a flight holds it). */
+  /** Shows the claim's view, in its weather (unless a transit holds it). */
   function show() {
     if (!world || !canvas) return;
     if (!weatherHeld) world.setWeather(weatherFor(claim));
@@ -112,6 +115,10 @@ export function createWorldHost() {
         onFrame: () => setState("drawn"),
         onLost: () => setState("pending"),
       });
+      if (disposed) {
+        created?.dispose();
+        return null;
+      }
       if (!created) {
         setState("unavailable");
         return null;
@@ -120,9 +127,9 @@ export function createWorldHost() {
       // The page, or the preference, changed while the shaders compiled.
       if (claim !== opened) show();
       if (motion !== !reduced.matches) world.setMotion(!reduced.matches);
-      reduced.addEventListener("change", () =>
-        world?.setMotion(!reduced.matches),
-      );
+      const follow = () => world?.setMotion(!reduced.matches);
+      reduced.addEventListener("change", follow);
+      unfollow = () => reduced.removeEventListener("change", follow);
       return world;
     } catch {
       // A stale chunk after a deploy, say: the page's fallback stays.
@@ -200,9 +207,6 @@ export function createWorldHost() {
     steer(source: (() => Pose) | null) {
       world?.steer(source);
     },
-    setWeather(weather: Weather) {
-      world?.setWeather(weather);
-    },
     /**
      * Holds the weather as it is while the camera flies, however the pages
      * change under it; released, the world takes the page's own (clear at
@@ -216,6 +220,23 @@ export function createWorldHost() {
     scrollRoute: (): Route | null => world?.route() ?? null,
     /** The settled pose (the route's stop 0), likewise. */
     settledPose: (): Pose | null => world?.settledPose() ?? null,
+    /** The opening flight's path, likewise. */
+    openingPath: (): FlightPath | null => world?.openingPath() ?? null,
+
+    /**
+     * Tears the world down: its GPU context, its scene and every listener.
+     * The visit's own host lives as long as the page; tests start afresh.
+     */
+    dispose() {
+      disposed = true;
+      unfollow?.();
+      unfollow = null;
+      world?.dispose();
+      world = null;
+      listeners.clear();
+      canvas = slot = null;
+      claim = null;
+    },
   };
 }
 

@@ -10,8 +10,8 @@ import { valleyCentre, valleyHeight } from "./terrain";
  *
  * From the settled view the camera climbs over the name plate and carries on
  * down the valley, stopping beside each lit site in turn (the Highlights, in
- * order), and ends at the outpost. The route is measured in stops: 0 is the
- * settled view, 1 to 4 frame the four sites, 5 the outpost; in between it
+ * order), and ends at the Outpost. The route is measured in stops: 0 is the
+ * settled view, 1 to 4 frame the four sites, 5 the Outpost; in between it
  * flies at an even speed and turns smoothly from one framing to the next.
  */
 
@@ -37,10 +37,10 @@ function site({ z, ...plan }: SitePlan): Site {
 /** The four lit sites, from their plan in ./rigs. */
 export const SITES: readonly Site[] = SITE_PLAN.map(site);
 
-/** The outpost at the route's end, on the valley's centre line. */
+/** The Outpost at the route's end, on the valley's centre line. */
 export const OUTPOST = above(-1130, 14);
 
-/** Stops along the route: the settled view, each site, the outpost. */
+/** Stops along the route: the settled view, each site, the Outpost. */
 export const ROUTE_STOPS = SITES.length + 2;
 
 /** How far short of a site the camera stops to frame it. */
@@ -94,7 +94,7 @@ function stopPose(target: Vector3, ndcX: number, aspect: number): Pose {
 }
 
 /**
- * The route's last stop, the outpost framed right of the copy (the contact
+ * The route's last stop, the Outpost framed right of the copy (the contact
  * copy on home, the Resume page's on its own), for a screen of this shape.
  * It doesn't depend on the layout, so it needs no route to find.
  */

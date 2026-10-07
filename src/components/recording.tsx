@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Recording as RecordingContent } from "@/content/site";
+import { REDUCED_MOTION } from "./reduced-motion";
 
 /**
  * A silent screen recording. It plays on its own only while it is on screen
@@ -15,7 +16,7 @@ export function Recording({ recording }: { recording: RecordingContent }) {
   useEffect(() => {
     const video = ref.current;
     if (!video) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const reduced = window.matchMedia(REDUCED_MOTION);
     let onScreen = false;
 
     const sync = () => {
