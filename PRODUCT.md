@@ -16,7 +16,7 @@ adrianluk.com is Adrian's public portfolio. It exists to win interviews for seni
 
 ## Positioning
 
-The site is itself the proof. The strongest craft work of his career (a GSAP scroll engine, canvas route transitions, the Control D accessibility overhaul) is not publicly visible, so the portfolio demonstrates those skills in its own build: motion-rich, axe-clean, keyboard navigable, fast. A visitor can tab through it, run Lighthouse on it, or read its public source. Few portfolios can make that offer honestly.
+The site is itself the proof. The strongest craft work of his career (a GSAP scroll engine, canvas route transitions, the Control D accessibility overhaul) is not publicly visible, so the portfolio demonstrates those skills in its own build: motion-rich, axe-clean, keyboard navigable. A visitor can tab through it, run a screen reader or axe on it, or read its public source. Few portfolios can make that offer honestly.
 
 ## Operating Context
 
@@ -33,7 +33,7 @@ The site is itself the proof. The strongest craft work of his career (a GSAP scr
 - Contact: `mailto:` to a Gmail address, LinkedIn (linkedin.com/in/adrian-luk), GitHub (github.com/AdrianLuk).
 - Analytics: Vercel Web Analytics only (cookieless, no banner).
 - GSAP motion lives in client components; everything else is a server component.
-- Motion guardrails (binding): content readable immediately and never waiting on an animation; no scroll-jacking (native scroll speed, no snapping; pinning only inside the Case study); a fully static `prefers-reduced-motion` version that is just as good (except the Rally game, which moves only once the player starts it, in slow mode under reduced motion); no layout shift; the Case study, Resume page and `/play` hold a mobile LCP under 2.5s (the home page's is reported, not gated); motion is time-boxed so a launch doesn't slip more than a few days.
+- Motion guardrails (binding): content readable immediately and never waiting on an animation; no scroll-jacking (native scroll speed, no snapping; pinning only inside the Case study); a fully static `prefers-reduced-motion` version that is just as good (except the Rally game, which moves only once the player starts it, in slow mode under reduced motion); no layout shift; motion is time-boxed so a launch doesn't slip more than a few days.
 - If scope gets tight, motion polish is cut first; content accuracy and accessibility are never cut.
 - Never shows or links to Adrian's private tools.
 
@@ -57,9 +57,9 @@ The site is itself the proof. The strongest craft work of his career (a GSAP scr
 
 ## Product Principles
 
-1. The build is the proof. Every page must survive a senior engineer's inspection: keyboard, screen reader, Lighthouse, source.
+1. The build is the proof. Every page must survive a senior engineer's inspection: keyboard, screen reader, axe, source.
 2. Never embellish. Claims come from the verified experience copy or the resume, and shared credit stays shared.
-3. Motion with judgment. Rich, but never in the way of reading, scrolling or performance; the reduced-motion version is a first-class design.
+3. Motion with judgment. Rich, but never in the way of reading or scrolling. Where motion and load-speed scores pull apart, motion wins. The reduced-motion version is a first-class design.
 4. Fast to the point. A phone visitor with 30 seconds should know who he is, what he builds and how to reach him.
 5. Ship, then polish. Content accuracy and accessibility are fixed; motion scope flexes.
 
