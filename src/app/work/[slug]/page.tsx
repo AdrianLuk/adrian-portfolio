@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EARLY_PIN_SCRIPT } from "@/components/player-tools-pinning";
+import { PlayerToolsScene } from "@/components/player-tools-scene";
 import { Recording } from "@/components/recording";
+import { isSideways, Screenshot } from "@/components/screenshot";
+import { ToolStage } from "@/components/tool-stage";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import {
   caseStudies,
@@ -47,12 +50,8 @@ function Shot({
 }) {
   return (
     <figure className={className}>
-      <Image
-        src={image.src}
-        alt={image.alt}
-        width={image.width}
-        height={image.height}
-        unoptimized
+      <Screenshot
+        image={image}
         className="h-auto w-full rounded-xl border border-fog"
       />
       <figcaption className="mt-2 text-sm text-ink/70">{caption}</figcaption>
@@ -62,8 +61,6 @@ function Shot({
 
 function Screenshots({ showcase }: { showcase: Showcase }) {
   const { desktop, phone } = showcase.screenshots;
-  // A phone held sideways (Pickle Point Pal) is wider than a portrait one.
-  const phoneWidth = phone.width > phone.height ? "w-96" : "w-56";
   return (
     <div className="flex flex-wrap items-end gap-6">
       <Shot
@@ -74,16 +71,22 @@ function Screenshots({ showcase }: { showcase: Showcase }) {
       <Shot
         image={phone}
         caption="Phone width"
-        className={`${phoneWidth} max-w-full`}
+        className={`${isSideways(phone) ? "w-96" : "w-56"} max-w-full`}
       />
     </div>
   );
 }
 
+/**
+ * One Player tool's copy block. Its screenshots and recording stay with it for
+ * assistive technology and the stacked list; with the scene pinned they are
+ * out of sight, and the stage shows them instead, its recording paused and
+ * played by the button beside the link.
+ */
 function Tool({ tool, label }: { tool: PlayerTool; label: string }) {
   const id = tool.name.toLowerCase().replaceAll(" ", "-");
   return (
-    <li>
+    <li data-tool-copy className="pinned:min-h-[70vh]">
       <section aria-labelledby={`tool-${id}`} className="space-y-4">
         <h5
           id={`tool-${id}`}
@@ -94,16 +97,29 @@ function Tool({ tool, label }: { tool: PlayerTool; label: string }) {
         <p className="max-w-2xl text-ink/90">
           {tool.summary} <span className="text-ink/70">{tool.accessNote}</span>
         </p>
-        <Screenshots showcase={tool} />
-        {tool.recording && (
-          <div className="max-w-2xl">
-            <Recording recording={tool.recording} />
-          </div>
-        )}
-        <p>
+        <div className="space-y-4 pinned:sr-only">
+          <Screenshots showcase={tool} />
+          {tool.recording && (
+            <div className="max-w-2xl">
+              <Recording recording={tool.recording} />
+            </div>
+          )}
+        </div>
+        <p className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <a href={tool.url} className={linkClass}>
             {label}
           </a>
+          {tool.recording && (
+            <button
+              type="button"
+              data-stage-toggle
+              className="group hidden rounded-full border border-fog px-3 py-1 font-display text-sm tracking-widest text-ink/85 uppercase transition-colors [font-stretch:75%] hover:border-cyan hover:text-cyan pinned:inline-block"
+            >
+              <span className="group-data-paused:hidden">Pause</span>
+              <span className="hidden group-data-paused:inline">Play</span>{" "}
+              recording<span className="sr-only"> of {tool.name}</span>
+            </button>
+          )}
         </p>
       </section>
     </li>
@@ -177,18 +193,26 @@ export default async function CaseStudyPage({
               </div>
             )}
             {section.id === "approach" && (
-              <div className="space-y-4 pt-6">
+              // Where it pins, the scene widens past the column (to the
+              // header's width at most) so the stage sits beside a readable
+              // column of copy.
+              <PlayerToolsScene className="space-y-4 pt-6 pinned:mx-[calc(50%-min(36rem,50vw-1.5rem))]">
                 <h4 className={eyebrowClass}>Player tools</h4>
-                <ul className="space-y-14">
-                  {study.tools.map((tool) => (
-                    <Tool
-                      key={tool.name}
-                      tool={tool}
-                      label={labelFor(tool.url)}
-                    />
-                  ))}
-                </ul>
-              </div>
+                <div className="pinned:grid pinned:grid-cols-[5fr_7fr] pinned:gap-12">
+                  <ul className="space-y-14">
+                    {study.tools.map((tool) => (
+                      <Tool
+                        key={tool.name}
+                        tool={tool}
+                        label={labelFor(tool.url)}
+                      />
+                    ))}
+                  </ul>
+                  <ToolStage tools={study.tools} />
+                </div>
+                {/* Last, once the copy above is parsed: pins the layout before the first paint. */}
+                <script dangerouslySetInnerHTML={{ __html: EARLY_PIN_SCRIPT }} />
+              </PlayerToolsScene>
             )}
           </section>
         ))}
