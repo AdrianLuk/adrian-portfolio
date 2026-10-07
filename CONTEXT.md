@@ -36,6 +36,10 @@ _Avoid_: Intro, fly-through
 The camera flying through the world between home and the Resume page, in place of a crossfade, when the visitor navigates between them: down the valley to the Outpost, or back up it to home.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
+**Camera director**:
+The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit and the Outpost. It never lets the camera jump.
+_Avoid_: Rig, steer, pose source
+
 **Rally game**:
 The short pickleball game on `/play`: singles against an AI, Dinkbot, on the Juice Bros court, rally scoring to 7, win by 2. Its own UI is the one place outside the opening credits and the closing bookend where the copy jokes.
 _Avoid_: Mini-game, minigame, Pong
