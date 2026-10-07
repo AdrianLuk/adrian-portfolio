@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { litAt, routeAnchors, stopAt } from "./route-anchors";
+import { litAt, routeAnchors, scrollFor, stopAt } from "./route-anchors";
 
 // A 900px viewport over a page whose four panels stand at 1000, 1700, 2400
 // and 3100 (each 500 tall), scrolling to 4200 at most.
@@ -45,6 +45,21 @@ describe("the stop at a scroll position", () => {
     const short = [0, 800, 1500, 1600, 1600, 1600];
     expect(stopAt(1600, short)).toBe(5);
     expect(stopAt(1550, short)).toBeCloseTo(2.5);
+  });
+});
+
+describe("the scroll position for a stop", () => {
+  const anchors = [0, 800, 1500, 2200, 2900, 4200];
+
+  it("undoes the stop at a scroll position", () => {
+    for (const scroll of [0, 400, 800, 1850, 3550, 4200]) {
+      expect(scrollFor(stopAt(scroll, anchors), anchors)).toBeCloseTo(scroll);
+    }
+  });
+
+  it("holds at either end", () => {
+    expect(scrollFor(-1, anchors)).toBe(0);
+    expect(scrollFor(9, anchors)).toBe(4200);
   });
 });
 

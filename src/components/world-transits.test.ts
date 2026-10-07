@@ -1,16 +1,13 @@
 import { Euler, Quaternion, Vector3 } from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorldHost, WorldIntent, WorldState } from "./world-host";
+import { createCameraDirector } from "./camera-director";
+import type { WorldIntent, WorldState } from "./world-host";
 import { createWorldTransits } from "./world-transits";
 import { createFlightPath, type Pose } from "./world/flight";
 import { CAMERA } from "./world/pose";
-import {
-  FLIGHT_START_RIG,
-  SETTLED_RIG,
-  TRANSIT_MAX_SECONDS,
-  type FlightRig,
-} from "./world/rigs";
+import { TRANSIT_MAX_SECONDS } from "./world/rigs";
 import { createRoute, outpostPose } from "./world/route";
+import { OUTPOST_STOP, transit } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -24,45 +21,48 @@ const plateCentre = new Vector3(-18, 0, -CAMERA.plateDepth)
   .add(settled.position);
 const aspect = 1.6;
 
+type TransitHost = Parameters<typeof createWorldTransits>[0];
+
 /**
- * A world host as the transits see it: drawn, on home, its camera settled,
- * with its rigs and the paths home measured. `steered` is the camera's pose
- * as the transit steers it (null once handed back).
+ * The world host as the Transits see it: drawn, on home, the Opening landed,
+ * its director holding the paths home measured.
  */
-function fakeHost() {
-  const route = createRoute(settled, plateCentre, aspect);
-  const opening = createFlightPath(settled, plateCentre);
-  const listeners = new Set<() => void>();
+function standInHost() {
+  const director = createCameraDirector({ homeStop: () => 0 });
+  director.layout({
+    opening: createFlightPath(settled, plateCentre),
+    route: createRoute(settled, plateCentre, aspect),
+    outpost: outpostPose(aspect),
+    outpostStop: OUTPOST_STOP,
+    transit,
+  });
+  director.show("hero");
+  director.openingLands();
   const world = {
     intent: "hero" as WorldIntent,
     state: "drawn" as WorldState,
-    rig: { ...SETTLED_RIG } as FlightRig,
-    steering: null as (() => Pose) | null,
-    listeners,
+    weatherHeld: false,
+    listeners: new Set<() => void>(),
   };
-  const host = {
-    rig: world.rig,
-    subscribe(listener: () => void) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
+  const host: TransitHost = {
+    director,
+    subscribe(listener) {
+      world.listeners.add(listener);
+      return () => {
+        world.listeners.delete(listener);
+      };
     },
     state: () => world.state,
     intent: () => world.intent,
     live: () => true,
-    cameraPose: () =>
-      world.intent === "outpost" ? outpostPose(aspect) : settled,
-    steer(source: (() => Pose) | null) {
-      world.steering = source;
+    holdWeather(hold) {
+      world.weatherHeld = hold;
     },
-    holdWeather() {},
-    scrollRoute: () => route,
-    settledPose: () => settled,
-    openingPath: () => opening,
-  } as unknown as WorldHost;
-  return { host, world, opening };
+  };
+  return { host, world, director };
 }
 
-/** The world's root, as the transits mark it. */
+/** The world's root, as the Transits mark it. */
 function fakeRoot() {
   const attributes = new Map<string, string>();
   return {
@@ -70,11 +70,6 @@ function fakeRoot() {
     setAttribute: (name: string, value: string) => attributes.set(name, value),
     removeAttribute: (name: string) => attributes.delete(name),
   };
-}
-
-function expectSamePose(a: Pose, b: Pose) {
-  expect(a.position.distanceTo(b.position)).toBeLessThan(1e-6);
-  expect(a.quaternion.angleTo(b.quaternion)).toBeLessThan(1e-6);
 }
 
 describe("transits between home and the Resume page", () => {
@@ -85,15 +80,8 @@ describe("transits between home and the Resume page", () => {
   beforeEach(() => {
     root = fakeRoot();
     media = { listeners: new Set(), matches: false };
-    // Home at the top of its page: the camera's stop there is the settled view.
-    vi.stubGlobal("document", {
-      querySelector: () => root,
-      getElementById: () => null,
-      documentElement: { scrollHeight: 900 },
-    });
+    vi.stubGlobal("document", { querySelector: () => root });
     vi.stubGlobal("window", {
-      innerHeight: 900,
-      scrollY: 0,
       matchMedia: () => ({
         get matches() {
           return media.matches;
@@ -118,21 +106,19 @@ describe("transits between home and the Resume page", () => {
     vi.unstubAllGlobals();
   });
 
-  /** Transits over a drawn world, its maths loaded. */
-  async function start(host: WorldHost, world: ReturnType<typeof fakeHost>["world"]) {
+  function start(host: TransitHost) {
     const transits = createWorldTransits(host);
     disposers.push(transits.dispose);
-    for (const listener of world.listeners) listener();
-    await vi.dynamicImportSettled();
     return transits;
   }
 
-  it("holds the Resume page's copy back for the cap at most, though the camera has yet to land", async () => {
-    const { host, world } = fakeHost();
-    const transits = await start(host, world);
+  it("holds the Resume page's copy back for the cap at most, though the camera has yet to land", () => {
+    const { host, world } = standInHost();
+    const transits = start(host);
     expect(transits.navigate("/resume")).toBe(true);
     expect(root.attributes.get("data-transit")).toBe("outpost");
     expect(root.attributes.get("data-arriving")).toBe("outpost");
+    expect(world.weatherHeld).toBe(true);
 
     // The page is slow to arrive: the camera waits on it, the copy doesn't.
     vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 - 50);
@@ -142,20 +128,21 @@ describe("transits between home and the Resume page", () => {
     expect(root.attributes.get("data-transit")).toBe("outpost");
   });
 
-  it("lands on the Outpost once the Resume page is in and the camera is there", async () => {
-    const { host, world } = fakeHost();
-    const transits = await start(host, world);
+  it("clears its marks and lets the weather go once the director lands", () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
     transits.navigate("/resume");
     world.intent = "outpost";
+    director.show("outpost");
     vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 + 100);
-    expect(root.attributes.has("data-transit")).toBe(false);
-    expect(root.attributes.has("data-arriving")).toBe(false);
-    expect(world.steering).toBeNull();
+    expect(director.flying()).toBeNull();
+    expect(root.attributes.size).toBe(0);
+    expect(world.weatherHeld).toBe(false);
   });
 
-  it("leaves from where the committed page is, so a navigation that never arrives changes nothing", async () => {
-    const { host, world } = fakeHost();
-    const transits = await start(host, world);
+  it("leaves from where the committed page is, so a navigation that never arrives changes nothing", () => {
+    const { host } = standInHost();
+    const transits = start(host);
     expect(transits.navigate("/resume")).toBe(true);
     // The navigation is abandoned: home stays, and the camera gives up.
     vi.advanceTimersByTime(10_000);
@@ -168,34 +155,24 @@ describe("transits between home and the Resume page", () => {
     expect(transits.navigate("/#work")).toBe(false);
   });
 
-  it("turns round mid-flight when Back goes home before the Resume page arrives", async () => {
-    const { host, world } = fakeHost();
-    const transits = await start(host, world);
+  it("flies nothing under reduced motion, and lands at once if it is reduced mid-flight", () => {
+    const { host, director } = standInHost();
+    const transits = start(host);
     transits.navigate("/resume");
-    vi.advanceTimersByTime(500);
-    const turning = world.steering!();
-    expect(transits.navigate("/")).toBe(true);
-    expect(root.attributes.get("data-transit")).toBe("hero");
-    expectSamePose(world.steering!(), turning);
+    media.matches = true;
+    for (const listener of media.listeners) listener();
+    expect(director.flying()).toBeNull();
+    expect(root.attributes.size).toBe(0);
+    expect(transits.navigate("/resume")).toBe(false);
   });
 
-  it("leaves the opening from the camera's live pose, never snapping to the settled view", async () => {
-    const { host, world, opening } = fakeHost();
-    Object.assign(world.rig, FLIGHT_START_RIG, { flight: 0.6 });
-    const transits = await start(host, world);
-    const live = opening.poseAt(world.rig);
-    expect(transits.navigate("/resume")).toBe(true);
-    expectSamePose(world.steering!(), live);
-    expect(world.steering!().position.distanceTo(settled.position)).toBeGreaterThan(50);
-  });
-
-  it("stops listening once disposed, landing any transit under way", async () => {
-    const { host, world } = fakeHost();
-    const transits = await start(host, world);
+  it("stops listening once disposed, landing any transit under way", () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
     transits.navigate("/resume");
     transits.dispose();
     expect(root.attributes.size).toBe(0);
-    expect(world.steering).toBeNull();
+    expect(director.flying()).toBeNull();
     expect(world.listeners.size).toBe(0);
     expect(media.listeners.size).toBe(0);
   });
