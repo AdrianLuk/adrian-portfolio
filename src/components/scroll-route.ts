@@ -1,8 +1,15 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import type { CameraDirector } from "./camera-director";
 import { pageLayout } from "./home-panels";
-import { litAt, routeAnchors, stopAt, type PanelBox } from "./route-anchors";
-import { SITE_PLAN, type RouteRig } from "./world/rigs";
+import {
+  litAt,
+  routeAnchors,
+  scrollFor,
+  stopAt,
+  type PanelBox,
+} from "./route-anchors";
+import { SITE_PLAN } from "./world/rigs";
 import type { World } from "./world/scene";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -28,11 +35,12 @@ const EDGE = 16;
  * it when the camera is at its stop.
  */
 export function createScrollRoute({
-  route,
+  director,
   panels,
   locateSite,
 }: {
-  route: RouteRig;
+  /** Told the stop the scroll puts the camera at, and how lit each site is. */
+  director: Pick<CameraDirector, "scrolled" | "scrollStopped" | "stop">;
   /** The Highlights' panels, in the sites' order. */
   panels: readonly HTMLElement[];
   /**
@@ -89,15 +97,19 @@ export function createScrollRoute({
   }
 
   function update() {
-    route.at = stopAt(scroll.y, anchors);
-    boxes.forEach((box, i) => {
-      route.lit[i] = litAt(scroll.y, box, viewport);
-      panels[i].toggleAttribute("data-lit", route.lit[i] >= 0.5);
+    const lit = boxes.map((box, i) => {
+      const amount = litAt(scroll.y, box, viewport);
+      panels[i].toggleAttribute("data-lit", amount >= 0.5);
+      return amount;
     });
+    director.scrolled(stopAt(scroll.y, anchors), lit);
     placePanels();
   }
 
   measure();
+  // The camera picks up where the director has it (the settled view, or
+  // where a Transit home landed), and eases after the scroll from there.
+  scroll.y = scrollFor(director.stop(), anchors);
   // The camera eases after the scroll from wherever it has got to, so a
   // refresh (after a resize, say) can only re-measure the route, never send
   // the camera back along it.
@@ -122,8 +134,7 @@ export function createScrollRoute({
     kill() {
       trigger.kill();
       follow.tween.kill();
-      route.at = 0;
-      route.lit.fill(0);
+      director.scrollStopped();
       for (const el of panels) {
         el.style.removeProperty("transform");
         el.removeAttribute("data-lit");

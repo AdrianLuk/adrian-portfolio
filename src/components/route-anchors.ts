@@ -48,6 +48,17 @@ export function stopAt(scroll: number, anchors: readonly number[]) {
   return 0;
 }
 
+/**
+ * The scroll position for a stop: `stopAt`'s inverse, clamped to the
+ * anchors. Where anchors coincide, the stop is reached at that one scroll.
+ */
+export function scrollFor(stop: number, anchors: readonly number[]) {
+  const last = anchors.length - 1;
+  const s = Math.min(last, Math.max(0, stop));
+  const k = Math.min(last - 1, Math.floor(s));
+  return anchors[k] + (anchors[k + 1] - anchors[k]) * (s - k);
+}
+
 /** The share of the viewport a panel rises through as its site lights. */
 const LIGHT_UP = 1 / 3;
 

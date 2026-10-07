@@ -1,10 +1,9 @@
 // No Three.js up front: it loads after the first paint, and only on a route
 // that wants the world.
+import { createCameraDirector } from "./camera-director";
+import { scrolledStop } from "./home-panels";
 import { REDUCED_MOTION } from "./reduced-motion";
 import type { Place } from "./world-places";
-import type { FlightPath, Pose } from "./world/flight";
-import { FLIGHT_START_RIG, routeRig, type FlightRig } from "./world/rigs";
-import type { Route } from "./world/route";
 import type { Measurement, World, WorldView } from "./world/scene";
 import type { Weather } from "./world/weather";
 
@@ -62,10 +61,11 @@ const weatherFor = (claim: WorldClaim | null): Weather =>
  * compiled shaders. `detach` parks the world when the page goes.
  */
 export function createWorldHost() {
-  /** The opening flight's state; the hero's timeline animates it in place. */
-  const rig: FlightRig = { ...FLIGHT_START_RIG };
-  /** The scroll route's state; the hero's ScrollTrigger drives it. */
-  const route = routeRig();
+  /**
+   * Where the camera is, from the first paint: the pages report to it
+   * before the world has loaded, and the world asks it every frame.
+   */
+  const director = createCameraDirector({ homeStop: scrolledStop });
 
   let canvas: HTMLCanvasElement | null = null;
   /** The canvas of the page that holds the world now. */
@@ -109,8 +109,7 @@ export function createWorldHost() {
       const created = await createWorld(target, {
         motion,
         weather: weatherFor(opened),
-        rig,
-        route,
+        director,
         view: viewFor(opened, target),
         onFrame: () => setState("drawn"),
         onLost: () => setState("pending"),
@@ -139,8 +138,7 @@ export function createWorldHost() {
   }
 
   return {
-    rig,
-    route,
+    director,
 
     /** For useSyncExternalStore: the world's state, and its changes. */
     subscribe(listener: () => void) {
@@ -175,6 +173,7 @@ export function createWorldHost() {
       }
       slot = pageCanvas;
       claim = next;
+      director.show(next.kind);
       show();
       return canvas;
     },
@@ -184,6 +183,7 @@ export function createWorldHost() {
       if (slot !== pageCanvas) return;
       slot = null;
       claim = null;
+      director.show(null);
       world?.setView(null);
     },
 
@@ -196,17 +196,6 @@ export function createWorldHost() {
       return building;
     },
 
-    // For flights between views (driven from outside the pages).
-
-    /** Where the camera is now; null before the world is built. */
-    cameraPose: (): Pose | null => world?.cameraPose() ?? null,
-    /**
-     * Hands the camera to `source`, read every frame in place of the view's
-     * own pose, until called with null.
-     */
-    steer(source: (() => Pose) | null) {
-      world?.steer(source);
-    },
     /**
      * Holds the weather as it is while the camera flies, however the pages
      * change under it; released, the world takes the page's own (clear at
@@ -216,12 +205,6 @@ export function createWorldHost() {
       weatherHeld = hold;
       if (!hold && claim) world?.setWeather(weatherFor(claim));
     },
-    /** The scroll route, once home's headline has been measured. */
-    scrollRoute: (): Route | null => world?.route() ?? null,
-    /** The settled pose (the route's stop 0), likewise. */
-    settledPose: (): Pose | null => world?.settledPose() ?? null,
-    /** The opening flight's path, likewise. */
-    openingPath: (): FlightPath | null => world?.openingPath() ?? null,
 
     /**
      * Tears the world down: its GPU context, its scene and every listener.

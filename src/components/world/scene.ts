@@ -23,8 +23,9 @@ import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
+import type { CameraDirector } from "../camera-director";
 import { createRoute, outpostPose, SITES, type Route } from "./route";
-import type { FlightRig, RouteRig } from "./rigs";
+import { OUTPOST_STOP, transit } from "./transit";
 import {
   moteCountFor,
   pixelRatioFor,
@@ -78,15 +79,10 @@ export type WorldView =
  */
 export type WorldOptions = ViewOptions & {
   /**
-   * The opening flight's state, read on every frame (the GSAP timeline
-   * animates it in place); SETTLED_RIG holds the settled pose.
+   * Where the camera is and how the world is lit, asked on every frame; the
+   * world hands it the paths each layout measures.
    */
-  rig: Readonly<FlightRig>;
-  /**
-   * The scroll route's state, read on every frame: the camera follows the
-   * route once `at` leaves 0, and each site burns as brightly as it is lit.
-   */
-  route: Readonly<RouteRig>;
+  director: CameraDirector;
   /** The view it opens on; null draws nothing until it is given one. */
   view: WorldView | null;
 };
@@ -130,21 +126,6 @@ export type World = View & {
   setView(view: WorldView | null): void;
   /** Changes the weather in place: the ground, the pools and what falls. */
   setWeather(weather: Weather): void;
-  /** Where the camera is now. */
-  cameraPose(): Pose;
-  /**
-   * Hands the camera to `source`, read on every frame in place of the view's
-   * own pose, until called with null.
-   */
-  steer(source: (() => Pose) | null): void;
-  /**
-   * The scroll route for the last hero layout measured, and its settled pose
-   * (stop 0); null until a hero view has posed the plate.
-   */
-  route(): Route | null;
-  settledPose(): Pose | null;
-  /** The opening flight's path for that layout, likewise. */
-  openingPath(): FlightPath | null;
 };
 
 /** Lets the browser paint and handle input before the next setup step. */
@@ -162,13 +143,8 @@ const CREDIT_DEPTH = 420;
  */
 const CREDIT_PARALLAX = 0.3;
 
+/** A beacon's full intensity: each site burns at the share the director says. */
 const BEACON_INTENSITY = 3;
-
-/**
- * A site's light, as a share of BEACON_INTENSITY: how dim the sites further
- * down the valley wait, and how much brighter each burns once its panel is in.
- */
-const SITE_LIGHT = { waiting: 0.35, lit: 0.9 };
 
 /**
  * The lit sites' lights, one each so each brightens on its own: the first
@@ -304,8 +280,6 @@ export async function createWorld(
   let falling: ReturnType<typeof createPrecipitation> | null = null;
   let fallingFor = 0;
   let fallingKind: Weather = "clear";
-  /** The camera's pose from outside the view (a transit between views). */
-  let steering: (() => Pose) | null = null;
   let settled: Pose | null = null;
 
   let motion = options.motion;
@@ -335,25 +309,18 @@ export async function createWorld(
   }
 
   /**
-   * Puts the camera where it is steered, or else, for the hero, where the
-   * rigs say (the opening's flight, then the scroll route once the visitor
-   * scrolls), and lights the arrival and the sites. The Outpost's camera
-   * holds the pose its layout gave it, and the sites, all behind it, stay
-   * dark.
+   * Puts the camera where the director says, and lights the arrival and the
+   * sites as it says. Where it has nothing to say, the camera holds the pose
+   * its layout gave it, and the lights stay as they are.
    */
   function pose() {
-    const hero = view?.kind === "hero" && path && route;
-    const { rig } = options;
-    const { at, lit } = options.route;
-    if (steering) placeCamera(steering());
-    else if (hero) placeCamera(at > 0 ? route!.poseAt(at) : path!.poseAt(rig));
-    if (!hero) return;
-    plate.setArrival(rig.beams, rig.sweep);
-    sites.forEach((site, i) => {
-      // The first is the scroll cue, lit by the arrival; the rest wait dim.
-      const waiting = i === 0 ? rig.beacon : rig.beacon * SITE_LIGHT.waiting;
-      site.setIntensity(BEACON_INTENSITY * (waiting + SITE_LIGHT.lit * lit[i]));
-    });
+    const { pose, lights } = options.director.frame(performance.now());
+    if (pose) placeCamera(pose);
+    if (!lights) return;
+    plate.setArrival(lights.beams, lights.sweep);
+    sites.forEach((site, i) =>
+      site.setIntensity(BEACON_INTENSITY * lights.sites[i]),
+    );
   }
 
   function render() {
@@ -426,6 +393,14 @@ export async function createWorld(
         ? placePlate(plate, words, width, height)
         : placeOutpost();
     if (!posed) return;
+    // The director takes the paths this layout measured, and the Transit maths.
+    options.director.layout({
+      opening: path,
+      route,
+      outpost: outpostPose(camera.aspect),
+      outpostStop: OUTPOST_STOP,
+      transit,
+    });
     // The motes rise round where the camera stands.
     const { x, z } = camera.position;
     motes?.points.position.set(x, valleyHeight(x, z - 90), z);
@@ -644,7 +619,7 @@ export async function createWorld(
    * route at stop `at` (the camera's own stop by default). Null until the
    * plate is posed, or while the site is behind the camera.
    */
-  function placeSite(index: number, at = options.route.at) {
+  function placeSite(index: number, at = options.director.stop()) {
     if (!posed || !route || view?.kind !== "hero") return null;
     const { position, quaternion } = route.poseAt(at);
     probe.position.copy(position);
@@ -690,21 +665,6 @@ export async function createWorld(
       // Re-lays the pools, wet or dry, and brings in what falls.
       layout();
     },
-    cameraPose: () => ({
-      position: camera.position.clone(),
-      quaternion: camera.quaternion.clone(),
-    }),
-    steer(source) {
-      steering = source;
-      if (!running) render();
-    },
-    route: () => route,
-    openingPath: () => path,
-    settledPose: () =>
-      settled && {
-        position: settled.position.clone(),
-        quaternion: settled.quaternion.clone(),
-      },
     dispose,
   };
 }

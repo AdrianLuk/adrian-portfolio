@@ -19,7 +19,7 @@ import {
 } from "./reduced-motion";
 import { useWorldState } from "./use-world-state";
 import { joinsLiveWorld, worldHost } from "./world-host";
-import { FLIGHT_START_RIG, SETTLED_RIG } from "./world/rigs";
+import { FLIGHT_START_RIG } from "./world/rigs";
 import type { CreditPlacement, Measurement } from "./world/scene";
 import { parseWeather, type Weather } from "./world/weather";
 
@@ -175,14 +175,11 @@ export function HeroWorld({
     const root = rootRef.current;
     const pageCanvas = canvasRef.current;
     if (!root || !pageCanvas) return;
-    // The world reads both rigs on every frame. The timeline animates the
-    // flight's in place: with motion allowed it starts where the flight does,
-    // so a world that draws before the timeline has loaded never shows the
-    // settled frame first. The scroll route drives the other.
-    Object.assign(
-      host.rig,
-      prefersReducedMotion() || rejoined ? SETTLED_RIG : FLIGHT_START_RIG,
-    );
+    // With motion allowed the camera starts where the Opening does, so a
+    // world that draws before the timeline has loaded never shows the settled
+    // frame first. Without it, or rejoining a live world, it has landed.
+    if (prefersReducedMotion() || rejoined) host.director.openingLands();
+    else host.director.openingStarts();
     // The world's canvas, standing in this page's own from now on.
     worldCanvasRef.current = host.attach(pageCanvas, {
       kind: "hero",
@@ -209,7 +206,9 @@ export function HeroWorld({
     );
     const action = root.querySelector<HTMLElement>("[data-hero-action]");
     const skip = root.querySelector<HTMLElement>("[data-credit-skip]");
-    const { rig, route } = host;
+    const { director } = host;
+    /** The Opening's values: the timeline animates them, the director is told. */
+    const rig = { ...FLIGHT_START_RIG };
     const world = () => host.world();
     let timeline: gsap.core.Timeline | null = null;
     let scrollRoute: ScrollRoute | null = null;
@@ -254,7 +253,7 @@ export function HeroWorld({
     function land() {
       hasLanded = true;
       flying = false;
-      Object.assign(rig, SETTLED_RIG);
+      director.openingLands();
       setLanded(true);
       if (!reduced.matches) startRoute();
     }
@@ -274,7 +273,7 @@ export function HeroWorld({
       // Called off meanwhile, or already started by a call that loaded first.
       if (cancelled || !routing || scrollRoute) return;
       scrollRoute = createScrollRoute({
-        route,
+        director,
         panels: sitePanels(),
         locateSite: () => world()?.placeSite ?? null,
       });
@@ -300,7 +299,10 @@ export function HeroWorld({
       timeline = createFlightTimeline({
         rig,
         credits: cards,
-        onUpdate: placeCredits,
+        onUpdate() {
+          director.openingAt(rig);
+          placeCredits();
+        },
         onComplete: land,
       });
       // The opening starts with its timeline, not before it has loaded.

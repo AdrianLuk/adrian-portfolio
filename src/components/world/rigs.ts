@@ -1,9 +1,9 @@
 import type { HighlightId } from "@/content/site";
 
 /**
- * The world's state the page drives, and the plan of its lit sites: plain
- * data with no Three.js in it, so the hero can hold it from the first paint
- * while the world and its libraries load after.
+ * The Opening's values and timing, and the plan of the lit sites: plain data
+ * with no Three.js in it, so the hero can use it from the first paint while
+ * the world and its libraries load after.
  */
 
 /**
@@ -77,17 +77,6 @@ export const SITE_PLAN: readonly SitePlan[] = [
   { highlight: "juice-bros", z: -780, side: 1, light: "violet" },
   { highlight: "bt-cup", z: -960, side: -1, light: "cyan" },
 ];
-
-/**
- * What the scroll drives. at: the stop the camera is at (0, the settled view,
- * until the visitor scrolls); lit: how lit each site is, 0 to 1.
- */
-export type RouteRig = { at: number; lit: number[] };
-
-export const routeRig = (): RouteRig => ({
-  at: 0,
-  lit: SITE_PLAN.map(() => 0),
-});
 
 /**
  * The longest a transit (the camera flying between home and the Resume page)
