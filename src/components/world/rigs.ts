@@ -43,7 +43,7 @@ export const SETTLED_RIG: Readonly<FlightRig> = {
 };
 
 /** Seconds; the timeline's flight runs linearly, its turn eases (TURN_EASE). */
-export const FLIGHT_TIMING = { flight: 6.5, turn: 4 } as const;
+export const FLIGHT_TIMING = { flight: 5.25, turn: 4 } as const;
 
 /**
  * The turn-in's ease: a long, gentle glide round to rest, like the camera
