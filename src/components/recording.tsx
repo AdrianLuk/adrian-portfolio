@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Recording as RecordingContent } from "@/content/site";
+import { REDUCED_MOTION } from "./reduced-motion";
 import { RecordingVideo } from "./recording-video";
 
 /**
@@ -21,7 +22,7 @@ export function Recording({ recording }: { recording: RecordingContent }) {
   useEffect(() => {
     const video = ref.current;
     if (!video) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const reduced = window.matchMedia(REDUCED_MOTION);
     const scene = video.closest<HTMLElement>("[data-player-tools]");
     let onScreen = false;
 

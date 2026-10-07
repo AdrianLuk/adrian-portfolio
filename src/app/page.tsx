@@ -28,11 +28,14 @@ function creditParts(line: string) {
 }
 
 /**
- * Hero copy held back during the fly-in, landing once it settles. It hides at
- * once (a half-faded button fails contrast) and eases in only as it lands.
+ * Hero copy held back during the fly-in, landing once it settles; and held
+ * likewise, unseen and out of reach of focus, while a transit brings the
+ * visitor home (the world's root carries data-arriving="hero", never longer
+ * than TRANSIT_MAX_SECONDS), landing with it. It hides at once (a half-faded
+ * button fails contrast) and eases in only as it lands.
  */
 const landsAfterFlight =
-  "opening:translate-y-3 opening:opacity-0 motion-safe:group-data-[state=settled]:transition-[opacity,translate] motion-safe:group-data-[state=settled]:duration-700";
+  "opening:translate-y-3 opening:opacity-0 in-data-[arriving=hero]:invisible in-data-[arriving=hero]:opacity-0 motion-safe:group-data-[state=settled]:transition-[opacity,translate] motion-safe:group-data-[state=settled]:duration-700";
 
 export default async function Home() {
   const weather = await torontoWeather();

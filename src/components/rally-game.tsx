@@ -10,7 +10,8 @@ import {
 } from "react";
 import type { rally } from "@/content/site";
 import { afterFirstPaint } from "./after-first-paint";
-import type { WorldState } from "./hero-world";
+import { REDUCED_MOTION } from "./reduced-motion";
+import type { WorldState } from "./world-host";
 import {
   createGame,
   isLive,
@@ -26,8 +27,6 @@ import {
 import type { RallyView } from "./rally/scene";
 
 type Copy = (typeof rally)["game"];
-
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 /** The longest step a frame may take, so a stall (a hidden tab, a slow frame) doesn't jump the ball. */
 const MAX_STEP = 0.05;

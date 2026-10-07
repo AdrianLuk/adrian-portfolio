@@ -21,7 +21,7 @@ const FLIGHT_ZONE = 120;
 export const WORLD_BACK = 700;
 
 /**
- * The world's far edge, down the valley: far enough past the outpost that the
+ * The world's far edge, down the valley: far enough past the Outpost that the
  * route's last view fades into fog before it ends.
  */
 export const WORLD_FRONT = -1700;

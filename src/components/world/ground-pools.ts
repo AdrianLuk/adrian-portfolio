@@ -73,6 +73,10 @@ export function createGroundPools(capacity: number, intensity = 1) {
   const scale = new Vector3();
   return {
     mesh,
+    /** How brightly every pool burns (they brighten on a wet floor). */
+    setIntensity(value: number) {
+      material.uniforms.uIntensity.value = value;
+    },
     /** Replaces every pool. Each sits just above the ground to avoid z-fighting. */
     set(pools: readonly Pool[]) {
       pools.slice(0, capacity).forEach((p, i) => {

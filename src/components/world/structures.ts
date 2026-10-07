@@ -49,13 +49,13 @@ const SKYLINE = 0.85;
 
 /**
  * How far the hero can see: past this the fog hides 99% of anything, so a
- * building beyond it needn't keep under the ridge (the outpost's district).
+ * building beyond it needn't keep under the ridge (the Outpost's district).
  */
 export const HERO_SIGHT = Math.sqrt(Math.log(100)) / FOG_DENSITY;
 
 /**
  * The street of towers along the runway: where it starts (behind the plate)
- * and ends (short of the outpost's district), how far off the valley's centre
+ * and ends (short of the Outpost's district), how far off the valley's centre
  * line its frontage stands (the runway's lights are 14 off it) and the city's
  * second row behind it, the plaza kept open round each lit site, from ahead
  * of where the camera stops to frame it (80 short of it) to past it, and the
@@ -169,7 +169,7 @@ function bodyMaterial({ windows = false, dark = false, haze = 1 } = {}) {
  * of tall, wide towers along the valley's walls and down the opening's
  * canyon, windowed and lit from within, kept under the mountains; Toronto's
  * skyline on the right-hand wall (skyline.ts), which the city makes way for;
- * a financial district at the outpost, where the route ends; a landmark at
+ * a financial district at the Outpost, where the route ends; a landmark at
  * each lit site (landmarks.ts); slim light masts at the two gates; and runway
  * lights down the floor. Each emitter also throws a pool of light onto the
  * ground at its foot.
@@ -406,10 +406,10 @@ export function layoutStructures() {
     pools.push({ x, y, z, width: 34, depth: 60, color: palette[site.light] });
   }
 
-  // The outpost at the route's end: a financial district on the valley floor
+  // The Outpost at the route's end: a financial district on the valley floor
   // past its light, three rows climbing from the front to the tallest at the
   // back, three in dark glass, the tallest crowned. Each is [along (from the
-  // outpost, down the valley), across (from the valley's centre line),
+  // Outpost, down the valley), across (from the valley's centre line),
   // height, width, depth, light, dark glass]. The hero can't see this far,
   // so it may rise over the ridge; never over the CN Tower.
   const { cyan, violet } = palette;

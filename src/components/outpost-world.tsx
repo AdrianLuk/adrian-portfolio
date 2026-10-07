@@ -1,79 +1,48 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { afterFirstPaint } from "./after-first-paint";
-import type { WorldState } from "./hero-world";
-import type { View } from "./world/scene";
-
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+import { useWorldState } from "./use-world-state";
+import { worldHost } from "./world-host";
 
 /**
- * The world seen from the outpost, where the home page's scroll route ends,
+ * The world seen from the Outpost, where the home page's scroll route ends,
  * held fixed behind the page. `children` is the still backdrop: the first
- * paint, and what stays without WebGL or while the GPU context is lost. The
- * Three.js scene loads after the first paint and fades in over it once its
- * first frame has rendered. The camera never moves; with motion allowed the
- * scene does (motes, lights, windows), and under reduced motion it is one
- * still frame, following the preference if it changes.
+ * paint, and what stays without WebGL or while the GPU context is lost. On a
+ * direct load the Three.js scene loads after the first paint and fades in
+ * over it once its first frame has rendered; arriving from home, the world
+ * is already live, and the camera flies down the valley to the Outpost (a
+ * transit, world-transits.ts). Once there the camera holds still; with
+ * motion allowed the scene moves round it (motes, lights, windows), and
+ * under reduced motion it is one still frame, following the preference if
+ * it changes.
  */
 export function OutpostWorld({ children }: { children: ReactNode }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [state, setState] = useState<WorldState>("pending");
+  const host = worldHost();
+  const state = useWorldState();
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Before the page paints, so a page arriving into a live world never shows
+  // a frame without it (the still backdrop bare under a transit).
+  useLayoutEffect(() => {
+    const pageCanvas = canvasRef.current;
+    if (!pageCanvas) return;
+    // The world's canvas, standing in this page's own from now on.
+    const canvas = host.attach(pageCanvas, { kind: "outpost" });
 
-    const reduced = window.matchMedia(REDUCED_MOTION);
-    let view: View | null = null;
-    let cancelled = false;
-
-    async function start() {
-      if (!canvas) return;
-      const motion = !reduced.matches;
-      try {
-        const { createOutpostView } = await import("./world/scene");
-        if (cancelled) return;
-        const created = await createOutpostView(canvas, {
-          motion,
-          // The page has no weather of its own: the outpost stands clear.
-          weather: "clear",
-          onFrame: () => {
-            if (!cancelled) setState("drawn");
-          },
-          onLost: () => setState("pending"),
-        });
-        if (cancelled) {
-          created?.dispose();
-          return;
-        }
-        view = created;
-        if (!view) setState("unavailable");
-        // The preference changed while the shaders compiled.
-        else if (motion !== !reduced.matches) view.setMotion(!reduced.matches);
-      } catch {
-        // A stale chunk after a deploy, say: the still backdrop stays.
-        if (!cancelled) setState("unavailable");
-      }
-    }
-
-    const resize = new ResizeObserver(() => view?.layout());
+    const resize = new ResizeObserver(() => host.world()?.layout());
     resize.observe(canvas);
 
-    const onPreference = () => view?.setMotion(!reduced.matches);
-    reduced.addEventListener("change", onPreference);
-
     // Three.js is the page's heaviest code: it never holds up the first paint.
-    const cancelStart = afterFirstPaint(start);
+    const cancelStart = afterFirstPaint(() => host.start());
 
     return () => {
-      cancelled = true;
       cancelStart();
       resize.disconnect();
-      reduced.removeEventListener("change", onPreference);
-      view?.dispose();
+      // The world stays, parked, for the next page that wants it.
+      host.detach(pageCanvas);
     };
-  }, []);
+  }, [host]);
 
   // After the backdrop, so it draws over it; both sit at the back of the
   // page's stacking context.

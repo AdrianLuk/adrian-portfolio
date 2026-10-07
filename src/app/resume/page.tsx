@@ -11,6 +11,7 @@ import {
 } from "@/content/site";
 import { shareMetadata } from "../share";
 import {
+  arrivesAtOutpost,
   entryTitle,
   metaLine,
   panel,
@@ -22,7 +23,7 @@ import {
 export const metadata: Metadata = shareMetadata(shareCards.resume);
 
 /**
- * The panel the copy stands on over the outpost: its lit towers stand behind
+ * The panel the copy stands on over the Outpost: its lit towers stand behind
  * the copy column at every width.
  */
 const overOutpost =
@@ -41,13 +42,13 @@ function Bullets({ items }: { items: readonly string[] }) {
 export default function ResumePage() {
   return (
     // Its own stacking context, for the world and its backdrop at the back of
-    // it: the outpost, live, over the still that paints first.
+    // it: the Outpost, live, over the still that paints first.
     <div className="relative isolate mx-auto max-w-6xl px-4 py-16 sm:px-6">
       <OutpostWorld>
         <WorldBackdrop />
       </OutpostWorld>
       <header
-        className={`flex max-w-3xl flex-col items-start gap-4 ${overOutpost}`}
+        className={`flex max-w-3xl flex-col items-start gap-4 ${overOutpost} ${arrivesAtOutpost}`}
       >
         <PanelCorners className="border-cyan" />
         <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
@@ -64,7 +65,10 @@ export default function ResumePage() {
         </p>
       </header>
 
-      <section aria-labelledby="experience-heading" className="mt-16 max-w-3xl">
+      <section
+        aria-labelledby="experience-heading"
+        className={`mt-16 max-w-3xl ${arrivesAtOutpost}`}
+      >
         <h3 id="experience-heading" className={sectionLabel}>
           {resume.rolesHeading}
         </h3>
@@ -96,7 +100,7 @@ export default function ResumePage() {
 
       <section
         aria-labelledby="side-projects-heading"
-        className="mt-20 max-w-3xl"
+        className={`mt-20 max-w-3xl ${arrivesAtOutpost}`}
       >
         <h3 id="side-projects-heading" className={sectionLabel}>
           {resume.sideProjectsHeading}

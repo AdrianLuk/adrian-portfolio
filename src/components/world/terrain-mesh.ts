@@ -90,3 +90,13 @@ export function createTerrain(weather: Weather = "clear") {
 
   return new Mesh(geometry, material);
 }
+
+/**
+ * Settles snow on the valley, wets it or clears it, in place: the same shader
+ * either way, so a change of weather compiles nothing.
+ */
+export function setTerrainWeather(terrain: Mesh, weather: Weather) {
+  const { uniforms } = terrain.material as ShaderMaterial;
+  uniforms.uSnow.value = weather === "snow" ? 1 : 0;
+  uniforms.uWet.value = weather === "rain" ? 1 : 0;
+}
