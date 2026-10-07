@@ -1,5 +1,6 @@
 import { Quaternion } from "three";
 import type { Pose } from "./flight";
+import { TRANSIT_MAX_SECONDS } from "./rigs";
 import { ROUTE_STOPS, type Route } from "./route";
 
 /**
@@ -19,11 +20,8 @@ export const SETTLED_STOP = 0;
 /** The route's last stop, the Outpost, where the Resume page stands. */
 export const OUTPOST_STOP = ROUTE_STOPS - 1;
 
-/**
- * The longest a transit ever takes, in seconds, however far it flies: well
- * under the opening's 10.5s, so navigation never feels slow.
- */
-export const TRANSIT_MAX_SECONDS = 2.5;
+/** The longest a transit ever takes (plain data, for the router's bundle). */
+export { TRANSIT_MAX_SECONDS };
 
 /**
  * A transit's pace: a moment to get going, then this many world units a

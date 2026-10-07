@@ -82,10 +82,13 @@ export function createWorldHost() {
     for (const listener of listeners) listener();
   }
 
-  /** Shows the claim's view, in its weather. */
+  /** True while a flight holds the weather it left in until it lands. */
+  let weatherHeld = false;
+
+  /** Shows the claim's view, in its weather (unless a flight holds it). */
   function show() {
     if (!world || !canvas) return;
-    world.setWeather(weatherFor(claim));
+    if (!weatherHeld) world.setWeather(weatherFor(claim));
     world.setView(viewFor(claim, canvas));
   }
 
@@ -199,6 +202,15 @@ export function createWorldHost() {
     },
     setWeather(weather: Weather) {
       world?.setWeather(weather);
+    },
+    /**
+     * Holds the weather as it is while the camera flies, however the pages
+     * change under it; released, the world takes the page's own (clear at
+     * the Outpost, Toronto's at home), as the camera lands.
+     */
+    holdWeather(hold: boolean) {
+      weatherHeld = hold;
+      if (!hold && claim) world?.setWeather(weatherFor(claim));
     },
     /** The scroll route, once home's headline has been measured. */
     scrollRoute: (): Route | null => world?.route() ?? null,

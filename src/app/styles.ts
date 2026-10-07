@@ -25,3 +25,11 @@ export const textLink =
 
 /** A raised panel, as the Resume page's entries use. (The home page's Highlights have their own holographic panel.) */
 export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";
+
+/**
+ * Copy standing over the world that arrives as a camera flight lands: held
+ * back while the camera flies to its page (the world's root carries
+ * data-transit), then faded in. On any other arrival it is simply there.
+ */
+export const arrivesWithCamera =
+  "in-data-transit:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";

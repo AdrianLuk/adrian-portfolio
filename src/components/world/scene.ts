@@ -317,6 +317,8 @@ export async function createWorld(
    */
   let posed = false;
   let compiled = false;
+  /** True while the GPU context is lost: nothing draws until it is back. */
+  let lost = false;
   let path: FlightPath | null = null;
   let route: Route | null = null;
   /** The settled pose (and screen shape) the paths were planned from. */
@@ -353,7 +355,7 @@ export async function createWorld(
   }
 
   function render() {
-    if (!view || !posed || !compiled) return;
+    if (!view || !posed || !compiled || lost) return;
     pose();
     plate.sweep(shared.uTime.value);
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
@@ -506,7 +508,8 @@ export async function createWorld(
   }
 
   function sync() {
-    running = motion && onScreen && !document.hidden && compiled && !!view;
+    running =
+      motion && onScreen && !document.hidden && compiled && !lost && !!view;
     renderer.setAnimationLoop(running ? loop : null);
   }
 
@@ -525,9 +528,11 @@ export async function createWorld(
     renderer.setAnimationLoop(null);
     running = false;
     firstFrame = true;
+    lost = true;
     options.onLost();
   };
   const onContextRestored = () => {
+    lost = false;
     // The baked environment lived in a render target, which the loss wiped.
     environment?.dispose();
     environment = bake();

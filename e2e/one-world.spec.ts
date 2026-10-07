@@ -170,6 +170,20 @@ async function watchTransitions(page: Page) {
     );
 }
 
+/**
+ * Waits for a short crossfade among the transitions recorded: one over
+ * before it gets in the way. (On a loaded machine React can start a second
+ * transition and pin its groups with zero-length animations of its own.)
+ */
+async function crossfaded(transitions: () => Promise<number[][]>) {
+  await expect
+    .poll(async () =>
+      (await transitions()).flat().some((d) => d > 100 && d <= 400),
+    )
+    .toBe(true);
+  expect((await transitions()).flat().filter((d) => d > 400)).toEqual([]);
+}
+
 const resumeLink = (page: Page) =>
   page
     .getByRole("navigation", { name: "Main" })
@@ -212,6 +226,297 @@ test.describe("between routes", () => {
     for (const durations of await transitions()) {
       expect(durations.filter((d) => d > 0)).toEqual([]);
     }
+  });
+
+  test("without WebGL, home → Resume page still crossfades, and nothing flies", async ({
+    page,
+  }) => {
+    const transitions = await watchTransitions(page);
+    const transit = await watchTransit(page);
+    await page.goto("/");
+    await expect(heroRoot(page)).toHaveAttribute("data-world", "unavailable");
+    await resumeLink(page).click();
+    await expect(page).toHaveURL(/\/resume$/);
+    await crossfaded(transitions);
+    expect((await transit()).seen).toEqual([]);
+  });
+});
+
+/**
+ * Records, from the first byte, every value the world's root takes for
+ * `data-transit` (null as it clears) and, on every frame from the first
+ * flight on, whether the still backdrop showed bare: in the page with no
+ * drawn world over it.
+ */
+async function watchTransit(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as {
+      __transit: { seen: (string | null)[]; frames: number; bare: number };
+    };
+    w.__transit = { seen: [], frames: 0, bare: 0 };
+    new MutationObserver((records) => {
+      for (const r of records) {
+        const el = r.target as Element;
+        if (!el.hasAttribute("data-world-root")) continue;
+        w.__transit.seen.push(el.getAttribute("data-transit"));
+      }
+    }).observe(document, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-transit"],
+    });
+    const frame = () => {
+      if (w.__transit.seen.length > 0) {
+        w.__transit.frames++;
+        const backdrop = document.querySelector("[data-backdrop]");
+        const canvas = document.querySelector<HTMLCanvasElement>(
+          "[data-world] canvas",
+        );
+        const drawn =
+          !!canvas &&
+          (canvas as unknown as { __tag?: string }).__tag === "the world" &&
+          getComputedStyle(canvas).opacity === "1";
+        if (backdrop && !drawn) w.__transit.bare++;
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+  return () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __transit: { seen: (string | null)[]; frames: number; bare: number };
+          }
+        ).__transit,
+    );
+}
+
+/** The world's root, which carries data-transit while the camera flies. */
+const worldRoot = (page: Page) => page.locator("[data-world-root]");
+
+/** Waits for a flight to `to` to have run and landed. */
+async function flown(
+  transit: Awaited<ReturnType<typeof watchTransit>>,
+  page: Page,
+  to: "hero" | "outpost",
+) {
+  await expect.poll(async () => (await transit()).seen).toContain(to);
+  await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/, {
+    timeout: SCENE_TIMEOUT,
+  });
+}
+
+test.describe("camera flights between home and the Resume page", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  test("the camera flies home → Resume page, Back home, Forward again, and a click mid-flight turns it round", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () => ({
+      seen: [],
+      frames: 0,
+      bare: 0,
+    });
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    await tagCanvas(heroRoot(page).locator("canvas"));
+    const crossfades = async () =>
+      (await transitions()).flat().filter((d) => d > 0).length;
+
+    // Home → Resume page: a flight, not a crossfade, over the world drawn
+    // throughout, and the page's copy arrives as it lands.
+    await resumeLink(page).click();
+    await expect(page).toHaveURL(/\/resume$/);
+    await flown(transit, page, "outpost");
+    const outpost = page.locator("[data-world]");
+    await expect(outpost).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(outpost.locator("canvas"))).toBe("the world");
+    const heading = page.getByRole("heading", { level: 2, name: resume.heading });
+    await expect(heading).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator("header", { has: heading })
+          .evaluate((el) => getComputedStyle(el).opacity),
+      )
+      .toBe("1");
+    let seen = await transit();
+    expect(seen.frames).toBeGreaterThan(0);
+    expect(seen.bare).toBe(0);
+    expect(await crossfades()).toBe(0);
+
+    // Back: the flight home, landing settled, without the opening's credits.
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        __hero: { seen: string[]; cardPeaks: number[] };
+      };
+      w.__hero.seen = [];
+      w.__hero.cardPeaks = [];
+    });
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await flown(transit, page, "hero");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn");
+    const hero = await watched(page);
+    expect(hero.seen).not.toContain("flight");
+    expect(hero.cardPeaks.filter((peak) => peak > 0)).toEqual([]);
+    expect(await crossfades()).toBe(0);
+
+    // Forward: down the valley again.
+    const before = (await transit()).seen.length;
+    await page.goForward();
+    await expect(page).toHaveURL(/\/resume$/);
+    await expect
+      .poll(async () => (await transit()).seen.slice(before))
+      .toContain("outpost");
+    await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/, {
+      timeout: SCENE_TIMEOUT,
+    });
+
+    // Home, then the Resume page again before the camera gets there: the
+    // newer navigation wins, and the camera lands at the Outpost.
+    // (In the page, so a busy machine can't let the first flight land.)
+    const midFlight = await page.evaluate(
+      async ([home, resume]) => {
+        const link = (label: string) =>
+          Array.from(
+            document.querySelectorAll<HTMLAnchorElement>(
+              'nav[aria-label="Main"] a',
+            ),
+          ).find((a) => a.textContent === label)!;
+        link(home).click();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const transit = document
+          .querySelector("[data-world-root]")!
+          .getAttribute("data-transit");
+        link(resume).click();
+        return transit;
+      },
+      [person.name, nav[1].label],
+    );
+    expect(midFlight).toBe("hero");
+    await expect(page).toHaveURL(/\/resume$/);
+    await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/, {
+      timeout: SCENE_TIMEOUT,
+    });
+    await expect(outpost).toHaveAttribute("data-world", "drawn");
+    seen = await transit();
+    expect(seen.seen.at(-1)).toBeNull();
+    expect(seen.bare).toBe(0);
+    expect(await crossfades()).toBe(0);
+    await page.context().close();
+  });
+
+  test("under reduced motion the swap is instant and nothing flies", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () => ({
+      seen: [],
+      frames: 0,
+      bare: 0,
+    });
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      reducedMotion: "reduce",
+      until: "reduced",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    await resumeLink(page).click();
+    await expect(page).toHaveURL(/\/resume$/);
+    await homeLink(page).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced");
+    expect((await transit()).seen).toEqual([]);
+    for (const durations of await transitions()) {
+      expect(durations.filter((d) => d > 0)).toEqual([]);
+    }
+
+    // The preference is read at each navigation: allowed again, it flies.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await resumeLink(page).click();
+    await expect(page).toHaveURL(/\/resume$/);
+    await flown(transit, page, "outpost");
+    await page.context().close();
+  });
+
+  test("a GPU context lost mid-flight lands at once on the still, and the navigation completes", async ({
+    browser,
+  }, testInfo) => {
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+    });
+    // In one task, so a busy machine can't let the flight land first.
+    const flying = await page.evaluate((label) => {
+      const link = Array.from(
+        document.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Main"] a'),
+      ).find((a) => a.textContent === label)!;
+      link.click();
+      const transit = document
+        .querySelector("[data-world-root]")!
+        .getAttribute("data-transit");
+      document
+        .querySelector<HTMLCanvasElement>("[data-world] canvas")!
+        .getContext("webgl2")!
+        .getExtension("WEBGL_lose_context")!
+        .loseContext();
+      return transit;
+    }, nav[1].label);
+    expect(flying).toBe("outpost");
+    await expect(page).toHaveURL(/\/resume$/);
+    await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/);
+    const outpost = page.locator("[data-world]");
+    await expect(outpost).toHaveAttribute("data-world", "pending");
+    await expect(page.locator("[data-backdrop] img")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: resume.heading }),
+    ).toBeVisible();
+    await page.context().close();
+  });
+
+  test("home → Case study keeps the crossfade: the world gives way to its still", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () => ({
+      seen: [],
+      frames: 0,
+      bare: 0,
+    });
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    await page.locator(`a[href="/work/${caseStudies[0].slug}"]`).first().click();
+    await expect(page).toHaveURL(new RegExp(`/work/${caseStudies[0].slug}$`));
+    await expect(page.locator("[data-backdrop]")).toHaveCount(1);
+    await crossfaded(transitions);
+    expect((await transit()).seen).toEqual([]);
+    await page.context().close();
   });
 });
 
