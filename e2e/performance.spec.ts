@@ -102,6 +102,20 @@ test("the Rally game's first paint comes before any of Three.js is asked for", a
   await libraryStarts(page, request, ["three"]);
 });
 
+test("the Case study's first paint comes before any of GSAP is asked for", async ({
+  page,
+  request,
+}) => {
+  // Wide, with motion allowed: the Player tools scene loads GSAP to run.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/work/juice-bros");
+  await expect(page.locator("[data-player-tools]")).toHaveAttribute(
+    "data-scene",
+    "pinned",
+  );
+  await libraryStarts(page, request, ["gsap"]);
+});
+
 test("the world stops drawing while the tab is hidden, and starts again when it's back", async ({
   browser,
 }, testInfo) => {
