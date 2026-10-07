@@ -85,6 +85,8 @@ function film(
   const poses: Pose[] = [];
   for (let now = from; now <= from + ms; now += FRAME) {
     script(now);
+    // As navigation's frame loop moves the Transit on, then the world draws.
+    director.advance(now);
     const { pose } = director.frame(now);
     if (pose) poses.push(pose);
   }
@@ -126,6 +128,7 @@ function flyTo(
   for (; director.flying() && t < now + 10_000; t += FRAME) {
     if (t >= now + arrives) director.show(to);
     script(t);
+    director.advance(t);
     const { pose } = director.frame(t);
     if (pose) poses.push(pose);
   }
@@ -298,6 +301,62 @@ describe("the Camera director", () => {
     expect(director.flying()).toBeNull();
   });
 
+  it("flies home to where the page is, though its scroll route is still easing there, and lands without a second leg", () => {
+    const { director, page, route } = setup();
+    director.show("outpost");
+    director.fly("hero", 0);
+    // Home arrives, and its scroll route starts before the Transit is
+    // planned, and before Back has restored the page's scroll.
+    director.show("hero");
+    director.openingLands();
+    expect(director.stop()).toBe(0);
+    director.scrolled(0, [1, 0, 0, 0]);
+    page.stop = 1.5;
+    // Planned now, to the page's stop, while the route still eases from 0.
+    director.advance(16);
+    expect(director.stop()).toBeCloseTo(1.5);
+    const duration = transit(route, { pose: outpostPose(aspect) }, 1.5).duration;
+    const end = 16 + duration * 1000;
+    const poses = film(director, 32, end - 32 + 300, (now) =>
+      director.scrolled(Math.min(1.5, (now / 300) * 1.5), [1, 1, 0, 0]),
+    );
+    expectNoJump(poses);
+    director.advance(end + FRAME);
+    expect(director.flying()).toBeNull();
+  });
+
+  it("never plans a Transit from a frame drawn as home claims the world, before Back restores its scroll", () => {
+    const { director, page } = setup();
+    director.show("outpost");
+    director.fly("hero", 0);
+    director.show("hero");
+    // The world draws as the page commits: the page is still at its top.
+    director.frame(8);
+    // Navigation's next frame, with the page's scroll restored.
+    page.stop = 0.45;
+    director.advance(16);
+    expect(director.stop()).toBeCloseTo(0.45);
+  });
+
+  it("waits at the end of a Transit home until the scroll route catches up, rather than jump", () => {
+    const { director, page, route } = setup();
+    director.show("hero");
+    director.openingLands();
+    page.stop = 1.5;
+    director.scrolled(0.5, [1, 0, 0, 0]);
+    director.show("outpost");
+    director.fly("hero", 0);
+    director.show("hero");
+    director.advance(0);
+    // The flight is over, but the scroll route still reports where it was.
+    director.advance(TRANSIT_MAX_SECONDS * 1000 + FRAME);
+    expect(director.flying()).toBe("hero");
+    expectSamePose(director.frame(TRANSIT_MAX_SECONDS * 1000 + 2 * FRAME).pose!, route.poseAt(1.5));
+    director.scrolled(1.5, [1, 1, 0, 0]);
+    director.advance(TRANSIT_MAX_SECONDS * 1000 + 3 * FRAME);
+    expect(director.flying()).toBeNull();
+  });
+
   it("lands at once when told to, home holding the stop it was flying to", () => {
     const { director, route, page } = setup();
     director.show("outpost");
@@ -305,7 +364,7 @@ describe("the Camera director", () => {
     director.fly("hero", 0);
     director.show("hero");
     director.openingLands();
-    director.frame(16);
+    director.advance(16);
     director.arrive();
     expect(director.flying()).toBeNull();
     expectSamePose(director.frame(32).pose!, route.poseAt(1.2));

@@ -128,9 +128,6 @@ export function createCameraDirector({
       : home.opening.poseAt(opening);
   }
 
-  /** Where a Transit to home lands: where the scroll route is, or the page's scroll. */
-  const homeTarget = () => (scrolling ? routeStop : homeStop());
-
   /** How far through its Transit `t` is at `now`, 0 to 1. */
   function progress(t: Planned, now: number) {
     const ms = t.transit.duration * 1000;
@@ -151,7 +148,8 @@ export function createCameraDirector({
     const route = paths?.route;
     if (!paths || !route) return;
     if (t.to === "hero" && shown !== "hero") return;
-    t.stop = t.to === "outpost" ? paths.outpostStop : homeTarget();
+    // Where the page is, not where its scroll route has eased to so far.
+    t.stop = t.to === "outpost" ? paths.outpostStop : homeStop();
     t.transit = paths.transit(route, t.departure, t.stop);
     t.start = now;
   }
@@ -202,11 +200,17 @@ export function createCameraDirector({
       shown === t.to &&
       now - t.start >= t.transit.duration * 1000
     ) {
-      // Home's scroll moved on meanwhile: fly on to meet it.
-      if (t.to === "hero" && Math.abs(homeTarget() - t.stop) > CHASE) {
+      if (t.to === "hero" && Math.abs(homeStop() - t.stop) > CHASE) {
+        // Home's scroll moved on meanwhile: fly on to meet it.
         t.held = poseIn(t, now);
         t.departure = { pose: t.held };
         plan(t, now);
+      } else if (
+        t.to === "hero" &&
+        scrolling &&
+        Math.abs(routeStop - t.stop) > CHASE
+      ) {
+        // The scroll route is still easing there: hold until it arrives.
       } else {
         land();
         return;
@@ -277,9 +281,15 @@ export function createCameraDirector({
     },
     /**
      * The route stop the camera stands at, or is landing at in a Transit
-     * home: where a scroll route starting now picks the camera up.
+     * home (where the page is, until the Transit is planned): where a scroll
+     * route starting now picks the camera up.
      */
-    stop: () => (trip?.transit && trip.to === "hero" ? trip.stop : routeStop),
+    stop: () =>
+      trip?.to === "hero"
+        ? trip.transit
+          ? trip.stop
+          : homeStop()
+        : routeStop,
 
     // From navigation.
 
@@ -298,13 +308,18 @@ export function createCameraDirector({
     arrive: land,
     /** Where the Transit under way is flying; null once it has landed. */
     flying: (): Place | null => trip?.to ?? null,
+    /** Moves a Transit on to `now`: plans it, chases home's scroll, lands it. */
     advance,
 
     // To the world.
 
-    /** Where the camera is at `now`, and how the world is lit. */
+    /**
+     * Where the camera is at `now`, and how the world is lit. Only reads: a
+     * Transit moves on by `advance`, from navigation's own frame loop, so a
+     * frame drawn mid-commit (as a page claims the world, before Back has
+     * restored its scroll) never plans one.
+     */
     frame(now: number): CameraFrame {
-      advance(now);
       const pose = trip ? poseIn(trip, now) : viewPose();
       if (pose) last = pose;
       return { pose, lights: lights() };

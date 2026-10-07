@@ -70,8 +70,9 @@ export function createWorldTransits(host: TransitHost) {
   }
 
   /**
-   * Moves the Transit on, whether or not the world is drawing (between
-   * pages, say), until the director lands it.
+   * Moves the Transit on, frame by frame, until the director lands it: the
+   * only thing that does (the world's frames only read where it is), so it
+   * plans after a page's commit and keeps going between pages.
    */
   function tick() {
     director.advance(performance.now());
