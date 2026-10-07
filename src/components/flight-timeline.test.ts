@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFlightTimeline } from "./flight-timeline";
-import { SETTLED_RIG, type FlightRig } from "./world/rigs";
+import { FLIGHT_TIMING, SETTLED_RIG, type FlightRig } from "./world/rigs";
 
 function setup() {
   const rig: FlightRig = { ...SETTLED_RIG };
@@ -29,6 +29,18 @@ describe("the flight timeline", () => {
     const { timeline } = setup();
     expect(timeline.duration()).toBeGreaterThanOrEqual(10);
     expect(timeline.duration()).toBeLessThanOrEqual(10.5);
+  });
+
+  it("drifts through the pan, then swoops in: its last second covers over three times its first", () => {
+    const { rig, timeline } = setup();
+    const flightAt = (t: number) => {
+      timeline.seek(t);
+      return rig.flight;
+    };
+    const { flight } = FLIGHT_TIMING;
+    const first = flightAt(1) - flightAt(0);
+    const last = flightAt(flight) - flightAt(flight - 1);
+    expect(last).toBeGreaterThan(3 * first);
   });
 
   it("starts far down the canyon, beams low, the lit site dark", () => {

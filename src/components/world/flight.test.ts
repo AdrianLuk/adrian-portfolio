@@ -2,7 +2,12 @@ import { Euler, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { createFlightPath } from "./flight";
 import { CAMERA } from "./pose";
-import { FLIGHT_TIMING, SETTLED_RIG, type FlightRig } from "./rigs";
+import {
+  FLIGHT_TIMING,
+  flightEase,
+  SETTLED_RIG,
+  type FlightRig,
+} from "./rigs";
 import {
   corridorHalfWidth,
   valleyCentre,
@@ -167,7 +172,7 @@ describe("the flight path", () => {
         // The camera's roll, its up against the world's about its forward axis.
         const rollAt = (seconds: number) => {
           const { quaternion } = path.poseAt({
-            flight: seconds / FLIGHT_TIMING.flight,
+            flight: flightEase(seconds / FLIGHT_TIMING.flight),
             turn: 0,
             settle: 0,
           });

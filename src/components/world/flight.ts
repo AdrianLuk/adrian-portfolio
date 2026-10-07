@@ -5,7 +5,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
-import { FLIGHT_TIMING, type FlightRig } from "./rigs";
+import { FLIGHT_CLOSING_SPEED, FLIGHT_TIMING, type FlightRig } from "./rigs";
 import { smoothstep } from "./noise";
 import { valleyCentre, valleyHeight } from "./terrain";
 
@@ -174,7 +174,7 @@ function buildCurve(settled: Pose, plateCentre: Vector3, radius: number) {
 
 /**
  * Builds the path for one layout. The pan's arc is widened or tightened so
- * the flight's constant speed meets the turn's opening speed (power2.out
+ * the flight's closing speed meets the turn's opening speed (power2.out
  * starts at twice its average) with no lurch at the join.
  */
 export function createFlightPath(settled: Pose, plateCentre: Vector3) {
@@ -182,7 +182,9 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
   let built = buildCurve(settled, plateCentre, radius);
   for (let i = 0; i < 6; i++) {
     const turnLength = built.total - built.toTurn;
-    const wanted = (2 * turnLength * FLIGHT_TIMING.flight) / FLIGHT_TIMING.turn;
+    const wanted =
+      (2 * turnLength * FLIGHT_TIMING.flight) /
+      (FLIGHT_TIMING.turn * FLIGHT_CLOSING_SPEED);
     // The pan's length grows in proportion to its radius.
     radius *= 1 + (wanted - built.toTurn) / built.panLength;
     built = buildCurve(settled, plateCentre, radius);
