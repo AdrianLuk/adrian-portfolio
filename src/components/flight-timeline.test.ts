@@ -25,10 +25,10 @@ function firstShown(
 }
 
 describe("the flight timeline", () => {
-  it("runs 10 to 10.5 seconds, flight, turn-in and settle", () => {
+  it("runs 10.25 to 10.75 seconds, flight, turn-in and settle", () => {
     const { timeline } = setup();
-    expect(timeline.duration()).toBeGreaterThanOrEqual(10);
-    expect(timeline.duration()).toBeLessThanOrEqual(10.5);
+    expect(timeline.duration()).toBeGreaterThanOrEqual(10.25);
+    expect(timeline.duration()).toBeLessThanOrEqual(10.75);
   });
 
   it("starts far down the canyon, beams low, the lit site dark", () => {
@@ -72,8 +72,8 @@ describe("the flight timeline", () => {
     expect(firsts).toEqual([...firsts].sort((a, b) => a - b));
     // Gone by the time it settles.
     for (const c of credits) expect(c.opacity).toBe(0);
-    // The pan plays on its own for a few seconds first.
-    expect(firstShown(credits, timeline)).toBeGreaterThanOrEqual(2.4);
+    // The pan plays on its own for a couple of seconds first.
+    expect(firstShown(credits, timeline)).toBeGreaterThanOrEqual(1.9);
   });
 
   it("skips straight to the settled rig and reports it once", () => {

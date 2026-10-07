@@ -168,21 +168,42 @@ describe("the flight path", () => {
         expect(p.x - valleyCentre(p.z)).toBeCloseTo(80, 0);
       });
 
-      it("pans steadily, then swoops: closing at least twice as fast", () => {
-        const { pan, closing } = path.speeds;
-        expect(closing).toBeGreaterThan(2 * pan);
-        // Measured, not just planned: the pan's first second against the
-        // flight's last.
-        const at = (seconds: number) =>
-          path.poseAt({
-            flight: seconds / FLIGHT_TIMING.flight,
-            turn: 0,
-            settle: 0,
-          }).position;
-        const { flight } = FLIGHT_TIMING;
-        const first = at(1).distanceTo(at(0));
-        const last = at(flight).distanceTo(at(flight - 1));
-        expect(last).toBeGreaterThan(2 * first);
+      /** Where the camera is `seconds` into the opening, on the clock. */
+      const clock = (seconds: number) => {
+        const { flight, turn } = FLIGHT_TIMING;
+        return path.poseAt(
+          seconds <= flight
+            ? { flight: seconds / flight, turn: 0, settle: 0 }
+            : {
+                flight: 1,
+                // sine.out, the turn's ease.
+                turn: Math.sin(
+                  (Math.min(1, (seconds - flight) / turn) * Math.PI) / 2,
+                ),
+                settle: 0,
+              },
+        ).position;
+      };
+      const speedAt = (seconds: number) =>
+        clock(seconds + 0.02).distanceTo(clock(seconds - 0.02)) / 0.04;
+
+      it("pans steadily, then swoops through the bend at over 1.5 times the pan's speed", () => {
+        const { pan, peak } = path.speeds;
+        expect(peak).toBeGreaterThan(1.5 * pan);
+        // Measured, not just planned.
+        let fastest = 0;
+        for (let t = 0.5; t < FLIGHT_TIMING.flight; t += 0.1) {
+          fastest = Math.max(fastest, speedAt(t));
+        }
+        expect(fastest).toBeGreaterThan(1.5 * speedAt(0.5));
+      });
+
+      it("eases off into the turn-in at its speed: no lurch at the join", () => {
+        const join = FLIGHT_TIMING.flight;
+        const before = speedAt(join - 0.05);
+        const after = speedAt(join + 0.05);
+        expect(Math.abs(after - before) / before).toBeLessThan(0.1);
+        expect(path.speeds.closing).toBeLessThan(path.speeds.peak / 1.5);
       });
 
       it("pans level, then rolls into the bends no faster than 65 degrees a second", () => {

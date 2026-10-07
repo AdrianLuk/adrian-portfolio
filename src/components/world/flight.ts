@@ -5,7 +5,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
-import { FLIGHT_TIMING, type FlightRig } from "./rigs";
+import { FLIGHT_TIMING, TURN_EASE, type FlightRig } from "./rigs";
 import { smoothstep } from "./noise";
 import { valleyCentre, valleyHeight } from "./terrain";
 
@@ -47,6 +47,8 @@ const PAN = {
   start: 80,
   side: 20,
   lift: 40,
+  /** The pan's steady speed, units a second. */
+  speed: 40,
 };
 
 /** World units between the points the path's spline passes through. */
@@ -196,27 +198,40 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
   const { curve, total, toTurn, panEnd } = built;
   const turnStart = toTurn / total;
 
-  // The flight's speed: steady through the pan, then gathering pace at a
-  // constant rate through the swoop to meet the turn's opening speed
-  // (power2.out starts at twice its average), with no lurch at the join.
-  // The pan's share of the time is what fits both in the flight's time.
+  // The flight's pace: steady through the pan, then the swoop, its speed
+  // swelling to a peak through the bend and easing off to meet the turn's
+  // opening speed, with no lurch at the join. Over the swoop's time, a
+  // fraction u through it, its speed runs from the pan's to the closing speed
+  // plus a swell of sin(pi u), sized so it covers the bend in the time left.
   const time = FLIGHT_TIMING.flight;
-  const closing = (2 * (total - toTurn)) / FLIGHT_TIMING.turn;
+  const closing = (TURN_EASE.opening * (total - toTurn)) / FLIGHT_TIMING.turn;
   const pan = panEnd;
-  const swoop = toTurn - panEnd;
-  const b = 2 * swoop + pan - closing * time;
-  const panShare =
-    (-b + Math.sqrt(b * b + 4 * closing * time * pan)) / (2 * closing * time);
-  const panSpeed = pan / (panShare * time);
-  const gather = (closing - panSpeed) / ((1 - panShare) * time);
+  const panTime = Math.min(pan / PAN.speed, 0.6 * time);
+  const panSpeed = pan / panTime;
+  const swoopTime = time - panTime;
+  const swell =
+    (Math.PI / 2) * ((toTurn - panEnd) / swoopTime - (panSpeed + closing) / 2);
+
+  /** The swoop's speed, a fraction `u` of the way through its time. */
+  const swoopSpeed = (u: number) =>
+    panSpeed + (closing - panSpeed) * u + swell * Math.sin(Math.PI * u);
 
   /** Distance flown a fraction `f` of the way through the flight's time. */
   function flown(f: number) {
     const t = Math.min(1, Math.max(0, f)) * time;
-    const into = t - panShare * time;
-    if (into <= 0) return panSpeed * t;
-    return pan + panSpeed * into + 0.5 * gather * into * into;
+    if (t <= panTime) return panSpeed * t;
+    const u = (t - panTime) / swoopTime;
+    return (
+      pan +
+      swoopTime *
+        (panSpeed * u +
+          ((closing - panSpeed) * u * u) / 2 +
+          (swell * (1 - Math.cos(Math.PI * u))) / Math.PI)
+    );
   }
+
+  let peak = 0;
+  for (let u = 0; u <= 1; u += 0.01) peak = Math.max(peak, swoopSpeed(u));
 
   const look = new Matrix4();
   const roll = new Quaternion();
@@ -247,8 +262,11 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
     /** Fraction of the path's length where the opening pan ends. */
     panEnd: panEnd / total,
 
-    /** The pan's speed and the swoop's closing speed, units a second. */
-    speeds: { pan: panSpeed, closing },
+    /**
+     * The pan's speed, the swoop's peak and its closing speed (the turn's
+     * opening speed), units a second.
+     */
+    speeds: { pan: panSpeed, peak, closing },
 
     /** Path fraction (0 to 1) for the rig's flight and turn. */
     travel(rig: Pick<FlightRig, "flight" | "turn">) {
