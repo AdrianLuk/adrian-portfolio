@@ -2,7 +2,6 @@ import { gsap } from "gsap";
 import {
   FLIGHT_START_RIG,
   FLIGHT_TIMING,
-  flightEase,
   SETTLED_RIG,
   type FlightRig,
 } from "./world/rigs";
@@ -56,7 +55,7 @@ export function createFlightTimeline({
     .fromTo(
       rig,
       { ...FLIGHT_START_RIG },
-      { flight: settled.flight, duration: flight, ease: flightEase },
+      { flight: settled.flight, duration: flight, ease: "none" },
       0,
     )
     .to(rig, { turn: settled.turn, duration: turn, ease: "power2.out" }, flight)

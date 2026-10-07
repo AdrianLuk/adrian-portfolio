@@ -5,7 +5,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
-import { FLIGHT_CLOSING_SPEED, FLIGHT_TIMING, type FlightRig } from "./rigs";
+import { FLIGHT_TIMING, type FlightRig } from "./rigs";
 import { smoothstep } from "./noise";
 import { valleyCentre, valleyHeight } from "./terrain";
 
@@ -15,8 +15,9 @@ import { valleyCentre, valleyHeight } from "./terrain";
  * without WebGL.
  *
  * The camera opens high on the canyon's right shoulder and pans level across
- * it, sweeping right to left and dropping, then banks right and turns back
- * in one long bend, the plate dead centre ahead the whole way; near the
+ * it, sweeping right to left at a steady speed, then swoops: diving, banking
+ * right and gathering speed through one long bend back, the plate dead centre
+ * ahead the whole way; near the
  * plate it swings round from about 40 degrees off the final view (the turn-in,
  * from the left, the side the canyon comes in on, so the view barely swings
  * out first) and settles exactly on the settled pose.
@@ -35,16 +36,17 @@ const RUN_IN_HANDLE = { exit: 0.3, entry: 0.55 };
 
 /**
  * The opening pan, a level right-hand sweep across the canyon from right to
- * left: its heading at the start and at the end, off to the left of the
- * canyon's line (radians); how far above the cruise height it starts; and how
- * far left of the canyon's mouth it ends, where the bank right begins. Its
- * radius sets the flight's length.
+ * left, held high: its heading at the start and at the end, off to the left
+ * of the canyon's line (radians); how far right of the canyon's centre it
+ * starts and left of its mouth it ends, where the bank right begins; and how
+ * far above the cruise height it holds, until the swoop dives from it.
  */
 const PAN = {
   from: (75 * Math.PI) / 180,
   to: (35 * Math.PI) / 180,
-  lift: 60,
+  start: 80,
   side: 20,
+  lift: 40,
 };
 
 /** World units between the points the path's spline passes through. */
@@ -101,9 +103,8 @@ function buildCurve(settled: Pose, plateCentre: Vector3, radius: number) {
   ).normalize();
 
   // The opening pan: from high on the canyon's right shoulder, level across
-  // it, right to left and dropping, curving right a little all the way, to
-  // just left of its mouth. Heights are over the canyon's floor, not the
-  // shoulder's bumps.
+  // it, right to left, curving right a little all the way, to just left of
+  // its mouth. Held over the canyon's floor, not the shoulder's bumps.
   const toLeft = new Vector3(exitHeading.z, 0, -exitHeading.x);
   const headingAt = (angle: number) =>
     exitHeading
@@ -121,12 +122,15 @@ function buildCurve(settled: Pose, plateCentre: Vector3, radius: number) {
     const heading = headingAt(PAN.from + (PAN.to - PAN.from) * s);
     const p = centre.clone().addScaledVector(leftOf(heading), radius);
     const floor = valleyHeight(valleyCentre(p.z), p.z);
-    p.y = floor + CRUISE_HEIGHT + PAN.lift * (1 - smoothstep(0, 1, s));
+    p.y = floor + CRUISE_HEIGHT + PAN.lift;
     points.push(p);
   }
+  const panStart = centre
+    .clone()
+    .addScaledVector(leftOf(headingAt(PAN.from)), radius);
 
-  // Then banking right, one long bend back onto the line the arc opens on
-  // (it opens heading across the plate).
+  // Then the swoop: diving and banking right, one long bend back onto the
+  // line the arc opens on (it opens heading across the plate).
   const opening = arcPoint(plateCentre, end, 0.02).sub(arcStart).normalize();
   const handle = panEnd.distanceTo(arcStart);
   const runIn = new CubicBezierCurve3(
@@ -138,7 +142,9 @@ function buildCurve(settled: Pose, plateCentre: Vector3, radius: number) {
   const runInSteps = Math.round(runIn.getLength() / SPACING);
   const spaced = runIn.getSpacedPoints(runInSteps);
   for (let i = 0; i < runInSteps; i++) {
-    const height = CRUISE_HEIGHT * (1 - (0.25 * i) / runInSteps);
+    const s = i / runInSteps;
+    const height =
+      CRUISE_HEIGHT * (1 - 0.25 * s) + PAN.lift * (1 - smoothstep(0, 0.7, s));
     points.push(cruise(spaced[i].x, spaced[i].z, height));
   }
 
@@ -167,30 +173,50 @@ function buildCurve(settled: Pose, plateCentre: Vector3, radius: number) {
     curve,
     total,
     toTurn,
-    panLength,
     panEnd: lengths[panSteps * perSegment],
+    /** How far right of the canyon's centre the pan starts. */
+    startsRight: panStart.x - valleyCentre(panStart.z),
   };
 }
 
 /**
- * Builds the path for one layout. The pan's arc is widened or tightened so
- * the flight's closing speed meets the turn's opening speed (power2.out
- * starts at twice its average) with no lurch at the join.
+ * Builds the path for one layout. The pan's arc is widened or tightened until
+ * it starts PAN.start right of the canyon's centre (a wider arc starts
+ * further right).
  */
 export function createFlightPath(settled: Pose, plateCentre: Vector3) {
-  let radius = 250;
-  let built = buildCurve(settled, plateCentre, radius);
-  for (let i = 0; i < 6; i++) {
-    const turnLength = built.total - built.toTurn;
-    const wanted =
-      (2 * turnLength * FLIGHT_TIMING.flight) /
-      (FLIGHT_TIMING.turn * FLIGHT_CLOSING_SPEED);
-    // The pan's length grows in proportion to its radius.
-    radius *= 1 + (wanted - built.toTurn) / built.panLength;
+  let [narrow, wide] = [10, 2000];
+  let built = buildCurve(settled, plateCentre, wide);
+  for (let i = 0; i < 40; i++) {
+    const radius = (narrow + wide) / 2;
     built = buildCurve(settled, plateCentre, radius);
+    if (built.startsRight < PAN.start) narrow = radius;
+    else wide = radius;
   }
   const { curve, total, toTurn, panEnd } = built;
   const turnStart = toTurn / total;
+
+  // The flight's speed: steady through the pan, then gathering pace at a
+  // constant rate through the swoop to meet the turn's opening speed
+  // (power2.out starts at twice its average), with no lurch at the join.
+  // The pan's share of the time is what fits both in the flight's time.
+  const time = FLIGHT_TIMING.flight;
+  const closing = (2 * (total - toTurn)) / FLIGHT_TIMING.turn;
+  const pan = panEnd;
+  const swoop = toTurn - panEnd;
+  const b = 2 * swoop + pan - closing * time;
+  const panShare =
+    (-b + Math.sqrt(b * b + 4 * closing * time * pan)) / (2 * closing * time);
+  const panSpeed = pan / (panShare * time);
+  const gather = (closing - panSpeed) / ((1 - panShare) * time);
+
+  /** Distance flown a fraction `f` of the way through the flight's time. */
+  function flown(f: number) {
+    const t = Math.min(1, Math.max(0, f)) * time;
+    const into = t - panShare * time;
+    if (into <= 0) return panSpeed * t;
+    return pan + panSpeed * into + 0.5 * gather * into * into;
+  }
 
   const look = new Matrix4();
   const roll = new Quaternion();
@@ -221,9 +247,12 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
     /** Fraction of the path's length where the opening pan ends. */
     panEnd: panEnd / total,
 
+    /** The pan's speed and the swoop's closing speed, units a second. */
+    speeds: { pan: panSpeed, closing },
+
     /** Path fraction (0 to 1) for the rig's flight and turn. */
     travel(rig: Pick<FlightRig, "flight" | "turn">) {
-      return turnStart * rig.flight + (1 - turnStart) * rig.turn;
+      return flown(rig.flight) / total + (1 - turnStart) * rig.turn;
     },
 
     poseAt(rig: Pick<FlightRig, "flight" | "turn" | "settle">): Pose {

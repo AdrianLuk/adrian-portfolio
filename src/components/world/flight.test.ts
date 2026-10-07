@@ -2,12 +2,7 @@ import { Euler, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { createFlightPath } from "./flight";
 import { CAMERA } from "./pose";
-import {
-  FLIGHT_TIMING,
-  flightEase,
-  SETTLED_RIG,
-  type FlightRig,
-} from "./rigs";
+import { FLIGHT_TIMING, SETTLED_RIG, type FlightRig } from "./rigs";
 import {
   corridorHalfWidth,
   valleyCentre,
@@ -155,7 +150,7 @@ describe("the flight path", () => {
         expect(last).toBeLessThan(1e-6);
       });
 
-      it("opens on a pan: sliding sideways across the view and dropping", () => {
+      it("opens on a pan: sliding sideways across the view, holding its height", () => {
         const at = (flight: number) =>
           path.poseAt({ flight, turn: 0, settle: 0 });
         const start = at(0);
@@ -165,14 +160,36 @@ describe("the flight path", () => {
         expect(Math.abs(moved.dot(right))).toBeGreaterThan(
           1.2 * Math.abs(moved.dot(ahead)),
         );
-        expect(moved.y).toBeLessThan(-5);
+        expect(Math.abs(moved.y)).toBeLessThan(2);
+      });
+
+      it("starts about 80 units right of the canyon's centre", () => {
+        const { position: p } = path.poseAt({ flight: 0, turn: 0, settle: 0 });
+        expect(p.x - valleyCentre(p.z)).toBeCloseTo(80, 0);
+      });
+
+      it("pans steadily, then swoops: closing at least twice as fast", () => {
+        const { pan, closing } = path.speeds;
+        expect(closing).toBeGreaterThan(2 * pan);
+        // Measured, not just planned: the pan's first second against the
+        // flight's last.
+        const at = (seconds: number) =>
+          path.poseAt({
+            flight: seconds / FLIGHT_TIMING.flight,
+            turn: 0,
+            settle: 0,
+          }).position;
+        const { flight } = FLIGHT_TIMING;
+        const first = at(1).distanceTo(at(0));
+        const last = at(flight).distanceTo(at(flight - 1));
+        expect(last).toBeGreaterThan(2 * first);
       });
 
       it("pans level, then rolls into the bends no faster than 65 degrees a second", () => {
         // The camera's roll, its up against the world's about its forward axis.
         const rollAt = (seconds: number) => {
           const { quaternion } = path.poseAt({
-            flight: flightEase(seconds / FLIGHT_TIMING.flight),
+            flight: seconds / FLIGHT_TIMING.flight,
             turn: 0,
             settle: 0,
           });
