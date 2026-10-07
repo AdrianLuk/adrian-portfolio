@@ -43,14 +43,15 @@ export const SETTLED_RIG: Readonly<FlightRig> = {
 };
 
 /** Seconds; the timeline's flight runs linearly, its turn eases (TURN_EASE). */
-export const FLIGHT_TIMING = { flight: 6.5, turn: 4 } as const;
+export const FLIGHT_TIMING = { flight: 5.25, turn: 2.5 } as const;
 
 /**
- * The turn-in's ease: a long, gentle glide round to rest, like the camera
- * swinging round to the 20th Century Fox logo. `opening` is its speed at the
- * start over its average (sine.out's slope at 0), which the flight meets.
+ * The turn-in's ease: a strafe round the 20th Century Fox swing, coming in hot
+ * and braking hard to rest, like a fighter jet landing. `opening` is its speed
+ * at the start over its average (power2.out's slope at 0), which the flight
+ * meets.
  */
-export const TURN_EASE = { name: "sine.out", opening: Math.PI / 2 } as const;
+export const TURN_EASE = { name: "power2.out", opening: 3 } as const;
 
 /**
  * A lit site's plan: the Highlight it stands for, its depth down the valley,

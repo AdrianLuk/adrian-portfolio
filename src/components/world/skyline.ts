@@ -440,6 +440,14 @@ export function layoutSkyline() {
       pod: podY + 1.7,
       tip: cn.ground + H,
     },
+    /** The Rogers Centre's place: its centre, radius, foot and the dome's top. */
+    rogersCentre: {
+      x: dome.x,
+      z: dome.z,
+      r: R,
+      foot: dome.ground,
+      top: dome.ground + DRUM + ROOF,
+    },
   };
 }
 

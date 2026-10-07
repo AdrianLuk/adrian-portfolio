@@ -202,19 +202,22 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
   // swelling to a peak through the bend and easing off to meet the turn's
   // opening speed, with no lurch at the join. Over the swoop's time, a
   // fraction u through it, its speed runs from the pan's to the closing speed
-  // plus a swell of sin(pi u), sized so it covers the bend in the time left.
+  // plus a swell of sin²(pi u), sized so it covers the bend in the time left.
+  // The swell starts and ends without a kick, so the camera punches in off the
+  // pan and brakes into the turn smoothly, however hard it swoops between.
   const time = FLIGHT_TIMING.flight;
   const closing = (TURN_EASE.opening * (total - toTurn)) / FLIGHT_TIMING.turn;
   const pan = panEnd;
   const panTime = Math.min(pan / PAN.speed, 0.6 * time);
   const panSpeed = pan / panTime;
   const swoopTime = time - panTime;
-  const swell =
-    (Math.PI / 2) * ((toTurn - panEnd) / swoopTime - (panSpeed + closing) / 2);
+  const swell = 2 * ((toTurn - panEnd) / swoopTime - (panSpeed + closing) / 2);
 
   /** The swoop's speed, a fraction `u` of the way through its time. */
   const swoopSpeed = (u: number) =>
-    panSpeed + (closing - panSpeed) * u + swell * Math.sin(Math.PI * u);
+    panSpeed +
+    (closing - panSpeed) * u +
+    swell * Math.sin(Math.PI * u) ** 2;
 
   /** Distance flown a fraction `f` of the way through the flight's time. */
   function flown(f: number) {
@@ -226,7 +229,7 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
       swoopTime *
         (panSpeed * u +
           ((closing - panSpeed) * u * u) / 2 +
-          (swell * (1 - Math.cos(Math.PI * u))) / Math.PI)
+          swell * (u / 2 - Math.sin(2 * Math.PI * u) / (4 * Math.PI)))
     );
   }
 

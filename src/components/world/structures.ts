@@ -56,15 +56,16 @@ export const HERO_SIGHT = Math.sqrt(Math.log(100)) / FOG_DENSITY;
 /**
  * The street of towers along the runway: where it starts (behind the plate)
  * and ends (short of the Outpost's district), how far off the valley's centre
- * line its frontage stands (the runway's lights are 14 off it), and the plaza
- * kept open round each lit site, from ahead of where the camera stops to
- * frame it (80 short of it) to past it, and the clearance kept either side of
- * the hero's line of sight to the first site.
+ * line its frontage stands (the runway's lights are 14 off it) and the city's
+ * second row behind it, the plaza kept open round each lit site, from ahead
+ * of where the camera stops to frame it (80 short of it) to past it, and the
+ * clearance kept either side of the hero's line of sight to the first site.
  */
 const STREET = {
   start: -120,
   end: -960,
   setback: 20,
+  behind: 42,
   plaza: { before: 110, after: 30 },
   sightline: 14,
 };
@@ -277,15 +278,49 @@ export function layoutStructures() {
     return box;
   }
 
-  // The city along both walls, from just behind the plate to the far end:
-  // wide and deep, one in five a tall one, every one under the ridge behind,
-  // making way for downtown and the landmarks. (Its draws are made either
-  // way, so the rest of the city stands where it did.)
+  // The hero's two long views down the valley: the first lit site, the beacon
+  // the arrival lights, and the Rogers Centre's dome beside the CN Tower.
+  const beacon = SITES[0].position;
+  const skyline = layoutSkyline();
+  const dome = skyline.rogersCentre;
+  /** A footprint's distance, in plan, from the line from the hero's camera (at the origin) to `p`. */
+  const offLine = (x: number, z: number, p: { x: number; z: number }) =>
+    Math.abs(x * p.z - z * p.x) / Math.hypot(p.x, p.z);
+  /** True if a footprint `size` across at (x, z) stands in either view. */
+  const hidesView = (x: number, z: number, size: number) =>
+    (z > beacon.z && offLine(x, z, beacon) < size / 2 + STREET.sightline) ||
+    // The dome's width narrows towards the camera, as it looks.
+    (z > dome.z &&
+      offLine(x, z, dome) <
+        size / 2 + STREET.sightline / 2 + (dome.r * z) / dome.z);
+  /**
+   * Where a tower meant for (x, z) stands clear of both views: moved out
+   * towards its side's wall, up to 60 units, or nowhere.
+   */
+  const clearOfViews = (x: number, z: number, size: number, side: number) => {
+    for (let moved = 0; moved <= 60; moved++) {
+      if (!hidesView(x + side * moved, z, size)) return x + side * moved;
+    }
+    return null;
+  };
+  /** True if (z) on `side` falls in the plaza kept open round a lit site. */
+  const inPlaza = (z: number, side: number) =>
+    SITES.some(
+      (s) =>
+        s.side === side &&
+        z < s.position.z + STREET.plaza.before &&
+        z > s.position.z - STREET.plaza.after,
+    );
+
+  // The city behind the street, from just behind the plate to the far end: a
+  // second row, wide and deep, one in five a tall one, every one under the
+  // ridge behind, making way for downtown, the plazas, the landmarks and the
+  // hero's views. (Its draws are made either way, so the rest of the city
+  // stands where it did.)
   for (let i = 0; i < 46; i++) {
     const z = -110 - i * 19 - random() * 12;
     const side = i % 2 === 0 ? -1 : 1;
-    const w = corridorHalfWidth(z);
-    const x = valleyCentre(z) + side * (w - 6 + random() * 46);
+    const along = valleyCentre(z) + side * (STREET.behind + random() * 30);
     const tall = random() < 0.2;
     const height = tall ? 58 + random() * 28 : 18 + random() * 40;
     const width = 6 + random() * 8;
@@ -293,7 +328,9 @@ export function layoutStructures() {
     const depth = 5 + random() * 7;
     const downtown =
       side === DOWNTOWN.side && z < DOWNTOWN.near && z > DOWNTOWN.far;
-    if (downtown || onLandmark(x, z, width, depth)) continue;
+    if (downtown || inPlaza(z, side)) continue;
+    const x = clearOfViews(along, z, Math.hypot(width, depth), side);
+    if (x === null || onLandmark(x, z, width, depth)) continue;
     tower(x, z, height, width, -side, light, { depth, underRidge: true });
   }
 
@@ -437,17 +474,9 @@ export function layoutStructures() {
   // from its lights, broken by cross streets, so the floor reads as a city
   // street running down to downtown. Each lit site stands in a plaza open to
   // the street the camera comes down to frame it, and the street opens on the
-  // hero's line of sight to the first, the beacon the arrival lights, as the
-  // valley bends; it makes way for downtown as the city does. Last, so the
-  // random draws above are unchanged.
-  const beacon = SITES[0].position;
-  /** True if a footprint `size` across at (x, z) stands between the hero and the beacon. */
-  const hidesBeacon = (x: number, z: number, size: number) =>
-    z > beacon.z &&
-    // The footprint's distance, in plan, from the line from the hero's camera
-    // (at the origin) to the beacon.
-    Math.abs(x * beacon.z - z * beacon.x) / Math.hypot(beacon.x, beacon.z) <
-      size / 2 + STREET.sightline;
+  // hero's views of the beacon and the Rogers Centre as the valley bends, the
+  // frontage stepping back just far enough to clear them; it makes way for
+  // downtown as the city does. Last, so the random draws above are unchanged.
   for (const side of [-1, 1]) {
     for (let z = STREET.start; z > STREET.end; z -= 10 + random() * 6) {
       const crossStreet = random() < 0.18;
@@ -455,25 +484,17 @@ export function layoutStructures() {
       const depth = 6 + random() * 4;
       const tall = random() < 0.15;
       const height = tall ? 40 + random() * 16 : 14 + random() * 22;
-      const x =
+      const along =
         valleyCentre(z) + side * (STREET.setback + width / 2 + random() * 5);
       const light = lightOf();
-      const plaza = SITES.some(
-        (s) =>
-          s.side === side &&
-          z < s.position.z + STREET.plaza.before &&
-          z > s.position.z - STREET.plaza.after,
-      );
       const downtown =
         side === DOWNTOWN.side && z < DOWNTOWN.near && z > DOWNTOWN.far;
-      if (crossStreet || plaza || downtown) continue;
-      if (onLandmark(x, z, width, depth)) continue;
-      if (hidesBeacon(x, z, Math.hypot(width, depth))) continue;
+      if (crossStreet || inPlaza(z, side) || downtown) continue;
+      const x = clearOfViews(along, z, Math.hypot(width, depth), side);
+      if (x === null || onLandmark(x, z, width, depth)) continue;
       tower(x, z, height, width, -side, light, { depth, underRidge: true });
     }
   }
-
-  const skyline = layoutSkyline();
   return {
     buildings,
     darkBuildings,

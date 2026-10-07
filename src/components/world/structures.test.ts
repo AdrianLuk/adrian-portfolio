@@ -3,15 +3,20 @@ import { describe, expect, it } from "vitest";
 import { createFlightPath } from "./flight";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { FOG_DENSITY } from "./palette";
-import { CAMERA } from "./pose";
+import { CAMERA, settledYaw } from "./pose";
 import { createRoute, ROUTE_STOPS, SITES } from "./route";
 import { HERO_SIGHT, layoutStructures, type Box } from "./structures";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
-function settledLayout(height: number, plateX: number, centreHeight: number) {
+function settledLayout(
+  height: number,
+  plateX: number,
+  centreHeight: number,
+  yaw = 0,
+) {
   const quaternion = new Quaternion().setFromEuler(
-    new Euler(-CAMERA.pitch, 0, 0, "YXZ"),
+    new Euler(-CAMERA.pitch, -yaw, 0, "YXZ"),
   );
   const position = new Vector3(0, height, 0);
   const { pitch, plateDepth } = CAMERA;
@@ -26,7 +31,10 @@ function settledLayout(height: number, plateX: number, centreHeight: number) {
 const layouts = {
   "desktop, one line lower left": { ...settledLayout(21, -18, 7), aspect: 1.6 },
   "desktop, low camera": { ...settledLayout(11.75, -18, 7), aspect: 1.6 },
-  "phone, stacked": { ...settledLayout(16, -3, 9), aspect: 0.46 },
+  "phone, stacked": {
+    ...settledLayout(16, -3, 9, settledYaw(0.46)),
+    aspect: 0.46,
+  },
 };
 
 /** Rig states down the whole flight, as the timeline plays them. */
@@ -187,6 +195,27 @@ describe("the city", () => {
         }
       });
 
+      it("shows the first lit site's shield whole, inside the frame's sides", () => {
+        const camera = new PerspectiveCamera(CAMERA.fovY, aspect, 0.5, 2600);
+        camera.position.copy(settled.position);
+        camera.quaternion.copy(settled.quaternion);
+        camera.updateMatrixWorld();
+        const { x, z } = SITES[0].position;
+        const shield = landmarks.bounds.find(
+          (b) => Math.abs(b.x - x) < 1 && Math.abs(b.z - z) < 1,
+        )!;
+        for (const dx of [-1, 1]) {
+          for (const dz of [-1, 1]) {
+            const ndc = new Vector3(
+              shield.x + (dx * shield.w) / 2,
+              shield.y,
+              shield.z + (dz * shield.d) / 2,
+            ).project(camera);
+            expect(Math.abs(ndc.x)).toBeLessThan(0.95);
+          }
+        }
+      });
+
       it("sees the CN Tower's pod over every ridge and building between", () => {
         const pod = new Vector3(cnTower.x, cnTower.pod, cnTower.z);
         for (let k = 1; k < 200; k++) {
@@ -206,6 +235,18 @@ describe("the city", () => {
       it("sees the first lit site, the beacon, down the street past every building", () => {
         for (const b of buildings) {
           expect(crosses(eye, SITES[0].position, b)).toBe(false);
+        }
+      });
+
+      it("sees the Rogers Centre's drum and dome past every building", () => {
+        const { x, z, r, foot, top } = skyline.rogersCentre;
+        for (const across of [-0.8, 0, 0.8]) {
+          for (const y of [foot + 4, top - 1]) {
+            const target = new Vector3(x + across * r, y, z + r);
+            for (const b of buildings) {
+              expect(crosses(eye, target, b)).toBe(false);
+            }
+          }
         }
       });
 

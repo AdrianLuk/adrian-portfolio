@@ -22,7 +22,7 @@ import { createPrecipitation } from "./precipitation";
 import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
-import { CAMERA, settledCameraHeight } from "./pose";
+import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
 import { createRoute, outpostPose, SITES, type Route } from "./route";
 import type { FlightRig, RouteRig } from "./rigs";
 import {
@@ -483,8 +483,9 @@ export async function createWorld(
 
     // The plate stands where the settled camera sees the headline; the flight
     // is planned back from that pose.
-    camera.position.set(0, settledCameraHeight(placed), 0);
-    camera.rotation.set(-CAMERA.pitch, 0, 0);
+    const yaw = settledYaw(camera.aspect);
+    camera.position.set(0, settledCameraHeight(placed, yaw), 0);
+    camera.rotation.set(-CAMERA.pitch, -yaw, 0, "YXZ");
     plate.place(placed, camera);
     const centre = plate.centre();
     const key = [camera.position.y, centre.x, centre.y, centre.z, camera.aspect]
