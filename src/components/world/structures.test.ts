@@ -238,6 +238,18 @@ describe("the city", () => {
         }
       });
 
+      it("sees the Rogers Centre's drum and dome past every building", () => {
+        const { x, z, r, foot, top } = skyline.rogersCentre;
+        for (const across of [-0.8, 0, 0.8]) {
+          for (const y of [foot + 4, top - 1]) {
+            const target = new Vector3(x + across * r, y, z + r);
+            for (const b of buildings) {
+              expect(crosses(eye, target, b)).toBe(false);
+            }
+          }
+        }
+      });
+
       it("never meets the opening flight, which sees the plate past it the whole way", () => {
         const path = createFlightPath(settled, plateCentre);
         for (const rig of along()) {
