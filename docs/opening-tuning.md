@@ -8,7 +8,7 @@ To try a change: edit the value, run `npm run dev`, and reload `localhost:3000`.
 
 1. **Pan:** high and level, sweeping right to left across the canyon's shoulder at a steady speed.
 2. **Swoop:** dives, banks right and speeds up through one long bend, then eases off.
-3. **Swing-in:** glides round to rest on the name, at the pace of the 20th Century Fox intro.
+3. **Swing-in:** the 20th Century Fox swing done as a strafe: it comes in hot and brakes hard onto the name, like a fighter jet landing.
 
 The timeline runs the flight (pan and swoop) for `FLIGHT_TIMING.flight` seconds, then the swing-in for `FLIGHT_TIMING.turn`. The credits play over both.
 
@@ -21,7 +21,7 @@ Distances are world units. For scale, the camera flies 22 units above the canyon
 | Setting | Now | What it does | Guarded by |
 | --- | --- | --- | --- |
 | `start` | `80` | How far right of the canyon's centre the pan starts. | "starts about 80 units right of the canyon's centre" (update it with the value) |
-| `speed` | `40` | The pan's speed, units a second. Faster leaves the swoop more time, so its peak drops. | "pans steadily, then swoops ... 1.5 times the pan's speed" |
+| `speed` | `40` | The pan's speed, units a second. Faster leaves the swoop more time, so its peak drops. | "pans steadily, then swoops ... 2.5 times the pan's speed" |
 | `lift` | `40` | How high above cruise height the pan flies, which is also how far the swoop dives. | "stays well above the ground ...", "sees the plate the whole way ..." |
 | `from` / `to` | `75°` / `35°` | The pan's heading at its start and end, off the canyon's line. A higher `from` slides more sideways at first. | "opens on a pan: sliding sideways ...", "swings the view through no more than 55 degrees ..." |
 | `side` | `20` | How far left of the canyon's mouth the pan ends and the bank begins. | "banks right into the bend ... never left ..." |
@@ -42,8 +42,8 @@ Constants in `src/components/world/flight.ts`.
 
 | Setting | Where | Now | What it does |
 | --- | --- | --- | --- |
-| `FLIGHT_TIMING.turn` | `src/components/world/rigs.ts` | `4` | How long the swing-in takes, in seconds. Longer is slower and more Fox-like. |
-| `TURN_EASE` | `src/components/world/rigs.ts` | `sine.out`, `Math.PI / 2` | The swing's easing curve and its opening speed over its average. Change both together (see below). |
+| `FLIGHT_TIMING.turn` | `src/components/world/rigs.ts` | `2.5` | How long the swing-in takes, in seconds. Longer is slower and more Fox-like. |
+| `TURN_EASE` | `src/components/world/rigs.ts` | `power2.out`, `3` | The swing's easing curve and its opening speed over its average. Change both together (see below). |
 | `TURN_IN` | `src/components/world/flight.ts` | `40°` | How far round the swing starts from the final view. |
 | `TURN_RADIUS` | `src/components/world/flight.ts` | `125` | How wide the swing's arc is at its start. |
 
@@ -51,24 +51,24 @@ Constants in `src/components/world/flight.ts`.
 
 | `name` | `opening` | Feel |
 | --- | --- | --- |
-| `"sine.out"` | `Math.PI / 2` | Gentle glide (now) |
+| `"sine.out"` | `Math.PI / 2` | Gentle glide |
 | `"power1.out"` | `2` | A little firmer |
-| `"power2.out"` | `3` | Brakes hard |
+| `"power2.out"` | `3` | Brakes hard (now) |
 
-Guarded by "eases off into the turn-in at its speed: no lurch at the join", which assumes `sine.out`. Update its `clock` helper if you change the ease.
+Guarded by "runs hot into the turn-in at its speed: no lurch at the join", which assumes `power2.out`. Update its `clock` helper if you change the ease.
 
 ## Timing and credits
 
 | Setting | Where | Now | What it does |
 | --- | --- | --- | --- |
-| `FLIGHT_TIMING.flight` | `src/components/world/rigs.ts` | `6.5` | Seconds from the start to the swing-in. The pan's speed is fixed, so a longer flight gives a gentler swoop. |
-| `CREDIT.first` | `src/components/flight-timeline.ts` | `2` | When the first credit appears, in seconds. |
-| `CREDIT.every` | `src/components/flight-timeline.ts` | `2` | The gap between credits. Each is fully up for `every - fade`. |
-| `CREDIT.fade` | `src/components/flight-timeline.ts` | `0.2` | Each credit's fade in and out. |
+| `FLIGHT_TIMING.flight` | `src/components/world/rigs.ts` | `5.25` | Seconds from the start to the swing-in. The pan's speed is fixed, so a longer flight gives a gentler swoop (at 5.25 it peaks at over 2.5 times the pan's speed and runs into the swing-in at over twice it). |
+| `CREDIT.first` | `src/components/flight-timeline.ts` | `1.9` | When the first credit appears, in seconds. |
+| `CREDIT.every` | `src/components/flight-timeline.ts` | `1.4` | The gap between credits. Each is fully up for `every - fade`. |
+| `CREDIT.fade` | `src/components/flight-timeline.ts` | `0.15` | Each credit's fade in and out. |
 | `credits.lines` | `src/content/site.ts` | | The credits' copy, as `Role: name`. |
 | `EDGE` | `src/components/hero-world.tsx` | `24` | The gap, in CSS pixels, between a credit card and the screen's edges and Skip. |
 
-Keep `CREDIT.first + 4 × CREDIT.every + CREDIT.fade` at or below `FLIGHT_TIMING.flight + FLIGHT_TIMING.turn`, or the last credit is still up when the opening ends. Guarded by "shows the credits one at a time ..." and "runs 10.25 to 10.75 seconds ..." in `src/components/flight-timeline.test.ts`, and the e2e check that the opening settles within 12 seconds in `e2e/flight.spec.ts`. Update those ranges when you change the length on purpose.
+Keep `CREDIT.first + 4 × CREDIT.every + CREDIT.fade` at or below `FLIGHT_TIMING.flight + FLIGHT_TIMING.turn`, or the last credit is still up when the opening ends. Guarded by "shows the credits one at a time ..." and "runs 7.5 to 8 seconds ..." in `src/components/flight-timeline.test.ts`, and the e2e check that the opening settles within 12 seconds in `e2e/flight.spec.ts`. Update those ranges when you change the length on purpose.
 
 ## Where the rules live
 
