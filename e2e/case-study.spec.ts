@@ -129,6 +129,34 @@ async function readTool(page: Page, name: string) {
   });
 }
 
+const toolLink = (page: Page, name: string) => {
+  const url = study.tools.find((t) => t.name === name)!.url;
+  return page.getByRole("link", {
+    name: study.links.find((l) => l.href === url)!.label,
+    exact: true,
+  });
+};
+
+/** Sums the page's layout shifts not caused by input into `window.__shift`. */
+function observeShifts() {
+  const w = window as unknown as { __shift: number };
+  w.__shift = 0;
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries() as unknown as {
+      value: number;
+      hadRecentInput: boolean;
+    }[]) {
+      if (!entry.hadRecentInput) w.__shift += entry.value;
+    }
+  }).observe({ type: "layout-shift", buffered: true });
+}
+
+/** Counts layout shifts from the next page load on. */
+const countShifts = (page: Page) => page.addInitScript(observeShifts);
+
+const shifted = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __shift: number }).__shift);
+
 /** Waits for two frames, by when a scroll has been read and drawn. */
 const frames = (page: Page) =>
   page.evaluate(
@@ -194,26 +222,46 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     await expect(stage(page).locator("a, button, [controls], [tabindex]")).toHaveCount(0);
   });
 
-  test("focusing a tool's link brings that tool onto the stage", async ({
+  test("keyboard focus on a tool's link brings that tool onto the stage, until a scroll moves on", async ({
     page,
   }) => {
-    const [first, ...rest] = study.tools;
+    const [first, second, ...rest] = study.tools;
     const last = rest.at(-1)!;
     await readTool(page, first.name);
     await expect(frame(page, first.name)).toBeVisible();
-    await page
-      .getByRole("link", {
-        name: study.links.find((l) => l.href === last.url)!.label,
-        exact: true,
-      })
-      .evaluate((el: HTMLElement) => el.focus({ preventScroll: true }));
+    // A key press first, so the focus that follows is keyboard focus.
+    await page.keyboard.press("Shift");
+    await toolLink(page, last.name).evaluate((el: HTMLElement) =>
+      el.focus({ preventScroll: true }),
+    );
     await expect(frame(page, last.name)).toBeVisible();
+    await expect(frame(page, first.name)).toBeHidden();
+    // Scrolling on to another tool hands the stage back to the scroll.
+    await readTool(page, second.name);
+    await expect(frame(page, second.name)).toBeVisible();
+    await expect(frame(page, last.name)).toBeHidden();
+  });
+
+  test("a link the mouse has focused doesn't hold the stage", async ({
+    page,
+  }) => {
+    const [first, second] = study.tools;
+    await readTool(page, first.name);
+    // Pressed but not released: focused by the mouse, not yet followed.
+    await toolLink(page, first.name).hover();
+    await page.mouse.down();
+    await expect(toolLink(page, first.name)).toBeFocused();
+    await readTool(page, second.name);
+    await expect(frame(page, second.name)).toBeVisible();
     await expect(frame(page, first.name)).toBeHidden();
   });
 
-  test("arriving mid-section shows the right tool at once", async ({ page }) => {
+  test("arriving mid-section shows the right tool at once, and shifts no layout", async ({
+    page,
+  }) => {
     const tool = study.tools.at(-2)!;
     await readTool(page, tool.name);
+    await countShifts(page);
     // A refresh lands back where the reader was.
     await page.reload();
     await expect(page.locator("[data-player-tools]")).toHaveAttribute(
@@ -221,6 +269,46 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
       "pinned",
     );
     await expect(frame(page, tool.name)).toBeVisible();
+    await frames(page);
+    expect(await shifted(page)).toBe(0);
+  });
+
+  test("a playing recording on the stage can be paused and played from its tool's copy", async ({
+    page,
+  }) => {
+    const tools: readonly PlayerTool[] = study.tools;
+    const tool = tools.find((t) => t.recording)!;
+    const video = frame(page, tool.name).locator("video");
+    await readTool(page, tool.name);
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
+      .toBe(true);
+
+    const block = page
+      .getByRole("main")
+      .getByRole("region", { name: tool.name, exact: true });
+    const pause = block.getByRole("button", {
+      name: `Pause recording of ${tool.name}`,
+    });
+    await expect(pause).toBeVisible();
+    await pause.focus();
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
+      .toBe(true);
+    const play = block.getByRole("button", {
+      name: `Play recording of ${tool.name}`,
+    });
+    await expect(play).toBeFocused();
+    // It stays paused while the reader stays on the tool.
+    await page.mouse.wheel(0, 40);
+    await frames(page);
+    expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+
+    await play.click();
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
+      .toBe(true);
   });
 
   test("a tool's recording plays on the stage while it is on, and pauses after", async ({
@@ -256,18 +344,7 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
   });
 
   test("scrolling through the scene shifts no layout", async ({ page }) => {
-    await page.evaluate(() => {
-      const w = window as unknown as { __shift: number };
-      w.__shift = 0;
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as unknown as {
-          value: number;
-          hadRecentInput: boolean;
-        }[]) {
-          if (!entry.hadRecentInput) w.__shift += entry.value;
-        }
-      }).observe({ type: "layout-shift", buffered: true });
-    });
+    await page.evaluate(observeShifts);
     const end = await page.evaluate(
       () => document.documentElement.scrollHeight - window.innerHeight,
     );
@@ -279,13 +356,70 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
       await page.evaluate((y) => window.scrollTo(0, y), y);
       await frames(page);
     }
-    expect(
-      await page.evaluate(
-        () => (window as unknown as { __shift: number }).__shift,
-      ),
-    ).toBe(0);
+    expect(await shifted(page)).toBe(0);
   });
 });
+
+test.describe("the Player tools scene when its scripts fail", () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test("falls back to the stacked list if the motion code never loads", async ({
+    page,
+  }) => {
+    // GSAP's chunk, told apart by what's inside it.
+    await page.route("**/_next/static/**/*.js", async (route) => {
+      const response = await route.fetch();
+      if (/GreenSock|_gsap/.test(await response.text())) await route.abort();
+      else await route.fulfill({ response });
+    });
+    await page.goto(path);
+    await expectStacked(page);
+  });
+
+  test("falls back to the stacked list if the page never hydrates, with no unseen keyboard stop meanwhile", async ({
+    page,
+  }) => {
+    await page.route("**/_next/static/**/*.js", (route) => route.abort());
+    await page.goto(path);
+    // Laid out pinned from the first paint, the copy's recordings out of
+    // sight and out of the tab order.
+    await expect(page.locator("[data-player-tools]")).toHaveAttribute(
+      "data-scene",
+      /.+/,
+    );
+    await expect(stage(page)).toBeVisible();
+    expect(
+      await page
+        .locator("[data-tool-copy] video")
+        .evaluateAll((vs) => (vs as HTMLVideoElement[]).some((v) => v.controls)),
+    ).toBe(false);
+    // Then, with nothing to run it, the stacked list.
+    await expectStacked(page, 15_000);
+  });
+});
+
+/** The stacked list: no stage, each tool's screenshots and recording in its copy. */
+async function expectStacked(page: Page, timeout?: number) {
+  await expect(page.locator("[data-player-tools]")).not.toHaveAttribute(
+    "data-scene",
+    { timeout },
+  );
+  await expect(stage(page)).toBeHidden();
+  for (const tool of study.tools) {
+    const block = page
+      .getByRole("main")
+      .getByRole("region", { name: tool.name, exact: true });
+    for (const img of await block.getByRole("img").all()) {
+      await img.scrollIntoViewIfNeeded();
+      await expect(img).toBeVisible();
+    }
+  }
+  expect(
+    await page
+      .locator("[data-tool-copy] video")
+      .evaluateAll((vs) => (vs as HTMLVideoElement[]).every((v) => v.controls)),
+  ).toBe(true);
+}
 
 for (const mode of [
   {

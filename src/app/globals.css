@@ -37,10 +37,18 @@
 }
 
 /* The Case study's Player tools scene: the stage pinned beside the copy. The
-   same query as PINNED_MEDIA in src/components/active-tool.ts; CSS lays the
-   scene out from the first paint, so it never shifts when the scripts arrive.
-   With scripts off, motion reduced or a narrow screen, it is the stacked list. */
-@custom-variant pinned (@media (min-width: 64rem) and (min-height: 30rem) and (prefers-reduced-motion: no-preference) and (scripting: enabled));
+   same query as PINNED_MEDIA in src/components/active-tool.ts (a test holds
+   them in step), and only while the scene's root carries data-scene, which a
+   script sets as the page is parsed and the scene's island keeps (or drops,
+   if its code fails). With scripts off or failing, motion reduced or a narrow
+   screen, it is the stacked list. */
+@custom-variant pinned {
+  @media (min-width: 64rem) and (min-height: 30rem) and (prefers-reduced-motion: no-preference) {
+    &:is([data-scene], [data-scene] *) {
+      @slot;
+    }
+  }
+}
 
 html {
   background-color: var(--color-night);

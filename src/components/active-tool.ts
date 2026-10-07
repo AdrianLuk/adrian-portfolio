@@ -4,15 +4,6 @@
  * The page scrolls natively; this only reads where it has got to.
  */
 
-/**
- * When the Player tools pin: wide and tall enough for the stage beside a
- * readable column, with motion allowed and scripts on. Anything else gets the
- * stacked list. Keep in step with the `pinned` variant in globals.css, which
- * lays the scene out from the first paint.
- */
-export const PINNED_MEDIA =
-  "(min-width: 64rem) and (min-height: 30rem) and (prefers-reduced-motion: no-preference) and (scripting: enabled)";
-
 /** A tool's copy block on the page, in document pixels. */
 export type ToolBox = { top: number; height: number };
 
