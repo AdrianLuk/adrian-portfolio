@@ -143,6 +143,8 @@ export type World = View & {
    */
   route(): Route | null;
   settledPose(): Pose | null;
+  /** The opening flight's path for that layout, likewise. */
+  openingPath(): FlightPath | null;
 };
 
 /** Lets the browser paint and handle input before the next setup step. */
@@ -302,7 +304,7 @@ export async function createWorld(
   let falling: ReturnType<typeof createPrecipitation> | null = null;
   let fallingFor = 0;
   let fallingKind: Weather = "clear";
-  /** The camera's pose from outside the view (a flight between views). */
+  /** The camera's pose from outside the view (a transit between views). */
   let steering: (() => Pose) | null = null;
   let settled: Pose | null = null;
 
@@ -335,7 +337,7 @@ export async function createWorld(
   /**
    * Puts the camera where it is steered, or else, for the hero, where the
    * rigs say (the opening's flight, then the scroll route once the visitor
-   * scrolls), and lights the arrival and the sites. The outpost's camera
+   * scrolls), and lights the arrival and the sites. The Outpost's camera
    * holds the pose its layout gave it, and the sites, all behind it, stay
    * dark.
    */
@@ -441,7 +443,7 @@ export async function createWorld(
     pools.set(wet() ? wetPools(lit) : lit);
   }
 
-  /** The outpost's fixed pose, for the screen's shape. */
+  /** The Outpost's fixed pose, for the screen's shape. */
   function placeOutpost() {
     placeCamera(outpostPose(camera.aspect));
     setPools(structures.pools);
@@ -570,7 +572,7 @@ export async function createWorld(
 
   /**
    * Fits the scene to its view: the plate shows only in the hero's, and the
-   * lit sites, all behind the outpost's camera, stay dark there.
+   * lit sites, all behind the Outpost's camera, stay dark there.
    */
   function showView() {
     plate.group.visible = view?.kind === "hero";
@@ -696,6 +698,7 @@ export async function createWorld(
       if (!running) render();
     },
     route: () => route,
+    openingPath: () => path,
     settledPose: () =>
       settled && {
         position: settled.position.clone(),

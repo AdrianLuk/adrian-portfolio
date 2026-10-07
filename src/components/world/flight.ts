@@ -273,14 +273,25 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
       return flown(rig.flight) / total + (1 - turnStart) * rig.turn;
     },
 
+    /** The path's length, in world units. */
+    length: total,
+
     poseAt(rig: Pick<FlightRig, "flight" | "turn" | "settle">): Pose {
-      if (rig.settle >= 1 && this.travel(rig) >= 1) {
+      return this.poseAlong(this.travel(rig), rig.settle);
+    },
+
+    /**
+     * The camera a fraction `travel` of the way along the path, `settle` of
+     * the way round from the plate-centred view to the settled framing.
+     */
+    poseAlong(travel: number, settleBy: number): Pose {
+      if (settleBy >= 1 && travel >= 1) {
         return {
           position: settled.position.clone(),
           quaternion: settled.quaternion.clone(),
         };
       }
-      const u = Math.min(1, Math.max(0, this.travel(rig)));
+      const u = Math.min(1, Math.max(0, travel));
       const position = curve.getPointAt(u);
 
       // Looking straight at the plate, leaning into the turn.
@@ -294,7 +305,7 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
         smoothstep(panEnd, panEnd + BANK_IN, u * total);
       quaternion.multiply(roll.setFromAxisAngle(forward, -bank));
 
-      const settle = Math.min(1, Math.max(0, rig.settle));
+      const settle = Math.min(1, Math.max(0, settleBy));
       quaternion.slerp(settled.quaternion, settle);
       if (settle === 1) quaternion.copy(settled.quaternion);
       return { position, quaternion };

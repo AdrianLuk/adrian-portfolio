@@ -10,14 +10,16 @@ import {
   type ReactNode,
 } from "react";
 import type { ScrollRoute } from "./scroll-route";
-import { highlightAnchor } from "@/content/site";
 // Plain data only: Three.js and GSAP load after the first paint.
+import { sitePanels } from "./home-panels";
 import {
-  joinsLiveWorld,
-  worldHost,
-  type WorldState,
-} from "./world-host";
-import { FLIGHT_START_RIG, SETTLED_RIG, SITE_PLAN } from "./world/rigs";
+  prefersReducedMotion,
+  REDUCED_MOTION,
+  subscribeToMotion,
+} from "./reduced-motion";
+import { useWorldState } from "./use-world-state";
+import { joinsLiveWorld, worldHost } from "./world-host";
+import { FLIGHT_START_RIG, SETTLED_RIG } from "./world/rigs";
 import type { CreditPlacement, Measurement } from "./world/scene";
 import { parseWeather, type Weather } from "./world/weather";
 
@@ -35,16 +37,6 @@ import { parseWeather, type Weather } from "./world/weather";
  */
 export type HeroState = "loading" | "flight" | "settled" | "reduced";
 
-const serverWorldState = (): WorldState => "pending";
-
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
-
-function subscribeToMotion(onChange: () => void) {
-  const query = window.matchMedia(REDUCED_MOTION);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-const prefersReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
 /** On the server the preference is unknown: the hero is "loading". */
 const unknownMotion = () => null;
 
@@ -165,11 +157,7 @@ export function HeroWorld({
   const [started, setStarted] = useState(false);
   /** True once the flight has run out, been skipped, or been called off. */
   const [landed, setLanded] = useState(rejoined);
-  const worldState = useSyncExternalStore(
-    host.subscribe,
-    host.state,
-    serverWorldState,
-  );
+  const worldState = useWorldState();
   const state: HeroState =
     reducedMotion === null
       ? "loading"
@@ -182,7 +170,7 @@ export function HeroWorld({
             : "loading";
 
   // Claims the world before the page paints, so home arriving into a live
-  // world (under a camera flight, say) never shows a frame without it.
+  // world (under a transit, say) never shows a frame without it.
   useLayoutEffect(() => {
     const root = rootRef.current;
     const pageCanvas = canvasRef.current;
@@ -287,10 +275,7 @@ export function HeroWorld({
       if (cancelled || !routing || scrollRoute) return;
       scrollRoute = createScrollRoute({
         route,
-        // Each site's own panel, by its Highlight.
-        panels: SITE_PLAN.map((site) =>
-          document.getElementById(highlightAnchor(site.highlight)),
-        ).filter((el) => el !== null),
+        panels: sitePanels(),
         locateSite: () => world()?.placeSite ?? null,
       });
     }

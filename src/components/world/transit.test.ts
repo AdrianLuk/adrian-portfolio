@@ -1,7 +1,8 @@
 import { Euler, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import type { Pose } from "./flight";
+import { createFlightPath, type Pose } from "./flight";
 import { CAMERA } from "./pose";
+import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { createRoute, outpostPose } from "./route";
 import { layoutStructures, type Box } from "./structures";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
@@ -9,6 +10,7 @@ import {
   OUTPOST_STOP,
   SETTLED_STOP,
   TRANSIT_MAX_SECONDS,
+  transit,
   transitPath,
   type Transit,
 } from "./transit";
@@ -180,6 +182,73 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
       }
       // The whole route, either way, is well under the opening's 10.5s.
       expect(TRANSIT_MAX_SECONDS).toBeLessThanOrEqual(3);
+    });
+
+    describe("leaving while the opening still plays", () => {
+      const opening = createFlightPath(settled, plateCentre);
+      /** The opening's path itself, finely, to tell whether a pose is on it. */
+      const openingPoints = Array.from({ length: 4001 }, (_, i) =>
+        opening.poseAlong(i / 4000, 0).position,
+      );
+      const onOpening = (p: Vector3) =>
+        Math.min(...openingPoints.map((q) => q.distanceTo(p))) < 1;
+
+      /** Rig states through the opening, as its timeline plays them. */
+      const moments: Record<string, FlightRig> = {
+        "in the pan": { ...SETTLED_RIG, flight: 0.15, turn: 0, settle: 0 },
+        "in the swoop": { ...SETTLED_RIG, flight: 0.7, turn: 0, settle: 0 },
+        "in the turn-in": { ...SETTLED_RIG, flight: 1, turn: 0.6, settle: 0 },
+        "settling": { ...SETTLED_RIG, flight: 1, turn: 0.95, settle: 0.5 },
+      };
+
+      for (const [when, rig] of Object.entries(moments)) {
+        it(`${when}: leaves from the camera's live pose and finishes the opening's own path, without a jump, before the valley`, () => {
+          const departure = {
+            opening,
+            travel: opening.travel(rig),
+            settle: rig.settle,
+          };
+          const trip = transit(route, departure, OUTPOST_STOP);
+          expectSamePose(trip.poseAt(0), opening.poseAt(rig));
+          expectSamePose(trip.poseAt(1), outpostPose(aspect));
+          expect(trip.duration).toBeGreaterThan(0);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+
+          const poses = along(trip, 1000);
+          for (let i = 1; i < poses.length; i++) {
+            const [a, b] = [poses[i - 1], poses[i]];
+            expect(a.position.distanceTo(b.position)).toBeLessThan(STEP_LIMIT);
+            expect(a.quaternion.angleTo(b.quaternion)).toBeLessThan(TURN_LIMIT);
+          }
+          // Through the settled view, on the opening's path until there,
+          // then down the scroll route, clear of everything.
+          const distances = poses.map((p) =>
+            p.position.distanceTo(settled.position),
+          );
+          const through = distances.indexOf(Math.min(...distances));
+          expect(distances[through]).toBeLessThan(STEP_LIMIT);
+          for (const { position } of poses.slice(0, through)) {
+            expect(onOpening(position)).toBe(true);
+          }
+          expectClear(poses.slice(through + 1));
+        });
+      }
+
+      it("turns back home from partway through the opening's path along that path", () => {
+        const rig = moments["in the swoop"];
+        const out = transit(
+          route,
+          { opening, travel: opening.travel(rig), settle: rig.settle },
+          OUTPOST_STOP,
+        );
+        const t = 0.1;
+        const back = transit(route, out.departureAt(t), SETTLED_STOP);
+        expectSamePose(back.poseAt(0), out.poseAt(t));
+        expectSamePose(back.poseAt(1), settled);
+        for (const { position } of along(back, 200)) {
+          expect(onOpening(position)).toBe(true);
+        }
+      });
     });
 
     it("turns back mid-flight from exactly where the camera is", () => {

@@ -25,8 +25,16 @@ The light structure at a Lit site that shows its Project: Control D's shielded g
 _Avoid_: Model, building, monument
 
 **Outpost**:
-The financial district at the far end of the home page's world, where the scroll route ends and the Resume page stands. The Resume page shows it live from the route's last stop, the camera still.
-_Avoid_: Downtown, skyline (Toronto's skyline is another part of the world), end stop
+The financial district at the far end of the home page's world, where the scroll route ends and the Resume page stands. The Resume page shows it live, the camera still where the route ends.
+_Avoid_: Downtown, skyline (Toronto's skyline is another part of the world), end stop, last stop
+
+**Opening**:
+The home page's fly-in on a first visit: the camera's flight down the canyon to the name plate, with the opening credits. "Flight" alone means the opening.
+_Avoid_: Intro, fly-through
+
+**Transit**:
+The camera flying through the world between home and the Resume page, in place of a crossfade, when the visitor navigates between them: down the valley to the Outpost, or back up it to home.
+_Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Rally game**:
 The short pickleball game on `/play`: singles against an AI, Dinkbot, on the Juice Bros court, rally scoring to 7, win by 2. Its own UI is the one place outside the opening credits and the closing bookend where the copy jokes.
