@@ -41,7 +41,7 @@ A Project Adrian runs on his own, outside any Role, such as Juice Bros. It is li
 _Avoid_: Personal project, freelance
 
 **Player tools**:
-The free Juice Bros tools for pickleball players, such as Booking Buddy, Pickle Point Pal, Match Mixer and Drum Roll. The set grows, so never state a count, and not all are no-login (Booking Buddy needs one). Public, and showcased in the Juice Bros Case study.
+The free Juice Bros tools for pickleball players, such as Booking Buddy, Pickle Point Pal, Match Mixer, On Deck and Drum Roll. The set grows, so never state a count, and not all are no-login (Booking Buddy needs one). Public, and showcased in the Juice Bros Case study.
 _Avoid_: Tools (unqualified), apps
 
 **Private tools**:

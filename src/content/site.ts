@@ -229,6 +229,10 @@ export const caseStudies = [
         href: "https://juicebrospickleball.com/tools/match-mixer",
       },
       {
+        label: "Open On Deck",
+        href: "https://juicebrospickleball.com/on-deck",
+      },
+      {
         label: "Open Drum Roll",
         href: "https://juicebrospickleball.com/tools/drum-roll",
       },
@@ -335,6 +339,29 @@ export const caseStudies = [
             { src: `${mediaBase}/match-mixer.webm`, type: "video/webm" },
             { src: `${mediaBase}/match-mixer.mp4`, type: "video/mp4" },
           ],
+        },
+      },
+      {
+        name: "On Deck",
+        url: "https://juicebrospickleball.com/on-deck",
+        summary:
+          "Live court rotation for club socials: players scan a sign to join the queue, and it calls the next foursome as courts free up.",
+        access: "account",
+        accessNote:
+          "Organizers need an account, players don't. These are from the demo night, which needs no sign-up.",
+        screenshots: {
+          desktop: {
+            src: `${mediaBase}/on-deck-desktop.webp`,
+            width: 1440,
+            height: 900,
+            alt: "On Deck's demo night on desktop: Floor, Display and Kiosk tabs above a grid of courts, each listing the four players on it with a Court done button.",
+          },
+          phone: {
+            src: `${mediaBase}/on-deck-phone.webp`,
+            width: 780,
+            height: 1688,
+            alt: "On Deck's demo night on a phone: courts stacked one per row, each listing four players above a large Court done button.",
+          },
         },
       },
       {
