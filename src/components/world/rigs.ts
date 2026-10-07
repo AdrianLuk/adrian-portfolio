@@ -7,8 +7,9 @@ import type { HighlightId } from "@/content/site";
  */
 
 /**
- * What the timeline animates. flight runs 0 to 1 at a constant speed down the
- * canyon, turn 0 to 1 round the turn-in arc (easing out to rest), settle 0 to
+ * What the timeline animates. flight runs 0 to 1 through the flight's time
+ * (the path sets its pace: steady through the pan, gathering through the
+ * swoop), turn 0 to 1 round the turn-in arc (easing out to rest), settle 0 to
  * 1 from the plate-centred view to the settled framing. beams, sweep and
  * beacon light the arrival: the beams' brightness (1 at rest), the angle their
  * sweep is offset by, and the first lit site's glow at the horizon.
@@ -41,8 +42,15 @@ export const SETTLED_RIG: Readonly<FlightRig> = {
   beacon: 1,
 };
 
-/** Seconds; the timeline's flight runs linearly, its turn eases out (power2). */
-export const FLIGHT_TIMING = { flight: 6, turn: 2.75 } as const;
+/** Seconds; the timeline's flight runs linearly, its turn eases (TURN_EASE). */
+export const FLIGHT_TIMING = { flight: 6.5, turn: 4 } as const;
+
+/**
+ * The turn-in's ease: a long, gentle glide round to rest, like the camera
+ * swinging round to the 20th Century Fox logo. `opening` is its speed at the
+ * start over its average (sine.out's slope at 0), which the flight meets.
+ */
+export const TURN_EASE = { name: "sine.out", opening: Math.PI / 2 } as const;
 
 /**
  * A lit site's plan: the Highlight it stands for, its depth down the valley,

@@ -83,9 +83,14 @@ describe("the flight path", () => {
         expect(start.position.z).toBeLessThan(WORLD_BACK - 60);
       });
 
-      it("stays well above the ground and below the ridges the whole way", () => {
+      it("stays well above the ground, and below the ridges once the pan is done", () => {
         for (const rig of along()) {
           const { position: p } = path.poseAt(rig);
+          // The pan opens high over the canyon's shoulder, well clear of it.
+          if (path.travel(rig) < path.panEnd) {
+            expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(15);
+            continue;
+          }
           expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(6);
           // The walls rise over the 70 units past the floor's edge.
           expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
@@ -145,7 +150,7 @@ describe("the flight path", () => {
         expect(last).toBeLessThan(1e-6);
       });
 
-      it("opens on a pan: sliding sideways across the view and dropping", () => {
+      it("opens on a pan: sliding sideways across the view, holding its height", () => {
         const at = (flight: number) =>
           path.poseAt({ flight, turn: 0, settle: 0 });
         const start = at(0);
@@ -155,7 +160,50 @@ describe("the flight path", () => {
         expect(Math.abs(moved.dot(right))).toBeGreaterThan(
           1.2 * Math.abs(moved.dot(ahead)),
         );
-        expect(moved.y).toBeLessThan(-5);
+        expect(Math.abs(moved.y)).toBeLessThan(2);
+      });
+
+      it("starts about 80 units right of the canyon's centre", () => {
+        const { position: p } = path.poseAt({ flight: 0, turn: 0, settle: 0 });
+        expect(p.x - valleyCentre(p.z)).toBeCloseTo(80, 0);
+      });
+
+      /** Where the camera is `seconds` into the opening, on the clock. */
+      const clock = (seconds: number) => {
+        const { flight, turn } = FLIGHT_TIMING;
+        return path.poseAt(
+          seconds <= flight
+            ? { flight: seconds / flight, turn: 0, settle: 0 }
+            : {
+                flight: 1,
+                // sine.out, the turn's ease.
+                turn: Math.sin(
+                  (Math.min(1, (seconds - flight) / turn) * Math.PI) / 2,
+                ),
+                settle: 0,
+              },
+        ).position;
+      };
+      const speedAt = (seconds: number) =>
+        clock(seconds + 0.02).distanceTo(clock(seconds - 0.02)) / 0.04;
+
+      it("pans steadily, then swoops through the bend at over 1.5 times the pan's speed", () => {
+        const { pan, peak } = path.speeds;
+        expect(peak).toBeGreaterThan(1.5 * pan);
+        // Measured, not just planned.
+        let fastest = 0;
+        for (let t = 0.5; t < FLIGHT_TIMING.flight; t += 0.1) {
+          fastest = Math.max(fastest, speedAt(t));
+        }
+        expect(fastest).toBeGreaterThan(1.5 * speedAt(0.5));
+      });
+
+      it("eases off into the turn-in at its speed: no lurch at the join", () => {
+        const join = FLIGHT_TIMING.flight;
+        const before = speedAt(join - 0.05);
+        const after = speedAt(join + 0.05);
+        expect(Math.abs(after - before) / before).toBeLessThan(0.1);
+        expect(path.speeds.closing).toBeLessThan(path.speeds.peak / 1.5);
       });
 
       it("pans level, then rolls into the bends no faster than 65 degrees a second", () => {
@@ -181,9 +229,10 @@ describe("the flight path", () => {
         }
       });
 
-      it("swings the view through no more than 45 degrees before the turn-in", () => {
+      it("swings the view through no more than 55 degrees before the turn-in", () => {
         // The camera always looks at the plate, so the view turns as the
-        // camera's bearing from it changes: most of it in the opening pan.
+        // camera's bearing from it changes: most of it in the opening pan, from
+        // the right of the plate's line across to the left.
         let swung = 0;
         let last = offFinal({ flight: 0, turn: 0 });
         for (let flight = 0.01; flight <= 1.0001; flight += 0.01) {
@@ -191,7 +240,7 @@ describe("the flight path", () => {
           swung += Math.abs(now - last);
           last = now;
         }
-        expect(degrees(swung)).toBeLessThan(45);
+        expect(degrees(swung)).toBeLessThan(55);
       });
 
       it("cruises at no more than 88 units a second, so the credits read", () => {
@@ -205,7 +254,7 @@ describe("the flight path", () => {
         expect(length / FLIGHT_TIMING.flight).toBeLessThan(88);
       });
 
-      it("banks into every turn, left and right, and levels out to settle", () => {
+      it("banks right into the bend after the pan, never left, and levels out to settle", () => {
         const rigs = along(200).filter((r) => r.settle === 0);
         const banks: number[] = [];
         for (let i = 1; i < rigs.length - 1; i++) {
@@ -233,8 +282,10 @@ describe("the flight path", () => {
           }
           banks.push(Math.asin(lean));
         }
-        expect(degrees(Math.max(...banks))).toBeGreaterThan(10);
-        expect(degrees(Math.min(...banks))).toBeLessThan(-6);
+        // One bend, to the right (a negative lean), after the pan: never a
+        // lean to the left.
+        expect(degrees(Math.min(...banks))).toBeLessThan(-10);
+        expect(degrees(Math.max(...banks))).toBeLessThan(2);
         expect(degrees(Math.max(...banks.map(Math.abs)))).toBeLessThan(35);
       });
 

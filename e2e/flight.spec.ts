@@ -29,7 +29,7 @@ test.describe("with motion allowed", () => {
   // Small enough to render quickly in software WebGL; behaviour, not looks.
   test.use({ viewport: { width: 960, height: 600 } });
 
-  test("flies in: 'flight' on load, big title cards, 'settled' within 11 seconds", async ({
+  test("flies in: 'flight' on load, big title cards, 'settled' within 12 seconds", async ({
     page,
   }) => {
     await watchHero(page);
@@ -58,7 +58,7 @@ test.describe("with motion allowed", () => {
     });
     // Timed in the page: the opening's own budget, apart from page load.
     const { at, cardPeaks } = await watched(page);
-    expect(at.settled - at.flight).toBeLessThan(11_000);
+    expect(at.settled - at.flight).toBeLessThan(12_000);
     // Recorded in the page as they played: a card came into full view.
     expect(Math.max(0, ...cardPeaks)).toBe(1);
   });
