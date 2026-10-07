@@ -101,8 +101,16 @@ function creditSpot(index: number, aspect: number) {
   return spots[index % spots.length];
 }
 
-/** Moves an element, by transform only (so nothing reflows), to a point. */
-function moveTo(el: HTMLElement, root: HTMLElement, at: CreditPlacement) {
+/**
+ * Moves an element, by transform only (so nothing reflows), to a point,
+ * its foot no lower than `floor` (from the hero's top, in CSS pixels).
+ */
+function moveTo(
+  el: HTMLElement,
+  root: HTMLElement,
+  at: CreditPlacement,
+  floor: number,
+) {
   // Never larger than fits across the hero.
   const scale = Math.min(
     at.scale,
@@ -115,10 +123,7 @@ function moveTo(el: HTMLElement, root: HTMLElement, at: CreditPlacement) {
     Math.max(at.x, width / 2 + EDGE),
     root.clientWidth - width / 2 - EDGE,
   );
-  const y = Math.min(
-    Math.max(at.y, height / 2 + EDGE),
-    root.clientHeight - height / 2 - EDGE,
-  );
+  const y = Math.min(Math.max(at.y, height / 2 + EDGE), floor - height / 2);
   const dx = x - (el.offsetLeft + el.offsetWidth / 2);
   const dy = y - (el.offsetTop + el.offsetHeight / 2);
   el.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
@@ -178,6 +183,7 @@ export function HeroWorld({
       root.querySelectorAll<HTMLElement>("[data-credit-card]"),
     );
     const action = root.querySelector<HTMLElement>("[data-hero-action]");
+    const skip = root.querySelector<HTMLElement>("[data-credit-skip]");
 
     // The world reads this on every frame; the timeline animates it in place.
     // With motion allowed it starts where the flight does, so a world that
@@ -200,6 +206,11 @@ export function HeroWorld({
     function placeCredits() {
       if (!flying || !root) return;
       const aspect = root.clientWidth / Math.max(1, root.clientHeight);
+      // Every card stands clear above Skip, at the foot of the screen.
+      const foot = skip?.getBoundingClientRect();
+      const floor = foot?.height
+        ? foot.top - root.getBoundingClientRect().top - EDGE
+        : root.clientHeight - EDGE;
       cards.forEach((el, i) => {
         if (!(parseFloat(el.style.opacity) > 0)) return;
         const spot = creditSpot(i, aspect);
@@ -211,7 +222,7 @@ export function HeroWorld({
           y: ((1 - spot.y) / 2) * root.clientHeight,
           scale: 1,
         };
-        moveTo(el, root, at);
+        moveTo(el, root, at, floor);
       });
     }
 

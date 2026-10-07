@@ -9,8 +9,8 @@ import {
 /** Anything GSAP can fade: the credit elements, or plain objects in tests. */
 type Fadeable = HTMLElement | { opacity: number };
 
-/** Each credit fades in at its time and holds 1.1s before fading out. */
-const CREDIT = { first: 0.1, every: 1.3, fade: 0.2 } as const;
+/** Each credit fades in at its time and holds 1.9s before fading out. */
+const CREDIT = { first: 0.1, every: 2.1, fade: 0.2 } as const;
 
 /**
  * The opening as one GSAP timeline: the flight down the canyon at a constant

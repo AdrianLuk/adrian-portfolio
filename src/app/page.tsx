@@ -126,7 +126,8 @@ export default async function Home() {
         {/* The credits as opening titles, big in the scene: the hero anchors
           each in the world, dissolves it in and out in turn, and lets it drift
           as the camera flies on. A visual echo of the list above, which is
-          what assistive tech reads. */}
+          what assistive tech reads. Each card is at least as wide as its
+          longest word, so the hero keeps the whole card on screen. */}
         <div
           aria-hidden="true"
           className="pointer-events-none invisible absolute inset-0 overflow-hidden opening:visible"
@@ -137,7 +138,7 @@ export default async function Home() {
               <p
                 key={line}
                 data-credit-card
-                className="absolute top-0 left-0 w-max max-w-[min(40rem,calc(100vw-2rem))] opacity-0 [text-shadow:0_0_28px_var(--color-night),0_2px_8px_var(--color-night)]"
+                className="absolute top-0 left-0 w-max max-w-[min(40rem,calc(100vw-2rem))] min-w-min opacity-0 [text-shadow:0_0_28px_var(--color-night),0_2px_8px_var(--color-night)]"
               >
                 <span className="block font-display text-sm tracking-[0.35em] text-cyan uppercase [font-stretch:75%] sm:text-base">
                   {role}

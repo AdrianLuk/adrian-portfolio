@@ -1,15 +1,35 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { credits, hero } from "../src/content/site";
-import { heroRoot, SCENE_TIMEOUT, watched, watchHero, withoutWorld } from "./hero";
+import {
+  heroRoot,
+  SCENE_TIMEOUT,
+  watched,
+  watchHero,
+  withoutWorld,
+} from "./hero";
 
 // The opening as it plays. Skip is checked in route.spec.ts (which skips it
 // on its way down the route), reduced motion in world.spec.ts, and the
 // opening at 390px in route.spec.ts.
+test.describe("on a wide screen", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("every title card holds its longest word, so none runs off the screen", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const overflow = await page
+      .locator("[data-credit-card]")
+      .evaluateAll((els) => els.map((el) => el.scrollWidth - el.clientWidth));
+    expect(overflow).toEqual(overflow.map(() => 0));
+  });
+});
+
 test.describe("with motion allowed", () => {
   // Small enough to render quickly in software WebGL; behaviour, not looks.
   test.use({ viewport: { width: 960, height: 600 } });
 
-  test("flies in: 'flight' on load, big title cards, 'settled' within 7 seconds", async ({
+  test("flies in: 'flight' on load, big title cards, 'settled' within 11 seconds", async ({
     page,
   }) => {
     await watchHero(page);
@@ -38,7 +58,7 @@ test.describe("with motion allowed", () => {
     });
     // Timed in the page: the opening's own budget, apart from page load.
     const { at, cardPeaks } = await watched(page);
-    expect(at.settled - at.flight).toBeLessThan(7_000);
+    expect(at.settled - at.flight).toBeLessThan(11_000);
     // Recorded in the page as they played: a card came into full view.
     expect(Math.max(0, ...cardPeaks)).toBe(1);
   });
@@ -91,6 +111,56 @@ test.describe("with motion allowed", () => {
   });
 });
 
+// Every frame of the opening, the most any credit card in view covers Skip,
+// in square CSS pixels.
+async function skipCovered(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __covered: number };
+    w.__covered = 0;
+    const tick = () => {
+      const hero = document.querySelector("[data-state]");
+      const skip = document.querySelector("[data-credit-skip] button");
+      if (hero?.getAttribute("data-state") === "flight" && skip) {
+        const s = skip.getBoundingClientRect();
+        for (const card of document.querySelectorAll("[data-credit-card]")) {
+          if (+getComputedStyle(card).opacity < 0.05) continue;
+          // The type's own box, not the card's padding.
+          const range = document.createRange();
+          range.selectNodeContents(card);
+          const c = range.getBoundingClientRect();
+          const x = Math.min(c.right, s.right) - Math.max(c.left, s.left);
+          const y = Math.min(c.bottom, s.bottom) - Math.max(c.top, s.top);
+          if (x > 0 && y > 0) w.__covered = Math.max(w.__covered, x * y);
+        }
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await page.goto("/");
+  await expect(heroRoot(page)).toHaveAttribute("data-state", "settled", {
+    timeout: SCENE_TIMEOUT,
+  });
+  return page.evaluate(
+    () => (window as unknown as { __covered: number }).__covered,
+  );
+}
+
+for (const [name, viewport] of [
+  ["a laptop", { width: 1440, height: 900 }],
+  ["a small laptop", { width: 1280, height: 720 }],
+  ["a phone", { width: 390, height: 844 }],
+  ["a short phone", { width: 375, height: 667 }],
+] as const) {
+  test.describe(`with motion allowed, on ${name}`, () => {
+    test.use({ viewport });
+
+    test("no credit card ever stands over Skip", async ({ page }) => {
+      expect(await skipCovered(page)).toBe(0);
+    });
+  });
+}
+
 // A phone with its browser's toolbars showing: shorter than the hero, which
 // grows past its 88svh to fit the stacked name and copy.
 test.describe("with motion allowed, on a short phone", () => {
@@ -118,9 +188,7 @@ test.describe("with motion allowed, on a short phone", () => {
             const style = getComputedStyle(el);
             return style.visibility === "visible" ? +style.opacity : 0;
           };
-          const lines = items
-            .slice(0, -1)
-            .map((li) => shown(list) * shown(li));
+          const lines = items.slice(0, -1).map((li) => shown(list) * shown(li));
           w.__credits.peak[state] = Math.max(
             w.__credits.peak[state] ?? 0,
             ...lines,

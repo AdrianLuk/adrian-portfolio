@@ -13,10 +13,10 @@ function setup() {
 }
 
 describe("the flight timeline", () => {
-  it("runs 5 to 6 seconds, flight, turn-in and settle", () => {
+  it("runs 8.5 to 9 seconds, flight, turn-in and settle", () => {
     const { timeline } = setup();
-    expect(timeline.duration()).toBeGreaterThanOrEqual(5);
-    expect(timeline.duration()).toBeLessThanOrEqual(6);
+    expect(timeline.duration()).toBeGreaterThanOrEqual(8.5);
+    expect(timeline.duration()).toBeLessThanOrEqual(9);
   });
 
   it("starts far down the canyon, beams low, the lit site dark", () => {
@@ -33,10 +33,11 @@ describe("the flight timeline", () => {
       peak = Math.max(peak, rig.beams);
     }
     expect(peak).toBeGreaterThan(1.3);
+    timeline.seek(timeline.duration());
     expect(rig.beams).toBe(1);
   });
 
-  it("shows the credits one at a time, in order, each readable for over a second", () => {
+  it("shows the credits one at a time, in order, each readable for over a second and a half", () => {
     const { credits, timeline } = setup();
     const step = 0.01;
     const readable = credits.map(() => ({ longest: 0, run: 0, first: -1 }));
@@ -54,7 +55,7 @@ describe("the flight timeline", () => {
         } else r.run = 0;
       });
     }
-    for (const r of readable) expect(r.longest).toBeGreaterThan(1);
+    for (const r of readable) expect(r.longest).toBeGreaterThan(1.5);
     const firsts = readable.map((r) => r.first);
     expect(firsts).toEqual([...firsts].sort((a, b) => a - b));
     // Gone by the time it settles.
