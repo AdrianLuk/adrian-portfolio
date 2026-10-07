@@ -2,7 +2,7 @@
 
 The settings that shape the home page's opening: the camera's pan, swoop and swing-in, and the credits over it. Each one is named by its symbol, so search for it rather than trusting a line number.
 
-To try a change: edit the value, run `npm run dev`, and reload `localhost:3000`. Then run `npx vitest run`. If a test fails, its name says which rule the change broke (the "Guarded by" columns below). Loosening a test is fine when the new feel is what you want; say why in the test's comment.
+To try a change: edit the value, run `npm run dev`, and reload `localhost:3000`. Then run `npx vitest run`. If a test fails, its name says which rule the change broke (the "Guarded by" columns below). Loosening a test is fine when the new feel is what you want; say why in the test's comment. To compare frames, run `scripts/hero-shots.mjs` against a production build and against adrianluk.com (usage is in its header).
 
 ## How the opening runs
 

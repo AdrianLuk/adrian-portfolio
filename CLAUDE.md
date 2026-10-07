@@ -9,6 +9,11 @@ Adrian's public portfolio (adrianluk.com). Read `docs/HANDOFF.md` first: it hold
 - Must be axe-clean, keyboard navigable, with visible focus.
 - Never invent case-study details. If it isn't in the resume or blurbs, ask.
 
+## Working here
+
+- New worktree: run `npm ci` in it before `next dev` or `next build`. Turbopack can't use a linked `node_modules`.
+- Seeing the world: `node scripts/hero-shots.mjs <base-url> <out-prefix>` photographs the settled hero (desktop and phone) and a frame of the opening. Use it for visual checks and PR screenshots; a Chrome automation window freezes the canvas.
+
 ## Agent skills
 
 ### Issue tracker
