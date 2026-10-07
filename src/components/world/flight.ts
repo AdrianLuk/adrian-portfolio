@@ -53,6 +53,9 @@ const CRUISE_HEIGHT = 22;
 const MAX_BANK = 0.32;
 const BANK_PER_CURVATURE = 60;
 
+/** World units past the pan's end over which the bank eases in. */
+const BANK_IN = 80;
+
 const UP = new Vector3(0, 1, 0);
 
 /**
@@ -161,7 +164,13 @@ function buildCurve(settled: Pose, plateCentre: Vector3, radius: number) {
   const lengths = curve.getLengths((points.length - 1) * perSegment);
   const total = lengths[lengths.length - 1];
   const toTurn = lengths[arcFrom * perSegment];
-  return { curve, total, toTurn, panLength: radius * PAN.swing };
+  return {
+    curve,
+    total,
+    toTurn,
+    panLength: radius * PAN.swing,
+    panEnd: lengths[panSteps * perSegment],
+  };
 }
 
 /**
@@ -179,7 +188,7 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
     radius *= 1 + (wanted - built.toTurn) / built.panLength;
     built = buildCurve(settled, plateCentre, radius);
   }
-  const { curve, total, toTurn } = built;
+  const { curve, total, toTurn, panEnd } = built;
   const turnStart = toTurn / total;
 
   const look = new Matrix4();
@@ -227,8 +236,11 @@ export function createFlightPath(settled: Pose, plateCentre: Vector3) {
       look.lookAt(position, plateCentre, UP);
       const quaternion = new Quaternion().setFromRotationMatrix(look);
       // Soft-limited, so the hardest turn leans in without pinning at the limit.
+      // Level through the pan (a pan, not a plane), easing in after it.
       const bank =
-        MAX_BANK * Math.tanh((curvature(u) * BANK_PER_CURVATURE) / MAX_BANK);
+        MAX_BANK *
+        Math.tanh((curvature(u) * BANK_PER_CURVATURE) / MAX_BANK) *
+        smoothstep(panEnd, panEnd + BANK_IN, u * total);
       quaternion.multiply(roll.setFromAxisAngle(forward, -bank));
 
       const settle = Math.min(1, Math.max(0, rig.settle));

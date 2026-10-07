@@ -158,6 +158,29 @@ describe("the flight path", () => {
         expect(moved.y).toBeLessThan(-5);
       });
 
+      it("pans level, then rolls into the bends no faster than 65 degrees a second", () => {
+        // The camera's roll, its up against the world's about its forward axis.
+        const rollAt = (seconds: number) => {
+          const { quaternion } = path.poseAt({
+            flight: seconds / FLIGHT_TIMING.flight,
+            turn: 0,
+            settle: 0,
+          });
+          const ahead = new Vector3(0, 0, -1).applyQuaternion(quaternion);
+          const up = new Vector3(0, 1, 0).applyQuaternion(quaternion);
+          const right = ahead.cross(new Vector3(0, 1, 0)).normalize();
+          return degrees(Math.asin(up.dot(right)));
+        };
+        expect(Math.abs(rollAt(0))).toBeLessThan(0.5);
+        expect(Math.abs(rollAt(1))).toBeLessThan(0.5);
+        const step = 0.02;
+        for (let t = step; t <= FLIGHT_TIMING.flight; t += step) {
+          expect(Math.abs(rollAt(t) - rollAt(t - step)) / step).toBeLessThan(
+            65,
+          );
+        }
+      });
+
       it("swings the view through no more than 45 degrees before the turn-in", () => {
         // The camera always looks at the plate, so the view turns as the
         // camera's bearing from it changes: most of it in the opening pan.
