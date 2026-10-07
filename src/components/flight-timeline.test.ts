@@ -25,10 +25,10 @@ function firstShown(
 }
 
 describe("the flight timeline", () => {
-  it("runs 10.25 to 10.75 seconds, flight, turn-in and settle", () => {
+  it("runs 9 to 9.5 seconds, flight, turn-in and settle", () => {
     const { timeline } = setup();
-    expect(timeline.duration()).toBeGreaterThanOrEqual(10.25);
-    expect(timeline.duration()).toBeLessThanOrEqual(10.75);
+    expect(timeline.duration()).toBeGreaterThanOrEqual(9);
+    expect(timeline.duration()).toBeLessThanOrEqual(9.5);
   });
 
   it("starts far down the canyon, beams low, the lit site dark", () => {

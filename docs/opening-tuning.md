@@ -21,7 +21,7 @@ Distances are world units. For scale, the camera flies 22 units above the canyon
 | Setting | Now | What it does | Guarded by |
 | --- | --- | --- | --- |
 | `start` | `80` | How far right of the canyon's centre the pan starts. | "starts about 80 units right of the canyon's centre" (update it with the value) |
-| `speed` | `40` | The pan's speed, units a second. Faster leaves the swoop more time, so its peak drops. | "pans steadily, then swoops ... 1.5 times the pan's speed" |
+| `speed` | `40` | The pan's speed, units a second. Faster leaves the swoop more time, so its peak drops. | "pans steadily, then swoops ... 3 times the pan's speed" |
 | `lift` | `40` | How high above cruise height the pan flies, which is also how far the swoop dives. | "stays well above the ground ...", "sees the plate the whole way ..." |
 | `from` / `to` | `75°` / `35°` | The pan's heading at its start and end, off the canyon's line. A higher `from` slides more sideways at first. | "opens on a pan: sliding sideways ...", "swings the view through no more than 55 degrees ..." |
 | `side` | `20` | How far left of the canyon's mouth the pan ends and the bank begins. | "banks right into the bend ... never left ..." |
@@ -61,14 +61,14 @@ Guarded by "eases off into the turn-in at its speed: no lurch at the join", whic
 
 | Setting | Where | Now | What it does |
 | --- | --- | --- | --- |
-| `FLIGHT_TIMING.flight` | `src/components/world/rigs.ts` | `6.5` | Seconds from the start to the swing-in. The pan's speed is fixed, so a longer flight gives a gentler swoop. |
+| `FLIGHT_TIMING.flight` | `src/components/world/rigs.ts` | `5.25` | Seconds from the start to the swing-in. The pan's speed is fixed, so a longer flight gives a gentler swoop (at 5.25 it peaks at over 3 times the pan's speed). |
 | `CREDIT.first` | `src/components/flight-timeline.ts` | `2` | When the first credit appears, in seconds. |
-| `CREDIT.every` | `src/components/flight-timeline.ts` | `2` | The gap between credits. Each is fully up for `every - fade`. |
+| `CREDIT.every` | `src/components/flight-timeline.ts` | `1.75` | The gap between credits. Each is fully up for `every - fade`. |
 | `CREDIT.fade` | `src/components/flight-timeline.ts` | `0.2` | Each credit's fade in and out. |
 | `credits.lines` | `src/content/site.ts` | | The credits' copy, as `Role: name`. |
 | `EDGE` | `src/components/hero-world.tsx` | `24` | The gap, in CSS pixels, between a credit card and the screen's edges and Skip. |
 
-Keep `CREDIT.first + 4 × CREDIT.every + CREDIT.fade` at or below `FLIGHT_TIMING.flight + FLIGHT_TIMING.turn`, or the last credit is still up when the opening ends. Guarded by "shows the credits one at a time ..." and "runs 10.25 to 10.75 seconds ..." in `src/components/flight-timeline.test.ts`, and the e2e check that the opening settles within 12 seconds in `e2e/flight.spec.ts`. Update those ranges when you change the length on purpose.
+Keep `CREDIT.first + 4 × CREDIT.every + CREDIT.fade` at or below `FLIGHT_TIMING.flight + FLIGHT_TIMING.turn`, or the last credit is still up when the opening ends. Guarded by "shows the credits one at a time ..." and "runs 9 to 9.5 seconds ..." in `src/components/flight-timeline.test.ts`, and the e2e check that the opening settles within 12 seconds in `e2e/flight.spec.ts`. Update those ranges when you change the length on purpose.
 
 ## Where the rules live
 

@@ -12,9 +12,9 @@ type Fadeable = HTMLElement | { opacity: number };
 
 /**
  * The first credit waits out most of the opening pan; each fades in at its
- * time and holds 1.8s before fading out.
+ * time and holds 1.55s before fading out.
  */
-const CREDIT = { first: 2, every: 2, fade: 0.2 } as const;
+const CREDIT = { first: 2, every: 1.75, fade: 0.2 } as const;
 
 /**
  * The opening as one GSAP timeline: the flight down the canyon at a constant
