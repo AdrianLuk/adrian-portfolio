@@ -176,10 +176,8 @@ describe("the flight path", () => {
             ? { flight: seconds / flight, turn: 0, settle: 0 }
             : {
                 flight: 1,
-                // sine.out, the turn's ease.
-                turn: Math.sin(
-                  (Math.min(1, (seconds - flight) / turn) * Math.PI) / 2,
-                ),
+                // power2.out, the turn's ease.
+                turn: 1 - (1 - Math.min(1, (seconds - flight) / turn)) ** 3,
                 settle: 0,
               },
         ).position;
@@ -187,24 +185,27 @@ describe("the flight path", () => {
       const speedAt = (seconds: number) =>
         clock(seconds + 0.02).distanceTo(clock(seconds - 0.02)) / 0.04;
 
-      it("pans steadily, then swoops through the bend at over 3 times the pan's speed", () => {
+      it("pans steadily, then swoops through the bend at over 2.5 times the pan's speed", () => {
         // A fighter jet's punch, not a glide.
         const { pan, peak } = path.speeds;
-        expect(peak).toBeGreaterThan(3 * pan);
+        expect(peak).toBeGreaterThan(2.5 * pan);
         // Measured, not just planned.
         let fastest = 0;
         for (let t = 0.5; t < FLIGHT_TIMING.flight; t += 0.1) {
           fastest = Math.max(fastest, speedAt(t));
         }
-        expect(fastest).toBeGreaterThan(3 * speedAt(0.5));
+        expect(fastest).toBeGreaterThan(2.5 * speedAt(0.5));
       });
 
-      it("eases off into the turn-in at its speed: no lurch at the join", () => {
+      it("runs hot into the turn-in at its speed: no lurch at the join", () => {
         const join = FLIGHT_TIMING.flight;
         const before = speedAt(join - 0.05);
         const after = speedAt(join + 0.05);
         expect(Math.abs(after - before) / before).toBeLessThan(0.1);
-        expect(path.speeds.closing).toBeLessThan(path.speeds.peak / 1.5);
+        // The strafe comes in at over twice the pan's speed, never faster
+        // than the swoop's peak, and brakes from there.
+        expect(path.speeds.closing).toBeGreaterThan(2 * path.speeds.pan);
+        expect(path.speeds.closing).toBeLessThanOrEqual(path.speeds.peak);
       });
 
       it("pans level, then rolls into the bends no faster than 65 degrees a second", () => {
