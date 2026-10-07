@@ -1,0 +1,315 @@
+// No Three.js here: the director is made with the world host, before the
+// first paint. The paths the world hands it do the maths.
+import type { Place } from "./world-places";
+import type { FlightPath, Pose } from "./world/flight";
+import {
+  FLIGHT_START_RIG,
+  SETTLED_RIG,
+  SITE_PLAN,
+  TRANSIT_MAX_SECONDS,
+  type FlightRig,
+} from "./world/rigs";
+import type { Route } from "./world/route";
+import type { Departure, Transit } from "./world/transit";
+
+/**
+ * What the world hands the director each time it lays a view out: the paths
+ * the camera can take for that layout, and the Transit maths, which ship with
+ * the world so they are ready whenever the paths are.
+ */
+export type CameraPaths = {
+  /** The Opening's path and the scroll route; null until home's headline is measured. */
+  opening: FlightPath | null;
+  route: Route | null;
+  /** The Outpost's pose, for the screen's shape. */
+  outpost: Pose;
+  /** The Outpost's stop on the route. */
+  outpostStop: number;
+  transit(route: Route, departure: Departure, to: number): Transit;
+};
+
+/** How brightly the world's lights burn in a frame. */
+export type CameraLights = {
+  /** The name plate's arrival: its beams' brightness, and their sweep's offset. */
+  beams: number;
+  sweep: number;
+  /** Each Lit site's light, as a share of a beacon's full intensity. */
+  sites: number[];
+};
+
+/** What the world draws in a frame: null leaves the camera, or the lights, as they are. */
+export type CameraFrame = { pose: Pose | null; lights: CameraLights | null };
+
+/**
+ * How long the camera waits, at most, on its destination page (and its
+ * paths) before landing without them, in ms: a slow network never strands
+ * the camera.
+ */
+const ARRIVAL_LIMIT = 4000;
+
+/**
+ * How far home's scroll may have moved the destination, in route stops,
+ * before a Transit landing there goes on to meet it.
+ */
+const CHASE = 0.02;
+
+/**
+ * A Lit site's light, as a share of a beacon's: how dim the sites further
+ * down the valley wait, and how much brighter each burns once its panel is in.
+ */
+const SITE_LIGHT = { waiting: 0.35, lit: 0.9 };
+
+/** A Transit under way. */
+type Trip = {
+  to: Place;
+  /** Where it left from. */
+  departure: Departure;
+  /** The camera as it left, held there until the Transit is planned. */
+  held: Pose;
+  /** The path, once its route (and its stop on it) is known. */
+  transit: Transit | null;
+  /** The route stop it lands at. */
+  stop: number;
+  /** When the Transit started, and when the navigation did, in ms. */
+  start: number;
+  since: number;
+};
+
+type Planned = Trip & { transit: Transit };
+
+const copyOf = ({ position, quaternion }: Pose): Pose => ({
+  position: position.clone(),
+  quaternion: quaternion.clone(),
+});
+
+/**
+ * The Camera director: the one place that decides where the world's camera
+ * is, and how the world is lit, frame by frame, as it hands over between the
+ * Opening, the scroll route, a Transit and the Outpost. The camera never
+ * jumps: at a handoff it holds where it is until the next driver reports.
+ *
+ * Every driver reports to it, and none of them reads another's state: the
+ * Opening's timeline its values and its landing, the scroll route its stop,
+ * navigation the Transits, the world host the place on screen, the world the
+ * paths each layout measures. Time is passed in (performance.now()'s ms); it
+ * keeps no loop of its own.
+ */
+export function createCameraDirector({
+  homeStop,
+}: {
+  /** Where home's own scroll puts the camera, before the scroll route reports. */
+  homeStop: () => number;
+}) {
+  let paths: CameraPaths | null = null;
+  let shown: Place | null = null;
+  let opening: FlightRig = { ...FLIGHT_START_RIG };
+  let landed = false;
+  /** True while the scroll route is reporting its stop. */
+  let scrolling = false;
+  let routeStop = 0;
+  const lit = SITE_PLAN.map(() => 0);
+  let trip: Trip | null = null;
+  /** The last pose drawn, for a Transit leaving before the paths are in. */
+  let last: Pose | null = null;
+
+  /** Home's paths, once measured. */
+  const homePaths = () =>
+    paths?.opening && paths.route
+      ? { opening: paths.opening, route: paths.route }
+      : null;
+
+  /** The place's own camera, without a Transit; null if not yet known. */
+  function viewPose(): Pose | null {
+    if (shown === "outpost") return paths?.outpost ?? null;
+    const home = shown === "hero" && homePaths();
+    if (!home) return null;
+    return landed
+      ? home.route.poseAt(routeStop)
+      : home.opening.poseAt(opening);
+  }
+
+  /** Where a Transit to home lands: where the scroll route is, or the page's scroll. */
+  const homeTarget = () => (scrolling ? routeStop : homeStop());
+
+  /** How far through its Transit `t` is at `now`, 0 to 1. */
+  function progress(t: Planned, now: number) {
+    const ms = t.transit.duration * 1000;
+    return ms > 0 ? Math.min(1, (now - t.start) / ms) : 1;
+  }
+
+  function poseIn(t: Trip, now: number): Pose {
+    return t.transit
+      ? t.transit.poseAt(progress(t as Planned, now))
+      : copyOf(t.held);
+  }
+
+  /**
+   * Plans the Transit once its route is known: at once down to the Outpost;
+   * home only once its page is in, where its scroll says.
+   */
+  function plan(t: Trip, now: number) {
+    const route = paths?.route;
+    if (!paths || !route) return;
+    if (t.to === "hero" && shown !== "hero") return;
+    t.stop = t.to === "outpost" ? paths.outpostStop : homeTarget();
+    t.transit = paths.transit(route, t.departure, t.stop);
+    t.start = now;
+  }
+
+  /**
+   * Where a Transit leaving now leaves from: where the camera is in the
+   * Transit under way, or in the Opening (which it finishes first, never
+   * cutting across the canyon), or wherever else it stands.
+   */
+  function departure(now: number): Pick<Trip, "departure" | "held"> | null {
+    if (trip) {
+      return trip.transit
+        ? {
+            held: poseIn(trip, now),
+            departure: trip.transit.departureAt(
+              progress(trip as Planned, now),
+            ),
+          }
+        : { held: copyOf(trip.held), departure: trip.departure };
+    }
+    const home = shown === "hero" && !landed && homePaths();
+    if (home) {
+      const travel = home.opening.travel(opening);
+      const { settle } = opening;
+      return {
+        held: home.opening.poseAlong(travel, settle),
+        departure: { opening: home.opening, travel, settle },
+      };
+    }
+    const pose = viewPose() ?? last;
+    return pose && { held: copyOf(pose), departure: { pose: copyOf(pose) } };
+  }
+
+  /** Ends the Transit: home holds the stop it landed at until the scroll route reports. */
+  function land() {
+    const t = trip;
+    trip = null;
+    if (t?.transit && t.to === "hero" && !scrolling) routeStop = t.stop;
+  }
+
+  /** Moves a Transit on to `now`: plans it, chases home's scroll, lands it. */
+  function advance(now: number) {
+    const t = trip;
+    if (!t) return;
+    if (!t.transit) plan(t, now);
+    if (
+      t.transit &&
+      shown === t.to &&
+      now - t.start >= t.transit.duration * 1000
+    ) {
+      // Home's scroll moved on meanwhile: fly on to meet it.
+      if (t.to === "hero" && Math.abs(homeTarget() - t.stop) > CHASE) {
+        t.held = poseIn(t, now);
+        t.departure = { pose: t.held };
+        plan(t, now);
+      } else {
+        land();
+        return;
+      }
+    }
+    if (now - t.since > ARRIVAL_LIMIT + TRANSIT_MAX_SECONDS * 1000) land();
+  }
+
+  function lights(): CameraLights | null {
+    if (shown !== "hero" || !homePaths()) return null;
+    const { beams, sweep, beacon } = opening;
+    return {
+      beams,
+      sweep,
+      sites: SITE_PLAN.map((_, i) => {
+        // The first is the scroll cue, lit by the arrival; the rest wait dim.
+        const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
+        return waiting + SITE_LIGHT.lit * lit[i];
+      }),
+    };
+  }
+
+  return {
+    // From the world and its host.
+
+    /** The world has laid a view out: the paths for that layout. */
+    layout(next: CameraPaths) {
+      paths = next;
+    },
+    /** The place the world shows now (null: none, parked). */
+    show(place: Place | null) {
+      shown = place;
+    },
+
+    // From the Opening.
+
+    /** The Opening starts afresh, far down the canyon. */
+    openingStarts() {
+      opening = { ...FLIGHT_START_RIG };
+      landed = false;
+    },
+    /** Where the Opening's timeline has got to. */
+    openingAt(values: Readonly<FlightRig>) {
+      if (!landed) opening = { ...values };
+    },
+    /**
+     * The Opening has landed (run out, skipped, or never run under reduced
+     * motion or on rejoining a live world): the scroll route has the camera.
+     */
+    openingLands() {
+      landed = true;
+      opening = { ...SETTLED_RIG };
+    },
+
+    // From the scroll route.
+
+    /** The stop home's scroll puts the camera at, and how lit each site is. */
+    scrolled(stop: number, sites: readonly number[]) {
+      scrolling = true;
+      routeStop = stop;
+      lit.forEach((_, i) => (lit[i] = sites[i] ?? 0));
+    },
+    /** The scroll route has stopped: back to the settled view, the sites dark. */
+    scrollStopped() {
+      scrolling = false;
+      routeStop = 0;
+      lit.fill(0);
+    },
+    /**
+     * The route stop the camera stands at, or is landing at in a Transit
+     * home: where a scroll route starting now picks the camera up.
+     */
+    stop: () => (trip?.transit && trip.to === "hero" ? trip.stop : routeStop),
+
+    // From navigation.
+
+    /**
+     * Starts a Transit to `to`, or turns the one under way round, from
+     * wherever the camera is. False if the camera has nowhere to leave from.
+     */
+    fly(to: Place, now: number) {
+      const from = departure(now);
+      if (!from) return false;
+      trip = { to, ...from, transit: null, stop: 0, start: 0, since: now };
+      plan(trip, now);
+      return true;
+    },
+    /** Lands any Transit under way at once. */
+    arrive: land,
+    /** Where the Transit under way is flying; null once it has landed. */
+    flying: (): Place | null => trip?.to ?? null,
+    advance,
+
+    // To the world.
+
+    /** Where the camera is at `now`, and how the world is lit. */
+    frame(now: number): CameraFrame {
+      advance(now);
+      const pose = trip ? poseIn(trip, now) : viewPose();
+      if (pose) last = pose;
+      return { pose, lights: lights() };
+    },
+  };
+}
+
+export type CameraDirector = ReturnType<typeof createCameraDirector>;

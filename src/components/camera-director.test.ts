@@ -1,0 +1,319 @@
+import { Euler, Quaternion, Vector3 } from "three";
+import { describe, expect, it } from "vitest";
+import {
+  createCameraDirector,
+  type CameraDirector,
+  type CameraPaths,
+} from "./camera-director";
+import { createFlightTimeline } from "./flight-timeline";
+import type { Place } from "./world-places";
+import { createFlightPath, type Pose } from "./world/flight";
+import { CAMERA } from "./world/pose";
+import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
+import { createRoute, outpostPose } from "./world/route";
+import { OUTPOST_STOP, transit } from "./world/transit";
+
+/** A desktop layout's settled pose and plate (as in transit.test.ts). */
+const settled: Pose = {
+  position: new Vector3(0, 21, 0),
+  quaternion: new Quaternion().setFromEuler(
+    new Euler(-CAMERA.pitch, 0, 0, "YXZ"),
+  ),
+};
+const plateCentre = new Vector3(-18, 0, -CAMERA.plateDepth)
+  .applyQuaternion(settled.quaternion)
+  .add(settled.position);
+const aspect = 1.6;
+
+const FRAME = 16;
+
+/**
+ * The most the camera ever moves in a frame of FRAME ms when nothing jumps:
+ * a Transit finishing the Opening's swoop, quickened, moves it about 14 units
+ * and turns it about 0.17 radians; the Opening itself, and the route, less.
+ * A snap to another view is hundreds of units.
+ */
+const MOST = { distance: 20, angle: 0.25 };
+
+/** A director with home's paths measured, and home's page scrolled to `page.stop`. */
+function setup() {
+  const route = createRoute(settled, plateCentre, aspect);
+  const opening = createFlightPath(settled, plateCentre);
+  const page = { stop: 0 };
+  const paths: CameraPaths = {
+    opening,
+    route,
+    outpost: outpostPose(aspect),
+    outpostStop: OUTPOST_STOP,
+    transit,
+  };
+  const director = createCameraDirector({ homeStop: () => page.stop });
+  director.layout(paths);
+  return { director, route, opening, page, paths };
+}
+
+/** The Opening's own timeline, paused, its values passed on as it is seeked. */
+function openingTimeline(director: CameraDirector) {
+  const rig = { ...FLIGHT_START_RIG };
+  const timeline = createFlightTimeline({
+    rig,
+    credits: [],
+    onComplete: () => director.openingLands(),
+  });
+  timeline.pause(0);
+  return {
+    rig,
+    duration: timeline.duration(),
+    at(seconds: number) {
+      timeline.seek(seconds);
+      director.openingAt(rig);
+      if (seconds >= timeline.duration()) director.openingLands();
+    },
+  };
+}
+
+/**
+ * Films `ms` of frames from `from`, calling `script` with each frame's time
+ * first, and returns every pose drawn.
+ */
+function film(
+  director: CameraDirector,
+  from: number,
+  ms: number,
+  script: (now: number) => void = () => {},
+) {
+  const poses: Pose[] = [];
+  for (let now = from; now <= from + ms; now += FRAME) {
+    script(now);
+    const { pose } = director.frame(now);
+    if (pose) poses.push(pose);
+  }
+  return poses;
+}
+
+/** Fails at the first frame the camera jumps. */
+function expectNoJump(poses: readonly Pose[]) {
+  for (let i = 1; i < poses.length; i++) {
+    const moved = poses[i].position.distanceTo(poses[i - 1].position);
+    const turned = poses[i].quaternion.angleTo(poses[i - 1].quaternion);
+    expect({ frame: i, moved: moved <= MOST.distance }).toEqual({
+      frame: i,
+      moved: true,
+    });
+    expect({ frame: i, turned: turned <= MOST.angle }).toEqual({
+      frame: i,
+      turned: true,
+    });
+  }
+}
+
+function expectSamePose(a: Pose, b: Pose) {
+  expect(a.position.distanceTo(b.position)).toBeLessThan(1e-6);
+  expect(a.quaternion.angleTo(b.quaternion)).toBeLessThan(1e-6);
+}
+
+/** Flies `to` from `now` until the director lands, the page arriving after `arrives` ms. */
+function flyTo(
+  director: CameraDirector,
+  to: Place,
+  now: number,
+  arrives = 300,
+  script: (now: number) => void = () => {},
+) {
+  expect(director.fly(to, now)).toBe(true);
+  const poses: Pose[] = [];
+  let t = now;
+  for (; director.flying() && t < now + 10_000; t += FRAME) {
+    if (t >= now + arrives) director.show(to);
+    script(t);
+    const { pose } = director.frame(t);
+    if (pose) poses.push(pose);
+  }
+  return { poses, landedAt: t };
+}
+
+describe("the Camera director", () => {
+  it("draws nothing until it knows the place and its paths", () => {
+    const director = createCameraDirector({ homeStop: () => 0 });
+    expect(director.frame(0)).toEqual({ pose: null, lights: null });
+    director.show("hero");
+    expect(director.frame(16)).toEqual({ pose: null, lights: null });
+  });
+
+  it("flies the Opening and lands it on the settled view, the first Lit site at full light", () => {
+    const { director, opening, route } = setup();
+    director.show("hero");
+    director.openingStarts();
+    const timeline = openingTimeline(director);
+    timeline.at(3);
+    expectSamePose(director.frame(0).pose!, opening.poseAt(timeline.rig));
+
+    timeline.at(timeline.duration);
+    const { pose, lights } = director.frame(16);
+    expectSamePose(pose!, route.poseAt(0));
+    expect(lights).toEqual({ beams: 1, sweep: 0, sites: [1, 0.35, 0.35, 0.35] });
+  });
+
+  it("lights each site as the scroll route says, and darkens them once it stops", () => {
+    const { director, route } = setup();
+    director.show("hero");
+    director.openingLands();
+    director.scrolled(1.5, [1, 0.5, 0, 0]);
+    const { pose, lights } = director.frame(0);
+    expectSamePose(pose!, route.poseAt(1.5));
+    expect(lights!.sites[0]).toBeCloseTo(1.9);
+    expect(lights!.sites[1]).toBeCloseTo(0.35 + 0.45);
+
+    director.scrollStopped();
+    expectSamePose(director.frame(16).pose!, route.poseAt(0));
+    expect(director.frame(32).lights!.sites).toEqual([1, 0.35, 0.35, 0.35]);
+  });
+
+  it("holds the Outpost's pose at the Outpost, with no lights of its own", () => {
+    const { director } = setup();
+    director.show("outpost");
+    const { pose, lights } = director.frame(0);
+    expectSamePose(pose!, outpostPose(aspect));
+    expect(lights).toBeNull();
+  });
+
+  describe("never jumps at a handoff", () => {
+    it("from the Opening to the scroll route", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingStarts();
+      const timeline = openingTimeline(director);
+      const end = timeline.duration * 1000;
+      const poses = film(director, 0, end + 2000, (now) => {
+        if (now <= end + FRAME) timeline.at(Math.min(now, end) / 1000);
+        // The visitor scrolls a stop and a half in the two seconds after.
+        else director.scrolled(((now - end) / 2000) * 1.5, [1, 0, 0, 0]);
+      });
+      expectNoJump(poses);
+    });
+
+    it("from the scroll route to a Transit down to the Outpost", () => {
+      const { director, paths } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.scrolled(1.5, [1, 1, 0, 0]);
+      const before = film(director, 0, 200);
+      const { poses } = flyTo(director, "outpost", 216);
+      const after = film(director, 216 + poses.length * FRAME, 200);
+      expectNoJump([...before, ...poses, ...after]);
+      expectSamePose(after.at(-1)!, paths.outpost);
+    });
+
+    it("from the Opening to a Transit, leaving from the camera's live pose", () => {
+      const { director, opening } = setup();
+      director.show("hero");
+      director.openingStarts();
+      const timeline = openingTimeline(director);
+      const before = film(director, 0, 3000, (now) => timeline.at(now / 1000));
+      const live = opening.poseAt(timeline.rig);
+      const { poses } = flyTo(director, "outpost", 3016);
+      expectSamePose(poses[0], live);
+      expect(poses[0].position.distanceTo(settled.position)).toBeGreaterThan(50);
+      expectNoJump([...before, ...poses]);
+    });
+
+    it("from a Transit home to the scroll route, though the scroll route starts late", () => {
+      const { director, route, page } = setup();
+      director.show("outpost");
+      const before = film(director, 0, 100);
+      page.stop = 2.3;
+      // Home arrives, rejoining the live world: the Opening never replays.
+      const arrive = () => director.openingLands();
+      const { poses, landedAt } = flyTo(director, "hero", 116, 300, arrive);
+      // Its scroll route's chunk is slow: the camera holds where it landed.
+      const waiting = film(director, landedAt, 500);
+      expectSamePose(waiting.at(-1)!, route.poseAt(2.3));
+      // The scroll route starts from the director's stop, and eases to the page's.
+      const seed = director.stop();
+      expect(seed).toBeCloseTo(2.3);
+      const following = film(director, landedAt + 516, 300, (now) => {
+        const f = (now - landedAt - 516) / 300;
+        director.scrolled(seed + (2.4 - seed) * f, [1, 1, 1, 0]);
+      });
+      expectNoJump([...before, ...poses, ...waiting, ...following]);
+    });
+
+    it("from a Transit home to a scroll route already reporting, chasing a scroll that moved", () => {
+      const { director, page, route } = setup();
+      director.show("outpost");
+      page.stop = 1;
+      let scroll = 1;
+      const { poses } = flyTo(director, "hero", 0, 300, (now) => {
+        if (now < 300) return;
+        director.openingLands();
+        // The visitor scrolls on while the camera flies home.
+        scroll = Math.min(2, 1 + (now - 300) / 1500);
+        page.stop = scroll;
+        director.scrolled(scroll, [1, 1, 0, 0]);
+      });
+      const after = film(director, poses.length * FRAME, 300, () =>
+        director.scrolled(scroll, [1, 1, 0, 0]),
+      );
+      expectNoJump([...poses, ...after]);
+      expectSamePose(after.at(-1)!, route.poseAt(2));
+    });
+
+    it("when Back turns a Transit round mid-flight", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      expect(director.fly("outpost", 0)).toBe(true);
+      const out = film(director, 0, 500);
+      const turning = director.frame(500).pose!;
+      // The Resume page never arrived; home is still the page on screen.
+      const { poses } = flyTo(director, "hero", 500, 0);
+      expectSamePose(poses[0], turning);
+      expectNoJump([...out, ...poses]);
+      expect(director.flying()).toBeNull();
+    });
+  });
+
+  it("lands on the Outpost once the Resume page is in and the camera is there", () => {
+    const { director } = setup();
+    director.show("hero");
+    director.openingLands();
+    director.fly("outpost", 0);
+    director.advance(TRANSIT_MAX_SECONDS * 1000 + 100);
+    // The page is still on its way: the camera waits at the Outpost for it.
+    expect(director.flying()).toBe("outpost");
+    director.show("outpost");
+    director.advance(TRANSIT_MAX_SECONDS * 1000 + 116);
+    expect(director.flying()).toBeNull();
+    expectSamePose(director.frame(TRANSIT_MAX_SECONDS * 1000 + 132).pose!, outpostPose(aspect));
+  });
+
+  it("gives up on a page that never arrives, after the arrival limit", () => {
+    const { director } = setup();
+    director.show("hero");
+    director.openingLands();
+    director.fly("outpost", 0);
+    director.advance(6000);
+    expect(director.flying()).toBe("outpost");
+    director.advance(6600);
+    expect(director.flying()).toBeNull();
+  });
+
+  it("lands at once when told to, home holding the stop it was flying to", () => {
+    const { director, route, page } = setup();
+    director.show("outpost");
+    page.stop = 1.2;
+    director.fly("hero", 0);
+    director.show("hero");
+    director.openingLands();
+    director.frame(16);
+    director.arrive();
+    expect(director.flying()).toBeNull();
+    expectSamePose(director.frame(32).pose!, route.poseAt(1.2));
+  });
+
+  it("has nowhere to fly from before any place has been drawn", () => {
+    const director = createCameraDirector({ homeStop: () => 0 });
+    expect(director.fly("outpost", 0)).toBe(false);
+    expect(director.flying()).toBeNull();
+  });
+});
