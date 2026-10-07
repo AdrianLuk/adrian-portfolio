@@ -203,6 +203,12 @@ describe("the city", () => {
         }
       });
 
+      it("sees the first lit site, the beacon, down the street past every building", () => {
+        for (const b of buildings) {
+          expect(crosses(eye, SITES[0].position, b)).toBe(false);
+        }
+      });
+
       it("never meets the opening flight, which sees the plate past it the whole way", () => {
         const path = createFlightPath(settled, plateCentre);
         for (const rig of along()) {
