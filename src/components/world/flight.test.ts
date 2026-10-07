@@ -187,15 +187,16 @@ describe("the flight path", () => {
       const speedAt = (seconds: number) =>
         clock(seconds + 0.02).distanceTo(clock(seconds - 0.02)) / 0.04;
 
-      it("pans steadily, then swoops through the bend at over 1.5 times the pan's speed", () => {
+      it("pans steadily, then swoops through the bend at over 3 times the pan's speed", () => {
+        // A fighter jet's punch, not a glide.
         const { pan, peak } = path.speeds;
-        expect(peak).toBeGreaterThan(1.5 * pan);
+        expect(peak).toBeGreaterThan(3 * pan);
         // Measured, not just planned.
         let fastest = 0;
         for (let t = 0.5; t < FLIGHT_TIMING.flight; t += 0.1) {
           fastest = Math.max(fastest, speedAt(t));
         }
-        expect(fastest).toBeGreaterThan(1.5 * speedAt(0.5));
+        expect(fastest).toBeGreaterThan(3 * speedAt(0.5));
       });
 
       it("eases off into the turn-in at its speed: no lurch at the join", () => {
