@@ -488,37 +488,61 @@ test.describe("camera flights between home and the Resume page", () => {
   test("Resume clicked during the opening flies from where the opening has got to, and lands at the Outpost", async ({
     browser,
   }, testInfo) => {
-    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
-      noTransits;
-    const page = await openHome(browser, testInfo, {
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
       viewport: { width: 960, height: 600 },
-      until: "drawn",
-      prepare: async (page) => {
-        transit = await watchTransit(page);
-      },
     });
-    await tagCanvas(heroRoot(page).locator("canvas"));
-    // Partway into the opening, the click flies at once. (Clicked in the page
-    // as the opening runs, so a slow first frame can't let it finish first.)
-    const flying = await page.evaluate(async (label) => {
-      const hero = document.querySelector("[data-state]")!;
-      while (hero.getAttribute("data-state") === "loading") {
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-      }
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const state = hero.getAttribute("data-state");
-      Array.from(
-        document.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Main"] a'),
-      )
-        .find((a) => a.textContent === label)!
-        .click();
-      return {
-        state,
-        transit: document
-          .querySelector("[data-world-root]")!
-          .getAttribute("data-transit"),
+    const page = await context.newPage();
+    await watchHero(page);
+    const transit = await watchTransit(page);
+    // The click goes in from the page itself, the moment the opening is under
+    // way with the world drawn: on CI's software renderer, stalled frames can
+    // carry the opening to its end before a click sent from the test arrives.
+    await page.addInitScript((label) => {
+      const w = window as unknown as {
+        __clicked?: { state: string | null; transit: string | null };
       };
+      new MutationObserver((records, observer) => {
+        for (const r of records) {
+          const hero = r.target as Element;
+          if (
+            hero.getAttribute("data-state") !== "flight" ||
+            hero.getAttribute("data-world") !== "drawn"
+          ) {
+            continue;
+          }
+          observer.disconnect();
+          const canvas = hero.querySelector("canvas");
+          if (canvas) (canvas as unknown as { __tag: string }).__tag = "the world";
+          Array.from(
+            document.querySelectorAll<HTMLAnchorElement>(
+              'nav[aria-label="Main"] a',
+            ),
+          )
+            .find((a) => a.textContent === label)!
+            .click();
+          w.__clicked = {
+            state: hero.getAttribute("data-state"),
+            transit: document
+              .querySelector("[data-world-root]")!
+              .getAttribute("data-transit"),
+          };
+          return;
+        }
+      }).observe(document, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-state", "data-world"],
+      });
     }, nav[1].label);
+    await page.goto("/");
+    const flying = await page
+      .waitForFunction(
+        () => (window as unknown as { __clicked?: object }).__clicked,
+        undefined,
+        { timeout: SCENE_TIMEOUT },
+      )
+      .then((handle) => handle.jsonValue());
     expect(flying).toEqual({ state: "flight", transit: "outpost" });
     await expect(page).toHaveURL(/\/resume$/);
     await flown(transit, page, "outpost");
