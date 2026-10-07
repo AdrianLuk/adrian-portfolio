@@ -42,10 +42,9 @@ npm run lint
 npm run typecheck
 npm test             # Vitest: the content module and the world's maths
 npm run test:e2e     # Playwright, against a production build
-npm run lhci         # Lighthouse CI on home, the Case study and the Resume page
 ```
 
-The Playwright suite builds and serves the site on port 3100 (set `E2E_PORT` to run a second copy alongside). It checks what a visitor or a tool can see: axe on every route at desktop and phone widths, keyboard walks with visible focus, the opening's states and timing, reduced motion, and that scrolling is never hijacked. Lighthouse CI fails the build on any layout shift or an accessibility score under 100, and on a slow LCP on the Case study and Resume page. CI runs all of it on every pull request.
+The Playwright suite builds and serves the site on port 3100 (set `E2E_PORT` to run a second copy alongside). It checks what a visitor or a tool can see: axe on every route at desktop and phone widths, keyboard walks with visible focus, the opening's states and timing, reduced motion, and that scrolling is never hijacked. CI runs all of it on every pull request. There's no Lighthouse gate: the site favours its motion over load-speed scores.
 
 ## Docs
 
