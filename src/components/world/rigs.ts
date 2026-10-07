@@ -91,7 +91,8 @@ export const routeRig = (): RouteRig => ({
 
 /**
  * The longest a transit (the camera flying between home and the Resume page)
- * ever takes, in seconds, however far it flies: well under the opening's
- * 10.5s, so navigation never feels slow. Their copy never waits longer.
+ * ever takes, in seconds, however far it flies: well under the opening
+ * (FLIGHT_TIMING's flight and turn), so navigation never feels slow. Their
+ * copy never waits longer.
  */
 export const TRANSIT_MAX_SECONDS = 2.5;

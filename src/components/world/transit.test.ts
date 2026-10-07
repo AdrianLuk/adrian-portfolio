@@ -180,7 +180,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
       for (const duration of [...durations, back.duration]) {
         expect(duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
       }
-      // The whole route, either way, is well under the opening's 10.5s.
+      // The whole route, either way, is well under the opening's length.
       expect(TRANSIT_MAX_SECONDS).toBeLessThanOrEqual(3);
     });
 
