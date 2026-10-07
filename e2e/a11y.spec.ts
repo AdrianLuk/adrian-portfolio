@@ -25,6 +25,23 @@ for (const route of routes) {
   });
 }
 
+test("Juice Bros case study has no axe violations with motion allowed", async ({
+  page,
+}) => {
+  // Desktop: the Player tools pinned, scrolled into the scene. Phone: the
+  // stacked list, with its recordings free to play.
+  await page.goto("/work/juice-bros");
+  const scene = page.locator("[data-player-tools]");
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await expect(scene).toHaveAttribute("data-scene", "pinned");
+  }
+  await scene.evaluate((el) =>
+    window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY),
+  );
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
 test("404 answers with a 404 status and links home", async ({ page }) => {
   const response = await page.goto(missingPath);
   expect(response?.status()).toBe(404);
