@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { afterFirstPaint } from "./after-first-paint";
 import { worldHost, type WorldState } from "./world-host";
 
@@ -12,7 +17,8 @@ const serverWorldState = (): WorldState => "pending";
  * paint, and what stays without WebGL or while the GPU context is lost. On a
  * direct load the Three.js scene loads after the first paint and fades in
  * over it once its first frame has rendered; arriving from home, the world
- * is already live and simply turns to the Outpost. The camera never moves;
+ * is already live, and the camera flies down the valley to the Outpost
+ * (world-flights.ts). The camera never moves;
  * with motion allowed the scene does (motes, lights, windows), and under
  * reduced motion it is one still frame, following the preference if it
  * changes.
@@ -26,7 +32,9 @@ export function OutpostWorld({ children }: { children: ReactNode }) {
     serverWorldState,
   );
 
-  useEffect(() => {
+  // Before the page paints, so a page arriving into a live world never shows
+  // a frame without it (the still backdrop bare under a camera flight).
+  useLayoutEffect(() => {
     const pageCanvas = canvasRef.current;
     if (!pageCanvas) return;
     // The world's canvas, standing in this page's own from now on.

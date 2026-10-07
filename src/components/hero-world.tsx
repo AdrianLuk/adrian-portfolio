@@ -3,6 +3,7 @@
 import type { gsap } from "gsap";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -144,6 +145,8 @@ export function HeroWorld({
 }) {
   const rootRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** The world's canvas, once it stands in this page's own. */
+  const worldCanvasRef = useRef<HTMLCanvasElement>(null);
   // The weather the page arrived with: the world takes it once home claims it.
   const weatherRef = useRef(weather);
   const host = worldHost();
@@ -178,29 +181,22 @@ export function HeroWorld({
             ? "flight"
             : "loading";
 
-  useEffect(() => {
+  // Claims the world before the page paints, so home arriving into a live
+  // world (under a camera flight, say) never shows a frame without it.
+  useLayoutEffect(() => {
     const root = rootRef.current;
     const pageCanvas = canvasRef.current;
     if (!root || !pageCanvas) return;
-
-    const reduced = window.matchMedia(REDUCED_MOTION);
-    const cards = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-credit-card]"),
-    );
-    const action = root.querySelector<HTMLElement>("[data-hero-action]");
-    const skip = root.querySelector<HTMLElement>("[data-credit-skip]");
-
     // The world reads both rigs on every frame. The timeline animates the
     // flight's in place: with motion allowed it starts where the flight does,
     // so a world that draws before the timeline has loaded never shows the
     // settled frame first. The scroll route drives the other.
-    const { rig, route } = host;
     Object.assign(
-      rig,
-      reduced.matches || rejoined ? SETTLED_RIG : FLIGHT_START_RIG,
+      host.rig,
+      prefersReducedMotion() || rejoined ? SETTLED_RIG : FLIGHT_START_RIG,
     );
     // The world's canvas, standing in this page's own from now on.
-    const canvas = host.attach(pageCanvas, {
+    worldCanvasRef.current = host.attach(pageCanvas, {
       kind: "hero",
       // ?weather=snow|rain|clear previews a condition. Read here, not on the
       // server, so the page itself stays static.
@@ -210,6 +206,22 @@ export function HeroWorld({
         ) ?? weatherRef.current,
       measure: (canvas) => measure(canvas, root),
     });
+    // The world stays, parked, for the next page that wants it.
+    return () => host.detach(pageCanvas);
+  }, [host, rejoined]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const canvas = worldCanvasRef.current;
+    if (!root || !canvas) return;
+
+    const reduced = window.matchMedia(REDUCED_MOTION);
+    const cards = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-credit-card]"),
+    );
+    const action = root.querySelector<HTMLElement>("[data-hero-action]");
+    const skip = root.querySelector<HTMLElement>("[data-credit-skip]");
+    const { rig, route } = host;
     const world = () => host.world();
     let timeline: gsap.core.Timeline | null = null;
     let scrollRoute: ScrollRoute | null = null;
@@ -388,8 +400,6 @@ export function HeroWorld({
       resize.disconnect();
       root.removeEventListener("click", onClick);
       reduced.removeEventListener("change", onPreference);
-      // The world stays, parked, for the next page that wants it.
-      host.detach(pageCanvas);
     };
     // The host is the visit's one world, and `rejoined` is fixed at mount.
   }, [host, rejoined]);

@@ -87,3 +87,10 @@ export const routeRig = (): RouteRig => ({
   at: 0,
   lit: SITE_PLAN.map(() => 0),
 });
+
+/**
+ * The longest a camera flight between home and the Resume page (a transit)
+ * ever takes, in seconds, however far it flies: well under the opening's
+ * 10.5s, so navigation never feels slow.
+ */
+export const TRANSIT_MAX_SECONDS = 2.5;

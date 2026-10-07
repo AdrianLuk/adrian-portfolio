@@ -11,6 +11,7 @@ import {
 } from "@/content/site";
 import { shareMetadata } from "../share";
 import {
+  arrivesWithCamera,
   entryTitle,
   metaLine,
   panel,
@@ -47,7 +48,7 @@ export default function ResumePage() {
         <WorldBackdrop />
       </OutpostWorld>
       <header
-        className={`flex max-w-3xl flex-col items-start gap-4 ${overOutpost}`}
+        className={`flex max-w-3xl flex-col items-start gap-4 ${overOutpost} ${arrivesWithCamera}`}
       >
         <PanelCorners className="border-cyan" />
         <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
@@ -64,7 +65,10 @@ export default function ResumePage() {
         </p>
       </header>
 
-      <section aria-labelledby="experience-heading" className="mt-16 max-w-3xl">
+      <section
+        aria-labelledby="experience-heading"
+        className={`mt-16 max-w-3xl ${arrivesWithCamera}`}
+      >
         <h3 id="experience-heading" className={sectionLabel}>
           {resume.rolesHeading}
         </h3>
@@ -96,7 +100,7 @@ export default function ResumePage() {
 
       <section
         aria-labelledby="side-projects-heading"
-        className="mt-20 max-w-3xl"
+        className={`mt-20 max-w-3xl ${arrivesWithCamera}`}
       >
         <h3 id="side-projects-heading" className={sectionLabel}>
           {resume.sideProjectsHeading}

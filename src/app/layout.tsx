@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import { Anybody, Hanken_Grotesk } from "next/font/google";
 import { ViewTransition } from "react";
+import { FLIGHT_TRANSITION } from "@/components/world-flights";
 import { nav, person, shareCards } from "@/content/site";
 import { shareMetadata } from "./share";
 import "./globals.css";
@@ -54,9 +55,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </ul>
           </nav>
         </header>
-        <main className="flex-1">
-          {/* Each navigation updates it: a short crossfade between routes. */}
-          <ViewTransition>{children}</ViewTransition>
+        {/* The world's root: it carries data-transit while the camera flies
+          between home and the Resume page (src/components/world-flights.ts). */}
+        <main data-world-root className="flex-1">
+          {/* Each navigation updates it: a short crossfade between routes,
+            except where the world's camera flies instead. */}
+          <ViewTransition
+            default={{ [FLIGHT_TRANSITION]: "none", default: "auto" }}
+          >
+            {children}
+          </ViewTransition>
         </main>
         {/* Positioned, so it paints over the home page's world, which is held
           fixed behind the page as the camera flies. */}
