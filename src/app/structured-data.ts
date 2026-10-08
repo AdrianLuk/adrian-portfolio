@@ -1,35 +1,17 @@
-import { contact, hero, person, roles, siteUrl } from "@/content/site";
+import {
+  hero,
+  isoMonth,
+  person,
+  profiles,
+  roles,
+  siteUrl,
+  type Role,
+} from "@/content/site";
 
 const [locality, region] = person.location.split(", ");
 
-const months = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-/**
- * A Resume date ("Mar 2024") as an ISO year and month ("2024-03"). Throws on
- * anything else, so a date that changes shape fails the build instead of
- * reaching search engines as a guess.
- */
-export function isoMonth(date: string) {
-  const match = /^([A-Z][a-z]{2}) (\d{4})$/.exec(date);
-  const month = match ? months.indexOf(match[1]) + 1 : 0;
-  if (!match || month === 0) {
-    throw new Error(`Can't read "${date}" as a month and year like "Mar 2024"`);
-  }
-  return `${match[2]}-${String(month).padStart(2, "0")}`;
-}
+/** Adrian as a Person, one entity across every page that describes him. */
+const personId = `${siteUrl}/#person`;
 
 /**
  * The home page's structured data for search engines: the site, named for
@@ -46,11 +28,11 @@ export const homeJsonLd = {
       name: person.name,
       url: siteUrl,
       inLanguage: "en",
-      about: { "@id": `${siteUrl}/#person` },
+      about: { "@id": personId },
     },
     {
       "@type": "Person",
-      "@id": `${siteUrl}/#person`,
+      "@id": personId,
       name: person.name,
       url: siteUrl,
       jobTitle: hero.titleLine,
@@ -61,9 +43,7 @@ export const homeJsonLd = {
         addressRegion: region,
         addressCountry: "CA",
       },
-      sameAs: contact.channels
-        .filter((channel) => channel.id !== "email")
-        .map((channel) => channel.href),
+      sameAs: profiles.map((profile) => profile.href),
     },
   ],
 };
@@ -77,15 +57,18 @@ export const homeJsonLd = {
 export const resumeJsonLd = {
   "@context": "https://schema.org",
   "@type": "Person",
-  "@id": `${siteUrl}/#person`,
+  "@id": personId,
   name: person.name,
   url: siteUrl,
-  alumniOf: roles.map((role) => ({
+  alumniOf: roles.map((role: Role) => ({
     "@type": "OrganizationRole",
     roleName: role.title,
     startDate: isoMonth(role.start),
     endDate: isoMonth(role.end),
-    alumniOf: { "@type": "Organization", name: role.organization },
+    alumniOf: {
+      "@type": "Organization",
+      name: role.organization ?? role.company,
+    },
   })),
 };
 

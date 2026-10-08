@@ -93,16 +93,48 @@ export type Role = {
   /** As the Resume page shows it, e.g. "Control D (Windscribe)". */
   company: string;
   /**
-   * The employer's name alone, for machine-facing copy (JSON-LD). Control D is
-   * a sister company of Windscribe, not a product of it, so its Role says
-   * "Control D": never derive this by trimming `company`.
+   * The employer's name, for machine-facing copy (JSON-LD), where it differs
+   * from `company`; without it, `company` is the name. Only Control D sets it:
+   * Control D is a sister company of Windscribe, not a product of it. Never
+   * derive it by trimming `company`.
    */
-  organization: string;
+  organization?: string;
   summary: string;
+  /** A month and year, like "Mar 2024". */
   start: string;
+  /** A month and year, like "Mar 2024". */
   end: string;
   bullets: readonly string[];
 };
+
+const months = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/**
+ * A Role's date ("Mar 2024") as an ISO year and month ("2024-03"). Throws on
+ * anything else, so a date that changes shape fails the build instead of
+ * reaching search engines as a guess.
+ */
+export function isoMonth(date: string) {
+  const match = /^([A-Z][a-z]{2}) (\d{4})$/.exec(date);
+  const month = match ? months.indexOf(match[1]) + 1 : 0;
+  if (!match || month === 0) {
+    throw new Error(`Can't read "${date}" as a month and year like "Mar 2024"`);
+  }
+  return `${match[2]}-${String(month).padStart(2, "0")}`;
+}
 
 export type SideProject = {
   id: string;
@@ -481,7 +513,6 @@ export const roles = [
     id: "life-house",
     title: "Full Stack Developer",
     company: "Life House",
-    organization: "Life House",
     summary: "Revenue management SaaS for independent hotels",
     start: "Oct 2022",
     end: "Feb 2024",
@@ -498,7 +529,6 @@ export const roles = [
     id: "studio",
     title: "Frontend Engineer",
     company: "Studio",
-    organization: "Studio",
     summary: "Brand and digital design agency",
     start: "Mar 2022",
     end: "Aug 2022",
@@ -513,7 +543,6 @@ export const roles = [
     id: "brandish",
     title: "Full Stack Web Developer",
     company: "Brandish Agency",
-    organization: "Brandish Agency",
     summary: "Digital agency; WordPress, headless and custom client builds",
     start: "Mar 2020",
     end: "Mar 2022",
@@ -529,7 +558,6 @@ export const roles = [
     id: "elite-digital",
     title: "Full Stack Developer",
     company: "Elite Digital Agency",
-    organization: "Elite Digital Agency",
     summary: "Digital agency; enterprise applications and client web builds",
     start: "May 2018",
     end: "Mar 2020",
@@ -627,6 +655,11 @@ export const contact = {
   };
   bookend: string;
 };
+
+/** Adrian's profiles elsewhere: every contact channel but email. */
+export const profiles = contact.channels.filter(
+  (channel) => channel.id !== "email",
+);
 
 /** The line at the foot of every page. */
 export const footer = {

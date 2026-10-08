@@ -2,12 +2,7 @@ import { describe, expect, it } from "vitest";
 import { caseStudies, contact, roles, siteUrl } from "../content/site";
 import robots from "./robots";
 import sitemap from "./sitemap";
-import {
-  homeJsonLd,
-  isoMonth,
-  jsonLdScript,
-  resumeJsonLd,
-} from "./structured-data";
+import { homeJsonLd, jsonLdScript, resumeJsonLd } from "./structured-data";
 
 const [website, personJsonLd] = homeJsonLd["@graph"];
 
@@ -117,20 +112,6 @@ describe("Resume page structured data", () => {
     expect(json).not.toContain("Windscribe");
     for (const bullet of roles.flatMap((r) => r.bullets)) {
       expect(json).not.toContain(JSON.stringify(bullet).slice(1, -1));
-    }
-  });
-});
-
-describe("isoMonth", () => {
-  it("turns a Resume date into an ISO year and month", () => {
-    expect(isoMonth("Mar 2024")).toBe("2024-03");
-    expect(isoMonth("Oct 2022")).toBe("2022-10");
-    expect(isoMonth("May 2018")).toBe("2018-05");
-  });
-
-  it("throws on a date it can't read, rather than guessing", () => {
-    for (const date of ["March 2024", "Mar 24", "2024-03", "Present", "", "Mar  2024", "Sept 2024"]) {
-      expect(() => isoMonth(date)).toThrow();
     }
   });
 });

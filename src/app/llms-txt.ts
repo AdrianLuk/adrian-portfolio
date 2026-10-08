@@ -8,20 +8,26 @@ import {
   hrefFor,
   linkLabelFor,
   person,
+  profiles,
   resume,
   roles,
   sideProjects,
   siteUrl,
+  work,
   type Highlight,
 } from "@/content/site";
 
-/** A same-site path as the absolute URL a reader outside the site needs. */
-const absolute = (path: string) => `${siteUrl}${path}`;
-
+/**
+ * A Markdown link. A same-site path becomes the absolute URL a reader outside
+ * the site needs; any other href stays as the site writes it.
+ */
 const link = (label: string, href: string) =>
-  `[${label}](${href.startsWith("/") ? absolute(href) : href})`;
+  `[${label}](${href.startsWith("/") ? new URL(href, siteUrl).href : href})`;
 
-/** A Highlight as its panel reads: title, byline, paragraph, key numbers, link. */
+/**
+ * A Highlight as its panel reads: title, byline, paragraph, key numbers, link.
+ * The byline gives way to the employer's name where one is set (Control D's).
+ */
 function highlightBlock(highlight: Highlight): string {
   const paragraphs =
     typeof highlight.paragraph === "string"
@@ -42,14 +48,15 @@ function highlightBlock(highlight: Highlight): string {
 
 /**
  * The site as Markdown for language models (llmstxt.org), served at
- * /llms.txt. Every line is the site's own copy, so it never says more than
- * the pages do.
+ * /llms.txt. Its facts, headings and most link labels are the site's own
+ * copy, so it never says more than the pages do; the rest are plain labels
+ * ("Links", "Case study").
  */
 export function llmsTxt(): string {
   const sections = [
     [`# ${person.name}`, `> ${hero.titleLine}. ${hero.backendLine}`],
     [
-      "## Roles",
+      `## ${resume.rolesHeading}`,
       roles
         .map(
           (role) =>
@@ -58,7 +65,7 @@ export function llmsTxt(): string {
         .join("\n"),
     ],
     [
-      "## Side projects",
+      `## ${resume.sideProjectsHeading}`,
       sideProjects
         .map((project) => {
           const study = caseStudies.find((s) => s.slug === project.id);
@@ -70,7 +77,7 @@ export function llmsTxt(): string {
         })
         .join("\n"),
     ],
-    ["## Selected work", ...highlights.map(highlightBlock)],
+    [`## ${work.heading}`, ...highlights.map(highlightBlock)],
     [
       `## ${contact.built.heading}`,
       contact.built.lead,
@@ -81,13 +88,11 @@ export function llmsTxt(): string {
       "## Links",
       [
         link(contact.resume.label, contact.resume.href),
-        link("Resume (PDF)", resume.pdfHref),
+        link(resume.download.pdf, resume.pdfHref),
         ...caseStudies.map((study) =>
           link(`${study.title} case study`, hrefFor({ kind: "case-study", slug: study.slug })),
         ),
-        ...contact.channels
-          .filter((channel) => channel.id !== "email")
-          .map((channel) => link(channel.label, channel.href)),
+        ...profiles.map((profile) => link(profile.label, profile.href)),
         link(footer.source.label, footer.source.href),
       ]
         .map((item) => `- ${item}`)

@@ -2,10 +2,10 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import * as site from "../content/site";
-import { contact, highlights, roles, sideProjects, siteUrl } from "../content/site";
 import { llmsTxt } from "./llms-txt";
 import sitemap from "./sitemap";
 
+const { contact, highlights, roles, sideProjects, siteUrl } = site;
 const text = llmsTxt();
 
 function allStrings(value: unknown): string[] {
@@ -32,19 +32,19 @@ describe("llms.txt", () => {
       "> Senior frontend engineer. React and TypeScript, plus the back end when it needs building.",
     );
     expect(text.match(/^## .+$/gm)).toEqual([
-      "## Roles",
+      "## Experience",
       "## Side projects",
-      "## Selected work",
+      "## Work",
       "## How this site is built",
       "## Links",
     ]);
   });
 
   it("links Juice Bros, under Side projects, to its Case study and its live site", () => {
-    const sideProjects = section("Side projects");
-    expect(sideProjects).toContain("Juice Bros");
-    expect(sideProjects).toContain("(https://adrianluk.com/work/juice-bros)");
-    expect(sideProjects).toContain("(https://juicebrospickleball.com)");
+    const listed = section("Side projects");
+    expect(listed).toContain("Juice Bros");
+    expect(listed).toContain("(https://adrianluk.com/work/juice-bros)");
+    expect(listed).toContain("(https://juicebrospickleball.com)");
   });
 
   it("quotes how the site is built verbatim, with its source", () => {
@@ -57,6 +57,9 @@ describe("llms.txt", () => {
   it("links the Resume page and PDF, the Case study, LinkedIn, GitHub and the repo", () => {
     const links = [...section("Links").matchAll(/\]\(([^)]+)\)/g)].map(
       (match) => match[1],
+    );
+    expect(section("Links")).toContain(
+      "- [Download PDF](https://adrianluk.com/Adrian-Luk-Resume-2026.pdf)",
     );
     expect(links).toEqual([
       "https://adrianluk.com/resume",
@@ -118,7 +121,7 @@ describe("llms.txt", () => {
   });
 
   it("bylines the Control D Highlight with its employer, Control D, not Windscribe", () => {
-    const work = section("Selected work");
+    const work = section("Work");
     const controlD = work.slice(
       work.indexOf("### Control D\n"),
       work.indexOf("\n### ", work.indexOf("### Control D\n") + 1),
@@ -128,14 +131,17 @@ describe("llms.txt", () => {
   });
 
   it("quotes every Highlight's title, byline and paragraph verbatim", () => {
+    const work = section("Work");
     for (const highlight of highlights) {
-      expect(text).toContain(`### ${highlight.title}`);
-      expect(text).toContain(highlight.byline);
+      expect(work).toContain(`### ${highlight.title}`);
+      if (highlight.id !== "control-d") {
+        expect(work).toContain(`*${highlight.byline}*`);
+      }
       const lines =
         typeof highlight.paragraph === "string"
           ? [highlight.paragraph]
           : highlight.paragraph;
-      for (const line of lines) expect(text).toContain(line);
+      for (const line of lines) expect(work).toContain(line);
     }
   });
 });
