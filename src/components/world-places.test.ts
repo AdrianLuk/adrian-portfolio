@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { placeOf, transitBetween } from "./world-places";
+import { caseStudies, hrefFor } from "@/content/site";
+import { COURT_CASE_STUDY, placeOf, transitBetween } from "./world-places";
 
 describe("which navigations are transits", () => {
   it("flies from home down the valley to the Resume page", () => {
@@ -38,6 +39,15 @@ describe("which navigations are transits", () => {
 });
 
 describe("the Juice Bros Case study's place, the court", () => {
+  it("is the Juice Bros Case study's, and no other Case study's", () => {
+    expect(COURT_CASE_STUDY).toBe("juice-bros");
+    for (const { slug } of caseStudies) {
+      const page = hrefFor({ kind: "case-study", slug });
+      expect(placeOf(page)).toBe(slug === "juice-bros" ? "court" : null);
+    }
+    expect(caseStudies.map((c) => c.slug)).toContain(COURT_CASE_STUDY);
+  });
+
   it("is the court, however its URL is written", () => {
     for (const url of [
       "/work/juice-bros",

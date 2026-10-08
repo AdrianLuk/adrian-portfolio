@@ -9,8 +9,11 @@ import { isSideways, Screenshot } from "@/components/screenshot";
 import { ToolStage } from "@/components/tool-stage";
 import { CourtStill } from "@/components/court-still";
 import { CourtWorld } from "@/components/court-world";
+import { WorldBackdrop } from "@/components/world-backdrop";
+import { placeOf } from "@/components/world-places";
 import {
   caseStudies,
+  hrefFor,
   shareCards,
   type CaseStudy,
   type Image as ImageContent,
@@ -144,17 +147,25 @@ export default async function CaseStudyPage({
     study.links.find((l) => l.href === href)!.label;
   const toolUrls = new Set(study.tools.map((t) => t.url));
   const siteLinks = study.links.filter((l) => !toolUrls.has(l.href));
-  const weather = await torontoWeather();
+  // Juice Bros' Place in the world is its court, held behind the copy (in
+  // Toronto's weather); a Case study without a Place stands on the still of
+  // the valley.
+  const atCourt =
+    placeOf(hrefFor({ kind: "case-study", slug: study.slug })) === "court";
+  const world = atCourt ? (
+    <CourtWorld weather={await torontoWeather()}>
+      <CourtStill />
+    </CourtWorld>
+  ) : (
+    <WorldBackdrop />
+  );
 
   return (
     <article
       aria-labelledby="case-study-heading"
       className="relative isolate mx-auto max-w-4xl px-4 py-16 sm:px-6"
     >
-      {/* Juice Bros' Place in the world: its court, held behind the copy. */}
-      <CourtWorld weather={weather}>
-        <CourtStill />
-      </CourtWorld>
+      {world}
       <header className={arrivesAtCourt}>
         <p className={eyebrowClass}>Case study · {study.byline}</p>
         <h2

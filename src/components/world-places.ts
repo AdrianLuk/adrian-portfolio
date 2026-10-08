@@ -5,6 +5,9 @@
  * anything loads.
  */
 
+// Its type alone: the site's content stays out of the router's bundle.
+import type { CaseStudySlug } from "@/content/site";
+
 /**
  * A page's place in the world: home stands at the hero (the opening, the
  * settled view over the name plate, the scroll route), the Juice Bros Case
@@ -12,6 +15,15 @@
  * Outpost.
  */
 export type Place = "hero" | "court" | "outpost";
+
+/**
+ * The Case study whose Place is the court: Juice Bros', whose Landmark it
+ * is. Any other Case study has no Place, and shows a still of the world.
+ */
+export const COURT_CASE_STUDY = "juice-bros" satisfies CaseStudySlug;
+
+/** The court's page (as `hrefFor` in the site's content links to it). */
+const COURT_PAGE = `/work/${COURT_CASE_STUDY}`;
 
 /**
  * The transition type a navigation that is a transit carries: the layout's
@@ -29,7 +41,7 @@ function pageOf(url: string) {
 export function placeOf(url: string): Place | null {
   const page = pageOf(url);
   if (page === "/") return "hero";
-  if (page === "/work/juice-bros") return "court";
+  if (page === COURT_PAGE) return "court";
   if (page === "/resume") return "outpost";
   return null;
 }
