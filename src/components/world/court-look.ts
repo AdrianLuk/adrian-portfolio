@@ -1,3 +1,5 @@
+import { fogColor, palette } from "./palette";
+
 /**
  * The court's look, as pure maths (unit tested without WebGL): what changes
  * in the world while the camera stands at the court, Juice Bros' Lit site,
@@ -62,4 +64,41 @@ export function rallyBall(court: RallyCourt, time: number) {
     y: court.level + hit + 4 * rise * f * (1 - f),
     z: from.z + (to.z - from.z) * f,
   };
+}
+
+/**
+ * The court's look at full: its floodlights burn this many times their
+ * usual brightness, and the fog takes this share of the court's violet.
+ */
+const FULL = { floodlights: 2.6, fog: 0.28 };
+
+/** 0 to 1 as `x` goes from `a` to `b`, eased at both ends. */
+function ramp(x: number, a: number, b: number) {
+  const f = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return f * f * (3 - 2 * f);
+}
+
+/**
+ * The court's look for the Camera director's blend (0 away from the court,
+ * 1 at it): how bright the floodlights burn (a multiple of their usual), how
+ * much of the court's violet the fog takes, how far in the rally ball is (it
+ * grows in as the camera nears), and how much of the falling weather shows
+ * (gone before the camera lands: at the court, the weather is on the ground).
+ */
+export function courtLook(blend: number) {
+  return {
+    floodlights: 1 + (FULL.floodlights - 1) * ramp(blend, 0, 1),
+    fog: FULL.fog * ramp(blend, 0, 1),
+    ball: ramp(blend, 0.5, 1),
+    falling: 1 - ramp(blend, 0, 0.9),
+  };
+}
+
+/**
+ * Tints the world's shared fog (every shader's and the scene's) toward the
+ * court's violet by `amount`, from the night's own; the palette's fog, which
+ * the sky's horizon and the hills also take, stays as it is.
+ */
+export function tintFog(amount: number) {
+  fogColor.copy(palette.fog).lerp(palette.violet, amount);
 }

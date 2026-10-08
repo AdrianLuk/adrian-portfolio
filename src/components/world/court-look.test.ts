@@ -1,6 +1,8 @@
+import { Color } from "three";
 import { describe, expect, it } from "vitest";
-import { RALLY_BALL, rallyBall } from "./court-look";
+import { courtLook, RALLY_BALL, rallyBall, tintFog } from "./court-look";
 import { layoutLandmarks } from "./landmarks";
+import { fogColor, palette } from "./palette";
 
 const landmarks = layoutLandmarks();
 const court = landmarks.court;
@@ -57,5 +59,69 @@ describe("the rally ball", () => {
       // Slowly: well under a court's length a second.
       expect(step * 60).toBeLessThan(court.halfLength * 2);
     }
+  });
+});
+
+describe("the court's look", () => {
+  const blends = Array.from({ length: 21 }, (_, i) => i / 20);
+
+  it("changes nothing away from the court", () => {
+    expect(courtLook(0)).toEqual({
+      floodlights: 1,
+      fog: 0,
+      ball: 0,
+      falling: 1,
+    });
+  });
+
+  it("at the court, turns the floodlights up, tints the fog, brings the ball in and stops what falls", () => {
+    const look = courtLook(1);
+    expect(look.floodlights).toBeGreaterThanOrEqual(2);
+    expect(look.fog).toBeGreaterThan(0.15);
+    // A tint, not a wash: the night stays the night.
+    expect(look.fog).toBeLessThan(0.5);
+    expect(look.ball).toBe(1);
+    expect(look.falling).toBe(0);
+  });
+
+  it("blends in step by step, never back, as the director's blend rises", () => {
+    for (let i = 1; i < blends.length; i++) {
+      const a = courtLook(blends[i - 1]);
+      const b = courtLook(blends[i]);
+      expect(b.floodlights).toBeGreaterThanOrEqual(a.floodlights);
+      expect(b.fog).toBeGreaterThanOrEqual(a.fog);
+      expect(b.ball).toBeGreaterThanOrEqual(a.ball);
+      expect(b.falling).toBeLessThanOrEqual(a.falling);
+    }
+  });
+
+  it("is gone from what falls by the time the camera lands", () => {
+    expect(courtLook(0.95).falling).toBeLessThan(0.1);
+  });
+});
+
+describe("the fog's colour", () => {
+  const night = palette.fog.clone();
+
+  it("tints the world's shared fog toward the court's violet", () => {
+    tintFog(courtLook(1).fog);
+    const toward = (c: Color) =>
+      Math.hypot(
+        c.r - palette.violet.r,
+        c.g - palette.violet.g,
+        c.b - palette.violet.b,
+      );
+    expect(toward(fogColor)).toBeLessThan(toward(night));
+  });
+
+  it("leaves the palette's own fog alone (the sky's horizon, the hills)", () => {
+    tintFog(courtLook(1).fog);
+    expect(palette.fog.equals(night)).toBe(true);
+  });
+
+  it("is the night's own fog again away from the court", () => {
+    tintFog(courtLook(1).fog);
+    tintFog(courtLook(0).fog);
+    expect(fogColor.equals(night)).toBe(true);
   });
 });
