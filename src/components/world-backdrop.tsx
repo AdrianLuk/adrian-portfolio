@@ -1,8 +1,5 @@
 import type { CSSProperties } from "react";
-import { backdrop } from "@/content/site";
-
-const srcSet = (stills: readonly { src: string; width: number }[]) =>
-  stills.map((s) => `${s.src} ${s.width}w`).join(", ");
+import { backdrop, srcSet } from "@/content/site";
 
 /** A small seeded generator (mulberry32), so every render scatters the same. */
 function seeded(seed: number) {

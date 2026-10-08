@@ -262,6 +262,17 @@ describe("Juice Bros Case study", () => {
   });
 });
 
+describe("stills", () => {
+  it("list their widths as a srcset, smallest first as given", () => {
+    expect(
+      site.srcSet([
+        { src: "/a/still-240.webp", width: 240, height: 300 },
+        { src: "/a/still-480.webp", width: 480, height: 600 },
+      ]),
+    ).toBe("/a/still-240.webp 240w, /a/still-480.webp 480w");
+  });
+});
+
 describe("Contact portrait", () => {
   const { portrait } = site.contact;
 
@@ -280,7 +291,15 @@ describe("Contact portrait", () => {
     expect(widths).toEqual([...widths].sort((a, b) => a - b));
   });
 
-  it("ships every still at the size it declares, all one shape, so nothing shifts", async () => {
+  it("declares each still's height, all in the portrait's 4:5", () => {
+    expect(portrait.stills.map(({ width, height }) => ({ width, height }))).toEqual([
+      { width: 240, height: 300 },
+      { width: 480, height: 600 },
+      { width: 720, height: 900 },
+    ]);
+  });
+
+  it("ships every still at the size it declares, so nothing shifts", async () => {
     for (const still of portrait.stills) {
       const file = path.join("public", still.src);
       expect(existsSync(file), still.src).toBe(true);
@@ -288,7 +307,7 @@ describe("Contact portrait", () => {
       expect(format).toBe("webp");
       expect({ width, height }, still.src).toEqual({
         width: still.width,
-        height: (still.width * portrait.height) / portrait.width,
+        height: still.height,
       });
     }
   });

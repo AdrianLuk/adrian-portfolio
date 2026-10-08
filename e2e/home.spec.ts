@@ -258,10 +258,9 @@ test.describe("Adrian's portrait in the outpost", () => {
     const photo = page.locator("#contact").getByRole("img", { name: portrait.alt });
     await expect(photo).toBeVisible();
     // Its box is reserved from the markup, so loading it shifts nothing.
-    const width = Number(await photo.getAttribute("width"));
-    const height = Number(await photo.getAttribute("height"));
-    expect(width).toBeGreaterThan(0);
-    expect(height / width).toBe(portrait.height / portrait.width);
+    const largest = portrait.stills[portrait.stills.length - 1];
+    await expect(photo).toHaveAttribute("width", String(largest.width));
+    await expect(photo).toHaveAttribute("height", String(largest.height));
     for (const still of portrait.stills) {
       await expect(photo).toHaveAttribute(
         "srcset",

@@ -113,7 +113,10 @@ describe("link previews", () => {
 describe("the night backdrop", () => {
   it("has landscape stills up to 3840 wide (2560 at 1.5x, a 4K TV at 1x) and portrait ones for phones and tablets", () => {
     for (const still of [...backdrop.landscape, ...backdrop.portrait]) {
-      expect(webpSize(publicFile(still.src)).width, still.src).toBe(still.width);
+      expect(webpSize(publicFile(still.src)), still.src).toEqual({
+        width: still.width,
+        height: still.height,
+      });
     }
     const landscape = backdrop.landscape.map((s) => webpSize(publicFile(s.src)));
     expect(Math.max(...landscape.map((s) => s.width))).toBeGreaterThanOrEqual(3840);

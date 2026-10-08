@@ -1,4 +1,4 @@
-import { contact } from "@/content/site";
+import { contact, srcSet } from "@/content/site";
 import { PanelCorners } from "./highlight-panel";
 
 const { portrait } = contact;
@@ -22,10 +22,10 @@ export function ContactPortrait({ className = "" }: { className?: string }) {
         {/* eslint-disable-next-line @next/next/no-img-element -- fixed stills, as above */}
         <img
           src={portrait.stills[1].src}
-          srcSet={portrait.stills.map((s) => `${s.src} ${s.width}w`).join(", ")}
+          srcSet={srcSet(portrait.stills)}
           sizes="(min-width: 48rem) 13rem, 10rem"
           width={largest.width}
-          height={(largest.width * portrait.height) / portrait.width}
+          height={largest.height}
           alt={portrait.alt}
           loading="lazy"
           decoding="async"
