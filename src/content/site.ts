@@ -574,14 +574,44 @@ export const contact = {
       href: "https://github.com/AdrianLuk",
     },
   ],
+  /**
+   * How the site itself is built: each fact one the public repo bears out,
+   * so a visitor can check it there.
+   */
+  built: {
+    heading: "How this site is built",
+    lead: "The site is part of the work, and its source is public, so you can check any of this.",
+    facts: [
+      "I built the world in WebGL with Three.js, all from code.",
+      "Between the home page and the resume, the camera flies through it instead of fading.",
+      "Its weather is Toronto's, checked on the server at most once an hour.",
+      "With reduced motion on, the world holds still and every page keeps all its content.",
+      "Every page is checked with axe in CI, and all of it works from the keyboard.",
+    ],
+    source: {
+      label: "Read the source on GitHub",
+      href: "https://github.com/AdrianLuk/adrian-portfolio",
+    },
+  },
   bookend: "The end. (Hire me.)",
 } as const satisfies {
   heading: string;
   lead: string;
   resume: { label: string; href: string };
   channels: readonly ContactChannel[];
+  built: {
+    heading: string;
+    lead: string;
+    facts: readonly string[];
+    source: { label: string; href: string };
+  };
   bookend: string;
 };
+
+/** The line at the foot of every page. */
+export const footer = {
+  source: { label: "Source on GitHub", href: contact.built.source.href },
+} as const;
 
 export const notFound = {
   heading: "Lost in the fog",

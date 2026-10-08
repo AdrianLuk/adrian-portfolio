@@ -3,6 +3,7 @@ import {
   caseStudies,
   contact,
   credits,
+  footer,
   hero,
   highlightAnchor,
   highlights,
@@ -247,4 +248,36 @@ test("the outpost has a lead, the resume link, the contact channels and one book
   await expect(page.getByText(contact.bookend)).toHaveCount(1);
   await expect(outpost.getByText(contact.bookend)).toBeVisible();
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
+});
+
+test("the outpost says how the site is built and links its source, before the bookend", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const outpost = page.locator("#contact");
+  const heading = outpost.getByRole("heading", {
+    level: 3,
+    name: contact.built.heading,
+  });
+  await expect(heading).toBeVisible();
+  for (const fact of contact.built.facts) {
+    await expect(outpost.getByRole("listitem").filter({ hasText: fact })).toBeVisible();
+  }
+  const source = outpost.getByRole("link", { name: contact.built.source.label });
+  await expect(source).toHaveAttribute("href", contact.built.source.href);
+  // The bookend stays the last word.
+  const [sourceBox, bookendBox] = await Promise.all([
+    source.boundingBox(),
+    outpost.getByText(contact.bookend).boundingBox(),
+  ]);
+  expect(sourceBox!.y).toBeLessThan(bookendBox!.y);
+});
+
+test("every page's footer links the site's source", async ({ page }) => {
+  for (const path of ["/", "/resume", "/work/juice-bros", "/play"]) {
+    await page.goto(path);
+    await expect(
+      page.getByRole("contentinfo").getByRole("link", { name: footer.source.label }),
+    ).toHaveAttribute("href", footer.source.href);
+  }
 });
