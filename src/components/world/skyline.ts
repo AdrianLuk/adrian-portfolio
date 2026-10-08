@@ -41,14 +41,19 @@ export type Box = {
   color: Color;
 };
 
+/** An outline in plan, [x, z] off a solid's axis, running anticlockwise. */
+export type Outline = readonly (readonly [number, number])[];
+
 /**
  * A round solid standing on its base: a cylinder or cone (a frustum), a
- * shallow dome, or a lathe, its `profile` ([radius, height] pairs) turned
- * round its axis. `windows` lays the city's lit windows on it; `wash` floods
- * it with its light, as the CN Tower's shaft is lit at night.
+ * shallow dome, a lathe, its `profile` ([radius, height] pairs) turned round
+ * its axis, or a loft through its `sections` (outlines at heights over its
+ * base, each with as many points). `windows` lays the city's lit windows on
+ * it; `wash` floods it with its light, as the CN Tower's shaft is lit at
+ * night.
  */
 export type Solid = {
-  shape: "frustum" | "dome" | "lathe";
+  shape: "frustum" | "dome" | "lathe" | "loft";
   x: number;
   y: number;
   z: number;
@@ -60,11 +65,15 @@ export type Solid = {
   windows?: boolean;
   wash?: number;
   profile?: readonly (readonly [number, number])[];
+  sections?: readonly { h: number; outline: Outline }[];
   /** Turned round its axis: a 4-sided frustum turned an eighth is square on. */
   turn?: number;
 };
 
-/** A ring of light round a solid: the CN Tower's pods, the dome's rim. */
+/**
+ * A ring of light round a solid: the CN Tower's pods, the dome's rim. Round,
+ * `r` across, unless it follows an `outline`.
+ */
 export type Ring = {
   x: number;
   y: number;
@@ -72,6 +81,7 @@ export type Ring = {
   r: number;
   h: number;
   color: Color;
+  outline?: Outline;
 };
 
 /**
@@ -100,6 +110,66 @@ export function hippedRoof(
     color: palette.cyan,
     wash: 0.55,
   };
+}
+
+/**
+ * The CN Tower's section: a hexagonal core `core` across its corners, with
+ * three legs off alternate faces reaching `reach` from its axis, the first
+ * towards `facing` (an angle in plan). With `reach` at the faces' distance
+ * the legs are gone and the core stands alone.
+ */
+export function yOutline(core: number, reach: number, facing: number): Outline {
+  const out: [number, number][] = [];
+  const point = (a: number, r: number, side = 0): [number, number] => [
+    Math.cos(a) * r - Math.sin(a) * side,
+    Math.sin(a) * r + Math.cos(a) * side,
+  ];
+  for (let i = 0; i < 3; i++) {
+    const a = facing + (i * 2 * Math.PI) / 3;
+    out.push(
+      point(a - Math.PI / 6, core),
+      point(a, reach, -core / 2),
+      point(a, reach, core / 2),
+      point(a + Math.PI / 6, core),
+    );
+  }
+  return out;
+}
+
+/**
+ * A stadium's plan, as the Rogers Centre's: two half circles `r` across, their
+ * centres `a` either side of the middle along `along` (an angle in plan),
+ * `steps` points to each half. `part` takes one of the roof's four panels
+ * instead: the near end's quarter dome (along `along`), the near barrel, the
+ * far barrel, or the far end's quarter dome.
+ */
+export function stadiumOutline(
+  r: number,
+  a: number,
+  along: number,
+  steps = 12,
+  part?: "near" | "nearBarrel" | "farBarrel" | "far",
+): Outline {
+  const end = (centre: number, from: number) =>
+    Array.from({ length: steps + 1 }, (_, k) => {
+      const t = from + (k / steps) * Math.PI;
+      return [centre + Math.cos(t) * r, Math.sin(t) * r] as const;
+    });
+  const local =
+    part === "near"
+      ? end(a, -Math.PI / 2)
+      : part === "far"
+      ? end(-a, Math.PI / 2)
+      : part
+      ? ([
+          [part === "nearBarrel" ? 0 : -a, -r],
+          [part === "nearBarrel" ? a : 0, -r],
+          [part === "nearBarrel" ? a : 0, r],
+          [part === "nearBarrel" ? 0 : -a, r],
+        ] as const)
+      : [...end(a, -Math.PI / 2), ...end(-a, Math.PI / 2)];
+  const [c, s] = [Math.cos(along), Math.sin(along)];
+  return local.map(([t, n]) => [t * c - n * s, t * s + n * c] as const);
 }
 
 /** The stretch of the valley's right side the skyline takes over from the city. */
@@ -134,18 +204,32 @@ export function layoutSkyline() {
   const { cyan, violet } = palette;
   const white = palette.ink;
 
-  // The CN Tower: a tapering hexagonal shaft on three legs, washed in its
-  // light, the main pod three-fifths of the way up, the SkyPod above it, and
-  // the antenna. Stouter than life, so it reads from the far end of the
-  // valley.
+  // The CN Tower: a hexagonal core, washed in its light, with three legs that
+  // flare out to the ground and taper into it under the main pod (a Y in
+  // section, one leg towards the hero); the main pod three-fifths of the way
+  // up, its white radome ringing the foot of the glass; the core going on,
+  // alone, to the SkyPod; and the stepped antenna on top. Stouter than life,
+  // so it reads from the far end of the valley.
   const cn = onWall(44, -560);
   const H = CN_TOWER_HEIGHT;
-  /** The main pod's radius, and the shaft's at its foot and at the pod. */
-  const POD = 7.2;
-  const FOOT = 4.8;
-  const NECK = 1.7;
-  const podY = cn.ground + H * 0.6;
-  const skyY = cn.ground + H * 0.76;
+  /** The main pod's radius, at the radome, and the core's under the pod. */
+  const POD = 7;
+  const NECK = 1.8;
+  const podBase = cn.ground + H * 0.585;
+  const podY = podBase + 4.6;
+  const skyY = cn.ground + H * 0.79;
+  const mastY = cn.ground + H * 0.83;
+  const facing = Math.atan2(-cn.z, -cn.x);
+  /** The shaft's section at each height: the core across, the legs' reach. */
+  const shaft: [number, number, number][] = [
+    [0, 2.6, 7.4],
+    [H * 0.06, 2.5, 5.6],
+    [H * 0.16, 2.35, 4.3],
+    [H * 0.3, 2.15, 3.3],
+    [H * 0.45, 1.95, 2.6],
+    [podBase - cn.ground, NECK, NECK * Math.cos(Math.PI / 6)],
+    [mastY - cn.ground, 1.35, 1.35 * Math.cos(Math.PI / 6)],
+  ];
   const frustum = (
     y: number,
     rBottom: number,
@@ -165,41 +249,68 @@ export function layoutSkyline() {
     ...extra,
   });
   solids.push(
-    frustum(cn.ground - 1, FOOT, NECK, H * 0.6 + 1, 6, violet, { wash: 0.85 }),
-    frustum(podY, NECK, NECK * 0.75, H * 0.16, 6, violet, { wash: 0.85 }),
-    // The main pod: a sloping underside, the observation deck, a low cap.
-    frustum(podY - 4.2, NECK, POD, 4.2, 24, cyan, { wash: 0.3 }),
-    frustum(podY, POD, POD, 4.4, 24, cyan, { windows: true }),
-    frustum(podY + 4.4, POD, POD * 0.45, 2, 24, cyan, { wash: 0.3 }),
-    frustum(skyY, 2.5, 2.5, 2.4, 12, cyan, { windows: true }),
-    frustum(skyY + 2.4, 0.9, 0.22, H * 0.22, 6, white, { wash: 0.5 }),
-  );
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2 + 0.5;
-    solids.push({
-      shape: "frustum",
-      x: cn.x + Math.cos(a) * FOOT,
-      y: cn.ground - 1,
-      z: cn.z + Math.sin(a) * FOOT,
-      rBottom: 2.8,
-      rTop: 0.4,
-      h: H * 0.32,
-      segments: 4,
+    {
+      shape: "loft",
+      ...at(cn, cn.ground - 1),
+      rTop: NECK,
+      rBottom: shaft[0][2],
+      h: mastY - cn.ground + 1,
+      segments: 12,
       color: violet,
       wash: 0.6,
-    });
-  }
+      sections: shaft.map(([y, core, reach], k) => ({
+        h: k === 0 ? 0 : y + 1,
+        outline: yOutline(core, reach, facing),
+      })),
+    },
+    // The main pod: a sloping underside swelling into the radome, the glass
+    // of its observation levels leaning out over it, and a low roof.
+    {
+      shape: "lathe",
+      ...at(cn, podBase),
+      rTop: POD - 1.1,
+      rBottom: NECK,
+      h: 4.6,
+      segments: 24,
+      color: white,
+      wash: 0.4,
+      profile: [
+        [NECK, 0],
+        [3.4, 0.6],
+        [5, 1.2],
+        [6.2, 1.7],
+        [POD - 0.1, 2.3],
+        [POD + 0.3, 3],
+        [POD + 0.2, 3.7],
+        [POD - 0.4, 4.3],
+        [POD - 1.1, 4.6],
+      ],
+    },
+    frustum(podY, POD - 1.1, POD - 0.3, 2.8, 24, cyan, { windows: true }),
+    frustum(podY + 2.8, POD - 0.2, POD * 0.6, 1, 24, cyan, { wash: 0.3 }),
+    frustum(podY + 3.8, POD * 0.6, NECK + 0.6, 1.2, 12, cyan, { wash: 0.3 }),
+    // The SkyPod: a small drum of glass high on the core.
+    frustum(skyY - 0.8, 1.6, 2.6, 0.8, 12, cyan, { wash: 0.3 }),
+    frustum(skyY, 2.6, 2.6, 2, 12, cyan, { windows: true }),
+    frustum(skyY + 2, 2.6, 1.6, 0.6, 12, cyan, { wash: 0.3 }),
+    // The antenna, narrowing in steps.
+    frustum(mastY, 1, 0.8, 5.5, 6, white, { wash: 0.5 }),
+    frustum(mastY + 5.5, 0.6, 0.45, 5, 6, white, { wash: 0.5 }),
+    frustum(mastY + 10.5, 0.32, 0.1, cn.ground + H - mastY - 10.5, 6, white, {
+      wash: 0.5,
+    }),
+  );
   rings.push(
-    { ...at(cn, podY + 1.8), r: POD + 0.15, h: 0.7, color: cyan },
-    { ...at(cn, podY - 0.3), r: POD + 0.05, h: 0.35, color: violet },
-    { ...at(cn, skyY + 1.1), r: 2.65, h: 0.45, color: cyan },
+    { ...at(cn, podY + 2.5), r: POD - 0.25, h: 0.45, color: cyan },
+    { ...at(cn, podBase + 3.1), r: POD + 0.15, h: 0.35, color: violet },
+    { ...at(cn, skyY + 1.6), r: 2.65, h: 0.35, color: cyan },
   );
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     glows.push({
-      x: cn.x + Math.cos(a) * (POD + 0.3),
-      y: podY + 2,
-      z: cn.z + Math.sin(a) * (POD + 0.3),
+      x: cn.x + Math.cos(a) * (POD - 0.3),
+      y: podY + 1.2,
+      z: cn.z + Math.sin(a) * (POD - 0.3),
       color: cyan,
       size: 3,
       seed: i / 12,
@@ -223,51 +334,79 @@ export function layoutSkyline() {
   });
   bounds.push(boxAround(cn, POD + 1, H + 2));
 
-  // The Rogers Centre: a low drum under a ribbed dome, left of the tower as
-  // the hero sees it (its west, from the Islands), about life size beside it.
+  // The Rogers Centre, left of the tower as the hero sees it (its west, from
+  // the Islands), about life size beside it: a stadium-shaped drum under its
+  // closed roof of four panels, a quarter dome at each end and two barrel
+  // vaults between, each standing a little proud of the next so their seams
+  // show as arcs. Its long axis runs north-south, so from the Islands, as
+  // from the hero, it's seen end on.
   const dome = onWall(40, -603);
-  const R = 20;
-  const DRUM = 9;
-  const ROOF = 8.5;
-  solids.push(
-    {
-      shape: "frustum",
-      ...at(dome, dome.ground - 2),
-      rBottom: R,
-      rTop: R,
-      h: DRUM + 2,
-      segments: 32,
-      color: cyan,
-      windows: true,
-    },
-    {
-      shape: "dome",
+  const R = 19;
+  /** Half the straight between the drum's round ends. */
+  const A = 4;
+  const DRUM = 7.5;
+  const ROOF = 9.5;
+  const along = Math.atan2(-dome.z, -dome.x);
+  solids.push({
+    shape: "loft",
+    ...at(dome, dome.ground - 2),
+    rBottom: R,
+    rTop: R,
+    h: DRUM + 2,
+    segments: 26,
+    color: cyan,
+    windows: true,
+    sections: [0, DRUM + 2].map((h) => ({
+      h,
+      outline: stadiumOutline(R, A, along),
+    })),
+  });
+  // The panels, nearest first: each one's rise, and how much light it takes.
+  // Each is a slice of a low dome springing from the drum's rim.
+  const panels = [
+    ["near", ROOF * 0.8, 0.4],
+    ["nearBarrel", ROOF, 0.12],
+    ["farBarrel", ROOF * 0.9, 0.4],
+    ["far", ROOF * 0.8, 0.12],
+  ] as const;
+  for (const [part, h, wash] of panels) {
+    const STEPS = 6;
+    /** The radius of the sphere the panel is cut from. */
+    const sphere = (R * R + h * h) / (2 * h);
+    solids.push({
+      shape: "loft",
       ...at(dome, dome.ground + DRUM),
       rBottom: R,
-      rTop: R,
-      h: ROOF,
-      segments: 16,
+      rTop: 0,
+      h,
+      segments: 12,
       color: cyan,
-      wash: 0.25,
-    },
-  );
+      wash,
+      sections: Array.from({ length: STEPS + 1 }, (_, k) => {
+        const y = h * Math.sin((k / STEPS) * (Math.PI / 2));
+        const r = Math.sqrt(Math.max(sphere ** 2 - (sphere - h + y) ** 2, 0));
+        return { h: y, outline: stadiumOutline(r, A, along, 12, part) };
+      }),
+    });
+  }
   rings.push({
     ...at(dome, dome.ground + DRUM - 0.2),
     r: R + 0.15,
     h: 0.6,
     color: cyan,
+    outline: stadiumOutline(R + 0.15, A, along),
   });
-  for (let i = 0; i < 18; i++) {
-    const a = (i / 18) * Math.PI * 2;
+  const rim = stadiumOutline(R + 0.5, A, along, 9);
+  rim.forEach(([dx, dz], i) => {
     glows.push({
-      x: dome.x + Math.cos(a) * (R + 0.5),
+      x: dome.x + dx,
       y: dome.ground + DRUM + 0.4,
-      z: dome.z + Math.sin(a) * (R + 0.5),
+      z: dome.z + dz,
       color: i % 2 ? violet : cyan,
       size: 2.6,
-      seed: i / 18,
+      seed: i / rim.length,
     });
-  }
+  });
   pools.push({
     x: dome.x,
     y: dome.ground,
@@ -276,7 +415,7 @@ export function layoutSkyline() {
     depth: 100,
     color: cyan,
   });
-  bounds.push(boxAround(dome, R, DRUM + ROOF));
+  bounds.push(boxAround(dome, R + A, DRUM + ROOF));
 
   /** A core tower standing on the wall, with a ring of light at its crown. */
   function core(
@@ -471,10 +610,65 @@ function boxAround(
   };
 }
 
+/**
+ * The faces between two outlines (the lower one at `y0`, the upper at `y1`)
+ * as triangles looking out, and, given `cap`, the upper one's lid.
+ */
+function wallPositions(
+  lower: Outline,
+  upper: Outline,
+  y0: number,
+  y1: number,
+  cap = false,
+): number[] {
+  const out: number[] = [];
+  const n = lower.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    out.push(
+      lower[i][0], y0, lower[i][1],
+      upper[i][0], y1, upper[i][1],
+      lower[j][0], y0, lower[j][1],
+      lower[j][0], y0, lower[j][1],
+      upper[i][0], y1, upper[i][1],
+      upper[j][0], y1, upper[j][1],
+    );
+  }
+  if (cap) {
+    const cx = upper.reduce((sum, p) => sum + p[0], 0) / n;
+    const cz = upper.reduce((sum, p) => sum + p[1], 0) / n;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      out.push(cx, y1, cz, upper[j][0], y1, upper[j][1], upper[i][0], y1, upper[i][1]);
+    }
+  }
+  return out;
+}
+
+/** A loft through its sections, capped on top. */
+function loftGeometry(s: Solid): BufferGeometry {
+  const sections = s.sections ?? [];
+  const positions = sections.slice(1).flatMap((upper, k) => {
+    const lower = sections[k];
+    return wallPositions(
+      lower.outline,
+      upper.outline,
+      lower.h,
+      upper.h,
+      k === sections.length - 2,
+    );
+  });
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  return g;
+}
+
 /** One solid as geometry, standing on its base, tagged for the shader. */
 function solidGeometry(s: Solid): BufferGeometry {
   const g =
-    s.shape === "lathe"
+    s.shape === "loft"
+      ? loftGeometry(s)
+      : s.shape === "lathe"
       ? new LatheGeometry(
           (s.profile ?? []).map(([r, y]) => new Vector2(r, y)),
           s.segments,
@@ -518,9 +712,19 @@ function solidGeometry(s: Solid): BufferGeometry {
 
 /** A ring of light as an open band. */
 function ringGeometry(r: Ring): BufferGeometry {
-  const g = new CylinderGeometry(r.r, r.r, r.h, 24, 1, true)
-    .translate(r.x, r.y, r.z)
-    .toNonIndexed();
+  const g = r.outline
+    ? new BufferGeometry()
+        .setAttribute(
+          "position",
+          new Float32BufferAttribute(
+            wallPositions(r.outline, r.outline, -r.h / 2, r.h / 2),
+            3,
+          ),
+        )
+        .translate(r.x, r.y, r.z)
+    : new CylinderGeometry(r.r, r.r, r.h, 24, 1, true)
+        .translate(r.x, r.y, r.z)
+        .toNonIndexed();
   g.deleteAttribute("normal");
   g.deleteAttribute("uv");
   const n = g.getAttribute("position").count;
