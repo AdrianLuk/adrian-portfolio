@@ -12,6 +12,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { courtLook, RALLY_BALL, rallyBall, tintFog } from "./court-look";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
@@ -20,13 +21,23 @@ import { createMist } from "./mist";
 import { createNamePlate, type PlacedWord } from "./name-plate";
 import { createPrecipitation } from "./precipitation";
 import { nameGlyphs } from "./name-glyphs";
-import { FOG_DENSITY, palette } from "./palette";
+import { createBalls } from "./landmarks";
+import { FOG_DENSITY, fogColor, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
 import type { CameraDirector, CameraLean } from "../camera-director";
-import { createRoute, outpostPose, SITES, type Route } from "./route";
-import { OUTPOST_STOP, transit } from "./transit";
+import { nominalRoute } from "./nominal-route";
 import {
+  courtPose,
+  createRoute,
+  outpostPose,
+  SITES,
+  type Route,
+} from "./route";
+import { COURT_STOP, OUTPOST_STOP, transit } from "./transit";
+import {
+  drawsInSoftware,
+  holdsFrame,
   moteCountFor,
   pixelRatioFor,
   plateFinishFor,
@@ -66,11 +77,15 @@ export type ViewOptions = {
 /**
  * What the world shows. hero: the home page's, the name plate posed on the
  * headline that `measure` finds, the camera on the opening flight and then
- * the scroll route. outpost: the Resume page's, the camera still at the
- * route's last stop, the plate and the lit sites out of sight.
+ * the scroll route. court: the Juice Bros Case study's, the camera still and
+ * low behind the court's near baseline (Lit site 3). outpost: the Resume
+ * page's, the camera still at the route's last stop. Away from the hero, the
+ * plate and the lit sites are out of sight.
  */
 export type WorldView =
-  { kind: "hero"; measure: () => Measurement } | { kind: "outpost" };
+  | { kind: "hero"; measure: () => Measurement }
+  | { kind: "court" }
+  | { kind: "outpost" };
 
 /**
  * The world: one scene, which any of its views can show, so changing view
@@ -126,6 +141,29 @@ export type World = View & {
   /** Changes the weather in place: the ground, the pools and what falls. */
   setWeather(weather: Weather): void;
 };
+
+/**
+ * Whether `gl` draws in software (see `drawsInSoftware`). Chrome masks the
+ * renderer's name behind WEBGL_debug_renderer_info, which Firefox, whose
+ * name is already readable, has deprecated: asked for only when masked.
+ */
+function inSoftware(gl: WebGLRenderingContext | WebGL2RenderingContext) {
+  let name: unknown = gl.getParameter(gl.RENDERER);
+  if (name === "WebKit WebGL") {
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    if (info) name = gl.getParameter(info.UNMASKED_RENDERER_WEBGL);
+  }
+  return drawsInSoftware(typeof name === "string" ? name : null, () => {
+    const probe = document.createElement("canvas");
+    const options: WebGLContextAttributes = {
+      failIfMajorPerformanceCaveat: true,
+    };
+    const accepted =
+      probe.getContext("webgl2", options) ?? probe.getContext("webgl", options);
+    accepted?.getExtension("WEBGL_lose_context")?.loseContext();
+    return !accepted;
+  });
+}
 
 /** Lets the browser paint and handle input before the next setup step. */
 const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -231,6 +269,7 @@ export async function createWorld(
   }
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.setClearColor(palette.night);
+  const software = inSoftware(renderer.getContext());
 
   const shared: SharedUniforms = {
     uTime: { value: STILL_TIME },
@@ -238,7 +277,8 @@ export async function createWorld(
   };
 
   const scene = new Scene();
-  scene.fog = new FogExp2(palette.fog, FOG_DENSITY);
+  const fog = new FogExp2(fogColor, FOG_DENSITY);
+  scene.fog = fog;
   const camera = new PerspectiveCamera(CAMERA.fovY, 1, 0.5, 2600);
   camera.rotation.order = "YXZ";
   /** The camera's double, for seeing from elsewhere on the route. */
@@ -268,7 +308,16 @@ export async function createWorld(
     finish,
   });
   const lights = createGlowPoints(structures.glows, shared);
+  const floodlights = createGlowPoints(structures.floodlights, shared);
   const sites = createSiteLights(shared);
+  // The rally ball, in the scene from the start (hidden, so it compiles with
+  // the rest) and shown only by the court's look.
+  const [rally] = createBalls([
+    { x: 0, y: 0, z: 0, r: RALLY_BALL.radius, color: palette.violet },
+  ]);
+  rally.visible = false;
+  /** The court's look, as the director last blended it (see ./court-look). */
+  let look = courtLook(0);
   const pools = createGroundPools(structures.pools.length + 3, poolIntensity());
   function poolIntensity() {
     return wet() ? WET_POOLS.intensity : POOL_INTENSITY;
@@ -280,6 +329,8 @@ export async function createWorld(
     pools.mesh,
     ...structures.meshes,
     lights.points,
+    floodlights.points,
+    rally,
     ...sites.map((s) => s.points),
     ...createMist(shared),
     plate.group,
@@ -294,6 +345,10 @@ export async function createWorld(
 
   let motion = options.motion;
   let onScreen = true;
+  /** Whether the last frame drawn had the camera landed (see `holds`). */
+  let landed = false;
+  /** While the frame is held, the last held frame's time (see `loop`). */
+  let heldAt: number | null = null;
   let running = false;
   let loopStart: number | null = null;
   let firstFrame = true;
@@ -355,6 +410,26 @@ export async function createWorld(
     sites.forEach((site, i) =>
       site.setIntensity(BEACON_INTENSITY * lights.sites[i]),
     );
+    look = courtLook(lights.court);
+    showLook();
+  }
+
+  /**
+   * Lights the court as its look says: the floodlights up, the fog toward
+   * violet, the rally ball in (only while the world moves: under reduced
+   * motion the court is one still frame, with no ball), and what falls out.
+   */
+  function showLook() {
+    floodlights.setIntensity(look.floodlights);
+    tintFog(look.fog);
+    fog.color.copy(fogColor);
+    rally.visible = motion && look.ball > 0;
+    if (rally.visible) {
+      const at = rallyBall(structures.court, shared.uTime.value);
+      rally.position.set(at.x, at.y, at.z);
+      rally.scale.setScalar(look.ball);
+    }
+    showFalling();
   }
 
   function render() {
@@ -363,6 +438,7 @@ export async function createWorld(
     plate.sweep(shared.uTime.value);
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
     renderer.render(scene, camera);
+    landed = options.director.flying() === null;
     if (firstFrame) {
       firstFrame = false;
       options.onFrame();
@@ -385,7 +461,14 @@ export async function createWorld(
     camera.updateProjectionMatrix();
     canvasSize.width = width;
     canvasSize.height = height;
-    for (const glow of [lights, plate.flares, ...sites, motes, falling])
+    for (const glow of [
+      lights,
+      floodlights,
+      plate.flares,
+      ...sites,
+      motes,
+      falling,
+    ])
       glow?.setViewportHeight(height);
 
     // Motes scale with the canvas area; rebuild only when the count bucket moves.
@@ -422,29 +505,39 @@ export async function createWorld(
     }
     showFalling();
 
-    posed =
-      view.kind === "hero"
-        ? placePlate(plate, words, width, height)
-        : placeOutpost();
+    const home = view.kind === "hero";
+    posed = home
+      ? placePlate(plate, words, width, height)
+      : placeStill(view.kind === "court" ? courtPose : outpostPose);
     if (!posed) return;
-    // The director takes the paths this layout measured, and the Transit maths.
+    // The director takes the paths this layout measured, and the Transit
+    // maths. Home's paths come only from home's own layout; away from it, the
+    // nominal route flies the court and the Outpost (see ./nominal-route).
     options.director.layout({
-      opening: path,
-      route,
+      opening: home ? path : null,
+      route: home ? route : nominalRoute(camera.aspect),
       outpost: outpostPose(camera.aspect),
       outpostStop: OUTPOST_STOP,
+      court: courtPose(camera.aspect),
+      courtStop: COURT_STOP,
       transit,
     });
     // The motes rise round where the camera stands.
     const { x, z } = camera.position;
     motes?.points.position.set(x, valleyHeight(x, z - 90), z);
-    // The loop, when it runs, draws the new pose on its next frame.
-    if (!running) render();
+    // The loop, when it runs, draws the new pose on its next frame (unless
+    // it holds the last one, which a resize has cleared).
+    if (!running || holds()) render();
   }
 
-  /** Nothing falls under reduced motion, or in the clear: the ground shows it. */
+  /**
+   * Nothing falls under reduced motion, or in the clear, or at the court
+   * (it fades out as the court's look comes in): the ground shows it.
+   */
   function showFalling() {
-    if (falling) falling.object.visible = motion && weather !== "clear";
+    if (!falling) return;
+    falling.setFade(look.falling);
+    falling.object.visible = motion && weather !== "clear" && look.falling > 0;
   }
 
   /** Lays the light pools on the floor, stretched on a wet one. */
@@ -452,9 +545,9 @@ export async function createWorld(
     pools.set(wet() ? wetPools(lit) : lit);
   }
 
-  /** The Outpost's fixed pose, for the screen's shape. */
-  function placeOutpost() {
-    placeCamera(outpostPose(camera.aspect));
+  /** A still view's pose (the court's, the Outpost's), for the screen's shape. */
+  function placeStill(poseFor: (aspect: number) => Pose) {
+    placeCamera(poseFor(camera.aspect));
     setPools(structures.pools);
     return true;
   }
@@ -518,8 +611,26 @@ export async function createWorld(
     return true;
   }
 
+  /** Whether the world holds its last frame now (see `holdsFrame`). */
+  const holds = () =>
+    holdsFrame({
+      software,
+      atCourt: view?.kind === "court",
+      flying: options.director.flying() !== null,
+      landed,
+      awaitingPage: options.director.awaitingPage(),
+    });
+
   function loop(ms: number) {
     loopStart ??= ms;
+    if (holds()) {
+      // The canvas keeps showing the last frame drawn, and the world's clock
+      // stands still, so it moves on from there once it draws again.
+      if (heldAt !== null) loopStart += ms - heldAt;
+      heldAt = ms;
+      return;
+    }
+    heldAt = null;
     shared.uTime.value = STILL_TIME + (ms - loopStart) / 1000;
     render();
   }
@@ -545,6 +656,7 @@ export async function createWorld(
     renderer.setAnimationLoop(null);
     running = false;
     firstFrame = true;
+    landed = false;
     lost = true;
     options.onLost();
   };
@@ -587,7 +699,7 @@ export async function createWorld(
 
   /**
    * Fits the scene to its view: the plate shows only in the hero's, and the
-   * lit sites, all behind the Outpost's camera, stay dark there.
+   * lit sites, home's scroll cues, stay dark away from it.
    */
   function showView() {
     plate.group.visible = view?.kind === "hero";

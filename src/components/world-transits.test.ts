@@ -6,8 +6,8 @@ import { createWorldTransits } from "./world-transits";
 import { createFlightPath, type Pose } from "./world/flight";
 import { CAMERA } from "./world/pose";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
-import { createRoute, outpostPose } from "./world/route";
-import { OUTPOST_STOP, transit } from "./world/transit";
+import { courtPose, createRoute, outpostPose } from "./world/route";
+import { COURT_STOP, OUTPOST_STOP, transit } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -34,6 +34,8 @@ function standInHost() {
     route: createRoute(settled, plateCentre, aspect),
     outpost: outpostPose(aspect),
     outpostStop: OUTPOST_STOP,
+    court: courtPose(aspect),
+    courtStop: COURT_STOP,
     transit,
   });
   director.show("hero");
@@ -72,7 +74,7 @@ function fakeRoot() {
   };
 }
 
-describe("transits between home and the Resume page", () => {
+describe("transits between Places", () => {
   let root: ReturnType<typeof fakeRoot>;
   let media: { listeners: Set<() => void>; matches: boolean };
   const disposers: (() => void)[] = [];
@@ -80,7 +82,10 @@ describe("transits between home and the Resume page", () => {
   beforeEach(() => {
     root = fakeRoot();
     media = { listeners: new Set(), matches: false };
-    vi.stubGlobal("document", { querySelector: () => root });
+    vi.stubGlobal("document", {
+      querySelector: () => root,
+      activeViewTransition: null,
+    });
     vi.stubGlobal("window", {
       matchMedia: () => ({
         get matches() {
@@ -128,6 +133,38 @@ describe("transits between home and the Resume page", () => {
     expect(root.attributes.get("data-transit")).toBe("outpost");
   });
 
+  it("flies to the Case study's court, holding its copy back for the cap at most", () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
+    expect(transits.navigate("/work/juice-bros")).toBe(true);
+    expect(root.attributes.get("data-transit")).toBe("court");
+    expect(root.attributes.get("data-arriving")).toBe("court");
+    expect(world.weatherHeld).toBe(true);
+
+    world.intent = "court";
+    director.show("court");
+    vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 - 50);
+    // Never past the cap: the copy is in by then, and so is the camera.
+    vi.advanceTimersByTime(100);
+    expect(root.attributes.has("data-arriving")).toBe(false);
+    vi.advanceTimersByTime(100);
+    expect(director.flying()).toBeNull();
+    expect(root.attributes.size).toBe(0);
+    expect(world.weatherHeld).toBe(false);
+  });
+
+  it("flies on from the court to the Resume page, and an anchor on the court flies nowhere", () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
+    world.intent = "court";
+    director.show("court");
+    expect(transits.navigate("/work/juice-bros#approach")).toBe(false);
+    expect(root.attributes.size).toBe(0);
+    expect(transits.navigate("/resume")).toBe(true);
+    expect(root.attributes.get("data-transit")).toBe("outpost");
+    expect(root.attributes.get("data-arriving")).toBe("outpost");
+  });
+
   it("clears its marks and lets the weather go once the director lands", () => {
     const { host, world, director } = standInHost();
     const transits = start(host);
@@ -138,6 +175,32 @@ describe("transits between home and the Resume page", () => {
     expect(director.flying()).toBeNull();
     expect(root.attributes.size).toBe(0);
     expect(world.weatherHeld).toBe(false);
+  });
+
+  it("keeps the Transit's mark through the view transition its page commits in, so it never crossfades", async () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
+    transits.navigate("/work/juice-bros");
+    // The page commits late, in a view transition of its own, after the
+    // flight's time is up: the camera lands at once.
+    vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 + 100);
+    let finish!: () => void;
+    const finished = new Promise<void>((resolve) => (finish = resolve));
+    (document as unknown as { activeViewTransition: unknown }).activeViewTransition = {
+      finished,
+    };
+    world.intent = "court";
+    director.show("court");
+    vi.advanceTimersByTime(50);
+    expect(director.flying()).toBeNull();
+    expect(world.weatherHeld).toBe(false);
+    expect(root.attributes.has("data-arriving")).toBe(false);
+    // The mark that turns the crossfade off stays until it is over.
+    expect(root.attributes.get("data-transit")).toBe("court");
+    finish();
+    await finished;
+    await Promise.resolve();
+    expect(root.attributes.has("data-transit")).toBe(false);
   });
 
   it("leaves from where the committed page is, so a navigation that never arrives changes nothing", () => {

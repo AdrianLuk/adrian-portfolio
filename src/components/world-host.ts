@@ -18,7 +18,8 @@ export type WorldState = "pending" | "drawn" | "unavailable";
 
 /**
  * What the page on screen wants from the world: home the hero (the opening,
- * the settled view, the scroll route), the Resume page the Outpost (the
+ * the settled view, the scroll route), the Juice Bros Case study the court
+ * (the camera still, in Toronto's weather), the Resume page the Outpost (the
  * camera still, the sky clear), any other page nothing (its still backdrop
  * stands in, and the world is parked, drawing nothing).
  */
@@ -34,20 +35,26 @@ export type WorldClaim =
       weather: Weather;
       measure: (canvas: HTMLCanvasElement) => Measurement;
     }
+  | { kind: "court"; weather: Weather }
   | { kind: "outpost" };
 
-const viewFor = (
+function viewFor(
   claim: WorldClaim | null,
   canvas: HTMLCanvasElement,
-): WorldView | null =>
-  claim &&
-  (claim.kind === "hero"
-    ? { kind: "hero", measure: () => claim.measure(canvas) }
-    : { kind: "outpost" });
+): WorldView | null {
+  if (!claim) return null;
+  if (claim.kind === "hero") {
+    return { kind: "hero", measure: () => claim.measure(canvas) };
+  }
+  return { kind: claim.kind };
+}
 
-/** The Outpost stands clear: the Resume page has no weather of its own. */
+/**
+ * Home and the court stand in Toronto's weather; the Outpost stands clear:
+ * the Resume page has no weather of its own.
+ */
 const weatherFor = (claim: WorldClaim | null): Weather =>
-  claim?.kind === "hero" ? claim.weather : "clear";
+  claim?.kind === "hero" || claim?.kind === "court" ? claim.weather : "clear";
 
 /**
  * The one world, across every route: one canvas and one compiled scene,
@@ -199,7 +206,7 @@ export function createWorldHost() {
     /**
      * Holds the weather as it is while the camera flies, however the pages
      * change under it; released, the world takes the page's own (clear at
-     * the Outpost, Toronto's at home), as the camera lands.
+     * the Outpost, Toronto's at home and at the court), as the camera lands.
      */
     holdWeather(hold: boolean) {
       weatherHeld = hold;

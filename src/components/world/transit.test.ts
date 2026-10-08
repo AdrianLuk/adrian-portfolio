@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createFlightPath, type Pose } from "./flight";
 import { CAMERA } from "./pose";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
-import { createRoute, outpostPose } from "./route";
+import { courtPose, createRoute, outpostPose, SITES } from "./route";
 import { layoutStructures, type Box } from "./structures";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 import {
+  COURT_STOP,
   OUTPOST_STOP,
   SETTLED_STOP,
   TRANSIT_MAX_SECONDS,
@@ -86,10 +87,26 @@ const towers = [
   ...skyline.bounds,
 ];
 
-/** Every pose clears each tower by 3 and the ground by 8, as the route does. */
-function expectClear(poses: Pose[]) {
+/**
+ * The relaxed rule for the last metres into the court's low pose: within
+ * LANDING_REACH world units of it, the camera need only clear the ground by
+ * the court pose's own margin, 2, not the route's 8.
+ */
+const LANDING_REACH = 60;
+const LANDING_GROUND = 2;
+
+/**
+ * Every pose clears each tower by 3 and stays in the valley, as the route
+ * does, and clears the ground by 8 (by 2 within LANDING_REACH of `landing`,
+ * the court pose).
+ */
+function expectClear(poses: Pose[], landing?: Pose) {
   for (const { position: p } of poses) {
-    expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(8);
+    const low =
+      landing && p.distanceTo(landing.position) < LANDING_REACH
+        ? LANDING_GROUND
+        : 8;
+    expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(low);
     expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
       corridorHalfWidth(p.z),
     );
@@ -165,6 +182,42 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         const poses = along(transit);
         expectSmooth(poses, to === SETTLED_STOP ? "up" : "down");
         expectClear(poses);
+      }
+    });
+
+    it("home ↔ Outpost, joining or leaving the route within its reach (as every Transit does), still leaves from the camera, lands exactly, runs smooth and keeps under the cap", () => {
+      // Off the route by a little or a lot, at home's end or the Outpost's,
+      // and partway through a Transit turned round.
+      const { position, quaternion } = route.poseAt(2.5);
+      const offRoute = (shift: Vector3, degrees: number): Pose => ({
+        position: position.clone().add(shift),
+        quaternion: new Quaternion()
+          .setFromAxisAngle(new Vector3(0, 1, 0), (degrees * Math.PI) / 180)
+          .multiply(quaternion),
+      });
+      const out = transitPath(route, settled, OUTPOST_STOP);
+      const back = transitPath(route, outpostPose(aspect), SETTLED_STOP);
+      const departures = [
+        settled,
+        outpostPose(aspect),
+        offRoute(new Vector3(6, 3, 0), 12),
+        offRoute(new Vector3(-8, 5, 0), -15),
+        out.poseAt(0.3),
+        back.poseAt(0.6),
+      ];
+      for (const departure of departures) {
+        for (const to of [SETTLED_STOP, OUTPOST_STOP]) {
+          const trip = transitPath(route, departure, to);
+          const landing = to === SETTLED_STOP ? settled : outpostPose(aspect);
+          if (departure.position.distanceTo(landing.position) < 1e-6) continue;
+          expectSamePose(trip.poseAt(0), departure);
+          expectSamePose(trip.poseAt(1), landing);
+          expect(trip.duration).toBeGreaterThan(0);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+          const poses = along(trip);
+          expectSmooth(poses, to === SETTLED_STOP ? "up" : "down");
+          expectClear(poses);
+        }
       }
     });
 
@@ -262,6 +315,146 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         expectSmooth(poses, "up");
         expectClear(poses);
       }
+    });
+
+    describe("to and from the court", () => {
+      const court = courtPose(aspect);
+      const toCourt = (departure: Pose) =>
+        transitPath(route, departure, court);
+
+      it("lands just past the route's stop at the court's Lit site, Juice Bros", () => {
+        expect(SITES[COURT_STOP - 1].highlight).toBe("juice-bros");
+        const z = court.position.z;
+        expect(z).toBeLessThan(route.poseAt(COURT_STOP).position.z);
+        expect(z).toBeGreaterThan(route.poseAt(COURT_STOP + 0.5).position.z);
+      });
+
+      it("home to the court leaves from the settled view and lands exactly on the court pose", () => {
+        const trip = toCourt(settled);
+        expectSamePose(trip.poseAt(0), settled);
+        expectSamePose(trip.poseAt(1), court);
+      });
+
+      it("home to the court runs down the valley, over the plate, clear of everything, without a jump", () => {
+        const poses = along(toCourt(settled));
+        expectSmooth(poses, "down");
+        expectClear(poses, court);
+        for (const { position: p } of poses) {
+          if (Math.abs(p.z - plateCentre.z) < 15) {
+            expect(p.y).toBeGreaterThan(plateCentre.y + 15);
+          }
+        }
+      });
+
+      it("the court to home leaves from the court pose, runs back up the valley and lands on the settled view", () => {
+        const trip = transitPath(route, court, SETTLED_STOP);
+        expectSamePose(trip.poseAt(0), court);
+        expectSamePose(trip.poseAt(1), settled);
+        const poses = along(trip);
+        expectSmooth(poses, "up");
+        expectClear(poses, court);
+      });
+
+      it("the court to the Outpost runs on down the valley and lands on the Outpost pose", () => {
+        const trip = transitPath(route, court, OUTPOST_STOP);
+        expectSamePose(trip.poseAt(0), court);
+        expectSamePose(trip.poseAt(1), outpostPose(aspect));
+        const poses = along(trip);
+        expectSmooth(poses, "down");
+        expectClear(poses, court);
+      });
+
+      it("the Outpost to the court runs back up the valley and lands exactly on the court pose", () => {
+        const trip = toCourt(outpostPose(aspect));
+        expectSamePose(trip.poseAt(0), outpostPose(aspect));
+        expectSamePose(trip.poseAt(1), court);
+        const poses = along(trip);
+        expectSmooth(poses, "up");
+        expectClear(poses, court);
+      });
+
+      it("leaves for the court from anywhere along the scroll route", () => {
+        for (const at of [0.5, 1, 2.37, 3, 4, 4.9]) {
+          const departure = route.poseAt(at);
+          const trip = toCourt(departure);
+          expectSamePose(trip.poseAt(0), departure);
+          expectSamePose(trip.poseAt(1), court);
+          expect(trip.duration).toBeGreaterThan(0);
+          const poses = along(trip);
+          expectSmooth(poses, at < COURT_STOP + 0.5 ? "down" : "up");
+          expectClear(poses, court);
+        }
+      });
+
+      it("turns round mid-flight, either way, from exactly where the camera is", () => {
+        const trips = [
+          { out: toCourt(settled), back: SETTLED_STOP, way: "up" },
+          {
+            out: transitPath(route, court, SETTLED_STOP),
+            back: COURT_STOP,
+            way: "down",
+          },
+          {
+            out: transitPath(route, court, OUTPOST_STOP),
+            back: COURT_STOP,
+            way: "up",
+          },
+        ] as const;
+        for (const { out, back, way } of trips) {
+          for (const t of [0.05, 0.3, 0.6, 0.95]) {
+            const departure = out.poseAt(t);
+            const trip = transitPath(
+              route,
+              departure,
+              back === COURT_STOP ? court : back,
+            );
+            expectSamePose(trip.poseAt(0), departure);
+            expectSamePose(
+              trip.poseAt(1),
+              back === COURT_STOP ? court : settled,
+            );
+            const poses = along(trip);
+            expectSmooth(poses, way);
+            expectClear(poses, court);
+          }
+        }
+      });
+
+      it("leaves for the court while the opening still plays, finishing it first, without a jump", () => {
+        const opening = createFlightPath(settled, plateCentre);
+        for (const rig of [
+          { ...SETTLED_RIG, flight: 0.15, turn: 0, settle: 0 },
+          { ...SETTLED_RIG, flight: 1, turn: 0.95, settle: 0.5 },
+        ]) {
+          const trip = transit(
+            route,
+            { opening, travel: opening.travel(rig), settle: rig.settle },
+            court,
+          );
+          expectSamePose(trip.poseAt(0), opening.poseAt(rig));
+          expectSamePose(trip.poseAt(1), court);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+          const poses = along(trip, 1000);
+          for (let i = 1; i < poses.length; i++) {
+            const [a, b] = [poses[i - 1], poses[i]];
+            expect(a.position.distanceTo(b.position)).toBeLessThan(STEP_LIMIT);
+            expect(a.quaternion.angleTo(b.quaternion)).toBeLessThan(TURN_LIMIT);
+          }
+        }
+      });
+
+      it("takes time to land even from the court's own stop, and never longer than the cap", () => {
+        expect(toCourt(route.poseAt(COURT_STOP)).duration).toBeGreaterThan(0);
+        for (const trip of [
+          toCourt(settled),
+          toCourt(outpostPose(aspect)),
+          transitPath(route, court, SETTLED_STOP),
+          transitPath(route, court, OUTPOST_STOP),
+        ]) {
+          expect(trip.duration).toBeGreaterThan(0);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+        }
+      });
     });
   });
 }

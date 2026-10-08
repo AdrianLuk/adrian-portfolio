@@ -8,10 +8,11 @@ import {
 import { createFlightTimeline } from "./flight-timeline";
 import type { Place } from "./world-places";
 import { createFlightPath, type Pose } from "./world/flight";
+import { nominalRoute } from "./world/nominal-route";
 import { CAMERA } from "./world/pose";
 import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
-import { createRoute, outpostPose } from "./world/route";
-import { OUTPOST_STOP, transit } from "./world/transit";
+import { courtPose, createRoute, outpostPose } from "./world/route";
+import { COURT_STOP, OUTPOST_STOP, transit } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -45,6 +46,8 @@ function setup() {
     route,
     outpost: outpostPose(aspect),
     outpostStop: OUTPOST_STOP,
+    court: courtPose(aspect),
+    courtStop: COURT_STOP,
     transit,
   };
   const director = createCameraDirector({ homeStop: () => page.stop });
@@ -155,7 +158,12 @@ describe("the Camera director", () => {
     timeline.at(timeline.duration);
     const { pose, lights } = director.frame(16);
     expectSamePose(pose!, route.poseAt(0));
-    expect(lights).toEqual({ beams: 1, sweep: 0, sites: [1, 0.35, 0.35, 0.35] });
+    expect(lights).toEqual({
+      beams: 1,
+      sweep: 0,
+      sites: [1, 0.35, 0.35, 0.35],
+      court: 0,
+    });
   });
 
   it("lights each site as the scroll route says, and darkens them once it stops", () => {
@@ -173,12 +181,42 @@ describe("the Camera director", () => {
     expect(director.frame(32).lights!.sites).toEqual([1, 0.35, 0.35, 0.35]);
   });
 
-  it("holds the Outpost's pose at the Outpost, with no lights of its own", () => {
+  it("knows while a Transit waits for its page: until that page shows, and never once landed", () => {
+    const { director } = setup();
+    director.show("hero");
+    director.openingLands();
+    expect(director.awaitingPage()).toBe(false);
+    expect(director.fly("court", 0)).toBe(true);
+    // The router hasn't committed the Case study yet: home still shows.
+    expect(director.awaitingPage()).toBe(true);
+    director.show(null);
+    expect(director.awaitingPage()).toBe(true);
+    director.show("court");
+    expect(director.awaitingPage()).toBe(false);
+    director.arrive();
+    expect(director.awaitingPage()).toBe(false);
+  });
+
+  it("holds the Outpost's pose at the Outpost, the sites dark, with no court look", () => {
     const { director } = setup();
     director.show("outpost");
     const { pose, lights } = director.frame(0);
     expectSamePose(pose!, outpostPose(aspect));
-    expect(lights).toBeNull();
+    expect(lights).toEqual({ beams: 0, sweep: 0, sites: [0, 0, 0, 0], court: 0 });
+  });
+
+  it("holds the court's pose at the court, its look full, the sites dark", () => {
+    const { director } = setup();
+    director.show("court");
+    const { pose, lights, lean } = director.frame(0);
+    expectSamePose(pose!, courtPose(aspect));
+    expect(lights).toEqual({
+      beams: 0,
+      sweep: 0,
+      sites: [0, 0, 0, 0],
+      court: 1,
+    });
+    expect(lean).toEqual({ x: 0, y: 0 });
   });
 
   describe("never jumps at a handoff", () => {
@@ -206,6 +244,18 @@ describe("the Camera director", () => {
       const after = film(director, 216 + poses.length * FRAME, 200);
       expectNoJump([...before, ...poses, ...after]);
       expectSamePose(after.at(-1)!, paths.outpost);
+    });
+
+    it("from the scroll route to a Transit down to the court, landing on its pose", () => {
+      const { director, paths } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.scrolled(1.5, [1, 1, 0, 0]);
+      const before = film(director, 0, 200);
+      const { poses } = flyTo(director, "court", 216);
+      const after = film(director, 216 + poses.length * FRAME, 200);
+      expectNoJump([...before, ...poses, ...after]);
+      expectSamePose(after.at(-1)!, paths.court);
     });
 
     it("from the Opening to a Transit, leaving from the camera's live pose", () => {
@@ -277,6 +327,90 @@ describe("the Camera director", () => {
     });
   });
 
+  describe("the court's look", () => {
+    /** The court's look in each frame of `ms` filmed from `from`. */
+    function filmLook(
+      director: CameraDirector,
+      from: number,
+      ms: number,
+      script: (now: number) => void = () => {},
+    ) {
+      const looks: number[] = [];
+      for (let now = from; now <= from + ms; now += FRAME) {
+        script(now);
+        director.advance(now);
+        looks.push(director.frame(now).lights!.court);
+      }
+      return looks;
+    }
+
+    /** Fails if the look jumps between frames, or ever runs the wrong way. */
+    function expectBlend(looks: number[], from: number, to: number) {
+      expect(looks[0]).toBeCloseTo(from);
+      expect(looks.at(-1)).toBe(to);
+      for (let i = 1; i < looks.length; i++) {
+        const step = looks[i] - looks[i - 1];
+        expect(Math.abs(step)).toBeLessThan(0.08);
+        expect(step * (to - from)).toBeGreaterThanOrEqual(0);
+      }
+    }
+
+    it("blends in through a Transit to the court, full as the camera lands", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.fly("court", 0);
+      const looks = filmLook(director, 0, 3000, (now) => {
+        if (now >= 300) director.show("court");
+      });
+      expect(director.flying()).toBeNull();
+      expectBlend(looks, 0, 1);
+      // Partway through the flight, partway in.
+      expect(looks[40]).toBeGreaterThan(0.05);
+      expect(looks[40]).toBeLessThan(0.95);
+    });
+
+    it("blends out through a Transit leaving the court, for home or the Outpost", () => {
+      for (const to of ["hero", "outpost"] as const) {
+        const { director } = setup();
+        director.show("court");
+        director.fly(to, 0);
+        const looks = filmLook(director, 0, 3000, (now) => {
+          if (now < 300) return;
+          director.show(to);
+          director.openingLands();
+        });
+        expect(director.flying()).toBeNull();
+        expectBlend(looks, 1, 0);
+      }
+    });
+
+    it("turns round with the camera when Back calls a Transit off mid-flight", () => {
+      const { director } = setup();
+      director.show("court");
+      director.fly("outpost", 0);
+      const out = filmLook(director, 0, 600);
+      expect(out.at(-1)).toBeLessThan(0.9);
+      // The Resume page never arrived: back to the court.
+      director.fly("court", 616);
+      const back = filmLook(director, 616, 3000);
+      expect(director.flying()).toBeNull();
+      expect(Math.abs(back[0] - out.at(-1)!)).toBeLessThan(0.08);
+      expectBlend(back, back[0], 1);
+    });
+
+    it("leaves home's lights out of it", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.fly("outpost", 0);
+      const looks = filmLook(director, 0, 3000, (now) => {
+        if (now >= 300) director.show("outpost");
+      });
+      expect(looks.every((look) => look === 0)).toBe(true);
+    });
+  });
+
   it("lands on the Outpost once the Resume page is in and the camera is there", () => {
     const { director } = setup();
     director.show("hero");
@@ -289,6 +423,67 @@ describe("the Camera director", () => {
     director.advance(TRANSIT_MAX_SECONDS * 1000 + 116);
     expect(director.flying()).toBeNull();
     expectSamePose(director.frame(TRANSIT_MAX_SECONDS * 1000 + 132).pose!, outpostPose(aspect));
+  });
+
+  describe("on a visit that never showed home", () => {
+    /** A director holding a court or Outpost layout's paths: no Opening, the nominal route. */
+    function away() {
+      const home = setup();
+      const director = createCameraDirector({ homeStop: () => home.page.stop });
+      director.layout({ ...home.paths, opening: null, route: nominalRoute(aspect) });
+      return { ...home, director };
+    }
+
+    it("flies between the court and the Outpost at once, either way, without a jump", () => {
+      for (const [from, to] of [
+        ["court", "outpost"],
+        ["outpost", "court"],
+      ] as const) {
+        const { director, paths } = away();
+        director.show(from);
+        const before = film(director, 0, 100);
+        const { poses, landedAt } = flyTo(director, to, 116);
+        expect(landedAt - 116).toBeLessThan(TRANSIT_MAX_SECONDS * 1000 + 100);
+        expectNoJump([...before, ...poses]);
+        expectSamePose(director.frame(landedAt).pose!, paths[to]);
+      }
+    });
+
+    it("flies home only on home's own paths, holding still until they are measured", () => {
+      const { director, paths, route } = away();
+      director.show("court");
+      director.fly("hero", 0);
+      // Home is in, but not yet laid out: the camera holds at the court.
+      director.show("hero");
+      director.openingLands();
+      const holding = film(director, 0, 200);
+      for (const pose of holding) expectSamePose(pose, courtPose(aspect));
+      // Home's layout reports its paths: the camera flies home on them.
+      director.layout(paths);
+      const { poses } = flyTo(director, "hero", 216, 0);
+      expectNoJump([...holding, ...poses]);
+      expectSamePose(director.frame(5000).pose!, route.poseAt(0));
+    });
+  });
+
+  it("lands on the court once the Case study is in and the camera is there, or gives up on it", () => {
+    const { director } = setup();
+    director.show("hero");
+    director.openingLands();
+    director.fly("court", 0);
+    director.advance(TRANSIT_MAX_SECONDS * 1000 + 100);
+    expect(director.flying()).toBe("court");
+    director.show("court");
+    director.advance(TRANSIT_MAX_SECONDS * 1000 + 116);
+    expect(director.flying()).toBeNull();
+    expectSamePose(director.frame(TRANSIT_MAX_SECONDS * 1000 + 132).pose!, courtPose(aspect));
+
+    director.show("hero");
+    director.fly("court", 10_000);
+    director.advance(16_000);
+    expect(director.flying()).toBe("court");
+    director.advance(16_600);
+    expect(director.flying()).toBeNull();
   });
 
   it("gives up on a page that never arrives, after the arrival limit", () => {
@@ -407,6 +602,18 @@ describe("the Camera director", () => {
       director.fly("outpost", 0);
       expect(director.frame(16).lean).toEqual(upright);
       director.show("outpost");
+      director.arrive();
+      expect(director.frame(32).lean).toEqual(upright);
+    });
+
+    it("stays upright through a Transit to the court, and at the court", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.pointerAt({ x: 1, y: 1 });
+      director.fly("court", 0);
+      expect(director.frame(16).lean).toEqual(upright);
+      director.show("court");
       director.arrive();
       expect(director.frame(32).lean).toEqual(upright);
     });

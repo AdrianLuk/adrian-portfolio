@@ -17,7 +17,7 @@ A short entry on the home page for one Project: a verified paragraph and key num
 _Avoid_: Card, teaser, work item
 
 **Lit site**:
-The place in the home page's world where one Highlight's Project stands, which the scroll route stops beside and lights as its Highlight's panel enters. Four, in Highlight order.
+The spot in the home page's world where one Highlight's Project stands, which the scroll route stops beside and lights as its Highlight's panel enters. Four, in Highlight order.
 _Avoid_: Stop, beacon, mast
 
 **Landmark**:
@@ -25,19 +25,23 @@ The light structure at a Lit site that shows its Project: Control D's shielded g
 _Avoid_: Model, building, monument
 
 **Outpost**:
-The financial district at the far end of the home page's world, where the scroll route ends and the Resume page stands. The Resume page shows it live, the camera still where the route ends.
+The financial district at the far end of the home page's world, where the scroll route ends: the Resume page's Place. The Resume page shows it live, the camera still where the route ends.
 _Avoid_: Downtown, skyline (Toronto's skyline is another part of the world), end stop, last stop
 
 **Opening**:
 The home page's fly-in on a first visit: the camera's flight down the canyon to the name plate, with the opening credits. "Flight" alone means the opening. The Opening owns its credits and Skip, and every way it ends; once it has settled, the scroll route takes the camera on.
 _Avoid_: Intro, fly-through
 
+**Place**:
+A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net) and the Outpost for the Resume page. A page without a Place, such as `/play` or the 404, shows a still of the world instead.
+_Avoid_: Scene, view, stop, destination
+
 **Transit**:
-The camera flying through the world between home and the Resume page, in place of a crossfade, when the visitor navigates between them: down the valley to the Outpost, or back up it to home.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Outpost, between the court and the Outpost, or back up it to home.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
-The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit and the Outpost. It never lets the camera jump.
+The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court and the Outpost. It never lets the camera jump.
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:

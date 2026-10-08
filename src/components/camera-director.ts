@@ -3,6 +3,7 @@
 import { LIT_SITES } from "./lit-sites";
 import type { Place } from "./world-places";
 import type { FlightPath, Pose } from "./world/flight";
+import { smoothstep } from "./world/noise";
 import {
   FLIGHT_START_RIG,
   SETTLED_RIG,
@@ -10,7 +11,7 @@ import {
   type FlightRig,
 } from "./world/rigs";
 import type { Route } from "./world/route";
-import type { Departure, Transit } from "./world/transit";
+import type { Arrival, Departure, Transit } from "./world/transit";
 
 /**
  * What the world hands the director each time it lays a view out: the paths
@@ -25,7 +26,11 @@ export type CameraPaths = {
   outpost: Pose;
   /** The Outpost's stop on the route. */
   outpostStop: number;
-  transit(route: Route, departure: Departure, to: number): Transit;
+  /** The court's pose, for the screen's shape: off the route, beside its stop. */
+  court: Pose;
+  /** The court's stop on the route (Juice Bros' Lit site). */
+  courtStop: number;
+  transit(route: Route, departure: Departure, to: Arrival): Transit;
 };
 
 /** How brightly the world's lights burn in a frame. */
@@ -35,6 +40,12 @@ export type CameraLights = {
   sweep: number;
   /** Each Lit site's light, as a share of a beacon's full intensity. */
   sites: number[];
+  /**
+   * The court's look (its floodlights up, the fog violet, the rally ball),
+   * 0 to 1: full at the court, blended in through a Transit there and out
+   * through one leaving it, and none anywhere else.
+   */
+  court: number;
 };
 
 /**
@@ -57,14 +68,14 @@ export type CameraFrame = {
 const UPRIGHT: CameraLean = { x: 0, y: 0 };
 
 /**
- * How long the camera waits, at most, on its destination page (and its
+ * How long the camera waits, at most, on the page it flies to (and its
  * paths) before landing without them, in ms: a slow network never strands
  * the camera.
  */
 const ARRIVAL_LIMIT = 4000;
 
 /**
- * How far home's scroll may have moved the destination, in route stops,
+ * How far home's scroll may have moved the stop it lands at, in route stops,
  * before a Transit landing there goes on to meet it.
  */
 const CHASE = 0.02;
@@ -82,6 +93,8 @@ type Trip = {
   departure: Departure;
   /** The camera as it left, held there until the Transit is planned. */
   held: Pose;
+  /** How far the court's look was in as it left (see CameraLights). */
+  look: number;
   /** The path, once its route (and its stop on it) is known. */
   transit: Transit | null;
   /** The route stop it lands at. */
@@ -101,8 +114,9 @@ const copyOf = ({ position, quaternion }: Pose): Pose => ({
 /**
  * The Camera director: the one place that decides where the world's camera
  * is, and how the world is lit, frame by frame, as it hands over between the
- * Opening, the scroll route, a Transit and the Outpost. The camera never
- * jumps: at a handoff it holds where it is until the next driver reports.
+ * Opening, the scroll route, a Transit, the court and the Outpost. The
+ * camera never jumps: at a handoff it holds where it is until the next
+ * driver reports.
  *
  * Every driver reports to it, and none of them reads another's state: the
  * Opening's timeline its values and its landing, the scroll route its stop,
@@ -139,6 +153,7 @@ export function createCameraDirector({
   /** The place's own camera, without a Transit; null if not yet known. */
   function viewPose(): Pose | null {
     if (shown === "outpost") return paths?.outpost ?? null;
+    if (shown === "court") return paths?.court ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     return landed
@@ -159,16 +174,24 @@ export function createCameraDirector({
   }
 
   /**
-   * Plans the Transit once its route is known: at once down to the Outpost;
-   * home only once its page is in, where its scroll says.
+   * Plans the Transit once its route is known: at once to the court or the
+   * Outpost, whose poses need no page; home only once its page is in (and
+   * its own paths measured), where its scroll says.
    */
   function plan(t: Trip, now: number) {
     const route = paths?.route;
     if (!paths || !route) return;
-    if (t.to === "hero" && shown !== "hero") return;
-    // Where the page is, not where its scroll route has eased to so far.
-    t.stop = t.to === "outpost" ? paths.outpostStop : homeStop();
-    t.transit = paths.transit(route, t.departure, t.stop);
+    if (t.to === "hero" && (shown !== "hero" || !homePaths())) return;
+    let to: Arrival;
+    if (t.to === "court") {
+      t.stop = paths.courtStop;
+      to = paths.court;
+    } else {
+      // Where the page is, not where its scroll route has eased to so far.
+      t.stop = t.to === "outpost" ? paths.outpostStop : homeStop();
+      to = t.stop;
+    }
+    t.transit = paths.transit(route, t.departure, to);
     t.start = now;
   }
 
@@ -221,6 +244,7 @@ export function createCameraDirector({
       if (t.to === "hero" && Math.abs(homeStop() - t.stop) > CHASE) {
         // Home's scroll moved on meanwhile: fly on to meet it.
         t.held = poseIn(t, now);
+        t.look = courtBlend(now);
         t.departure = { pose: t.held };
         plan(t, now);
       } else if (
@@ -239,25 +263,48 @@ export function createCameraDirector({
 
   /**
    * Home's camera leans toward the pointer once the Opening has landed, and
-   * only then: never through the Opening, a Transit or at the Outpost, whose
-   * camera stands still.
+   * only then: never through the Opening, a Transit, at the court or at the
+   * Outpost, whose cameras stand still.
    */
   function lean(): CameraLean {
     return pointer && shown === "hero" && landed && !trip ? pointer : UPRIGHT;
   }
 
-  function lights(): CameraLights | null {
-    if (shown !== "hero" || !homePaths()) return null;
-    const { beams, sweep, beacon } = opening;
-    return {
-      beams,
-      sweep,
-      sites: LIT_SITES.map((_, i) => {
-        // The first is the scroll cue, lit by the arrival; the rest wait dim.
-        const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
-        return waiting + SITE_LIGHT.lit * lit[i];
-      }),
-    };
+  /**
+   * How far the court's look is in at `now`, 0 to 1: through a Transit, from
+   * where it was as the camera left to where the Place it flies to has it, eased
+   * along with the camera; otherwise full at the court and out elsewhere.
+   */
+  function courtBlend(now: number): number {
+    if (!trip) return shown === "court" ? 1 : 0;
+    if (!trip.transit) return trip.look;
+    const to = trip.to === "court" ? 1 : 0;
+    const f = smoothstep(0, 1, progress(trip as Planned, now));
+    return trip.look + (to - trip.look) * f;
+  }
+
+  /**
+   * Home lights its plate's arrival and its sites as the Opening and the
+   * scroll route say. Elsewhere the plate is out of sight and the sites dark,
+   * and only the court's look changes.
+   */
+  function lights(now: number): CameraLights | null {
+    const court = courtBlend(now);
+    if (shown === "hero" && homePaths()) {
+      const { beams, sweep, beacon } = opening;
+      return {
+        beams,
+        sweep,
+        sites: LIT_SITES.map((_, i) => {
+          // The first is the scroll cue, lit by the arrival; the rest wait dim.
+          const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
+          return waiting + SITE_LIGHT.lit * lit[i];
+        }),
+        court,
+      };
+    }
+    if (!paths || (!shown && !trip)) return null;
+    return { beams: 0, sweep: 0, sites: LIT_SITES.map(() => 0), court };
   }
 
   return {
@@ -337,7 +384,8 @@ export function createCameraDirector({
     fly(to: Place, now: number) {
       const from = departure(now);
       if (!from) return false;
-      trip = { to, ...from, transit: null, stop: 0, start: 0, since: now };
+      const look = courtBlend(now);
+      trip = { to, ...from, look, transit: null, stop: 0, start: 0, since: now };
       plan(trip, now);
       return true;
     },
@@ -345,6 +393,11 @@ export function createCameraDirector({
     arrive: land,
     /** Where the Transit under way is flying; null once it has landed. */
     flying: (): Place | null => trip?.to ?? null,
+    /**
+     * Whether a Transit under way is still waiting for the page it flies to:
+     * the router hasn't committed it, so the world shows another (or none).
+     */
+    awaitingPage: () => trip !== null && shown !== trip.to,
     /** Moves a Transit on to `now`: plans it, chases home's scroll, lands it. */
     advance,
 
@@ -359,7 +412,7 @@ export function createCameraDirector({
     frame(now: number): CameraFrame {
       const pose = trip ? poseIn(trip, now) : viewPose();
       if (pose) last = pose;
-      return { pose, lights: lights(), lean: lean() };
+      return { pose, lights: lights(now), lean: lean() };
     },
   };
 }

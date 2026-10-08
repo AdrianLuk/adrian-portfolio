@@ -102,6 +102,50 @@ export function outpostPose(aspect: number): Pose {
   return stopPose(OUTPOST, siteScreenX(aspect), aspect);
 }
 
+/** Which of the Lit sites is Juice Bros' court, where the Case study stands. */
+export const COURT_SITE = SITES.findIndex((s) => s.highlight === "juice-bros");
+
+/**
+ * Where the camera stands at the court: how far behind the court's centre
+ * (the net) and how far toward the valley's centre line from its axis (the
+ * court stands near the edge of the valley's floor), how high above the
+ * ground, and where the net sits down the screen, in normalised device
+ * coordinates. Further back on a narrower screen (squarer than 6:5), so the
+ * court's width fits.
+ */
+const COURT_VIEW = {
+  wide: { back: 50, aside: 10, height: 6, netY: -0.62 },
+  narrow: { back: 65, aside: 14, height: 8, netY: -0.7 },
+};
+
+/**
+ * The court's own pose, for a screen of this shape: a still camera low
+ * behind the court's near baseline, looking down the valley along it, with
+ * the court in the lower third of the frame so the Case study's title and
+ * links sit over the sky above it. It doesn't depend on the layout, so it
+ * needs no route to find, and it stands off the route (the Transit eases
+ * onto it as it lands).
+ */
+export function courtPose(aspect: number): Pose {
+  const view = aspect >= 1.2 ? COURT_VIEW.wide : COURT_VIEW.narrow;
+  const { position: light } = SITES[COURT_SITE];
+  const x = light.x - view.aside;
+  const z = light.z + view.back;
+  const position = new Vector3(x, valleyHeight(x, z) + view.height, z);
+  const net = light.clone().setY(light.y - SITE_HEIGHT);
+  const look = new Matrix4().lookAt(position, net, UP);
+  const tanY = Math.tan(((CAMERA.fovY / 2) * Math.PI) / 180);
+  // Tilting the view up moves what it sees down the screen.
+  const tilt = new Quaternion().setFromAxisAngle(
+    new Vector3(1, 0, 0),
+    Math.atan(-view.netY * tanY),
+  );
+  return {
+    position,
+    quaternion: new Quaternion().setFromRotationMatrix(look).multiply(tilt),
+  };
+}
+
 /** Builds the route for one layout (the settled pose and the screen's shape). */
 export function createRoute(
   settled: Pose,

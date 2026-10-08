@@ -73,3 +73,59 @@ export function plateFinishFor(tier: Tier) {
 }
 
 export type PlateFinish = ReturnType<typeof plateFinishFor>;
+
+/**
+ * Renderers that draw on the CPU (no GPU, or a blocklisted one): Chrome's
+ * SwiftShader, Mesa's llvmpipe and softpipe, Windows' Basic Render Driver.
+ */
+const SOFTWARE = /swiftshader|llvmpipe|softpipe|basic render driver|software/i;
+
+/**
+ * Names a browser gives in place of the GPU's, saying nothing about it:
+ * Chrome's and Safari's own.
+ */
+const MASKED = /^(webkit webgl|apple gpu)?$/i;
+
+/**
+ * Whether the world draws in software: by the renderer's name (null if the
+ * browser hides it), or, only where the name says nothing, by `caveat`:
+ * whether a context that refuses a major performance caveat
+ * (`failIfMajorPerformanceCaveat`) is refused.
+ */
+export function drawsInSoftware(
+  renderer: string | null,
+  caveat: () => boolean,
+) {
+  const name = renderer?.trim() ?? "";
+  return MASKED.test(name) ? caveat() : SOFTWARE.test(name);
+}
+
+/**
+ * Whether the world holds its last drawn frame instead of drawing a new one.
+ * Only on a software renderer, where every frame of the world slows the whole
+ * page, and then only:
+ * - at the court, once the camera has landed and a frame of it landed is
+ *   drawn: one still frame, as under reduced motion, so the Case study's
+ *   copy and its pinned Player tools scene keep their frame rate;
+ * - through a Transit, until the page it flies to is in: the page gets the
+ *   main thread to render in, and its copy can arrive with the camera.
+ * On a real GPU the world always draws.
+ */
+export function holdsFrame({
+  software,
+  atCourt,
+  flying,
+  landed,
+  awaitingPage,
+}: {
+  software: boolean;
+  atCourt: boolean;
+  flying: boolean;
+  /** Whether the last frame drawn was drawn with the camera landed. */
+  landed: boolean;
+  /** Whether a Transit under way waits for the page it flies to. */
+  awaitingPage: boolean;
+}) {
+  if (!software) return false;
+  return awaitingPage || (atCourt && !flying && landed);
+}

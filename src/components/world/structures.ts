@@ -566,6 +566,8 @@ export function createStructures(shared: SharedUniforms) {
       ...createBalls(landmarks.balls),
     ],
     glows,
+    floodlights: landmarks.floodlights,
+    court: landmarks.court,
     pools,
   };
 }

@@ -9,9 +9,17 @@ const scene = vi.hoisted(() => ({
     setWeather: vi.fn(),
     dispose: vi.fn(),
   },
+  /** What the world was built with. */
+  opened: null as { weather: string; view: unknown } | null,
 }));
 vi.mock("./world/scene", () => ({
-  createWorld: async () => scene.world,
+  createWorld: async (
+    _: unknown,
+    options: { weather: string; view: unknown },
+  ) => {
+    scene.opened = options;
+    return scene.world;
+  },
 }));
 
 describe("the world host", () => {
@@ -54,6 +62,26 @@ describe("the world host", () => {
     expect(scene.world.dispose).toHaveBeenCalledOnce();
     expect(host.live()).toBe(false);
     expect(host.intent()).toBe("none");
+  });
+
+  it("shows the court in the Case study's own weather, the Outpost in the clear", async () => {
+    const host = createWorldHost();
+    const canvas = {} as HTMLCanvasElement;
+    host.attach(canvas, { kind: "court", weather: "snow" });
+    await host.start();
+    expect(scene.opened).toMatchObject({
+      weather: "snow",
+      view: { kind: "court" },
+    });
+    expect(host.intent()).toBe("court");
+
+    // On to the Resume page, and back to the Case study in the rain.
+    host.attach(canvas, { kind: "outpost" });
+    expect(scene.world.setWeather).toHaveBeenLastCalledWith("clear");
+    host.attach(canvas, { kind: "court", weather: "rain" });
+    expect(scene.world.setWeather).toHaveBeenLastCalledWith("rain");
+    expect(scene.world.setView).toHaveBeenLastCalledWith({ kind: "court" });
+    host.dispose();
   });
 
   it("disposes a world that finishes building after the host is gone", async () => {

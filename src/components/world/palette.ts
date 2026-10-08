@@ -32,9 +32,17 @@ export const fogChunk = /* glsl */ `
   }
 `;
 
+/**
+ * The fog's colour as every material sees it (the shaders' uniforms share
+ * this one instance; the scene copies it into its own fog): the palette's
+ * fog, which the court's look tints toward violet (see ./court-look). Apart
+ * from `palette.fog`, so the sky's horizon and the hills keep their colour.
+ */
+export const fogColor = palette.fog.clone();
+
 export function fogUniforms() {
   return {
-    uFogColor: { value: palette.fog },
+    uFogColor: { value: fogColor },
     uFogDensity: { value: FOG_DENSITY },
   };
 }

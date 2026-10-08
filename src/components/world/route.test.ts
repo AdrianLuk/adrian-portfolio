@@ -1,14 +1,17 @@
 import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
+import { courtFootprint } from "./court";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
 import {
+  courtPose,
   createRoute,
   OUTPOST,
   outpostPose,
   ROUTE_STOPS,
   SITES,
 } from "./route";
+import { layoutStructures, type Box } from "./structures";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
@@ -139,6 +142,128 @@ describe("the scroll route", () => {
         const pose = outpostPose(aspect);
         expect(pose.position.distanceTo(end.position)).toBeLessThan(1e-6);
         expect(pose.quaternion.angleTo(end.quaternion)).toBeLessThan(1e-6);
+      });
+    });
+  }
+});
+
+describe("the scroll route past the second site", () => {
+  it("is the same for every layout of the same shape, so a nominal layout can stand in for home's", () => {
+    for (const aspect of [1.6, 0.46]) {
+      const a = settledLayout(21, -18, 7);
+      const b = settledLayout(11.75, -3, 9);
+      const one = createRoute(a.settled, a.plateCentre, aspect);
+      const other = createRoute(b.settled, b.plateCentre, aspect);
+      for (let stop = 2; stop <= ROUTE_STOPS - 1; stop += 0.05) {
+        const [p, q] = [one.poseAt(stop), other.poseAt(stop)];
+        expect(p.position.distanceTo(q.position)).toBeLessThan(1e-3);
+        expect(p.quaternion.angleTo(q.quaternion)).toBeLessThan(1e-6);
+      }
+    }
+  });
+});
+
+/** True if `p` is within `margin` of the box (as in structures.test.ts). */
+function near(p: Vector3, b: Box, margin: number) {
+  return (
+    Math.abs(p.x - b.x) < b.w / 2 + margin &&
+    Math.abs(p.y - b.y) < b.h / 2 + margin &&
+    Math.abs(p.z - b.z) < b.d / 2 + margin
+  );
+}
+
+describe("the court pose", () => {
+  const { buildings, darkBuildings, masts, landmarks, skyline } =
+    layoutStructures();
+  const towers = [
+    ...buildings,
+    ...darkBuildings,
+    ...masts,
+    ...landmarks.parts,
+    ...skyline.bounds,
+  ];
+
+  /** The court (Lit site 3), on the valley floor, and its plinth's corners. */
+  const site = SITES.find((s) => s.highlight === "juice-bros")!.position;
+  const floor = valleyHeight(site.x, site.z);
+  const net = new Vector3(site.x, floor, site.z);
+  const { w, d } = courtFootprint(0.8);
+  const corner = (u: number, v: number) =>
+    new Vector3(site.x + (u * w) / 2, floor, site.z + (v * d) / 2);
+  const nearLine = site.z + d / 2;
+
+  const shapes = {
+    "ultrawide": 2.4,
+    "desktop": 1.6,
+    "tablet, landscape": 1.33,
+    "square": 1,
+    "tablet, portrait": 0.75,
+    "phone": 0.46,
+  };
+
+  for (const [name, aspect] of Object.entries(shapes)) {
+    describe(name, () => {
+      const pose = courtPose(aspect);
+      const p = pose.position;
+
+      it("stands low, just behind the court's near baseline, looking down the valley at it", () => {
+        expect(p.z).toBeGreaterThan(nearLine);
+        expect(p.z - nearLine).toBeLessThan(70);
+        // Lower than any of the scroll route's stops (16 above the floor).
+        expect(p.y - valleyHeight(p.x, p.z)).toBeLessThan(12);
+        const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
+        expect(forward.z).toBeLessThan(-0.9);
+      });
+
+      it("clears the ground by 2 and every tower, Landmark part and the skyline by 3, inside the valley", () => {
+        expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(2);
+        expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
+          corridorHalfWidth(p.z) - 1,
+        );
+        const met = towers.find((tower) => near(p, tower, 3));
+        expect(met, "a tower within 3").toBeUndefined();
+      });
+
+      it("frames the court in the lower third, centred under the copy", () => {
+        const centre = onScreen(pose, net, aspect);
+        expect(centre.z, "in front of the camera").toBeLessThan(1);
+        expect(Math.abs(centre.x)).toBeLessThan(0.15);
+        expect(centre.y).toBeLessThan(-1 / 3);
+        expect(centre.y).toBeGreaterThan(-0.9);
+        // The far baseline lies whole in the lower third.
+        for (const u of [-1, 1]) {
+          const far = onScreen(pose, corner(u, -1), aspect);
+          expect(Math.abs(far.x)).toBeLessThan(1);
+          expect(far.y).toBeLessThan(-1 / 3);
+          expect(far.y).toBeGreaterThan(-1);
+        }
+        // So does the near baseline: whole on a wide screen, its middle on a
+        // narrow one, where the court runs off the frame's sides.
+        const nearCorners = [corner(-1, 1), corner(1, 1)].map((c) =>
+          onScreen(pose, c, aspect),
+        );
+        for (const c of nearCorners) {
+          expect(c.y).toBeGreaterThan(-1);
+          expect(c.y).toBeLessThan(-1 / 3);
+          if (aspect >= 1) expect(Math.abs(c.x)).toBeLessThan(1);
+        }
+      });
+
+      it("sees the whole court, with nothing of the terrain in the way", () => {
+        for (const point of [
+          net,
+          corner(-1, -1),
+          corner(1, -1),
+          corner(-1, 1),
+          corner(1, 1),
+        ]) {
+          expect(clearView(p, point.clone().setY(floor + 1))).toBe(true);
+        }
+      });
+
+      it("stands upright, not rolled", () => {
+        const right = new Vector3(1, 0, 0).applyQuaternion(pose.quaternion);
+        expect(Math.abs(right.y)).toBeLessThan(1e-9);
       });
     });
   }

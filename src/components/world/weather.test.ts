@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseWeather, seasonalWeather, weatherForCode } from "./weather";
+import {
+  parseWeather,
+  previewWeather,
+  seasonalWeather,
+  weatherForCode,
+} from "./weather";
 
 describe("weatherForCode", () => {
   it("reads WMO snow codes as snow", () => {
@@ -61,5 +66,17 @@ describe("parseWeather", () => {
     expect(parseWeather("")).toBeNull();
     expect(parseWeather("Snow")).toBeNull();
     expect(parseWeather("hail")).toBeNull();
+  });
+});
+
+describe("previewWeather", () => {
+  it("previews the condition a page's ?weather= names", () => {
+    expect(previewWeather("clear", "?weather=snow")).toBe("snow");
+    expect(previewWeather("snow", "?x=1&weather=rain")).toBe("rain");
+  });
+
+  it("keeps the page's own weather otherwise", () => {
+    expect(previewWeather("snow", "")).toBe("snow");
+    expect(previewWeather("rain", "?weather=hail")).toBe("rain");
   });
 });

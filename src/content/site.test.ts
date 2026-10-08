@@ -273,6 +273,55 @@ describe("stills", () => {
   });
 });
 
+describe("The court still", () => {
+  const { courtStills: court } = site;
+  const sizes = (stills: readonly site.Still[]) =>
+    stills.map(({ width, height }) => ({ width, height }));
+
+  it("is the court's own frame, landscape up to a 4K screen", () => {
+    expect(court.landscape.map((s) => s.src)).toEqual([
+      "/world/court-1280.webp",
+      "/world/court-1920.webp",
+      "/world/court-2560.webp",
+      "/world/court-3840.webp",
+    ]);
+    // In the shape of the 2560 by 1440 screen it is shot at.
+    expect(sizes(court.landscape)).toEqual([
+      { width: 1280, height: 720 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+      { width: 3840, height: 2160 },
+    ]);
+  });
+
+  it("is in portrait for phones and tablets", () => {
+    expect(court.portrait.map((s) => s.src)).toEqual([
+      "/world/court-portrait-645.webp",
+      "/world/court-portrait-1290.webp",
+      "/world/court-portrait-2048.webp",
+    ]);
+    // In the shape of the 1366 by 2960 screen it is shot at.
+    expect(sizes(court.portrait)).toEqual([
+      { width: 645, height: 1398 },
+      { width: 1290, height: 2795 },
+      { width: 2048, height: 4438 },
+    ]);
+  });
+
+  it("ships every still at the size it declares, so nothing shifts", async () => {
+    for (const still of [...court.landscape, ...court.portrait]) {
+      const file = path.join("public", still.src);
+      expect(existsSync(file), still.src).toBe(true);
+      const { format, width, height } = await sharp(file).metadata();
+      expect(format).toBe("webp");
+      expect({ width, height }, still.src).toEqual({
+        width: still.width,
+        height: still.height,
+      });
+    }
+  });
+});
+
 describe("Contact portrait", () => {
   const { portrait } = site.contact;
 

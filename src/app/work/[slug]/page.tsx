@@ -7,9 +7,14 @@ import { PlayerToolsScene } from "@/components/player-tools-scene";
 import { Recording } from "@/components/recording";
 import { isSideways, Screenshot } from "@/components/screenshot";
 import { ToolStage } from "@/components/tool-stage";
+import { CourtStill } from "@/components/court-still";
+import { PanelCorners } from "@/components/highlight-panel";
+import { PlaceWorld } from "@/components/place-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
+import { placeOf } from "@/components/world-places";
 import {
   caseStudies,
+  hrefFor,
   shareCards,
   type CaseStudy,
   type Image as ImageContent,
@@ -17,6 +22,12 @@ import {
   type Showcase,
 } from "@/content/site";
 import { shareMetadata } from "../../share";
+import { arrivesAtCourt, overPlace } from "../../styles";
+import { torontoWeather } from "../../toronto-weather";
+
+// Rebuilt at most hourly, for the court's weather (WEATHER_REVALIDATE):
+// segment config must be a literal.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return caseStudies.map((c) => ({ slug: c.slug }));
@@ -88,7 +99,11 @@ function Tool({ tool, label }: { tool: PlayerTool; label: string }) {
   const id = tool.name.toLowerCase().replaceAll(" ", "-");
   return (
     <li {...toolCopy} className="pinned:min-h-[70vh]">
-      <section aria-labelledby={`tool-${id}`} className="space-y-4">
+      <section
+        aria-labelledby={`tool-${id}`}
+        className={`flex flex-col gap-4 ${overPlace.court}`}
+      >
+        <PanelCorners className="border-violet" />
         <h5
           id={`tool-${id}`}
           className="font-display text-2xl font-bold [font-stretch:115%]"
@@ -137,14 +152,27 @@ export default async function CaseStudyPage({
     study.links.find((l) => l.href === href)!.label;
   const toolUrls = new Set(study.tools.map((t) => t.url));
   const siteLinks = study.links.filter((l) => !toolUrls.has(l.href));
+  // Juice Bros' Place in the world is its court, held behind the copy (in
+  // Toronto's weather); a Case study without a Place stands on the still of
+  // the valley.
+  const atCourt =
+    placeOf(hrefFor({ kind: "case-study", slug: study.slug })) === "court";
+  const world = atCourt ? (
+    <PlaceWorld claim={{ kind: "court", weather: await torontoWeather() }}>
+      <CourtStill />
+    </PlaceWorld>
+  ) : (
+    <WorldBackdrop />
+  );
 
   return (
     <article
       aria-labelledby="case-study-heading"
       className="relative isolate mx-auto max-w-4xl px-4 py-16 sm:px-6"
     >
-      <WorldBackdrop />
-      <header>
+      {world}
+      <header className={`${overPlace.court} ${arrivesAtCourt}`}>
+        <PanelCorners className="border-violet" />
         <p className={eyebrowClass}>Case study · {study.byline}</p>
         <h2
           id="case-study-heading"
@@ -170,24 +198,27 @@ export default async function CaseStudyPage({
         </ul>
       </header>
 
-      <div className="mt-12 space-y-16">
+      <div className={`mt-12 space-y-16 ${arrivesAtCourt}`}>
         {study.sections.map((section) => (
           <section
             key={section.id}
             aria-labelledby={`${section.id}-heading`}
             className="space-y-4"
           >
-            <h3
-              id={`${section.id}-heading`}
-              className="font-display text-3xl font-bold [font-stretch:120%]"
-            >
-              {section.heading}
-            </h3>
-            {section.paragraphs.map((p) => (
-              <p key={p} className="max-w-2xl text-lg leading-relaxed text-ink/90">
-                {p}
-              </p>
-            ))}
+            <div className={`flex flex-col gap-4 ${overPlace.court}`}>
+              <PanelCorners className="border-violet" />
+              <h3
+                id={`${section.id}-heading`}
+                className="font-display text-3xl font-bold [font-stretch:120%]"
+              >
+                {section.heading}
+              </h3>
+              {section.paragraphs.map((p) => (
+                <p key={p} className="max-w-2xl text-lg leading-relaxed text-ink/90">
+                  {p}
+                </p>
+              ))}
+            </div>
             {section.id === "what-i-did" && (
               <div className="pt-4">
                 <Screenshots showcase={study.home} />

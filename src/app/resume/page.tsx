@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PanelCorners } from "@/components/highlight-panel";
-import { OutpostWorld } from "@/components/outpost-world";
+import { PlaceWorld } from "@/components/place-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import {
   displayUrl,
@@ -15,6 +15,7 @@ import {
   arrivesAtOutpost,
   entryTitle,
   metaLine,
+  overPlace,
   panel,
   primaryAction,
   sectionLabel,
@@ -22,13 +23,6 @@ import {
 } from "../styles";
 
 export const metadata: Metadata = shareMetadata(shareCards.resume);
-
-/**
- * The panel the copy stands on over the Outpost: its lit towers stand behind
- * the copy column at every width.
- */
-const overOutpost =
-  "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8";
 
 function Bullets({ items }: { items: readonly string[] }) {
   return (
@@ -45,11 +39,11 @@ export default function ResumePage() {
     // Its own stacking context, for the world and its backdrop at the back of
     // it: the Outpost, live, over the still that paints first.
     <div className="relative isolate mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <OutpostWorld>
+      <PlaceWorld claim={{ kind: "outpost" }}>
         <WorldBackdrop />
-      </OutpostWorld>
+      </PlaceWorld>
       <header
-        className={`flex max-w-3xl flex-col items-start gap-4 ${overOutpost} ${arrivesAtOutpost}`}
+        className={`flex max-w-3xl flex-col items-start gap-4 ${overPlace.outpost} ${arrivesAtOutpost}`}
       >
         <PanelCorners className="border-cyan" />
         <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
@@ -78,7 +72,7 @@ export default function ResumePage() {
             <li
               key={role.id}
               id={role.id}
-              className={`scroll-mt-24 ${overOutpost}`}
+              className={`scroll-mt-24 ${overPlace.outpost}`}
             >
               <PanelCorners className="border-cyan" />
               {/* On the timeline, level with the title. */}
