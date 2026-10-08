@@ -485,7 +485,7 @@ export function layoutLandmarks(): Landmarks {
         out.bands.push(
           standing(x - u * 0.6, z, top - 0.5, top, 1.6, 1, palette.ink),
         );
-        out.glows.push({
+        out.floodlights.push({
           x: x - u * 0.9,
           y: top - 0.7,
           z,

@@ -125,3 +125,16 @@ describe("the fog's colour", () => {
     expect(fogColor.equals(night)).toBe(true);
   });
 });
+
+describe("the court's floodlights", () => {
+  it("are four lamps at the court's corners, apart from the world's other glows", () => {
+    const { floodlights, glows } = landmarks;
+    expect(floodlights).toHaveLength(4);
+    for (const lamp of floodlights) {
+      expect(Math.abs(lamp.x - court.x)).toBeGreaterThan(court.halfWidth);
+      expect(Math.abs(lamp.z - court.z)).toBeLessThan(court.halfLength);
+      expect(lamp.y).toBeGreaterThan(court.level);
+      expect(glows).not.toContainEqual(lamp);
+    }
+  });
+});
