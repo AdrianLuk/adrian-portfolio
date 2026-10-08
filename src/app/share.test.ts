@@ -73,6 +73,10 @@ describe("link previews", () => {
         });
       });
 
+      it("names itself as the canonical URL, so www and query strings fold into it", () => {
+        expect(shareMetadata(card).alternates).toEqual({ canonical: route });
+      });
+
       it("shows a 1200 by 630 still from public/, with alt text", () => {
         const data = shareMetadata(card);
         const image = {
