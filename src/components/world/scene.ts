@@ -23,7 +23,7 @@ import { nameGlyphs } from "./name-glyphs";
 import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
-import type { CameraDirector } from "../camera-director";
+import type { CameraDirector, CameraLean } from "../camera-director";
 import { createRoute, outpostPose, SITES, type Route } from "./route";
 import { OUTPOST_STOP, transit } from "./transit";
 import {
@@ -132,6 +132,17 @@ const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /** The moment the still frame shows: beams crossed, motes mid-rise. */
 const STILL_TIME = 11.5;
+
+/**
+ * How far the camera turns toward the pointer at the screen's edge, in
+ * radians (under two degrees across, half that up and down), and how long it
+ * takes to ease most of the way there, in seconds. A frame drawn after a
+ * longer gap than LEAN_GAP (a still frame, say) takes the lean at once.
+ */
+const LEAN = { yaw: 0.03, pitch: 0.015 };
+const LEAN_EASE = 0.4;
+const LEAN_GAP = 0.25;
+const UP = new Vector3(0, 1, 0);
 
 /** How far ahead a credit is anchored when it appears, in world units. */
 const CREDIT_DEPTH = 420;
@@ -301,6 +312,20 @@ export async function createWorld(
   const canvasSize = { width: 1, height: 1 };
   const credits = new Map<number, Vector3>();
 
+  /** The camera's lean toward the pointer, easing after the director's. */
+  const lean = { x: 0, y: 0, at: 0 };
+
+  function easeLean(toward: CameraLean, now: number) {
+    const gap = (now - lean.at) / 1000;
+    lean.at = now;
+    const k = gap > LEAN_GAP ? 1 : 1 - Math.exp(-gap / LEAN_EASE);
+    lean.x += (toward.x - lean.x) * k;
+    lean.y += (toward.y - lean.y) * k;
+    // Settled: exactly upright again, so the pose is drawn as it is.
+    if (Math.abs(lean.x - toward.x) < 1e-4) lean.x = toward.x;
+    if (Math.abs(lean.y - toward.y) < 1e-4) lean.y = toward.y;
+  }
+
   function placeCamera({ position, quaternion }: Pose) {
     camera.position.copy(position);
     camera.quaternion.copy(quaternion);
@@ -313,8 +338,18 @@ export async function createWorld(
    * its layout gave it, and the lights stay as they are.
    */
   function pose() {
-    const { pose, lights } = options.director.frame(performance.now());
-    if (pose) placeCamera(pose);
+    const now = performance.now();
+    const { pose, lights, lean: toward } = options.director.frame(now);
+    easeLean(toward, now);
+    if (pose) {
+      placeCamera(pose);
+      // Turned from the pose afresh each frame, so the lean never builds up.
+      if (lean.x || lean.y) {
+        camera.rotateOnWorldAxis(UP, -lean.x * LEAN.yaw);
+        camera.rotateX(-lean.y * LEAN.pitch);
+        camera.updateMatrixWorld();
+      }
+    }
     if (!lights) return;
     plate.setArrival(lights.beams, lights.sweep);
     sites.forEach((site, i) =>

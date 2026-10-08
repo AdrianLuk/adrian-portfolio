@@ -37,8 +37,24 @@ export type CameraLights = {
   sites: number[];
 };
 
-/** What the world draws in a frame: null leaves the camera, or the lights, as they are. */
-export type CameraFrame = { pose: Pose | null; lights: CameraLights | null };
+/**
+ * Where the camera leans, toward the pointer: -1 to 1 each way from the
+ * screen's centre (x to the right, y down). The world eases after it, so it
+ * may change at once.
+ */
+export type CameraLean = { x: number; y: number };
+
+/**
+ * What the world draws in a frame: null leaves the camera, or the lights, as
+ * they are. The lean turns the pose a little, toward the pointer.
+ */
+export type CameraFrame = {
+  pose: Pose | null;
+  lights: CameraLights | null;
+  lean: CameraLean;
+};
+
+const UPRIGHT: CameraLean = { x: 0, y: 0 };
 
 /**
  * How long the camera waits, at most, on its destination page (and its
@@ -111,6 +127,8 @@ export function createCameraDirector({
   let trip: Trip | null = null;
   /** The last pose drawn, for a Transit leaving before the paths are in. */
   let last: Pose | null = null;
+  /** Where the pointer is on screen; null while it is off it, or not a mouse's. */
+  let pointer: CameraLean | null = null;
 
   /** Home's paths, once measured. */
   const homePaths = () =>
@@ -219,6 +237,15 @@ export function createCameraDirector({
     if (now - t.since > ARRIVAL_LIMIT + TRANSIT_MAX_SECONDS * 1000) land();
   }
 
+  /**
+   * Home's camera leans toward the pointer once the Opening has landed, and
+   * only then: never through the Opening, a Transit or at the Outpost, whose
+   * camera stands still.
+   */
+  function lean(): CameraLean {
+    return pointer && shown === "hero" && landed && !trip ? pointer : UPRIGHT;
+  }
+
   function lights(): CameraLights | null {
     if (shown !== "hero" || !homePaths()) return null;
     const { beams, sweep, beacon } = opening;
@@ -291,6 +318,16 @@ export function createCameraDirector({
           : homeStop()
         : routeStop,
 
+    // From the pointer.
+
+    /** Where the pointer is on screen (see CameraLean); null once it has left. */
+    pointerAt(at: CameraLean | null) {
+      pointer = at && {
+        x: Math.min(1, Math.max(-1, at.x)),
+        y: Math.min(1, Math.max(-1, at.y)),
+      };
+    },
+
     // From navigation.
 
     /**
@@ -322,7 +359,7 @@ export function createCameraDirector({
     frame(now: number): CameraFrame {
       const pose = trip ? poseIn(trip, now) : viewPose();
       if (pose) last = pose;
-      return { pose, lights: lights() };
+      return { pose, lights: lights(), lean: lean() };
     },
   };
 }

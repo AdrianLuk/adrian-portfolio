@@ -6,6 +6,7 @@ import { ViewTransition } from "react";
 import { TRANSIT_TRANSITION_TYPE } from "@/components/world-places";
 import { footer, nav, person, shareCards } from "@/content/site";
 import { shareMetadata } from "./share";
+import { glowsLit } from "./styles";
 import "./globals.css";
 
 // "optional": a face that misses first paint is never swapped in, because the
@@ -50,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="text-ink/85 transition-colors hover:text-cyan"
+                    className={`text-ink/85 hover:text-cyan focus-visible:text-cyan ${glowsLit}`}
                   >
                     {item.label}
                   </Link>

@@ -3,6 +3,13 @@
  */
 
 /**
+ * A link's light coming up on hover and on keyboard focus: a cyan glow round
+ * its text, eased in with motion allowed (and there at once without).
+ */
+export const glowsLit =
+  "hover:[text-shadow:0_0_14px_color-mix(in_srgb,var(--color-cyan)_70%,transparent)] focus-visible:[text-shadow:0_0_14px_color-mix(in_srgb,var(--color-cyan)_70%,transparent)] motion-safe:transition-[color,text-decoration-color,text-shadow] motion-safe:duration-200";
+
+/**
  * The small label above each section: ink after a violet rule, shadowed in
  * the night so it holds over the world's lit ridges and towers.
  */
@@ -20,8 +27,8 @@ export const entryTitle = "font-display text-2xl font-bold [font-stretch:115%]";
 export const primaryAction =
   "inline-block rounded-full bg-ember px-6 py-3 font-display font-bold tracking-wide text-night uppercase [font-stretch:110%]";
 
-export const textLink =
-  "font-semibold text-cyan underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan";
+/** A cyan link that brightens, glowing, on hover and on keyboard focus. */
+export const textLink = `font-semibold text-cyan underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan focus-visible:decoration-cyan ${glowsLit}`;
 
 /** A raised panel, as the Resume page's entries use. (The home page's Highlights have their own holographic panel.) */
 export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";

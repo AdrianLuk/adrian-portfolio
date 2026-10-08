@@ -20,6 +20,7 @@ import {
   type OpeningStage,
 } from "./opening";
 import { measurePlate, PLATE_ECHO } from "./plate-measure";
+import { createPointerMotion, type PointerMotion } from "./pointer-motion";
 import { prefersReducedMotion, subscribeToMotion } from "./reduced-motion";
 import { useWorldState } from "./use-world-state";
 import { joinsLiveWorld, worldHost } from "./world-host";
@@ -196,11 +197,30 @@ export function HeroWorld({
       scrollRoute = null;
     }
 
-    // The scroll route runs only while the Opening has settled: never while
-    // it plays, nor under reduced motion, back to the settled frame.
+    let pointerMotion: PointerMotion | null = null;
+
+    function startPointer() {
+      if (pointerMotion) return;
+      const panels = sitePanels();
+      if (panels) pointerMotion = createPointerMotion({ director, panels });
+    }
+
+    function stopPointer() {
+      pointerMotion?.stop();
+      pointerMotion = null;
+    }
+
+    // The scroll route and the pointer's micro-motion run only while the
+    // Opening has settled: never while it plays, nor under reduced motion,
+    // back to the settled frame.
     const followPhase = () => {
-      if (opening.phase() === "settled") startRoute();
-      else stopRoute();
+      if (opening.phase() === "settled") {
+        startRoute();
+        startPointer();
+      } else {
+        stopRoute();
+        stopPointer();
+      }
     };
     const unfollow = opening.subscribe(followPhase);
     followPhase();
@@ -252,6 +272,7 @@ export function HeroWorld({
       opening.stop();
       unfollow();
       stopRoute();
+      stopPointer();
       cancelAnimationFrame(frame);
       clearTimeout(timer);
       resize.disconnect();
