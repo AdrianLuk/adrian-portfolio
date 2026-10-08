@@ -70,8 +70,7 @@ export type ViewOptions = {
  * route's last stop, the plate and the lit sites out of sight.
  */
 export type WorldView =
-  | { kind: "hero"; measure: () => Measurement }
-  | { kind: "outpost" };
+  { kind: "hero"; measure: () => Measurement } | { kind: "outpost" };
 
 /**
  * The world: one scene, which any of its views can show, so changing view
@@ -463,8 +462,13 @@ export async function createWorld(
     camera.rotation.set(-CAMERA.pitch, -yaw, 0, "YXZ");
     plate.place(placed, camera);
     const centre = plate.centre();
-    const key = [camera.position.y, centre.x, centre.y, centre.z, camera.aspect]
-      .join();
+    const key = [
+      camera.position.y,
+      centre.x,
+      centre.y,
+      centre.z,
+      camera.aspect,
+    ].join();
     if (key !== pathFor) {
       settled = {
         position: camera.position.clone(),
@@ -586,24 +590,36 @@ export async function createWorld(
   layout();
   sync();
 
+  /** Puts the camera's double at `pose`, seeing as the camera does. */
+  function aimProbe({ position, quaternion }: Pose) {
+    probe.position.copy(position);
+    probe.quaternion.copy(quaternion);
+    probe.fov = camera.fov;
+    probe.aspect = camera.aspect;
+    probe.updateProjectionMatrix();
+    probe.updateMatrixWorld();
+  }
+
   function placeCredit(index: number, spot: { x: number; y: number }) {
     if (!posed || !path || view?.kind !== "hero") return null;
-    pose();
+    // Seen from where the director has the camera now, without moving it:
+    // only drawing does.
+    aimProbe(options.director.frame(performance.now()).pose ?? camera);
     let anchor = credits.get(index);
     if (!anchor) {
-      const tan = Math.tan(((camera.fov / 2) * Math.PI) / 180);
-      anchor = camera.localToWorld(
+      const tan = Math.tan(((probe.fov / 2) * Math.PI) / 180);
+      anchor = probe.localToWorld(
         new Vector3(
-          spot.x * tan * camera.aspect * CREDIT_DEPTH,
+          spot.x * tan * probe.aspect * CREDIT_DEPTH,
           spot.y * tan * CREDIT_DEPTH,
           -CREDIT_DEPTH,
         ),
       );
       credits.set(index, anchor);
     }
-    const depth = -anchor.clone().applyMatrix4(camera.matrixWorldInverse).z;
-    if (depth <= camera.near) return null;
-    const ndc = anchor.clone().project(camera);
+    const depth = -anchor.clone().applyMatrix4(probe.matrixWorldInverse).z;
+    if (depth <= probe.near) return null;
+    const ndc = anchor.clone().project(probe);
     const x = spot.x + (ndc.x - spot.x) * CREDIT_PARALLAX;
     const y = spot.y + (ndc.y - spot.y) * CREDIT_PARALLAX;
     return {
@@ -621,12 +637,7 @@ export async function createWorld(
    */
   function placeSite(index: number, at = options.director.stop()) {
     if (!posed || !route || view?.kind !== "hero") return null;
-    const { position, quaternion } = route.poseAt(at);
-    probe.position.copy(position);
-    probe.quaternion.copy(quaternion);
-    probe.aspect = camera.aspect;
-    probe.updateProjectionMatrix();
-    probe.updateMatrixWorld();
+    aimProbe(route.poseAt(at));
     const ndc = SITES[index].position.clone().project(probe);
     if (ndc.z >= 1) return null;
     return {

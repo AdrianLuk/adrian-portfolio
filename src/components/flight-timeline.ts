@@ -1,4 +1,5 @@
 import { gsap } from "gsap";
+import type { Flight, FlightTimeline } from "./opening";
 import {
   FLIGHT_START_RIG,
   FLIGHT_TIMING,
@@ -6,9 +7,6 @@ import {
   TURN_EASE,
   type FlightRig,
 } from "./world/rigs";
-
-/** Anything GSAP can fade: the credit elements, or plain objects in tests. */
-type Fadeable = HTMLElement | { opacity: number };
 
 /**
  * The first credit waits out most of the opening pan; each fades in at its
@@ -30,7 +28,7 @@ export function createFlightTimeline({
   onComplete,
 }: {
   rig: FlightRig;
-  credits: readonly Fadeable[];
+  credits: readonly { opacity: number }[];
   onUpdate?: () => void;
   onComplete: () => void;
 }) {
@@ -105,4 +103,13 @@ export function createFlightTimeline({
   });
 
   return timeline;
+}
+
+/** The flight timeline as the Opening plays it. */
+export function playFlight(flight: Flight): FlightTimeline {
+  const timeline = createFlightTimeline(flight);
+  return {
+    finish: () => timeline.progress(1),
+    stop: () => timeline.kill(),
+  };
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import type { gsap } from "gsap";
 import {
   useEffect,
   useLayoutEffect,
@@ -13,115 +12,78 @@ import type { ScrollRoute } from "./scroll-route";
 // Plain data only: Three.js and GSAP load after the first paint.
 import { sitePanels } from "./home-panels";
 import {
-  prefersReducedMotion,
-  REDUCED_MOTION,
-  subscribeToMotion,
-} from "./reduced-motion";
+  createOpening,
+  CREDIT_CARD,
+  CREDIT_SKIP,
+  HERO_ACTION,
+  type OpeningPhase,
+  type OpeningStage,
+} from "./opening";
+import { measurePlate, PLATE_ECHO } from "./plate-measure";
+import { prefersReducedMotion, subscribeToMotion } from "./reduced-motion";
 import { useWorldState } from "./use-world-state";
 import { joinsLiveWorld, worldHost } from "./world-host";
-import { FLIGHT_START_RIG } from "./world/rigs";
-import type { CreditPlacement, Measurement } from "./world/scene";
+import type { World } from "./world/scene";
 import { parseWeather, type Weather } from "./world/weather";
 
-/**
- * data-state, the opening:
- * loading: server HTML, before any script, until the fly-in's timeline has
- *   loaded. With motion allowed it already looks like the flight's start (the
- *   `opening` variant), so the settled frame never shows first; without
- *   scripts it is the still hero, headline and captions.
- * flight: the fly-in is playing; the credits appear in the scene in turn.
- * settled: the fly-in finished, or was skipped; or home was reached by client
- *   navigation with the world already live, which never replays the opening.
- * reduced: prefers-reduced-motion. It never flies: the settled frame, with
- *   the credits as static captions.
- */
-export type HeroState = "loading" | "flight" | "settled" | "reduced";
-
 /** On the server the preference is unknown: the hero is "loading". */
-const unknownMotion = () => null;
+const serverPhase = (): OpeningPhase => "loading";
 
-/** Room kept between a credit card and the hero's edges, in CSS pixels. */
-const EDGE = 24;
+/** The flight's timeline, and GSAP with it, loaded only when it flies. */
+const loadFlight = () =>
+  import("./flight-timeline").then(({ playFlight }) => playFlight);
 
-/**
- * Canvas-relative boxes of each headline word, from the text itself, as they
- * stand with the page at the top (where the camera is settled): a canvas held
- * fixed behind the page stays put as the headline scrolls away.
- */
-function measure(canvas: HTMLCanvasElement, root: HTMLElement): Measurement {
-  const host = canvas.getBoundingClientRect();
-  const scrolled =
-    getComputedStyle(canvas).position === "fixed" ? window.scrollY : 0;
-  const range = document.createRange();
-  const words = Array.from(
-    root.querySelectorAll<HTMLElement>("[data-plate-word]"),
-    (el) => {
-      range.selectNodeContents(el);
-      const box = range.getBoundingClientRect();
+/** The hero's page, as the Opening plays on it. */
+function heroStage(root: HTMLElement, world: () => World | null): OpeningStage {
+  const cards = Array.from(
+    root.querySelectorAll<HTMLElement>(CREDIT_CARD.selector),
+  );
+  const skip = root.querySelector<HTMLElement>(CREDIT_SKIP.selector);
+  const action = root.querySelector<HTMLElement>(HERO_ACTION.selector);
+  return {
+    cards: cards.length,
+    measure() {
+      const foot = skip?.getBoundingClientRect();
       return {
-        text: (el.textContent ?? "").toUpperCase(),
-        rect: {
-          left: box.left - host.left,
-          top: box.top + scrolled - host.top,
-          width: box.width,
-          height: box.height,
-        },
+        width: root.clientWidth,
+        height: root.clientHeight,
+        skipTop: foot?.height
+          ? foot.top - root.getBoundingClientRect().top
+          : null,
+        // offsetLeft/Top are the layout position, untouched by transforms.
+        cards: cards.map((el) => ({
+          left: el.offsetLeft,
+          top: el.offsetTop,
+          width: el.offsetWidth,
+          height: el.offsetHeight,
+        })),
       };
     },
-  );
-  return { width: host.width, height: host.height, words };
+    project: (index, spot) => world()?.placeCredit(index, spot) ?? null,
+    // By transform only, so nothing reflows.
+    show(index, opacity, at) {
+      const el = cards[index];
+      el.style.opacity = String(opacity);
+      if (!at) return;
+      el.style.textAlign = at.align;
+      el.style.transform = `translate(${at.dx}px, ${at.dy}px) scale(${at.scale})`;
+    },
+    clear() {
+      for (const el of cards) {
+        el.style.removeProperty("opacity");
+        el.style.removeProperty("transform");
+      }
+    },
+    focusAction: () => action?.focus(),
+  };
 }
 
 /**
- * Where title card `index` stands, in normalised device coordinates: round
- * the frame, clear of the plate flying in dead centre (corner to corner on a
- * wide screen, above and below it on a narrow one).
- */
-function creditSpot(index: number, aspect: number) {
-  if (aspect < 0.9) return { x: 0, y: index % 2 === 0 ? 0.5 : -0.5 };
-  const spots = [
-    { x: -0.42, y: -0.42 },
-    { x: 0.42, y: 0.42 },
-    { x: -0.42, y: 0.42 },
-    { x: 0.42, y: -0.42 },
-  ];
-  return spots[index % spots.length];
-}
-
-/**
- * Moves an element, by transform only (so nothing reflows), to a point,
- * its foot no lower than `floor` (from the hero's top, in CSS pixels).
- */
-function moveTo(
-  el: HTMLElement,
-  root: HTMLElement,
-  at: CreditPlacement,
-  floor: number,
-) {
-  // Never larger than fits across the hero.
-  const scale = Math.min(
-    at.scale,
-    (root.clientWidth - 2 * EDGE) / el.offsetWidth,
-  );
-  // offsetLeft/Top are the layout position, untouched by transforms.
-  const width = el.offsetWidth * scale;
-  const height = el.offsetHeight * scale;
-  const x = Math.min(
-    Math.max(at.x, width / 2 + EDGE),
-    root.clientWidth - width / 2 - EDGE,
-  );
-  const y = Math.min(Math.max(at.y, height / 2 + EDGE), floor - height / 2);
-  const dx = x - (el.offsetLeft + el.offsetWidth / 2);
-  const dy = y - (el.offsetTop + el.offsetHeight / 2);
-  el.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
-}
-
-/**
- * The hero's root, its world and its opening. With motion allowed, the hero
- * holds its copy back from the first paint, and the fly-in plays: a GSAP timeline (loaded only then) drives the camera down the canyon
- * to the name plate while the credits appear one at a time, and the hero copy
- * lands once it settles. The Three.js scene loads after first paint and joins
- * the flight wherever the timeline has got to.
+ * The hero's root, its world and its Opening. With motion allowed, the hero
+ * holds its copy back from the first paint, and the Opening plays (see
+ * opening.ts); the copy lands once it settles, and the scroll route carries
+ * the camera on from there. The Three.js scene loads after first paint and
+ * joins the flight wherever the timeline has got to.
  */
 export function HeroWorld({
   label,
@@ -142,32 +104,23 @@ export function HeroWorld({
   // The weather the page arrived with: the world takes it once home claims it.
   const weatherRef = useRef(weather);
   const host = worldHost();
-  const reducedMotion = useSyncExternalStore(
-    subscribeToMotion,
-    prefersReducedMotion,
-    unknownMotion,
+  // Home arriving by client navigation into a live world joins it settled:
+  // the Opening never replays. (Never on a direct load, whose first render
+  // matches the server's.)
+  const [opening] = useState(() =>
+    createOpening({
+      rejoined: joinsLiveWorld(),
+      reduced: typeof window !== "undefined" && prefersReducedMotion(),
+      director: host.director,
+      load: loadFlight,
+    }),
   );
-  /**
-   * True when home arrived by client navigation into a live world: it joins
-   * the world settled, and the opening never replays. (Never on a direct
-   * load, whose first render matches the server's.)
-   */
-  const [rejoined] = useState(joinsLiveWorld);
-  /** True once the flight's timeline is running. */
-  const [started, setStarted] = useState(false);
-  /** True once the flight has run out, been skipped, or been called off. */
-  const [landed, setLanded] = useState(rejoined);
+  const phase = useSyncExternalStore(
+    opening.subscribe,
+    opening.phase,
+    serverPhase,
+  );
   const worldState = useWorldState();
-  const state: HeroState =
-    reducedMotion === null
-      ? "loading"
-      : reducedMotion
-        ? "reduced"
-        : landed
-          ? "settled"
-          : started
-            ? "flight"
-            : "loading";
 
   // Claims the world before the page paints, so home arriving into a live
   // world (under a transit, say) never shows a frame without it.
@@ -175,11 +128,9 @@ export function HeroWorld({
     const root = rootRef.current;
     const pageCanvas = canvasRef.current;
     if (!root || !pageCanvas) return;
-    // With motion allowed the camera starts where the Opening does, so a
-    // world that draws before the timeline has loaded never shows the settled
-    // frame first. Without it, or rejoining a live world, it has landed.
-    if (prefersReducedMotion() || rejoined) host.director.openingLands();
-    else host.director.openingStarts();
+    // So a world that draws before the timeline has loaded never shows the
+    // settled frame first.
+    opening.prepare();
     // The world's canvas, standing in this page's own from now on.
     worldCanvasRef.current = host.attach(pageCanvas, {
       kind: "hero",
@@ -189,76 +140,26 @@ export function HeroWorld({
         parseWeather(
           new URLSearchParams(window.location.search).get("weather"),
         ) ?? weatherRef.current,
-      measure: (canvas) => measure(canvas, root),
+      measure: (canvas) => measurePlate(canvas, root),
     });
     // The world stays, parked, for the next page that wants it.
     return () => host.detach(pageCanvas);
-  }, [host, rejoined]);
+  }, [host, opening]);
 
   useEffect(() => {
     const root = rootRef.current;
     const canvas = worldCanvasRef.current;
     if (!root || !canvas) return;
 
-    const reduced = window.matchMedia(REDUCED_MOTION);
-    const cards = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-credit-card]"),
-    );
-    const action = root.querySelector<HTMLElement>("[data-hero-action]");
-    const skip = root.querySelector<HTMLElement>("[data-credit-skip]");
     const { director } = host;
-    /** The Opening's values: the timeline animates them, the director is told. */
-    const rig = { ...FLIGHT_START_RIG };
     const world = () => host.world();
-    let timeline: gsap.core.Timeline | null = null;
+    const stage = heroStage(root, world);
     let scrollRoute: ScrollRoute | null = null;
     /** True from asking for the scroll route until it is stopped. */
     let routing = false;
-    let flying = false;
-    /** True once the hero has landed, for good: the flight never replays. */
-    let hasLanded = false;
     let cancelled = false;
 
-    function placeCredits() {
-      if (!flying || !root) return;
-      const aspect = root.clientWidth / Math.max(1, root.clientHeight);
-      // Every card stands clear above Skip, at the foot of the screen.
-      const foot = skip?.getBoundingClientRect();
-      const floor = foot?.height
-        ? foot.top - root.getBoundingClientRect().top - EDGE
-        : root.clientHeight - EDGE;
-      cards.forEach((el, i) => {
-        if (!(parseFloat(el.style.opacity) > 0)) return;
-        const spot = creditSpot(i, aspect);
-        // Set flush to the side of the frame it stands on.
-        el.style.textAlign =
-          spot.x < 0 ? "left" : spot.x > 0 ? "right" : "center";
-        const at = world()?.placeCredit(i, spot) ?? {
-          x: ((spot.x + 1) / 2) * root.clientWidth,
-          y: ((1 - spot.y) / 2) * root.clientHeight,
-          scale: 1,
-        };
-        moveTo(el, root, at, floor);
-      });
-    }
-
-    function clearCredits() {
-      for (const el of cards) {
-        el?.style.removeProperty("opacity");
-        el?.style.removeProperty("transform");
-      }
-    }
-
-    /** Lands on the settled pose, whether the flight ran out or was skipped. */
-    function land() {
-      hasLanded = true;
-      flying = false;
-      director.openingLands();
-      setLanded(true);
-      if (!reduced.matches) startRoute();
-    }
-
-    /** Once landed, with motion allowed, scrolling carries the camera on. */
+    /** Once settled, with motion allowed, scrolling carries the camera on. */
     async function startRoute() {
       if (routing) return;
       routing = true;
@@ -285,47 +186,18 @@ export function HeroWorld({
       scrollRoute = null;
     }
 
-    async function fly() {
-      flying = true;
-      let createFlightTimeline;
-      try {
-        ({ createFlightTimeline } = await import("./flight-timeline"));
-      } catch {
-        // A stale chunk after a deploy, say: land without the flight.
-        if (!cancelled) land();
-        return;
-      }
-      if (cancelled || !flying) return;
-      timeline = createFlightTimeline({
-        rig,
-        credits: cards,
-        onUpdate() {
-          director.openingAt(rig);
-          placeCredits();
-        },
-        onComplete: land,
-      });
-      // The opening starts with its timeline, not before it has loaded.
-      setStarted(true);
-      placeCredits();
-    }
-
-    function endFlight() {
-      if (!flying) return;
-      if (timeline) timeline.progress(1);
-      else land();
-    }
-
-    function skipFlight() {
-      if (!flying) return;
-      // The Skip control fades with the credits: hand focus on to the action.
-      action?.focus();
-      endFlight();
-    }
+    // The scroll route runs only while the Opening has settled: never while
+    // it plays, nor under reduced motion, back to the settled frame.
+    const followPhase = () => {
+      if (opening.phase() === "settled") startRoute();
+      else stopRoute();
+    };
+    const unfollow = opening.subscribe(followPhase);
+    followPhase();
 
     const onClick = (event: MouseEvent) => {
-      if ((event.target as Element).closest("[data-credit-skip] button")) {
-        skipFlight();
+      if ((event.target as Element).closest(`${CREDIT_SKIP.selector} button`)) {
+        opening.skip();
       }
     };
     root.addEventListener("click", onClick);
@@ -334,62 +206,50 @@ export function HeroWorld({
     async function start() {
       const built = await host.start();
       // No world to fly through: end the flight so the headline shows.
-      if (!built && !cancelled) endFlight();
+      if (!built && !cancelled) opening.end();
     }
 
     const resize = new ResizeObserver(() => {
       world()?.layout();
-      placeCredits();
+      opening.place();
     });
     resize.observe(root);
     // The canvas too: it fills the hero, or the viewport once it is held
     // behind the whole page.
     resize.observe(canvas);
-    const echo = root.querySelector("[data-plate-echo]");
+    const echo = root.querySelector(PLATE_ECHO.selector);
     if (echo) resize.observe(echo);
 
-    // Any change of preference calls the flight off for good: reducing motion
-    // mid-flight lands at once, and allowing it again brings the settled frame
-    // alive rather than replaying the opening. Reducing it stops the scroll
-    // route too, back to the settled frame. (The world host stills or wakes
-    // the world itself.)
-    const onPreference = () => {
-      timeline?.kill();
-      // Back to static captions, should motion now be reduced.
-      clearCredits();
-      if (reduced.matches) stopRoute();
-      land();
-    };
-    reduced.addEventListener("change", onPreference);
-
-    // Home joining a live world lands at once: the opening never replays.
-    if (rejoined) land();
+    // (The world host stills or wakes the world itself.) A preference
+    // changed since the hero rendered lands it now.
+    const onPreference = () => opening.reducedMotion(prefersReducedMotion());
+    const unsubscribeMotion = subscribeToMotion(onPreference);
+    onPreference();
 
     // A frame callback runs just before the next paint; the task it queues
     // runs after it. Both the flight's timeline and the world load from there,
-    // so neither library holds up the first paint. A preference changed in
-    // the meantime has already landed the hero: then there's no flight.
+    // so neither library holds up the first paint.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const frame = requestAnimationFrame(() => {
       timer = setTimeout(() => {
-        if (!reduced.matches && !hasLanded) fly();
+        opening.fly(stage);
         start();
       }, 0);
     });
 
     return () => {
       cancelled = true;
-      flying = false;
-      timeline?.kill();
+      opening.stop();
+      unfollow();
       stopRoute();
       cancelAnimationFrame(frame);
       clearTimeout(timer);
       resize.disconnect();
       root.removeEventListener("click", onClick);
-      reduced.removeEventListener("change", onPreference);
+      unsubscribeMotion();
     };
-    // The host is the visit's one world, and `rejoined` is fixed at mount.
-  }, [host, rejoined]);
+    // The host is the visit's one world, and the Opening the hero's own.
+  }, [host, opening]);
 
   // The canvas fills the hero and fades into the page below it, until the
   // camera flies: then it is held fixed behind the whole page (the page sets
@@ -399,7 +259,7 @@ export function HeroWorld({
     <section
       ref={rootRef}
       aria-label={label}
-      data-state={state}
+      data-state={phase}
       data-world={worldState}
       className={`group relative overflow-hidden ${className}`}
     >
