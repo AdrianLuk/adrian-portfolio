@@ -8,6 +8,7 @@ import {
 import { createFlightTimeline } from "./flight-timeline";
 import type { Place } from "./world-places";
 import { createFlightPath, type Pose } from "./world/flight";
+import { nominalRoute } from "./world/nominal-route";
 import { CAMERA } from "./world/pose";
 import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
 import { courtPose, createRoute, outpostPose } from "./world/route";
@@ -406,6 +407,47 @@ describe("the Camera director", () => {
     director.advance(TRANSIT_MAX_SECONDS * 1000 + 116);
     expect(director.flying()).toBeNull();
     expectSamePose(director.frame(TRANSIT_MAX_SECONDS * 1000 + 132).pose!, outpostPose(aspect));
+  });
+
+  describe("on a visit that never showed home", () => {
+    /** A director holding a court or Outpost layout's paths: no Opening, the nominal route. */
+    function away() {
+      const home = setup();
+      const director = createCameraDirector({ homeStop: () => home.page.stop });
+      director.layout({ ...home.paths, opening: null, route: nominalRoute(aspect) });
+      return { ...home, director };
+    }
+
+    it("flies between the court and the Outpost at once, either way, without a jump", () => {
+      for (const [from, to] of [
+        ["court", "outpost"],
+        ["outpost", "court"],
+      ] as const) {
+        const { director, paths } = away();
+        director.show(from);
+        const before = film(director, 0, 100);
+        const { poses, landedAt } = flyTo(director, to, 116);
+        expect(landedAt - 116).toBeLessThan(TRANSIT_MAX_SECONDS * 1000 + 100);
+        expectNoJump([...before, ...poses]);
+        expectSamePose(director.frame(landedAt).pose!, paths[to]);
+      }
+    });
+
+    it("flies home only on home's own paths, holding still until they are measured", () => {
+      const { director, paths } = away();
+      director.show("court");
+      director.fly("hero", 0);
+      // Home is in, but not yet laid out: the camera holds at the court.
+      director.show("hero");
+      director.openingLands();
+      const holding = film(director, 0, 200);
+      for (const pose of holding) expectSamePose(pose, courtPose(aspect));
+      // Home's layout reports its paths: the camera flies home on them.
+      director.layout(paths);
+      const { poses } = flyTo(director, "hero", 216, 0);
+      expectNoJump([...holding, ...poses]);
+      expectSamePose(director.frame(5000).pose!, paths.route.poseAt(0));
+    });
   });
 
   it("lands on the court once the Case study is in and the camera is there, or gives up on it", () => {
