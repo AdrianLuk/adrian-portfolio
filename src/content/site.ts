@@ -70,7 +70,14 @@ export type HighlightId = "control-d" | "life-house" | "juice-bros" | "bt-cup";
 export type Highlight = {
   id: HighlightId;
   title: string;
+  /** As the home page shows it, e.g. "Windscribe" for Control D. */
   byline: string;
+  /**
+   * The employer's name, for machine-facing copy (llms.txt), where it stands
+   * in for the byline. Only Control D sets it: Control D is a sister company
+   * of Windscribe, not a product of it. Never derive it by trimming `byline`.
+   */
+  organization?: string;
   /** One paragraph, or (Control D, the whole role) exactly three lines. */
   paragraph: string | readonly [string, string, string];
   /** Two verified numbers; Juice Bros has none (no stable figures, and usage numbers are never claimed). */
@@ -83,12 +90,51 @@ export type Highlight = {
 export type Role = {
   id: RoleId;
   title: string;
+  /** As the Resume page shows it, e.g. "Control D (Windscribe)". */
   company: string;
+  /**
+   * The employer's name, for machine-facing copy (JSON-LD), where it differs
+   * from `company`; without it, `company` is the name. Only Control D sets it:
+   * Control D is a sister company of Windscribe, not a product of it. Never
+   * derive it by trimming `company`.
+   */
+  organization?: string;
   summary: string;
+  /** A month and year, like "Mar 2024". */
   start: string;
+  /** A month and year, like "Mar 2024". */
   end: string;
   bullets: readonly string[];
 };
+
+const months = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/**
+ * A Role's date ("Mar 2024") as an ISO year and month ("2024-03"). Throws on
+ * anything else, so a date that changes shape fails the build instead of
+ * reaching search engines as a guess.
+ */
+export function isoMonth(date: string) {
+  const match = /^([A-Z][a-z]{2}) (\d{4})$/.exec(date);
+  const month = match ? months.indexOf(match[1]) + 1 : 0;
+  if (!match || month === 0) {
+    throw new Error(`Can't read "${date}" as a month and year like "Mar 2024"`);
+  }
+  return `${match[2]}-${String(month).padStart(2, "0")}`;
+}
 
 export type SideProject = {
   id: string;
@@ -395,6 +441,7 @@ export const highlights = [
     id: "control-d",
     title: "Control D",
     byline: "Windscribe",
+    organization: "Control D",
     paragraph: [
       "I built single sign-on across four identity providers (Okta, Google, Microsoft Entra ID and Tailscale), including the OAuth/OIDC work in our PHP REST API.",
       "I built the org-level scheduled Reports feature end to end, from the backend scheduling through to the interface organizations use to set reports up.",
@@ -447,6 +494,7 @@ export const roles = [
     id: "control-d",
     title: "Senior Software Engineer",
     company: "Control D (Windscribe)",
+    organization: "Control D",
     summary:
       "DNS security and content filtering platform for consumer, business and MSP customers",
     start: "Mar 2024",
@@ -607,6 +655,11 @@ export const contact = {
   };
   bookend: string;
 };
+
+/** Adrian's profiles elsewhere: every contact channel but email. */
+export const profiles = contact.channels.filter(
+  (channel) => channel.id !== "email",
+);
 
 /** The line at the foot of every page. */
 export const footer = {

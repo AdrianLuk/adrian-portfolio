@@ -1,6 +1,17 @@
-import { contact, hero, person, siteUrl } from "@/content/site";
+import {
+  hero,
+  isoMonth,
+  person,
+  profiles,
+  roles,
+  siteUrl,
+  type Role,
+} from "@/content/site";
 
 const [locality, region] = person.location.split(", ");
+
+/** Adrian as a Person, one entity across every page that describes him. */
+const personId = `${siteUrl}/#person`;
 
 /**
  * The home page's structured data for search engines: the site, named for
@@ -17,11 +28,11 @@ export const homeJsonLd = {
       name: person.name,
       url: siteUrl,
       inLanguage: "en",
-      about: { "@id": `${siteUrl}/#person` },
+      about: { "@id": personId },
     },
     {
       "@type": "Person",
-      "@id": `${siteUrl}/#person`,
+      "@id": personId,
       name: person.name,
       url: siteUrl,
       jobTitle: hero.titleLine,
@@ -32,11 +43,33 @@ export const homeJsonLd = {
         addressRegion: region,
         addressCountry: "CA",
       },
-      sameAs: contact.channels
-        .filter((channel) => channel.id !== "email")
-        .map((channel) => channel.href),
+      sameAs: profiles.map((profile) => profile.href),
     },
   ],
+};
+
+/**
+ * The Resume page's structured data: the same Person as home's (one `@id`),
+ * with every Role as an `OrganizationRole` under `alumniOf`. Every Role has
+ * ended, so there is no `worksFor`. Titles, employers and dates only: the
+ * bullets stay on the page.
+ */
+export const resumeJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "@id": personId,
+  name: person.name,
+  url: siteUrl,
+  alumniOf: roles.map((role: Role) => ({
+    "@type": "OrganizationRole",
+    roleName: role.title,
+    startDate: isoMonth(role.start),
+    endDate: isoMonth(role.end),
+    alumniOf: {
+      "@type": "Organization",
+      name: role.organization ?? role.company,
+    },
+  })),
 };
 
 /** JSON for a `<script type="application/ld+json">`, with `<` escaped so no
