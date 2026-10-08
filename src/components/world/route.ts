@@ -115,7 +115,7 @@ export const COURT_SITE = SITES.findIndex((s) => s.highlight === "juice-bros");
  */
 const COURT_VIEW = {
   wide: { back: 50, aside: 10, height: 6, netY: -0.62 },
-  narrow: { back: 75, aside: 16, height: 8, netY: -0.7 },
+  narrow: { back: 65, aside: 14, height: 8, netY: -0.7 },
 };
 
 /**

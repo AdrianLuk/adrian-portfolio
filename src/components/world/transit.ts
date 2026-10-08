@@ -1,17 +1,19 @@
 import { Quaternion } from "three";
 import type { FlightPath, Pose } from "./flight";
 import { TRANSIT_MAX_SECONDS } from "./rigs";
-import { ROUTE_STOPS, type Route } from "./route";
+import { COURT_SITE, ROUTE_STOPS, type Route } from "./route";
 
 /**
- * A transit, as pure maths: the camera's flight between home and the Resume
- * page. Unit tested without WebGL.
+ * A transit, as pure maths: the camera's flight between two Places (home,
+ * the court, the Outpost). Unit tested without WebGL.
  *
  * It runs along the scroll route at an accelerated, eased pace: down the
- * valley to the Outpost, or back up it to the settled view. The camera joins
- * the route at its own depth (the route only ever moves on down the valley),
- * so a transit can leave from anywhere along it: the settled view, beside a
- * lit site, partway between, or partway through another transit.
+ * valley, or back up it. The camera joins the route at its own depth (the
+ * route only ever moves on down the valley), so a transit can leave from
+ * anywhere along it: the settled view, beside a lit site, partway between,
+ * the court, or partway through another transit. It ends on one of the
+ * route's stops, or on a pose off the route beside one (the court's), easing
+ * off the route onto it as it lands.
  */
 
 /** The route's first stop, the settled view over the name plate. */
@@ -19,6 +21,12 @@ export const SETTLED_STOP = 0;
 
 /** The route's last stop, the Outpost, where the Resume page stands. */
 export const OUTPOST_STOP = ROUTE_STOPS - 1;
+
+/**
+ * The route's stop at the court, Juice Bros' Lit site. The court's own pose
+ * stands off the route just past it; a transit there lands on the pose.
+ */
+export const COURT_STOP = COURT_SITE + 1;
 
 /** The longest a transit ever takes (plain data, for the router's bundle). */
 export { TRANSIT_MAX_SECONDS };
@@ -110,9 +118,13 @@ function stopAtDepth(route: Route, samples: Samples, z: number) {
 
 /**
  * The fraction of a transit over which a camera that left from off the route
- * eases onto it.
+ * eases onto it (or, landing off the route, eases off it), and the most world
+ * units that may take. Towers stand a little way up the valley from the
+ * court, off the route on its side, so the camera keeps to the route until
+ * it is past them.
  */
 const JOIN = 0.4;
+const JOIN_REACH = 50;
 
 /** Seconds a transit flying `distance` world units takes, up to the cap. */
 function durationFor(distance: number) {
@@ -145,8 +157,14 @@ export type Departure =
       settle: number;
     };
 
-/** A transit from `departure` to the route's stop `to`. */
-export function transit(route: Route, departure: Departure, to: number) {
+/**
+ * Where a transit lands: one of the route's stops, or a pose off the route
+ * (the court's), which it eases onto from where the route passes its depth.
+ */
+export type Destination = number | Pose;
+
+/** A transit from `departure` to `to`. */
+export function transit(route: Route, departure: Departure, to: Destination) {
   return "pose" in departure
     ? transitPath(route, departure.pose, to)
     : fromOpening(route, departure, to);
@@ -160,7 +178,7 @@ export function transit(route: Route, departure: Departure, to: number) {
 function fromOpening(
   route: Route,
   { opening, travel, settle }: Extract<Departure, { opening: FlightPath }>,
-  to: number,
+  to: Destination,
 ) {
   const from = Math.min(1, Math.max(0, travel));
   /** World units of the opening still to fly. */
@@ -191,7 +209,7 @@ function fromOpening(
     distance,
     poseAt(t: number): Pose {
       if (t <= 0) return opening.poseAlong(from, settle);
-      if (t >= 1) return route.poseAt(to);
+      if (t >= 1) return rest.along(1);
       const d = at(ease(t));
       if (d < lead) {
         const { u, s } = inOpening(d);
@@ -211,12 +229,14 @@ function fromOpening(
   };
 }
 
-/** A transit from the pose `departure` along `route` to the stop `to`. */
-export function transitPath(route: Route, departure: Pose, to: number) {
+/** A transit from the pose `departure` along `route` to `to`. */
+export function transitPath(route: Route, departure: Pose, to: Destination) {
   const samples = measure(route);
   const fromStop = stopAtDepth(route, samples, departure.position.z);
+  const toStop =
+    typeof to === "number" ? to : stopAtDepth(route, samples, to.position.z);
   const fromLength = lookup(samples, "stop", fromStop, "length");
-  const toLength = lookup(samples, "stop", to, "length");
+  const toLength = lookup(samples, "stop", toStop, "length");
 
   // How far the camera stands off the route where it joins it, and how far
   // round it looks, both eased out as the transit gets going.
@@ -227,20 +247,38 @@ export function transitPath(route: Route, departure: Pose, to: number) {
     .multiply(join.quaternion.clone().invert());
   const straight = new Quaternion();
 
-  const distance = Math.abs(toLength - fromLength) + offset.length();
+  // Likewise how far off the route a pose it lands on stands, and how far
+  // round it looks, both eased in as the transit lands.
+  const leave = route.poseAt(toStop);
+  const end = typeof to === "number" ? leave : to;
+  const landing = end.position.clone().sub(leave.position);
+  const landingTurn = end.quaternion
+    .clone()
+    .multiply(leave.quaternion.clone().invert());
+
+  const distance =
+    Math.abs(toLength - fromLength) + offset.length() + landing.length();
+  const joining = Math.min(JOIN, JOIN_REACH / Math.max(distance, 1e-9));
 
   /** The camera a fraction `f` (0 to 1) of the way along the distance. */
   function along(f: number): Pose {
     if (f <= 0) return copyOf(departure);
-    if (f >= 1) return route.poseAt(to);
+    if (f >= 1) return copyOf(end);
     const length = fromLength + (toLength - fromLength) * f;
     const { position, quaternion } = route.poseAt(
       lookup(samples, "length", length, "stop"),
     );
-    const off = 1 - ease(Math.min(1, f / JOIN));
+    const off = 1 - ease(Math.min(1, f / joining));
+    const on = ease(Math.max(0, (f - (1 - joining)) / joining));
     return {
-      position: position.addScaledVector(offset, off),
-      quaternion: straight.clone().slerp(turn, off).multiply(quaternion),
+      position: position
+        .addScaledVector(offset, off)
+        .addScaledVector(landing, on),
+      quaternion: straight
+        .clone()
+        .slerp(landingTurn, on)
+        .multiply(straight.clone().slerp(turn, off))
+        .multiply(quaternion),
     };
   }
 
