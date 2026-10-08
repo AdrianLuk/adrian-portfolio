@@ -10,6 +10,7 @@ import {
   sideProjects,
 } from "@/content/site";
 import { shareMetadata } from "../share";
+import { jsonLdScript, resumeJsonLd } from "../structured-data";
 import {
   arrivesAtOutpost,
   entryTitle,
@@ -120,6 +121,10 @@ export default function ResumePage() {
           ))}
         </ul>
       </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(resumeJsonLd) }}
+      />
     </div>
   );
 }
