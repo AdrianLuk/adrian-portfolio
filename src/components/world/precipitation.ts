@@ -61,6 +61,7 @@ function createSnow(count: number, shared: SharedUniforms) {
       ...shared,
       ...fogUniforms(),
       uBox: { value: SNOW_BOX },
+      uFade: { value: 1 },
       uViewportHeight: { value: 800 },
       uColor: { value: palette.ink.clone().lerp(palette.cyan, 0.12) },
     },
@@ -90,12 +91,13 @@ function createSnow(count: number, shared: SharedUniforms) {
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor;
+      uniform float uFade;
       varying float vAlpha;
       void main() {
         float d = length(gl_PointCoord - 0.5) * 2.0;
         if (d > 1.0) discard;
         float flake = pow(1.0 - d, 1.6);
-        gl_FragColor = vec4(uColor * flake * vAlpha * 0.85, 1.0);
+        gl_FragColor = vec4(uColor * flake * vAlpha * 0.85 * uFade, 1.0);
         #include <colorspace_fragment>
       }
     `,
@@ -137,6 +139,7 @@ function createRain(count: number, shared: SharedUniforms) {
       ...shared,
       ...fogUniforms(),
       uBox: { value: RAIN_BOX },
+      uFade: { value: 1 },
       uColor: { value: palette.cyan.clone().lerp(palette.ink, 0.45) },
     },
     vertexShader: /* glsl */ `
@@ -160,9 +163,10 @@ function createRain(count: number, shared: SharedUniforms) {
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor;
+      uniform float uFade;
       varying float vAlpha;
       void main() {
-        gl_FragColor = vec4(uColor * vAlpha * 0.4, 1.0);
+        gl_FragColor = vec4(uColor * vAlpha * 0.4 * uFade, 1.0);
         #include <colorspace_fragment>
       }
     `,
@@ -186,6 +190,10 @@ export function createPrecipitation(
       if (material.uniforms.uViewportHeight) {
         material.uniforms.uViewportHeight.value = height;
       }
+    },
+    /** How much of it shows, 0 to 1 (it fades out as the court's look comes in). */
+    setFade(amount: number) {
+      material.uniforms.uFade.value = amount;
     },
   };
 }

@@ -14,6 +14,8 @@ import {
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { HighlightId } from "@/content/site";
 import { courtFootprint, layoutCourt } from "./court";
+import type { RallyCourt } from "./court-look";
+import { COURT } from "./court-size";
 import type { Glow } from "./glow-points";
 import { fogChunk, fogUniforms, palette } from "./palette";
 import { SITES, type Site } from "./route";
@@ -81,6 +83,13 @@ export type Landmarks = {
   trophies: Trophy[];
   balls: Ball[];
   glows: Glow[];
+  /**
+   * The court's four floodlights, apart from the other glows: the court's
+   * look turns them up (see ./court-look).
+   */
+  floodlights: Glow[];
+  /** Juice Bros' court, where the court's look plays its rally. */
+  court: RallyCourt;
   /** Each site's landmark, whole, in the sites' order. */
   bounds: Box[];
   /**
@@ -115,7 +124,8 @@ function standing(
 }
 
 export function layoutLandmarks(): Landmarks {
-  const out: Landmarks = {
+  let rally: RallyCourt | null = null;
+  const out: Omit<Landmarks, "court"> = {
     bodies: [],
     rooms: [],
     bands: [],
@@ -127,6 +137,7 @@ export function layoutLandmarks(): Landmarks {
     trophies: [],
     balls: [],
     glows: [],
+    floodlights: [],
     bounds: [],
     parts: [],
   };
@@ -174,7 +185,8 @@ export function layoutLandmarks(): Landmarks {
       color: t.color,
     })),
   );
-  return out;
+  if (!rally) throw new Error("No court among the Lit sites");
+  return { ...out, court: rally };
 
   /**
    * Control D: a shield, a dome of hex cells of light, over a gate, a ring
@@ -454,6 +466,14 @@ export function layoutLandmarks(): Landmarks {
     out.bodies.push(c.plinth);
     out.bands.push(...c.surfaces, ...c.lines, ...c.posts, c.tape);
     out.veils.push(c.net);
+    rally = {
+      x: p.x,
+      z: p.z,
+      level: c.top,
+      halfWidth: (COURT.width * SCALE) / 2,
+      halfLength: (COURT.length * SCALE) / 2,
+      netHeight: COURT.netHeight * SCALE,
+    };
 
     const top = high + POLE;
     for (const u of [-1, 1]) {
@@ -465,7 +485,7 @@ export function layoutLandmarks(): Landmarks {
         out.bands.push(
           standing(x - u * 0.6, z, top - 0.5, top, 1.6, 1, palette.ink),
         );
-        out.glows.push({
+        out.floodlights.push({
           x: x - u * 0.9,
           y: top - 0.7,
           z,

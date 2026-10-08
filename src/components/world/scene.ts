@@ -12,6 +12,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { courtLook, RALLY_BALL, rallyBall, tintFog } from "./court-look";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
@@ -20,7 +21,8 @@ import { createMist } from "./mist";
 import { createNamePlate, type PlacedWord } from "./name-plate";
 import { createPrecipitation } from "./precipitation";
 import { nameGlyphs } from "./name-glyphs";
-import { FOG_DENSITY, palette } from "./palette";
+import { createBalls } from "./landmarks";
+import { FOG_DENSITY, fogColor, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
 import type { CameraDirector, CameraLean } from "../camera-director";
@@ -249,7 +251,8 @@ export async function createWorld(
   };
 
   const scene = new Scene();
-  scene.fog = new FogExp2(palette.fog, FOG_DENSITY);
+  const fog = new FogExp2(fogColor, FOG_DENSITY);
+  scene.fog = fog;
   const camera = new PerspectiveCamera(CAMERA.fovY, 1, 0.5, 2600);
   camera.rotation.order = "YXZ";
   /** The camera's double, for seeing from elsewhere on the route. */
@@ -279,7 +282,16 @@ export async function createWorld(
     finish,
   });
   const lights = createGlowPoints(structures.glows, shared);
+  const floodlights = createGlowPoints(structures.floodlights, shared);
   const sites = createSiteLights(shared);
+  // The rally ball, in the scene from the start (hidden, so it compiles with
+  // the rest) and shown only by the court's look.
+  const [rally] = createBalls([
+    { x: 0, y: 0, z: 0, r: RALLY_BALL.radius, color: palette.violet },
+  ]);
+  rally.visible = false;
+  /** The court's look, as the director last blended it (see ./court-look). */
+  let look = courtLook(0);
   const pools = createGroundPools(structures.pools.length + 3, poolIntensity());
   function poolIntensity() {
     return wet() ? WET_POOLS.intensity : POOL_INTENSITY;
@@ -291,6 +303,8 @@ export async function createWorld(
     pools.mesh,
     ...structures.meshes,
     lights.points,
+    floodlights.points,
+    rally,
     ...sites.map((s) => s.points),
     ...createMist(shared),
     plate.group,
@@ -366,6 +380,26 @@ export async function createWorld(
     sites.forEach((site, i) =>
       site.setIntensity(BEACON_INTENSITY * lights.sites[i]),
     );
+    look = courtLook(lights.court);
+    showLook();
+  }
+
+  /**
+   * Lights the court as its look says: the floodlights up, the fog toward
+   * violet, the rally ball in (only while the world moves: under reduced
+   * motion the court is one still frame, with no ball), and what falls out.
+   */
+  function showLook() {
+    floodlights.setIntensity(look.floodlights);
+    tintFog(look.fog);
+    fog.color.copy(fogColor);
+    rally.visible = motion && look.ball > 0;
+    if (rally.visible) {
+      const at = rallyBall(structures.court, shared.uTime.value);
+      rally.position.set(at.x, at.y, at.z);
+      rally.scale.setScalar(look.ball);
+    }
+    showFalling();
   }
 
   function render() {
@@ -396,7 +430,14 @@ export async function createWorld(
     camera.updateProjectionMatrix();
     canvasSize.width = width;
     canvasSize.height = height;
-    for (const glow of [lights, plate.flares, ...sites, motes, falling])
+    for (const glow of [
+      lights,
+      floodlights,
+      plate.flares,
+      ...sites,
+      motes,
+      falling,
+    ])
       glow?.setViewportHeight(height);
 
     // Motes scale with the canvas area; rebuild only when the count bucket moves.
@@ -457,9 +498,14 @@ export async function createWorld(
     if (!running) render();
   }
 
-  /** Nothing falls under reduced motion, or in the clear: the ground shows it. */
+  /**
+   * Nothing falls under reduced motion, or in the clear, or at the court
+   * (it fades out as the court's look comes in): the ground shows it.
+   */
   function showFalling() {
-    if (falling) falling.object.visible = motion && weather !== "clear";
+    if (!falling) return;
+    falling.setFade(look.falling);
+    falling.object.visible = motion && weather !== "clear" && look.falling > 0;
   }
 
   /** Lays the light pools on the floor, stretched on a wet one. */
