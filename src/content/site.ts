@@ -26,6 +26,30 @@ export type Image = {
   alt: string;
 };
 
+/** An image drawn once by a script at one fixed width, and served as is. */
+export type Still = { src: string; width: number; height: number };
+
+/**
+ * Stills of one image at fixed widths, all in one shape (`frame`, any
+ * width and height in proportion), each with its height to the pixel.
+ */
+function stillsOf(
+  widths: readonly number[],
+  frame: { width: number; height: number },
+  src: (width: number) => string,
+): Still[] {
+  return widths.map((width) => ({
+    src: src(width),
+    width,
+    height: Math.round((width * frame.height) / frame.width),
+  }));
+}
+
+/** A srcset for stills of one image at fixed widths. */
+export function srcSet(stills: readonly Still[]): string {
+  return stills.map((s) => `${s.src} ${s.width}w`).join(", ");
+}
+
 export type Recording = {
   /** Accessible name for the video. */
   label: string;
@@ -623,6 +647,19 @@ export const contact = {
     },
   ],
   /**
+   * Adrian's photo beside the channels: cropped to head and shoulders and
+   * graded into the night by scripts/portrait.mjs, at fixed widths in one
+   * 4:5 shape.
+   */
+  portrait: {
+    alt: "Adrian Luk",
+    stills: stillsOf(
+      [240, 480, 720],
+      { width: 4, height: 5 },
+      (width) => `/contact/adrian-luk-${width}.webp`,
+    ),
+  },
+  /**
    * How the site itself is built: each fact one the public repo bears out,
    * so a visitor can check it there.
    */
@@ -647,6 +684,7 @@ export const contact = {
   lead: string;
   resume: { label: string; href: string };
   channels: readonly ContactChannel[];
+  portrait: { alt: string; stills: readonly Still[] };
   built: {
     heading: string;
     lead: string;
@@ -775,17 +813,19 @@ export const shareCards = {
 /**
  * The quieter world behind every route but home: stills of the valley, drawn
  * by scripts/share-stills.mjs, landscape up to a 4K screen and portrait for
- * phones and tablets.
+ * phones and tablets, each in the shape of the screen it is shot at.
  */
 export const backdrop = {
-  landscape: [1280, 1920, 2560, 3840].map((width) => ({
-    src: `/world/backdrop-${width}.webp`,
-    width,
-  })),
-  portrait: [645, 1290, 2048].map((width) => ({
-    src: `/world/backdrop-portrait-${width}.webp`,
-    width,
-  })),
+  landscape: stillsOf(
+    [1280, 1920, 2560, 3840],
+    { width: 2560, height: 1440 },
+    (width) => `/world/backdrop-${width}.webp`,
+  ),
+  portrait: stillsOf(
+    [645, 1290, 2048],
+    { width: 1366, height: 2960 },
+    (width) => `/world/backdrop-portrait-${width}.webp`,
+  ),
 } as const;
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */

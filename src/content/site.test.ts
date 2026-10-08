@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import * as site from "./site";
 import {
@@ -258,6 +259,57 @@ describe("Juice Bros Case study", () => {
   it("sets page metadata", () => {
     expect(study.metaTitle).toMatch(/Juice Bros/);
     expect(study.metaDescription.length).toBeGreaterThan(40);
+  });
+});
+
+describe("stills", () => {
+  it("list their widths as a srcset, smallest first as given", () => {
+    expect(
+      site.srcSet([
+        { src: "/a/still-240.webp", width: 240, height: 300 },
+        { src: "/a/still-480.webp", width: 480, height: 600 },
+      ]),
+    ).toBe("/a/still-240.webp 240w, /a/still-480.webp 480w");
+  });
+});
+
+describe("Contact portrait", () => {
+  const { portrait } = site.contact;
+
+  it("is named for Adrian, not hidden as decoration", () => {
+    expect(portrait.alt).toBe("Adrian Luk");
+  });
+
+  it("is a WebP at a few fixed widths, none of them the full-size photo", () => {
+    expect(portrait.stills.length).toBeGreaterThanOrEqual(2);
+    expect(portrait.stills.length).toBeLessThanOrEqual(4);
+    for (const still of portrait.stills) {
+      expect(still.src).toMatch(/^\/contact\/[\w-]+\.webp$/);
+      expect(still.width).toBeLessThan(1440);
+    }
+    const widths = portrait.stills.map((s) => s.width);
+    expect(widths).toEqual([...widths].sort((a, b) => a - b));
+  });
+
+  it("declares each still's height, all in the portrait's 4:5", () => {
+    expect(portrait.stills.map(({ width, height }) => ({ width, height }))).toEqual([
+      { width: 240, height: 300 },
+      { width: 480, height: 600 },
+      { width: 720, height: 900 },
+    ]);
+  });
+
+  it("ships every still at the size it declares, so nothing shifts", async () => {
+    for (const still of portrait.stills) {
+      const file = path.join("public", still.src);
+      expect(existsSync(file), still.src).toBe(true);
+      const { format, width, height } = await sharp(file).metadata();
+      expect(format).toBe("webp");
+      expect({ width, height }, still.src).toEqual({
+        width: still.width,
+        height: still.height,
+      });
+    }
   });
 });
 
