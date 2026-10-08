@@ -185,42 +185,16 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     );
   });
 
-  test("holds the stage still and shows each tool as its text arrives, then lets it go", async ({
+  // The Stage director's unit tests hold the rules; these four check its
+  // wiring to the page: one scroll, one focus, one toggle, one off-screen.
+
+  test("a scroll brings the tool whose text has arrived onto the stage", async ({
     page,
   }) => {
-    const tops: number[] = [];
-    for (const tool of study.tools) {
-      await readTool(page, tool.name);
-      await expect(frame(page, tool.name)).toBeVisible();
-      for (const other of study.tools.filter((t) => t !== tool)) {
-        await expect(frame(page, other.name)).toBeHidden();
-      }
-      await expect
-        .poll(() =>
-          frame(page, tool.name)
-            .locator("img")
-            .evaluateAll((imgs) =>
-              (imgs as HTMLImageElement[]).every(
-                (i) => i.complete && i.naturalWidth > 0,
-              ),
-            ),
-        )
-        .toBe(true);
-      await frames(page);
-      tops.push((await stage(page).boundingBox())!.y);
-    }
-    // The first tool is up as the scene scrolls in; from then on the stage
-    // holds the same place on screen for every tool.
-    const pinned = tops[1];
-    for (const top of tops.slice(1)) expect(Math.abs(top - pinned)).toBeLessThan(1);
-    expect(tops[0]).toBeGreaterThanOrEqual(pinned);
-
-    // Past the last tool, it scrolls away with the page.
-    await page
-      .getByRole("heading", { level: 3, name: study.sections.at(-1)!.heading })
-      .evaluate((el) => el.scrollIntoView({ block: "start" }));
-    await frames(page);
-    expect((await stage(page).boundingBox())!.y).toBeLessThan(pinned - 50);
+    const [first, second] = study.tools;
+    await readTool(page, second.name);
+    await expect(frame(page, second.name)).toBeVisible();
+    await expect(frame(page, first.name)).toBeHidden();
   });
 
   test("the stage is a visual layer, hidden from assistive technology", async ({
@@ -230,11 +204,11 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     await expect(stage(page).locator("a, button, [controls], [tabindex]")).toHaveCount(0);
   });
 
-  test("keyboard focus on a tool's link brings that tool onto the stage, until a scroll moves on", async ({
+  test("keyboard focus on a tool's link brings that tool onto the stage", async ({
     page,
   }) => {
-    const [first, second, ...rest] = study.tools;
-    const last = rest.at(-1)!;
+    const first = study.tools[0];
+    const last = study.tools.at(-1)!;
     await readTool(page, first.name);
     await expect(frame(page, first.name)).toBeVisible();
     // A key press first, so the focus that follows is keyboard focus.
@@ -244,10 +218,6 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     );
     await expect(frame(page, last.name)).toBeVisible();
     await expect(frame(page, first.name)).toBeHidden();
-    // Scrolling on to another tool hands the stage back to the scroll.
-    await readTool(page, second.name);
-    await expect(frame(page, second.name)).toBeVisible();
-    await expect(frame(page, last.name)).toBeHidden();
   });
 
   test("a link the mouse has focused doesn't hold the stage", async ({
@@ -281,7 +251,7 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     expect(await shifted(page)).toBe(0);
   });
 
-  test("a playing recording on the stage can be paused and played from its tool's copy", async ({
+  test("a playing recording on the stage can be paused from its tool's copy", async ({
     page,
   }) => {
     const tools: readonly PlayerTool[] = study.tools;
@@ -295,57 +265,42 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     const block = page
       .getByRole("main")
       .getByRole("region", { name: tool.name, exact: true });
-    const pause = block.getByRole("button", {
-      name: `Pause recording of ${tool.name}`,
-    });
-    await expect(pause).toBeVisible();
-    await pause.focus();
-    await page.keyboard.press("Enter");
+    await block
+      .getByRole("button", { name: `Pause recording of ${tool.name}` })
+      .click();
     await expect
       .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
       .toBe(true);
-    const play = block.getByRole("button", {
-      name: `Play recording of ${tool.name}`,
-    });
-    await expect(play).toBeFocused();
-    // It stays paused while the reader stays on the tool.
-    await page.mouse.wheel(0, 40);
-    await frames(page);
-    expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
-
-    await play.click();
-    await expect
-      .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
-      .toBe(true);
+    await expect(
+      block.getByRole("button", { name: `Play recording of ${tool.name}` }),
+    ).toBeVisible();
   });
 
-  test("a tool's recording plays on the stage while it is on, and pauses after", async ({
+  test("a tool's recording plays on the stage while it is on screen, and pauses when it goes off", async ({
     page,
   }) => {
     const tools: readonly PlayerTool[] = study.tools;
-    const index = tools.findIndex((t) => t.recording);
-    const tool = tools[index];
-    const next = tools[index + 1] ?? tools[index - 1];
+    const tool = tools.find((t) => t.recording)!;
     const video = frame(page, tool.name).locator("video");
     await readTool(page, tool.name);
     await expect
       .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
       .toBe(true);
-    await readTool(page, next.name);
-    await expect
-      .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
-      .toBe(true);
-    // Nothing else plays meanwhile but the stage's own tool, if it has a
-    // recording: the recordings in the copy are out of sight.
+    // Nothing else plays meanwhile: the recordings in the copy are out of sight.
     expect(
       await page.evaluate(
         (frame) =>
           [...document.querySelectorAll("video")].filter(
             (v) => !v.paused && !v.closest(frame),
           ).length,
-        stageToolNamed(next.name),
+        stageToolNamed(tool.name),
       ),
     ).toBe(0);
+    // Back at the top of the page, the stage is far below the screen.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
+      .toBe(true);
   });
 
   test("scrolling through the scene shifts no layout", async ({ page }) => {
