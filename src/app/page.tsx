@@ -39,6 +39,14 @@ function creditParts(line: string) {
 const landsAfterFlight =
   "opening:translate-y-3 opening:opacity-0 in-data-[arriving=hero]:invisible in-data-[arriving=hero]:opacity-0 motion-safe:group-data-[state=settled]:transition-[opacity,translate] motion-safe:group-data-[state=settled]:duration-700";
 
+/**
+ * The contact copy's panels. On a phone the district stands behind the copy,
+ * so it sits on a panel there, as the Highlights do; wider, it has the left
+ * clear.
+ */
+const outpostPanel =
+  "relative max-md:rounded-sm max-md:bg-dusk/80 max-md:p-6 max-md:shadow-2xl max-md:shadow-cyan/10";
+
 export default async function Home() {
   const weather = await torontoWeather();
   return (
@@ -189,9 +197,7 @@ export default async function Home() {
         <h2 id="contact-heading" className={sectionLabel}>
           {contact.heading}
         </h2>
-        {/* On a phone the district stands behind the copy, so it sits on a
-          panel there, as the Highlights do; wider, it has the left clear. */}
-        <div className="relative mt-6 max-md:rounded-sm max-md:bg-dusk/80 max-md:p-6 max-md:shadow-2xl max-md:shadow-cyan/10">
+        <div className={`mt-6 ${outpostPanel}`}>
           <PanelCorners className="border-cyan md:hidden" />
           <p className="max-w-2xl text-lg text-ink/90">{contact.lead}</p>
           <p className="mt-4 text-lg">
@@ -211,6 +217,26 @@ export default async function Home() {
               </li>
             ))}
           </ul>
+        </div>
+        {/* The site as its own evidence, each fact one the source bears out. */}
+        <div className={`mt-12 ${outpostPanel}`}>
+          <PanelCorners className="border-cyan md:hidden" />
+          <h3 className="font-display text-xl font-bold [font-stretch:115%]">
+            {contact.built.heading}
+          </h3>
+          <p className="mt-3 max-w-2xl text-lg text-ink/90">
+            {contact.built.lead}
+          </p>
+          <ul className="mt-4 max-w-2xl list-disc space-y-2 pl-5 text-ink/90 marker:text-cyan">
+            {contact.built.facts.map((fact) => (
+              <li key={fact}>{fact}</li>
+            ))}
+          </ul>
+          <p className="mt-5 text-lg">
+            <a href={contact.built.source.href} className={textLink}>
+              {contact.built.source.label}
+            </a>
+          </p>
         </div>
         <p className="mt-16 font-display text-2xl font-bold [font-stretch:120%]">
           {contact.bookend}

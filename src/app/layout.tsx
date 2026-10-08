@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Anybody, Hanken_Grotesk } from "next/font/google";
 import { ViewTransition } from "react";
 import { TRANSIT_TRANSITION_TYPE } from "@/components/world-places";
-import { nav, person, shareCards } from "@/content/site";
+import { footer, nav, person, shareCards } from "@/content/site";
 import { shareMetadata } from "./share";
 import "./globals.css";
 
@@ -70,7 +70,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Positioned, so it paints over the home page's world, which is held
           fixed behind the page as the camera flies. */}
         <footer className="relative border-t border-fog px-4 py-6 text-center text-sm text-ink/70 sm:px-6">
-          {person.name} · {person.location}
+          {person.name} · {person.location} ·{" "}
+          <a
+            href={footer.source.href}
+            className="underline decoration-ink/40 underline-offset-4 hover:text-cyan hover:decoration-cyan"
+          >
+            {footer.source.label}
+          </a>
         </footer>
         <Analytics />
       </body>
