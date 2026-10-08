@@ -29,7 +29,7 @@ The financial district at the far end of the home page's world, where the scroll
 _Avoid_: Downtown, skyline (Toronto's skyline is another part of the world), end stop, last stop
 
 **Opening**:
-The home page's fly-in on a first visit: the camera's flight down the canyon to the name plate, with the opening credits. "Flight" alone means the opening.
+The home page's fly-in on a first visit: the camera's flight down the canyon to the name plate, with the opening credits. "Flight" alone means the opening. The Opening owns its credits and Skip, and every way it ends; once it has settled, the scroll route takes the camera on.
 _Avoid_: Intro, fly-through
 
 **Transit**:

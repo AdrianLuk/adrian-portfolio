@@ -1,5 +1,7 @@
 import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
+import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
+import { PLATE_ECHO, PLATE_WORD } from "@/components/plate-measure";
 import {
   contact,
   credits,
@@ -43,11 +45,7 @@ export default async function Home() {
     // Its own stacking context: once the camera flies, the world's canvas is
     // held at the back of it, behind the whole page and over the body's sky.
     <div className="relative isolate">
-      <HeroWorld
-        label={hero.label}
-        weather={weather}
-        className="min-h-[88svh]"
-      >
+      <HeroWorld label={hero.label} weather={weather} className="min-h-[88svh]">
         {/* Out of the flow at the hero's foot, so hiding the credits never
           moves anything, but first in it: Skip is the hero's first stop. On
           a phone the hero grows past the screen to fit the stacked name, so
@@ -73,7 +71,7 @@ export default async function Home() {
                   {line}
                 </li>
               ))}
-              <li data-credit-skip className={skipCard}>
+              <li {...CREDIT_SKIP.props} className={skipCard}>
                 {/* Under reduced motion there is no flight to skip: it stays as
                   the last caption, the joke intact. */}
                 <button
@@ -95,13 +93,13 @@ export default async function Home() {
             fades out once the plate has rendered (or while it flies in). */}
           <p
             aria-hidden="true"
-            data-plate-echo
+            {...PLATE_ECHO.props}
             className="font-display text-[min(14vw,6rem)] leading-[0.92] font-extrabold uppercase [font-stretch:150%] opening:opacity-0 group-data-[world=drawn]:opacity-0 motion-safe:transition-opacity motion-safe:duration-1000 md:text-[min(9vw,7rem)] md:leading-none"
           >
             {person.name.split(" ").map((word, i) => (
               <Fragment key={word}>
                 {i > 0 && " "}
-                <span data-plate-word className="max-md:block">
+                <span {...PLATE_WORD.props} className="max-md:block">
                   {word}
                 </span>
               </Fragment>
@@ -119,7 +117,7 @@ export default async function Home() {
           >
             <a
               href={hero.primaryAction.href}
-              data-hero-action
+              {...HERO_ACTION.props}
               className={primaryAction}
             >
               {hero.primaryAction.label}
@@ -140,7 +138,7 @@ export default async function Home() {
             return (
               <p
                 key={line}
-                data-credit-card
+                {...CREDIT_CARD.props}
                 className="absolute top-0 left-0 w-max max-w-[min(40rem,calc(100vw-2rem))] min-w-min opacity-0 [text-shadow:0_0_28px_var(--color-night),0_2px_8px_var(--color-night)]"
               >
                 <span className="block font-display text-sm tracking-[0.35em] text-cyan uppercase [font-stretch:75%] sm:text-base">
