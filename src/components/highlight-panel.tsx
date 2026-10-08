@@ -58,7 +58,8 @@ export function PanelCorners({ className }: { className: string }) {
  * and the link on. A server component, so it reads fully with scripting off.
  * It is focusable (tabindex -1) only so "See the work" can move focus here.
  * With motion allowed, the scroll route lights its site as it enters (and
- * marks it data-lit), and sets it beside the site as the camera passes.
+ * marks it data-lit), and sets it beside the site as the camera passes; and
+ * with a mouse, it tilts toward the pointer over it (pointer-motion.ts).
  */
 export function HighlightPanel({
   highlight,
@@ -76,7 +77,7 @@ export function HighlightPanel({
       id={id}
       aria-labelledby={`${id}-heading`}
       tabIndex={-1}
-      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${look.glow} max-w-3xl ${look.align} ${className}`}
+      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:[transition:box-shadow_700ms,transform_300ms_ease-out] ${look.glow} max-w-3xl ${look.align} ${className}`}
     >
       <PanelCorners className={look.bracket} />
       <h3
