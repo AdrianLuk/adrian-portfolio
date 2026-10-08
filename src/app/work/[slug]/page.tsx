@@ -8,6 +8,7 @@ import { Recording } from "@/components/recording";
 import { isSideways, Screenshot } from "@/components/screenshot";
 import { ToolStage } from "@/components/tool-stage";
 import { CourtStill } from "@/components/court-still";
+import { PanelCorners } from "@/components/highlight-panel";
 import { PlaceWorld } from "@/components/place-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import { placeOf } from "@/components/world-places";
@@ -21,7 +22,7 @@ import {
   type Showcase,
 } from "@/content/site";
 import { shareMetadata } from "../../share";
-import { arrivesAtCourt } from "../../styles";
+import { arrivesAtCourt, overPlace } from "../../styles";
 import { torontoWeather } from "../../toronto-weather";
 
 // Rebuilt at most hourly, for the court's weather (WEATHER_REVALIDATE):
@@ -98,7 +99,11 @@ function Tool({ tool, label }: { tool: PlayerTool; label: string }) {
   const id = tool.name.toLowerCase().replaceAll(" ", "-");
   return (
     <li {...toolCopy} className="pinned:min-h-[70vh]">
-      <section aria-labelledby={`tool-${id}`} className="space-y-4">
+      <section
+        aria-labelledby={`tool-${id}`}
+        className={`flex flex-col gap-4 ${overPlace.court}`}
+      >
+        <PanelCorners className="border-violet" />
         <h5
           id={`tool-${id}`}
           className="font-display text-2xl font-bold [font-stretch:115%]"
@@ -166,7 +171,8 @@ export default async function CaseStudyPage({
       className="relative isolate mx-auto max-w-4xl px-4 py-16 sm:px-6"
     >
       {world}
-      <header className={arrivesAtCourt}>
+      <header className={`${overPlace.court} ${arrivesAtCourt}`}>
+        <PanelCorners className="border-violet" />
         <p className={eyebrowClass}>Case study · {study.byline}</p>
         <h2
           id="case-study-heading"
@@ -199,17 +205,20 @@ export default async function CaseStudyPage({
             aria-labelledby={`${section.id}-heading`}
             className="space-y-4"
           >
-            <h3
-              id={`${section.id}-heading`}
-              className="font-display text-3xl font-bold [font-stretch:120%]"
-            >
-              {section.heading}
-            </h3>
-            {section.paragraphs.map((p) => (
-              <p key={p} className="max-w-2xl text-lg leading-relaxed text-ink/90">
-                {p}
-              </p>
-            ))}
+            <div className={`flex flex-col gap-4 ${overPlace.court}`}>
+              <PanelCorners className="border-violet" />
+              <h3
+                id={`${section.id}-heading`}
+                className="font-display text-3xl font-bold [font-stretch:120%]"
+              >
+                {section.heading}
+              </h3>
+              {section.paragraphs.map((p) => (
+                <p key={p} className="max-w-2xl text-lg leading-relaxed text-ink/90">
+                  {p}
+                </p>
+              ))}
+            </div>
             {section.id === "what-i-did" && (
               <div className="pt-4">
                 <Screenshots showcase={study.home} />
