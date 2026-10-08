@@ -10,7 +10,7 @@ import {
   type FlightRig,
 } from "./world/rigs";
 import type { Route } from "./world/route";
-import type { Departure, Destination, Transit } from "./world/transit";
+import type { Arrival, Departure, Transit } from "./world/transit";
 
 /**
  * What the world hands the director each time it lays a view out: the paths
@@ -29,7 +29,7 @@ export type CameraPaths = {
   court: Pose;
   /** The court's stop on the route (Juice Bros' Lit site). */
   courtStop: number;
-  transit(route: Route, departure: Departure, to: Destination): Transit;
+  transit(route: Route, departure: Departure, to: Arrival): Transit;
 };
 
 /** How brightly the world's lights burn in a frame. */
@@ -67,14 +67,14 @@ export type CameraFrame = {
 const UPRIGHT: CameraLean = { x: 0, y: 0 };
 
 /**
- * How long the camera waits, at most, on its destination page (and its
+ * How long the camera waits, at most, on the page it flies to (and its
  * paths) before landing without them, in ms: a slow network never strands
  * the camera.
  */
 const ARRIVAL_LIMIT = 4000;
 
 /**
- * How far home's scroll may have moved the destination, in route stops,
+ * How far home's scroll may have moved the stop it lands at, in route stops,
  * before a Transit landing there goes on to meet it.
  */
 const CHASE = 0.02;
@@ -183,7 +183,7 @@ export function createCameraDirector({
     const route = paths?.route;
     if (!paths || !route) return;
     if (t.to === "hero" && (shown !== "hero" || !homePaths())) return;
-    let to: Destination;
+    let to: Arrival;
     if (t.to === "court") {
       t.stop = paths.courtStop;
       to = paths.court;
@@ -273,7 +273,7 @@ export function createCameraDirector({
 
   /**
    * How far the court's look is in at `now`, 0 to 1: through a Transit, from
-   * where it was as the camera left to where the destination wants it, eased
+   * where it was as the camera left to where the Place it flies to has it, eased
    * along with the camera; otherwise full at the court and out elsewhere.
    */
   function courtLook(now: number): number {

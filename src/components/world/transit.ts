@@ -161,10 +161,10 @@ export type Departure =
  * Where a transit lands: one of the route's stops, or a pose off the route
  * (the court's), which it eases onto from where the route passes its depth.
  */
-export type Destination = number | Pose;
+export type Arrival = number | Pose;
 
 /** A transit from `departure` to `to`. */
-export function transit(route: Route, departure: Departure, to: Destination) {
+export function transit(route: Route, departure: Departure, to: Arrival) {
   return "pose" in departure
     ? transitPath(route, departure.pose, to)
     : fromOpening(route, departure, to);
@@ -178,7 +178,7 @@ export function transit(route: Route, departure: Departure, to: Destination) {
 function fromOpening(
   route: Route,
   { opening, travel, settle }: Extract<Departure, { opening: FlightPath }>,
-  to: Destination,
+  to: Arrival,
 ) {
   const from = Math.min(1, Math.max(0, travel));
   /** World units of the opening still to fly. */
@@ -230,7 +230,7 @@ function fromOpening(
 }
 
 /** A transit from the pose `departure` along `route` to `to`. */
-export function transitPath(route: Route, departure: Pose, to: Destination) {
+export function transitPath(route: Route, departure: Pose, to: Arrival) {
   const samples = measure(route);
   const fromStop = stopAtDepth(route, samples, departure.position.z);
   const toStop =

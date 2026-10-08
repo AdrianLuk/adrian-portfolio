@@ -414,7 +414,7 @@ async function flown(
   });
 }
 
-test.describe("camera flights between Places", () => {
+test.describe("Transits between Places", () => {
   test.describe.configure({ timeout: 90_000 });
 
   test("the camera flies home → Resume page, Back home, Forward again, and a click mid-flight turns it round", async ({
@@ -710,7 +710,7 @@ test.describe("camera flights between Places", () => {
     const crossfades = async () =>
       (await transitions()).flat().filter((d) => d > 0).length;
 
-    // From the Juice Bros Highlight, by keyboard: a flight down the valley,
+    // From the Juice Bros Highlight, by keyboard: a Transit down the valley,
     // not a crossfade, over the world drawn throughout. The Case study's
     // copy, held unseen and out of reach of focus until then, arrives as the
     // camera lands at the court.
