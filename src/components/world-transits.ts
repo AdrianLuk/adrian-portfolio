@@ -12,8 +12,9 @@ type TransitHost = Pick<
 >;
 
 /**
- * Transits between home and the Resume page: the camera flying from one to
- * the other. A navigation between them hands the camera to the Camera
+ * Transits between Places (home, the Juice Bros Case study's court, the
+ * Resume page's Outpost): the camera flying from one to another. A
+ * navigation between two of them hands the camera to the Camera
  * director's Transit the moment it starts (the click, or Back and Forward):
  * the camera flies from wherever it is to the destination page's pose, while
  * the page itself arrives under it at once. While the camera flies, the

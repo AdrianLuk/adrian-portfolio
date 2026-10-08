@@ -24,8 +24,15 @@ import { FOG_DENSITY, palette } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
 import type { CameraDirector, CameraLean } from "../camera-director";
-import { createRoute, outpostPose, SITES, type Route } from "./route";
-import { OUTPOST_STOP, transit } from "./transit";
+import { nominalRoute } from "./nominal-route";
+import {
+  courtPose,
+  createRoute,
+  outpostPose,
+  SITES,
+  type Route,
+} from "./route";
+import { COURT_STOP, OUTPOST_STOP, transit } from "./transit";
 import {
   moteCountFor,
   pixelRatioFor,
@@ -66,11 +73,15 @@ export type ViewOptions = {
 /**
  * What the world shows. hero: the home page's, the name plate posed on the
  * headline that `measure` finds, the camera on the opening flight and then
- * the scroll route. outpost: the Resume page's, the camera still at the
- * route's last stop, the plate and the lit sites out of sight.
+ * the scroll route. court: the Juice Bros Case study's, the camera still and
+ * low behind the court's near baseline (Lit site 3). outpost: the Resume
+ * page's, the camera still at the route's last stop. Away from the hero, the
+ * plate and the lit sites are out of sight.
  */
 export type WorldView =
-  { kind: "hero"; measure: () => Measurement } | { kind: "outpost" };
+  | { kind: "hero"; measure: () => Measurement }
+  | { kind: "court" }
+  | { kind: "outpost" };
 
 /**
  * The world: one scene, which any of its views can show, so changing view
@@ -422,17 +433,21 @@ export async function createWorld(
     }
     showFalling();
 
-    posed =
-      view.kind === "hero"
-        ? placePlate(plate, words, width, height)
-        : placeOutpost();
+    const home = view.kind === "hero";
+    posed = home
+      ? placePlate(plate, words, width, height)
+      : placeStill(view.kind === "court" ? courtPose : outpostPose);
     if (!posed) return;
-    // The director takes the paths this layout measured, and the Transit maths.
+    // The director takes the paths this layout measured, and the Transit
+    // maths. Home's paths come only from home's own layout; away from it, the
+    // nominal route flies the court and the Outpost (see ./nominal-route).
     options.director.layout({
-      opening: path,
-      route,
+      opening: home ? path : null,
+      route: home ? route : nominalRoute(camera.aspect),
       outpost: outpostPose(camera.aspect),
       outpostStop: OUTPOST_STOP,
+      court: courtPose(camera.aspect),
+      courtStop: COURT_STOP,
       transit,
     });
     // The motes rise round where the camera stands.
@@ -452,9 +467,9 @@ export async function createWorld(
     pools.set(wet() ? wetPools(lit) : lit);
   }
 
-  /** The Outpost's fixed pose, for the screen's shape. */
-  function placeOutpost() {
-    placeCamera(outpostPose(camera.aspect));
+  /** A still view's pose (the court's, the Outpost's), for the screen's shape. */
+  function placeStill(poseFor: (aspect: number) => Pose) {
+    placeCamera(poseFor(camera.aspect));
     setPools(structures.pools);
     return true;
   }
@@ -587,7 +602,7 @@ export async function createWorld(
 
   /**
    * Fits the scene to its view: the plate shows only in the hero's, and the
-   * lit sites, all behind the Outpost's camera, stay dark there.
+   * lit sites, home's scroll cues, stay dark away from it.
    */
   function showView() {
     plate.group.visible = view?.kind === "hero";

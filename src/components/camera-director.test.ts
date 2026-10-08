@@ -434,7 +434,7 @@ describe("the Camera director", () => {
     });
 
     it("flies home only on home's own paths, holding still until they are measured", () => {
-      const { director, paths } = away();
+      const { director, paths, route } = away();
       director.show("court");
       director.fly("hero", 0);
       // Home is in, but not yet laid out: the camera holds at the court.
@@ -446,7 +446,7 @@ describe("the Camera director", () => {
       director.layout(paths);
       const { poses } = flyTo(director, "hero", 216, 0);
       expectNoJump([...holding, ...poses]);
-      expectSamePose(director.frame(5000).pose!, paths.route.poseAt(0));
+      expectSamePose(director.frame(5000).pose!, route.poseAt(0));
     });
   });
 
