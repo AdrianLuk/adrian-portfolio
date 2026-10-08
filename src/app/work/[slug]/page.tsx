@@ -8,7 +8,7 @@ import { Recording } from "@/components/recording";
 import { isSideways, Screenshot } from "@/components/screenshot";
 import { ToolStage } from "@/components/tool-stage";
 import { CourtStill } from "@/components/court-still";
-import { CourtWorld } from "@/components/court-world";
+import { PlaceWorld } from "@/components/place-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import { placeOf } from "@/components/world-places";
 import {
@@ -153,9 +153,9 @@ export default async function CaseStudyPage({
   const atCourt =
     placeOf(hrefFor({ kind: "case-study", slug: study.slug })) === "court";
   const world = atCourt ? (
-    <CourtWorld weather={await torontoWeather()}>
+    <PlaceWorld claim={{ kind: "court", weather: await torontoWeather() }}>
       <CourtStill />
-    </CourtWorld>
+    </PlaceWorld>
   ) : (
     <WorldBackdrop />
   );

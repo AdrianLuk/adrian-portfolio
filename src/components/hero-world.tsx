@@ -25,7 +25,7 @@ import { prefersReducedMotion, subscribeToMotion } from "./reduced-motion";
 import { useWorldState } from "./use-world-state";
 import { joinsLiveWorld, worldHost } from "./world-host";
 import type { World } from "./world/scene";
-import { parseWeather, type Weather } from "./world/weather";
+import { previewWeather, type Weather } from "./world/weather";
 
 /** On the server the preference is unknown: the hero is "loading". */
 const serverPhase = (): OpeningPhase => "loading";
@@ -135,12 +135,8 @@ export function HeroWorld({
     // The world's canvas, standing in this page's own from now on.
     worldCanvasRef.current = host.attach(pageCanvas, {
       kind: "hero",
-      // ?weather=snow|rain|clear previews a condition. Read here, not on the
-      // server, so the page itself stays static.
-      weather:
-        parseWeather(
-          new URLSearchParams(window.location.search).get("weather"),
-        ) ?? weatherRef.current,
+      // ?weather=snow|rain|clear previews a condition.
+      weather: previewWeather(weatherRef.current),
       measure: (canvas) => measurePlate(canvas, root),
     });
     // The world stays, parked, for the next page that wants it.

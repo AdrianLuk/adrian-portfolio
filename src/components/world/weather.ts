@@ -45,3 +45,15 @@ export function seasonalWeather(date: Date): Weather {
 export function parseWeather(value: string | null): Weather | null {
   return WEATHERS.find((w) => w === value) ?? null;
 }
+
+/**
+ * The weather a page shows: the condition its `?weather=` (in `search`, the
+ * page's own query by default) previews, or `fallback`, its own. Read in the
+ * browser, so the page itself stays static.
+ */
+export function previewWeather(
+  fallback: Weather,
+  search = window.location.search,
+): Weather {
+  return parseWeather(new URLSearchParams(search).get("weather")) ?? fallback;
+}

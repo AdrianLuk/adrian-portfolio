@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PanelCorners } from "@/components/highlight-panel";
-import { OutpostWorld } from "@/components/outpost-world";
+import { PlaceWorld } from "@/components/place-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import {
   displayUrl,
@@ -45,9 +45,9 @@ export default function ResumePage() {
     // Its own stacking context, for the world and its backdrop at the back of
     // it: the Outpost, live, over the still that paints first.
     <div className="relative isolate mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <OutpostWorld>
+      <PlaceWorld claim={{ kind: "outpost" }}>
         <WorldBackdrop />
-      </OutpostWorld>
+      </PlaceWorld>
       <header
         className={`flex max-w-3xl flex-col items-start gap-4 ${overOutpost} ${arrivesAtOutpost}`}
       >
