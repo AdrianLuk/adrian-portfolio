@@ -7,26 +7,33 @@ import {
   type HighlightId,
 } from "@/content/site";
 import { metaLine, textLink } from "@/app/styles";
+import { litSite, type LitSite } from "./lit-sites";
 
 /**
- * Cyan is the world's light; Juice Bros, the Side project, is violet. Ember
- * stays the primary action's alone. Each matches its site's light in the
- * world, and glows brighter once the scroll route has lit the site.
+ * Each panel's accent is its Lit site's light, and glows brighter once the
+ * scroll route has lit the site. Ember stays the primary action's alone.
+ * Written out in full, so Tailwind finds the classes.
  */
-const cyan = {
-  bracket: "border-cyan",
-  glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+const accents: Record<LitSite["light"], { bracket: string; glow: string }> = {
+  cyan: {
+    bracket: "border-cyan",
+    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+  },
+  violet: {
+    bracket: "border-violet",
+    glow: "shadow-violet/10 data-lit:shadow-violet/25",
+  },
 };
-const violet = {
-  bracket: "border-violet",
-  glow: "shadow-violet/10 data-lit:shadow-violet/25",
-};
-const accents: Record<HighlightId, { bracket: string; glow: string }> = {
-  "control-d": cyan,
-  "life-house": cyan,
-  "juice-bros": violet,
-  "bt-cup": cyan,
-};
+
+/**
+ * A Highlight panel's look: its accent, in its Lit site's light, and its
+ * wide-screen alignment, opposite its site so the site stands clear (pushed
+ * right when the site stands left).
+ */
+export function panelLook(id: HighlightId) {
+  const { light, side } = litSite(id);
+  return { ...accents[light], align: side < 0 ? "lg:ml-auto" : "" };
+}
 
 const corners = [
   "top-0 left-0 border-t-2 border-l-2",
@@ -61,7 +68,7 @@ export function HighlightPanel({
   className?: string;
 }) {
   const id = highlightAnchor(highlight.id);
-  const accent = accents[highlight.id];
+  const look = panelLook(highlight.id);
   const { paragraph } = highlight;
 
   return (
@@ -69,9 +76,9 @@ export function HighlightPanel({
       id={id}
       aria-labelledby={`${id}-heading`}
       tabIndex={-1}
-      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${accent.glow} ${className}`}
+      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${look.glow} max-w-3xl ${look.align} ${className}`}
     >
-      <PanelCorners className={accent.bracket} />
+      <PanelCorners className={look.bracket} />
       <h3
         id={`${id}-heading`}
         className="font-display text-3xl font-bold [font-stretch:120%]"

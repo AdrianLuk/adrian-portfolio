@@ -1,9 +1,7 @@
-import type { HighlightId } from "@/content/site";
-
 /**
- * The Opening's values and timing, and the plan of the lit sites: plain data
- * with no Three.js in it, so the hero can use it from the first paint while
- * the world and its libraries load after.
+ * The Opening's values and timing: plain data with no Three.js in it, so the
+ * hero can use it from the first paint while the world and its libraries load
+ * after. The Lit sites have their own home, in ../lit-sites.
  */
 
 /**
@@ -52,31 +50,6 @@ export const FLIGHT_TIMING = { flight: 5.25, turn: 2.5 } as const;
  * meets.
  */
 export const TURN_EASE = { name: "power2.out", opening: 3 } as const;
-
-/**
- * A lit site's plan: the Highlight it stands for, its depth down the valley,
- * which side it stands (+1 = right, +x), and the light it burns (its panel's
- * accent).
- */
-export type SitePlan = {
-  highlight: HighlightId;
-  z: number;
-  side: 1 | -1;
-  light: "cyan" | "violet";
-};
-
-/**
- * The four lit sites, in the Highlights' order, alternating sides of the
- * valley: on a wide screen the panels alternate left and right, so each site
- * stands on the side its panel leaves clear. The first is the light on the
- * horizon once the camera settles.
- */
-export const SITE_PLAN: readonly SitePlan[] = [
-  { highlight: "control-d", z: -420, side: 1, light: "cyan" },
-  { highlight: "life-house", z: -600, side: -1, light: "cyan" },
-  { highlight: "juice-bros", z: -780, side: 1, light: "violet" },
-  { highlight: "bt-cup", z: -960, side: -1, light: "cyan" },
-];
 
 /**
  * The longest a transit (the camera flying between home and the Resume page)

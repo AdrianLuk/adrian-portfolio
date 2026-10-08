@@ -479,6 +479,7 @@ export function RallyGame({
           aria-hidden="true"
           data-dink-pad
           data-held={dinkHeld}
+          // Violet is Juice Bros' light (./lit-sites), written out for Tailwind.
           className={`flex h-14 min-w-36 touch-none items-center justify-center rounded-full border-2 border-violet/80 bg-night/70 px-8 font-display text-sm font-bold tracking-widest text-ink uppercase select-none [font-stretch:90%] data-[held=true]:bg-violet data-[held=true]:text-night ${playing && !hud.paused ? "" : "invisible"}`}
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);

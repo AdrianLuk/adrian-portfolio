@@ -18,6 +18,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { litSite } from "../lit-sites";
 import { layoutCourt } from "../world/court";
 import { createGlowPoints, type Glow } from "../world/glow-points";
 import { createBalls } from "../world/landmarks";
@@ -137,8 +138,9 @@ export async function createRallyView(
   const scene = new Scene();
   const camera = new PerspectiveCamera(40, 1, 0.5, 2000);
 
-  // The court, as the world lays it out, in Juice Bros' violet.
-  const court = layoutCourt({ x: 0, z: 0, level: 0, scale: 1, color: palette.violet });
+  // The court, as the world lays it out, in Juice Bros' light, as its Landmark burns it.
+  const light = palette[litSite("juice-bros").light];
+  const court = layoutCourt({ x: 0, z: 0, level: 0, scale: 1, color: light });
   const boxes: Box[] = [court.plinth, ...court.surfaces, ...court.lines, ...court.posts, court.tape];
   const lamps: Glow[] = [];
   for (const u of [-1, 1]) {
@@ -165,7 +167,7 @@ export async function createRallyView(
     ai: createFigure(palette.magenta),
   };
 
-  const [ball] = createBalls([{ x: 0, y: 0, z: 0, r: BALL_RADIUS, color: palette.violet }]);
+  const [ball] = createBalls([{ x: 0, y: 0, z: 0, r: BALL_RADIUS, color: light }]);
   const shadow = new Mesh(
     new CircleGeometry(BALL_RADIUS, 24).rotateX(-Math.PI / 2),
     new MeshBasicMaterial({ color: palette.night, transparent: true, opacity: 0.7 }),
@@ -177,7 +179,7 @@ export async function createRallyView(
       x: 0,
       y: 0,
       z: 0,
-      color: palette.violet.clone().lerp(palette.ink, 0.3),
+      color: light.clone().lerp(palette.ink, 0.3),
       size: 0.9 * (1 - i / TRAIL),
       seed: 0,
     })),
