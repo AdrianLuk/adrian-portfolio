@@ -23,8 +23,12 @@ const hanken = Hanken_Grotesk({
   subsets: ["latin"],
 });
 
-// Home's, and so the 404's, which has no metadata of its own.
-export const metadata: Metadata = shareMetadata(shareCards.home);
+// Home's, and so the 404's, which has no metadata of its own, but without
+// the canonical URL: a missing page isn't the home page. Home sets its own.
+export const metadata: Metadata = {
+  ...shareMetadata(shareCards.home),
+  alternates: null,
+};
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

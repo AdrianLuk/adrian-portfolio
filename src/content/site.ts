@@ -111,9 +111,9 @@ export const person = {
 } as const;
 
 export const meta = {
-  title: "Adrian Luk, senior frontend engineer",
+  title: "Adrian Luk, senior frontend engineer in Toronto",
   description:
-    "Senior frontend engineer in Toronto. React and TypeScript, plus the back end when it needs building.",
+    "Senior frontend engineer in Toronto. React and TypeScript, plus the back end when it needs building. My work at Control D, Life House, Juice Bros and BT Cup.",
 } as const;
 
 /** Where the site lives; link previews resolve their images against it. */
@@ -537,7 +537,7 @@ export const sideProjects = [
 ] as const satisfies readonly SideProject[];
 
 export const resume = {
-  metaTitle: "Adrian Luk, resume",
+  metaTitle: "Resume | Adrian Luk, senior frontend engineer",
   metaDescription:
     "Where Adrian Luk has worked as a frontend and full-stack engineer, newest first, with a PDF to download.",
   heading: "Resume",

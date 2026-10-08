@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { person, siteUrl, type ShareCard } from "@/content/site";
 
 /**
- * A route's title, description and link preview (Open Graph and Twitter). A
- * route sets all of it at once: Next merges metadata shallowly, so a page's
+ * A route's title, description, canonical URL and link preview (Open Graph
+ * and Twitter). A route sets all of it at once: Next merges metadata shallowly, so a page's
  * own `openGraph` replaces the layout's rather than adding to it.
  */
 export function shareMetadata(card: ShareCard): Metadata {
@@ -14,6 +14,7 @@ export function shareMetadata(card: ShareCard): Metadata {
     metadataBase: new URL(siteUrl),
     title: card.title,
     description: card.description,
+    alternates: { canonical: card.path },
     openGraph: {
       title: card.title,
       description: card.description,
