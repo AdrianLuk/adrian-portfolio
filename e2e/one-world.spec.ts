@@ -8,6 +8,7 @@ import {
   person,
   resume,
 } from "../src/content/site";
+import type { Place } from "../src/components/world-places";
 import { TRANSIT_MAX_SECONDS } from "../src/components/world/rigs";
 import {
   heroRoot,
@@ -25,12 +26,13 @@ const routes = [
   { name: "404", path: "/this-page-does-not-exist" },
 ];
 
+const caseStudyPath = routes[1].path;
+
 /**
- * The routes that stand on the quieter backdrop, and a heading on each (the
- * Resume page's first paint, under the outpost's world).
+ * The routes that stand on the quieter backdrop of the valley, and a heading
+ * on each (the Resume page's first paint, under the outpost's world).
  */
 const backdropRoutes = [
-  { name: "Juice Bros case study", path: routes[1].path, heading: caseStudies[0].title },
   { name: "Resume page", path: "/resume", heading: resume.heading },
   { name: "404", path: routes[3].path, heading: notFound.heading },
 ];
@@ -74,6 +76,7 @@ const backdropState = (page: Page, heading: string) =>
     const at = title.getBoundingClientRect();
     const hit = document.elementFromPoint(at.left + 4, at.top + at.height / 2);
     return {
+      name: el.getAttribute("data-backdrop"),
       hidden: el.getAttribute("aria-hidden"),
       fixed: getComputedStyle(el).position,
       covers:
@@ -84,6 +87,8 @@ const backdropState = (page: Page, heading: string) =>
       loaded: img.complete && img.naturalWidth > 0,
       // The page reads over it.
       behind: !!hit && title.contains(hit),
+      // Anything laid over the still: a dimming layer, the motes.
+      over: el.querySelectorAll(":scope > :not(picture)").length,
       motes: Array.from(el.querySelectorAll(".mote")).filter((m) =>
         (m as HTMLElement).checkVisibility(),
       ).length,
@@ -107,6 +112,7 @@ test.describe("the night backdrop", () => {
       );
       const state = await backdropState(page, route.heading);
       expect(state).toMatchObject({
+        name: "valley",
         hidden: "true",
         fixed: "fixed",
         covers: true,
@@ -117,6 +123,28 @@ test.describe("the night backdrop", () => {
       expect(state.drifting).toBe(state.motes);
     });
   }
+
+  test("the Case study stands on the court's still instead: never dimmed, no motes", async ({
+    page,
+  }) => {
+    // The still alone, as the page first paints it.
+    await withoutWorld(page);
+    await page.goto(caseStudyPath);
+    await page.locator("[data-backdrop] img").evaluate(
+      (img: HTMLImageElement) => img.decode(),
+    );
+    expect(await backdropState(page, caseStudies[0].title)).toEqual({
+      name: "court",
+      hidden: "true",
+      fixed: "fixed",
+      covers: true,
+      loaded: true,
+      behind: true,
+      over: 0,
+      motes: 0,
+      drifting: 0,
+    });
+  });
 
   test("under reduced motion it is the still alone: no motes, nothing animates", async ({
     page,
@@ -348,11 +376,11 @@ function holds({ arriving }: TransitWatch) {
 }
 
 /**
- * Once the Resume page is in under a transit and its copy is held: whether
- * a link in that copy could take focus, and whether it shows. Null if the
- * copy was never seen held.
+ * Once the page headed `heading` is in under a transit and its copy is held:
+ * whether a link in that copy could take focus, and whether it shows. Null if
+ * the copy was never seen held.
  */
-const heldCopy = (page: Page) =>
+const heldCopy = (page: Page, heading: string) =>
   page.evaluate(async (heading) => {
     const root = document.querySelector("[data-world-root]")!;
     // Bounded by time, not frames: a software renderer's frames can be slow.
@@ -372,13 +400,13 @@ const heldCopy = (page: Page) =>
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
     return null;
-  }, resume.heading);
+  }, heading);
 
 /** Waits for a flight to `to` to have run and landed. */
 async function flown(
   transit: Awaited<ReturnType<typeof watchTransit>>,
   page: Page,
-  to: "hero" | "outpost",
+  to: Place,
 ) {
   await expect.poll(async () => (await transit()).seen).toContain(to);
   await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/, {
@@ -386,7 +414,7 @@ async function flown(
   });
 }
 
-test.describe("camera flights between home and the Resume page", () => {
+test.describe("camera flights between Places", () => {
   test.describe.configure({ timeout: 90_000 });
 
   test("the camera flies home → Resume page, Back home, Forward again, and a click mid-flight turns it round", async ({
@@ -414,7 +442,7 @@ test.describe("camera flights between home and the Resume page", () => {
     // of focus until then, arrives as it lands.
     await resumeLink(page).focus();
     await page.keyboard.press("Enter");
-    expect(await heldCopy(page)).toEqual({ focusable: false, visible: false });
+    expect(await heldCopy(page, resume.heading)).toEqual({ focusable: false, visible: false });
     await expect(page).toHaveURL(/\/resume$/);
     await flown(transit, page, "outpost");
     // Focus stays where the router leaves it, as without a transit.
@@ -604,6 +632,14 @@ test.describe("camera flights between home and the Resume page", () => {
     await homeLink(page).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced");
+    await caseStudyLink(page).click();
+    await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
+    await expect(
+      page.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced");
     expect((await transit()).seen).toEqual([]);
     expect((await transit()).arriving).toEqual([]);
     for (const durations of await transitions()) {
@@ -654,7 +690,7 @@ test.describe("camera flights between home and the Resume page", () => {
     await page.context().close();
   });
 
-  test("home → Case study keeps the crossfade: the world gives way to its still", async ({
+  test("the camera flies home → Case study to the court, its copy arriving as it lands, and Back flies home", async ({
     browser,
   }, testInfo) => {
     let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
@@ -670,12 +706,148 @@ test.describe("camera flights between home and the Resume page", () => {
         transitions = await watchTransitions(page);
       },
     });
-    await page.locator(`a[href="/work/${caseStudies[0].slug}"]`).first().click();
-    await expect(page).toHaveURL(new RegExp(`/work/${caseStudies[0].slug}$`));
-    await expect(page.locator("[data-backdrop]")).toHaveCount(1);
-    await crossfaded(transitions);
-    expect((await transit()).seen).toEqual([]);
+    await tagCanvas(heroRoot(page).locator("canvas"));
+    const crossfades = async () =>
+      (await transitions()).flat().filter((d) => d > 0).length;
+
+    // From the Juice Bros Highlight, by keyboard: a flight down the valley,
+    // not a crossfade, over the world drawn throughout. The Case study's
+    // copy, held unseen and out of reach of focus until then, arrives as the
+    // camera lands at the court.
+    await caseStudyLink(page).focus();
+    await page.keyboard.press("Enter");
+    expect(await heldCopy(page, caseStudies[0].title)).toEqual({
+      focusable: false,
+      visible: false,
+    });
+    await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
+    await flown(transit, page, "court");
+    const court = page.locator("[data-world]");
+    await expect(court).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(court.locator("canvas"))).toBe("the world");
+    await expect(page.locator('[data-backdrop="court"]')).toHaveCount(1);
+    const heading = page.getByRole("heading", {
+      level: 2,
+      name: caseStudies[0].title,
+    });
+    await expect(heading).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator("header", { has: heading })
+          .evaluate((el) => getComputedStyle(el).opacity),
+      )
+      .toBe("1");
+    // Where focus is: the router's to say (checked against a plain
+    // navigation below).
+    const focused = await focusedElement(page);
+    let seen = await transit();
+    expect(seen.seen.slice(0, 2)).toEqual(["court", null]);
+    expect(seen.frames).toBeGreaterThan(0);
+    expect(seen.bare).toBe(0);
+    expect(await crossfades()).toBe(0);
+
+    // Back: the flight home, landing settled, without the opening's credits.
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        __hero: { seen: string[]; cardPeaks: number[] };
+      };
+      w.__hero.seen = [];
+      w.__hero.cardPeaks = [];
+    });
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await flown(transit, page, "hero");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(heroRoot(page).locator("canvas"))).toBe("the world");
+    const hero = await watched(page);
+    expect(hero.seen).not.toContain("flight");
+    expect(hero.cardPeaks.filter((peak) => peak > 0)).toEqual([]);
+    expect(await crossfades()).toBe(0);
+
+    // Every hold on the copy ended within the cap of its navigation's start
+    // (late only by as long as the main thread was blocked).
+    seen = await transit();
+    expect(seen.seen.at(-1)).toBeNull();
+    expect(seen.arriving.at(-1)?.value).toBeNull();
+    expect(holds(seen).length).toBeGreaterThan(0);
+    for (const { ms, stall } of holds(seen)) {
+      expect(ms).toBeLessThanOrEqual(
+        TRANSIT_MAX_SECONDS * 1000 + stall + HOLD_GRACE,
+      );
+    }
     await page.context().close();
+
+    // The same navigation with no world to fly through leaves focus in the
+    // same place.
+    const plain = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const still = await plain.newPage();
+    await withoutWorld(still);
+    await still.goto("/");
+    await caseStudyLink(still).focus();
+    await still.keyboard.press("Enter");
+    await expect(still).toHaveURL(new RegExp(`${caseStudyPath}$`));
+    await expect(
+      still.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+    ).toBeVisible();
+    expect(await focusedElement(still)).toEqual(focused);
+    await plain.close();
+  });
+
+  test("the camera flies Case study → Resume page on down the valley, and Back to the court", async ({
+    browser,
+  }, testInfo) => {
+    // A visit that starts at the Case study: home is never laid out.
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const page = await context.newPage();
+    const transit = await watchTransit(page);
+    const transitions = await watchTransitions(page);
+    await page.goto(caseStudyPath);
+    const world = page.locator("[data-world]");
+    await expect(world).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await tagCanvas(world.locator("canvas"));
+
+    await resumeLink(page).focus();
+    await page.keyboard.press("Enter");
+    expect(await heldCopy(page, resume.heading)).toEqual({
+      focusable: false,
+      visible: false,
+    });
+    await expect(page).toHaveURL(/\/resume$/);
+    await flown(transit, page, "outpost");
+    // Focus stays where the router leaves it, as without a transit.
+    await expect(resumeLink(page)).toBeFocused();
+    await expect(world).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(world.locator("canvas"))).toBe("the world");
+
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
+    await flown(transit, page, "court");
+    await expect(world).toHaveAttribute("data-world", "drawn");
+    await expect(
+      page.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+    ).toBeVisible();
+
+    const seen = await transit();
+    expect(seen.seen).toEqual(["outpost", null, "court", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    expect(holds(seen)).toHaveLength(2);
+    for (const { ms, stall } of holds(seen)) {
+      expect(ms).toBeLessThanOrEqual(
+        TRANSIT_MAX_SECONDS * 1000 + stall + HOLD_GRACE,
+      );
+    }
+    await context.close();
   });
 });
 
@@ -683,6 +855,21 @@ const homeLink = (page: Page) =>
   page
     .getByRole("navigation", { name: "Main" })
     .getByRole("link", { name: person.name });
+
+/** The Juice Bros Highlight's link to its Case study, on home. */
+const caseStudyLink = (page: Page) =>
+  page.locator(`main a[href="${caseStudyPath}"]`).first();
+
+/** What has focus: its tag, and its text or name. */
+const focusedElement = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.activeElement;
+    return {
+      tag: el?.tagName.toLowerCase() ?? null,
+      text: el?.textContent?.trim().slice(0, 40) ?? null,
+      href: el?.getAttribute("href") ?? null,
+    };
+  });
 
 /**
  * Counts the WebGL contexts the page creates from the first byte, and records
