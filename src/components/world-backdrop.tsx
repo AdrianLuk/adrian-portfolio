@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react";
-import { backdrop, srcSet } from "@/content/site";
+import type { CSSProperties, ReactNode } from "react";
+import { backdrop, srcSet, type Still } from "@/content/site";
 
 /** A small seeded generator (mulberry32), so every render scatters the same. */
 function seeded(seed: number) {
@@ -30,36 +30,57 @@ const MOTES = (() => {
 })();
 
 /**
- * The quieter night behind every route but home: a still of the valley,
- * dimmed so the page reads over it, with motes drifting across (none under
- * reduced motion, where the still stands alone). Held fixed
- * behind the page: its parent sets the stacking context it sits at the back
- * of, over the body's sky.
+ * A still of the world, held fixed behind the page and covering the screen:
+ * the landscape frame, or the portrait one on a portrait screen. Its parent
+ * sets the stacking context it sits at the back of, over the body's sky.
+ * `children` lie over the still.
  */
-export function WorldBackdrop() {
+export function WorldStill({
+  name,
+  stills,
+  children,
+}: {
+  /** Which still, as data-backdrop: "valley" or "court". */
+  name: string;
+  stills: { landscape: readonly Still[]; portrait: readonly Still[] };
+  children?: ReactNode;
+}) {
   return (
     <div
       aria-hidden="true"
-      data-backdrop
+      data-backdrop={name}
       className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-lvh overflow-hidden"
     >
       <picture>
         <source
           media="(orientation: portrait)"
-          srcSet={srcSet(backdrop.portrait)}
+          srcSet={srcSet(stills.portrait)}
           sizes="100vw"
         />
         {/* Art-directed stills at fixed widths, drawn once by
           scripts/share-stills.mjs: next/image would only resize them again. */}
         <img
-          src={backdrop.landscape[1].src}
-          srcSet={srcSet(backdrop.landscape)}
+          src={stills.landscape[1].src}
+          srcSet={srcSet(stills.landscape)}
           sizes="100vw"
           alt=""
           decoding="async"
           className="size-full object-cover"
         />
       </picture>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The quieter night behind every route but home and the court: a still of
+ * the valley, dimmed so the page reads over it, with motes drifting across
+ * (none under reduced motion, where the still stands alone).
+ */
+export function WorldBackdrop() {
+  return (
+    <WorldStill name="valley" stills={backdrop}>
       <div className="absolute inset-0 bg-linear-to-b from-night/80 via-night/70 to-night/85" />
       <div className="absolute inset-0 motion-reduce:hidden">
         {MOTES.map((mote) => (
@@ -70,6 +91,6 @@ export function WorldBackdrop() {
           />
         ))}
       </div>
-    </div>
+    </WorldStill>
   );
 }
