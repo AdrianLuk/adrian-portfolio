@@ -124,6 +124,7 @@ function stopAtDepth(route: Route, samples: Samples, z: number) {
  * it is past them.
  */
 const JOIN = 0.4;
+// Applies to every Transit, home ↔ Outpost included, not only the court's.
 const JOIN_REACH = 50;
 
 /** Seconds a transit flying `distance` world units takes, up to the cap. */

@@ -185,6 +185,42 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
       }
     });
 
+    it("home ↔ Outpost, joining or leaving the route within its reach (as every Transit does), still leaves from the camera, lands exactly, runs smooth and keeps under the cap", () => {
+      // Off the route by a little or a lot, at home's end or the Outpost's,
+      // and partway through a Transit turned round.
+      const { position, quaternion } = route.poseAt(2.5);
+      const offRoute = (shift: Vector3, degrees: number): Pose => ({
+        position: position.clone().add(shift),
+        quaternion: new Quaternion()
+          .setFromAxisAngle(new Vector3(0, 1, 0), (degrees * Math.PI) / 180)
+          .multiply(quaternion),
+      });
+      const out = transitPath(route, settled, OUTPOST_STOP);
+      const back = transitPath(route, outpostPose(aspect), SETTLED_STOP);
+      const departures = [
+        settled,
+        outpostPose(aspect),
+        offRoute(new Vector3(6, 3, 0), 12),
+        offRoute(new Vector3(-8, 5, 0), -15),
+        out.poseAt(0.3),
+        back.poseAt(0.6),
+      ];
+      for (const departure of departures) {
+        for (const to of [SETTLED_STOP, OUTPOST_STOP]) {
+          const trip = transitPath(route, departure, to);
+          const landing = to === SETTLED_STOP ? settled : outpostPose(aspect);
+          if (departure.position.distanceTo(landing.position) < 1e-6) continue;
+          expectSamePose(trip.poseAt(0), departure);
+          expectSamePose(trip.poseAt(1), landing);
+          expect(trip.duration).toBeGreaterThan(0);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+          const poses = along(trip);
+          expectSmooth(poses, to === SETTLED_STOP ? "up" : "down");
+          expectClear(poses);
+        }
+      }
+    });
+
     it("takes longer the further it flies, and never longer than the cap", () => {
       const durations = [0, 2, 4, 4.9].map(
         (at) => transitPath(route, route.poseAt(at), OUTPOST_STOP).duration,
