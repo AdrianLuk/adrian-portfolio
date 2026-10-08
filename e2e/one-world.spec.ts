@@ -11,6 +11,7 @@ import {
 import type { Place } from "../src/components/world-places";
 import { TRANSIT_MAX_SECONDS } from "../src/components/world/rigs";
 import {
+  countDraws,
   heroRoot,
   openHome,
   SCENE_TIMEOUT,
@@ -651,6 +652,57 @@ test.describe("Transits between Places", () => {
     await resumeLink(page).click();
     await expect(page).toHaveURL(/\/resume$/);
     await flown(transit, page, "outpost");
+    await page.context().close();
+  });
+
+  test("under reduced motion, home → Case study with the world live swaps at once to the court: nothing flies, nothing is held", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    let draws: Awaited<ReturnType<typeof countDraws>> = async () => 0;
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      reducedMotion: "reduce",
+      until: "reduced",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+        draws = await countDraws(page);
+      },
+    });
+    // The world is live: drawn on home, its one still frame.
+    await tagCanvas(heroRoot(page).locator("canvas"));
+
+    await caseStudyLink(page).click();
+    await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
+    const heading = page.getByRole("heading", {
+      level: 2,
+      name: caseStudies[0].title,
+    });
+    // The copy is there as the page is: never held back for a landing.
+    await expect(heading).toBeVisible();
+    expect(
+      await page
+        .locator("header", { has: heading })
+        .evaluate((el) => getComputedStyle(el).opacity),
+    ).toBe("1");
+    // The same world, at the court, drawn as one still frame.
+    const court = page.locator("[data-world]");
+    await expect(court).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(court.locator("canvas"))).toBe("the world");
+    const before = await draws();
+    await page.waitForTimeout(500);
+    expect(await draws()).toBe(before);
+
+    const seen = await transit();
+    expect(seen.seen).toEqual([]);
+    expect(seen.arriving).toEqual([]);
+    for (const durations of await transitions()) {
+      expect(durations.filter((d) => d > 0)).toEqual([]);
+    }
     await page.context().close();
   });
 
