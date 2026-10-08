@@ -1,5 +1,6 @@
+import { gsap } from "gsap";
 import { describe, expect, it, vi } from "vitest";
-import { createFlightTimeline } from "./flight-timeline";
+import { createFlightTimeline, playFlight } from "./flight-timeline";
 import { SETTLED_RIG, type FlightRig } from "./world/rigs";
 
 function setup() {
@@ -84,5 +85,25 @@ describe("the flight timeline", () => {
     // (GSAP keeps its own cache on the object, hence toMatchObject.)
     expect(rig).toMatchObject(SETTLED_RIG);
     expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps wall-clock time while it plays, and hands lag smoothing back however it ends", () => {
+    const lagSmoothing = vi.spyOn(gsap.ticker, "lagSmoothing");
+    const flight = () => ({
+      rig: { ...SETTLED_RIG },
+      credits: [{ opacity: 0 }],
+      onUpdate() {},
+      onComplete() {},
+    });
+    const finished = playFlight(flight());
+    expect(lagSmoothing).toHaveBeenLastCalledWith(0);
+    finished.finish();
+    expect(lagSmoothing).toHaveBeenLastCalledWith(500, 33);
+
+    const stopped = playFlight(flight());
+    expect(lagSmoothing).toHaveBeenLastCalledWith(0);
+    stopped.stop();
+    expect(lagSmoothing).toHaveBeenLastCalledWith(500, 33);
+    lagSmoothing.mockRestore();
   });
 });
