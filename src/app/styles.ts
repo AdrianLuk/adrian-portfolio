@@ -42,3 +42,11 @@ export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";
  */
 export const arrivesAtOutpost =
   "in-data-[arriving=outpost]:invisible in-data-[arriving=outpost]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
+
+/**
+ * The Juice Bros Case study's copy over the court, held back the same way
+ * while the world's root carries data-arriving="court", then faded in.
+ * (Tailwind needs the literal class, so it is spelt out, not built.)
+ */
+export const arrivesAtCourt =
+  "in-data-[arriving=court]:invisible in-data-[arriving=court]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";

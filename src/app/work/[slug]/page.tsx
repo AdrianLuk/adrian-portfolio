@@ -7,7 +7,8 @@ import { PlayerToolsScene } from "@/components/player-tools-scene";
 import { Recording } from "@/components/recording";
 import { isSideways, Screenshot } from "@/components/screenshot";
 import { ToolStage } from "@/components/tool-stage";
-import { WorldBackdrop } from "@/components/world-backdrop";
+import { CourtStill } from "@/components/court-still";
+import { CourtWorld } from "@/components/court-world";
 import {
   caseStudies,
   shareCards,
@@ -17,6 +18,12 @@ import {
   type Showcase,
 } from "@/content/site";
 import { shareMetadata } from "../../share";
+import { arrivesAtCourt } from "../../styles";
+import { torontoWeather } from "../../toronto-weather";
+
+// Rebuilt at most hourly, for the court's weather (WEATHER_REVALIDATE):
+// segment config must be a literal.
+export const revalidate = 3600;
 
 export function generateStaticParams() {
   return caseStudies.map((c) => ({ slug: c.slug }));
@@ -137,14 +144,18 @@ export default async function CaseStudyPage({
     study.links.find((l) => l.href === href)!.label;
   const toolUrls = new Set(study.tools.map((t) => t.url));
   const siteLinks = study.links.filter((l) => !toolUrls.has(l.href));
+  const weather = await torontoWeather();
 
   return (
     <article
       aria-labelledby="case-study-heading"
       className="relative isolate mx-auto max-w-4xl px-4 py-16 sm:px-6"
     >
-      <WorldBackdrop />
-      <header>
+      {/* Juice Bros' Place in the world: its court, held behind the copy. */}
+      <CourtWorld weather={weather}>
+        <CourtStill />
+      </CourtWorld>
+      <header className={arrivesAtCourt}>
         <p className={eyebrowClass}>Case study · {study.byline}</p>
         <h2
           id="case-study-heading"
@@ -170,7 +181,7 @@ export default async function CaseStudyPage({
         </ul>
       </header>
 
-      <div className="mt-12 space-y-16">
+      <div className={`mt-12 space-y-16 ${arrivesAtCourt}`}>
         {study.sections.map((section) => (
           <section
             key={section.id}
