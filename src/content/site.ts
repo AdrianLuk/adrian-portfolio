@@ -813,9 +813,12 @@ export const shareCards = {
 /**
  * Stills of one world frame, drawn by scripts/share-stills.mjs to
  * `/world/<name>-<width>.webp`: landscape up to a 4K screen and portrait for
- * phones and tablets, each in the shape of the screen it is shot at.
+ * phones and tablets, each in the shape of the screen it is shot at. A
+ * still's name is also its `data-backdrop` on the page.
  */
-function worldStills(name: string) {
+export type StillName = "valley" | "court";
+
+function worldStills(name: StillName) {
   return {
     landscape: stillsOf(
       [1280, 1920, 2560, 3840],
@@ -831,14 +834,14 @@ function worldStills(name: string) {
 }
 
 /** The quieter world behind every route but home and the court: the valley. */
-export const backdrop = worldStills("backdrop");
+export const valleyStills = worldStills("valley");
 
 /**
  * The Juice Bros Case study's first paint: the world as the camera holds it
  * at the court, which the live world fades in over (and which stays without
  * WebGL).
  */
-export const court = worldStills("court");
+export const courtStills = worldStills("court");
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */
 export function highlightAnchor(id: HighlightId): string {

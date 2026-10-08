@@ -3,7 +3,7 @@
 // - public/share/*.png: each route's 1200 by 630 link preview. Home's is the
 //   settled hero frame (the name plate in the valley); the other routes add
 //   their own title to the same frame.
-// - public/world/backdrop-*.webp: the quieter night behind every route but
+// - public/world/valley-*.webp: the quieter night behind every route but
 //   home, the valley as the scroll route sees it past the plate. Landscape up
 //   to 3840 wide (2560 at 1.5x, a 4K screen at 1x) and portrait for phones
 //   and tablets (2048 wide, a portrait iPad at 2x).
@@ -17,17 +17,22 @@
 //   node scripts/share-stills.mjs http://localhost:3300
 //
 // Re-run it whenever the world or the share cards change. Name sets to draw
-// only those: `--share`, `--backdrop`, `--court` (for example
+// only those: `--share`, `--valley`, `--court` (for example
 // `node scripts/share-stills.mjs http://localhost:3300 --court`).
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
-import { backdrop, court, credits, shareCards } from "../src/content/site.ts";
+import {
+  courtStills,
+  credits,
+  shareCards,
+  valleyStills,
+} from "../src/content/site.ts";
 import { openOnFirstFrame, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
-const SETS = ["share", "backdrop", "court"];
+const SETS = ["share", "valley", "court"];
 const named = SETS.filter((set) => args.includes(`--${set}`));
 const unknown = args.filter(
   (a) => a.startsWith("--") && !SETS.includes(a.slice(2)),
@@ -39,8 +44,8 @@ if (unknown.length) {
 const sets = new Set(named.length ? named : SETS);
 const SCENE_TIMEOUT = 60_000;
 
-/** How far down the home page the backdrop's camera has flown, 0 to 1. */
-const BACKDROP_SCROLL = 0.32;
+/** How far down the home page the valley's camera has flown, 0 to 1. */
+const VALLEY_SCROLL = 0.32;
 
 /** The Case study whose Place is the court. */
 const COURT_PAGE = "/work/juice-bros";
@@ -147,15 +152,15 @@ async function shareStills(browser) {
   await page.context().close();
 }
 
-/** The backdrop: the valley past the plate, wide and tall. */
-async function backdropStills(browser) {
+/** The valley past the plate, wide and tall: the night backdrop. */
+async function drawValley(browser) {
   mkdirSync("public/world", { recursive: true });
-  for (const { viewport, sizes } of stillShots(backdrop)) {
+  for (const { viewport, sizes } of stillShots(valleyStills)) {
     const page = await openHome(browser, { viewport, motion: true });
     await page.evaluate((at) => {
       const end = document.documentElement.scrollHeight - window.innerHeight;
       window.scrollTo(0, Math.round(end * at));
-    }, BACKDROP_SCROLL);
+    }, VALLEY_SCROLL);
     // The camera eases on after the scroll stops.
     await page.waitForTimeout(4000);
     await page.addStyleTag({ content: WORLD_ONLY });
@@ -170,9 +175,9 @@ async function backdropStills(browser) {
  * rally ball is in, where the live world starts it) and the weather held
  * clear.
  */
-async function courtStills(browser) {
+async function drawCourt(browser) {
   mkdirSync("public/world", { recursive: true });
-  for (const { viewport, sizes } of stillShots(court)) {
+  for (const { viewport, sizes } of stillShots(courtStills)) {
     const context = await browser.newContext({
       viewport,
       deviceScaleFactor: 1.5,
@@ -198,8 +203,8 @@ const browser = await chromium.launch({
 });
 try {
   if (sets.has("share")) await shareStills(browser);
-  if (sets.has("backdrop")) await backdropStills(browser);
-  if (sets.has("court")) await courtStills(browser);
+  if (sets.has("valley")) await drawValley(browser);
+  if (sets.has("court")) await drawCourt(browser);
 } finally {
   await browser.close();
 }

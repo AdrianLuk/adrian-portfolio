@@ -1,4 +1,3 @@
-import { court } from "@/content/site";
 import { WorldStill } from "./world-backdrop";
 
 /**
@@ -8,5 +7,5 @@ import { WorldStill } from "./world-backdrop";
  * the GPU context is lost.
  */
 export function CourtStill() {
-  return <WorldStill name="court" stills={court} />;
+  return <WorldStill name="court" />;
 }

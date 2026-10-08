@@ -274,7 +274,7 @@ describe("stills", () => {
 });
 
 describe("The court still", () => {
-  const { court } = site;
+  const { courtStills: court } = site;
   const sizes = (stills: readonly site.Still[]) =>
     stills.map(({ width, height }) => ({ width, height }));
 

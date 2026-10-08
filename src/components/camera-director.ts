@@ -244,7 +244,7 @@ export function createCameraDirector({
       if (t.to === "hero" && Math.abs(homeStop() - t.stop) > CHASE) {
         // Home's scroll moved on meanwhile: fly on to meet it.
         t.held = poseIn(t, now);
-        t.look = courtLook(now);
+        t.look = courtBlend(now);
         t.departure = { pose: t.held };
         plan(t, now);
       } else if (
@@ -275,7 +275,7 @@ export function createCameraDirector({
    * where it was as the camera left to where the Place it flies to has it, eased
    * along with the camera; otherwise full at the court and out elsewhere.
    */
-  function courtLook(now: number): number {
+  function courtBlend(now: number): number {
     if (!trip) return shown === "court" ? 1 : 0;
     if (!trip.transit) return trip.look;
     const to = trip.to === "court" ? 1 : 0;
@@ -289,7 +289,7 @@ export function createCameraDirector({
    * and only the court's look changes.
    */
   function lights(now: number): CameraLights | null {
-    const court = courtLook(now);
+    const court = courtBlend(now);
     if (shown === "hero" && homePaths()) {
       const { beams, sweep, beacon } = opening;
       return {
@@ -384,7 +384,7 @@ export function createCameraDirector({
     fly(to: Place, now: number) {
       const from = departure(now);
       if (!from) return false;
-      const look = courtLook(now);
+      const look = courtBlend(now);
       trip = { to, ...from, look, transit: null, stop: 0, start: 0, since: now };
       plan(trip, now);
       return true;

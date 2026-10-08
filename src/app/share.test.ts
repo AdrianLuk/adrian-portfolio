@@ -2,13 +2,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  backdrop,
   caseStudies,
   meta,
   rally,
   resume,
   shareCards,
   siteUrl,
+  valleyStills,
 } from "../content/site";
 import { shareMetadata } from "./share";
 
@@ -111,19 +111,25 @@ describe("link previews", () => {
 });
 
 describe("the night backdrop", () => {
+  it("is the valley's stills, named for the valley as the page names it (data-backdrop)", () => {
+    for (const still of [...valleyStills.landscape, ...valleyStills.portrait]) {
+      expect(still.src).toMatch(/^\/world\/valley-/);
+    }
+  });
+
   it("has landscape stills up to 3840 wide (2560 at 1.5x, a 4K TV at 1x) and portrait ones for phones and tablets", () => {
-    for (const still of [...backdrop.landscape, ...backdrop.portrait]) {
+    for (const still of [...valleyStills.landscape, ...valleyStills.portrait]) {
       expect(webpSize(publicFile(still.src)), still.src).toEqual({
         width: still.width,
         height: still.height,
       });
     }
-    const landscape = backdrop.landscape.map((s) => webpSize(publicFile(s.src)));
+    const landscape = valleyStills.landscape.map((s) => webpSize(publicFile(s.src)));
     expect(Math.max(...landscape.map((s) => s.width))).toBeGreaterThanOrEqual(3840);
     for (const size of landscape) {
       expect(size.width / size.height).toBeCloseTo(16 / 9, 1);
     }
-    const portrait = backdrop.portrait.map((s) => webpSize(publicFile(s.src)));
+    const portrait = valleyStills.portrait.map((s) => webpSize(publicFile(s.src)));
     expect(Math.max(...portrait.map((s) => s.width))).toBeGreaterThanOrEqual(2048);
     for (const size of portrait) expect(size.height).toBeGreaterThan(size.width);
   });

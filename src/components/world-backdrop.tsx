@@ -1,5 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
-import { backdrop, srcSet, type Still } from "@/content/site";
+import {
+  courtStills,
+  srcSet,
+  valleyStills,
+  type StillName,
+} from "@/content/site";
+
+const STILLS = { valley: valleyStills, court: courtStills } as const;
 
 /** A small seeded generator (mulberry32), so every render scatters the same. */
 function seeded(seed: number) {
@@ -37,14 +44,13 @@ const MOTES = (() => {
  */
 export function WorldStill({
   name,
-  stills,
   children,
 }: {
-  /** Which still, as data-backdrop: "valley" or "court". */
-  name: string;
-  stills: { landscape: readonly Still[]; portrait: readonly Still[] };
+  /** Which still, and its data-backdrop. */
+  name: StillName;
   children?: ReactNode;
 }) {
+  const stills = STILLS[name];
   return (
     <div
       aria-hidden="true"
@@ -80,7 +86,7 @@ export function WorldStill({
  */
 export function WorldBackdrop() {
   return (
-    <WorldStill name="valley" stills={backdrop}>
+    <WorldStill name="valley">
       <div className="absolute inset-0 bg-linear-to-b from-night/80 via-night/70 to-night/85" />
       <div className="absolute inset-0 motion-reduce:hidden">
         {MOTES.map((mote) => (
