@@ -181,6 +181,22 @@ describe("the Camera director", () => {
     expect(director.frame(32).lights!.sites).toEqual([1, 0.35, 0.35, 0.35]);
   });
 
+  it("knows while a Transit waits for its page: until that page shows, and never once landed", () => {
+    const { director } = setup();
+    director.show("hero");
+    director.openingLands();
+    expect(director.awaitingPage()).toBe(false);
+    expect(director.fly("court", 0)).toBe(true);
+    // The router hasn't committed the Case study yet: home still shows.
+    expect(director.awaitingPage()).toBe(true);
+    director.show(null);
+    expect(director.awaitingPage()).toBe(true);
+    director.show("court");
+    expect(director.awaitingPage()).toBe(false);
+    director.arrive();
+    expect(director.awaitingPage()).toBe(false);
+  });
+
   it("holds the Outpost's pose at the Outpost, the sites dark, with no court look", () => {
     const { director } = setup();
     director.show("outpost");

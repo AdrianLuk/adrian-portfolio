@@ -67,7 +67,19 @@ export function createWorldTransits(host: TransitHost) {
     underway = false;
     director.arrive();
     host.holdWeather(false);
-    mark("data-transit", null);
+    // A page that commits late lands the camera in the very view transition
+    // it commits in, before that starts animating: the mark that turns its
+    // crossfade off (see globals.css) stays until it is over, unless another
+    // Transit has taken the mark meanwhile.
+    const committing = (
+      document as { activeViewTransition?: ViewTransition | null }
+    ).activeViewTransition;
+    if (!committing) return mark("data-transit", null);
+    committing.finished
+      .catch(() => {})
+      .then(() => {
+        if (!underway) mark("data-transit", null);
+      });
   }
 
   /**

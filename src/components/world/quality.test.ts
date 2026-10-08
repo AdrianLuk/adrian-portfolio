@@ -140,22 +140,48 @@ describe("which renderers draw in software", () => {
 });
 
 describe("when the court holds its last frame", () => {
-  const live = { software: true, sceneInView: true, flying: false, drawn: true };
+  const landed = {
+    software: true,
+    atCourt: true,
+    flying: false,
+    landed: true,
+    awaitingPage: false,
+  };
 
-  it("holds on a software renderer while the pinned Player tools scene is in view", () => {
-    expect(holdsFrame(live)).toBe(true);
+  it("holds on a software renderer once a frame of the camera landed at the court is drawn", () => {
+    expect(holdsFrame(landed)).toBe(true);
   });
 
   it("never holds on a real GPU", () => {
-    expect(holdsFrame({ ...live, software: false })).toBe(false);
+    expect(holdsFrame({ ...landed, software: false })).toBe(false);
   });
 
-  it("draws on once the scene is out of view", () => {
-    expect(holdsFrame({ ...live, sceneInView: false })).toBe(false);
+  it("holds only at the court: home and the Outpost draw on", () => {
+    expect(holdsFrame({ ...landed, atCourt: false })).toBe(false);
   });
 
-  it("never holds a camera in flight, nor before the first frame", () => {
-    expect(holdsFrame({ ...live, flying: true })).toBe(false);
-    expect(holdsFrame({ ...live, drawn: false })).toBe(false);
+  it("never holds a camera in flight, nor before a landed frame is drawn", () => {
+    expect(holdsFrame({ ...landed, flying: true })).toBe(false);
+    expect(holdsFrame({ ...landed, landed: false })).toBe(false);
+  });
+});
+
+describe("when a Transit holds the world's frame for its page", () => {
+  const waiting = {
+    software: true,
+    atCourt: false,
+    flying: true,
+    landed: false,
+    awaitingPage: true,
+  };
+
+  it("holds on a software renderer until the page it flies to is in, wherever it flies", () => {
+    expect(holdsFrame(waiting)).toBe(true);
+    expect(holdsFrame({ ...waiting, atCourt: true })).toBe(true);
+  });
+
+  it("flies on once the page is in, and never holds on a real GPU", () => {
+    expect(holdsFrame({ ...waiting, awaitingPage: false })).toBe(false);
+    expect(holdsFrame({ ...waiting, software: false })).toBe(false);
   });
 });

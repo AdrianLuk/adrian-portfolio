@@ -393,6 +393,11 @@ export function createCameraDirector({
     arrive: land,
     /** Where the Transit under way is flying; null once it has landed. */
     flying: (): Place | null => trip?.to ?? null,
+    /**
+     * Whether a Transit under way is still waiting for the page it flies to:
+     * the router hasn't committed it, so the world shows another (or none).
+     */
+    awaitingPage: () => trip !== null && shown !== trip.to,
     /** Moves a Transit on to `now`: plans it, chases home's scroll, lands it. */
     advance,
 

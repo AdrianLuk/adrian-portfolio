@@ -140,11 +140,6 @@ export type World = View & {
   setView(view: WorldView | null): void;
   /** Changes the weather in place: the ground, the pools and what falls. */
   setWeather(weather: Weather): void;
-  /**
-   * Whether the pinned Player tools scene is in view. On a software
-   * renderer the world holds its last frame meanwhile (see `holdsFrame`).
-   */
-  setSceneInView(inView: boolean): void;
 };
 
 /**
@@ -350,8 +345,8 @@ export async function createWorld(
 
   let motion = options.motion;
   let onScreen = true;
-  /** True while the pinned Player tools scene is in view. */
-  let sceneInView = false;
+  /** Whether the last frame drawn had the camera landed (see `holds`). */
+  let landed = false;
   /** While the frame is held, the last held frame's time (see `loop`). */
   let heldAt: number | null = null;
   let running = false;
@@ -443,6 +438,7 @@ export async function createWorld(
     plate.sweep(shared.uTime.value);
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
     renderer.render(scene, camera);
+    landed = options.director.flying() === null;
     if (firstFrame) {
       firstFrame = false;
       options.onFrame();
@@ -619,9 +615,10 @@ export async function createWorld(
   const holds = () =>
     holdsFrame({
       software,
-      sceneInView,
+      atCourt: view?.kind === "court",
       flying: options.director.flying() !== null,
-      drawn: !firstFrame,
+      landed,
+      awaitingPage: options.director.awaitingPage(),
     });
 
   function loop(ms: number) {
@@ -659,6 +656,7 @@ export async function createWorld(
     renderer.setAnimationLoop(null);
     running = false;
     firstFrame = true;
+    landed = false;
     lost = true;
     options.onLost();
   };
@@ -824,9 +822,6 @@ export async function createWorld(
       pools.setIntensity(poolIntensity());
       // Re-lays the pools, wet or dry, and brings in what falls.
       layout();
-    },
-    setSceneInView(inView) {
-      sceneInView = inView;
     },
     dispose,
   };

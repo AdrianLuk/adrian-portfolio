@@ -101,22 +101,31 @@ export function drawsInSoftware(
 }
 
 /**
- * Whether the court holds its last drawn frame instead of drawing a new one:
- * only on a software renderer, where every frame of the world slows the whole
- * page, while the pinned Player tools scene (its stage and recordings) is in
- * view. Never with the camera in flight, nor before its first frame. On a
- * real GPU the world always draws.
+ * Whether the world holds its last drawn frame instead of drawing a new one.
+ * Only on a software renderer, where every frame of the world slows the whole
+ * page, and then only:
+ * - at the court, once the camera has landed and a frame of it landed is
+ *   drawn: one still frame, as under reduced motion, so the Case study's
+ *   copy and its pinned Player tools scene keep their frame rate;
+ * - through a Transit, until the page it flies to is in: the page gets the
+ *   main thread to render in, and its copy can arrive with the camera.
+ * On a real GPU the world always draws.
  */
 export function holdsFrame({
   software,
-  sceneInView,
+  atCourt,
   flying,
-  drawn,
+  landed,
+  awaitingPage,
 }: {
   software: boolean;
-  sceneInView: boolean;
+  atCourt: boolean;
   flying: boolean;
-  drawn: boolean;
+  /** Whether the last frame drawn was drawn with the camera landed. */
+  landed: boolean;
+  /** Whether a Transit under way waits for the page it flies to. */
+  awaitingPage: boolean;
 }) {
-  return software && sceneInView && !flying && drawn;
+  if (!software) return false;
+  return awaitingPage || (atCourt && !flying && landed);
 }

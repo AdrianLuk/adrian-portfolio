@@ -94,8 +94,6 @@ export function createWorldHost() {
 
   /** True while a transit holds the weather it left in until it lands. */
   let weatherHeld = false;
-  /** True while the pinned Player tools scene is in view. */
-  let sceneInView = false;
 
   /** Shows the claim's view, in its weather (unless a transit holds it). */
   function show() {
@@ -132,7 +130,6 @@ export function createWorldHost() {
         return null;
       }
       world = created;
-      world.setSceneInView(sceneInView);
       // The page, or the preference, changed while the shaders compiled.
       if (claim !== opened) show();
       if (motion !== !reduced.matches) world.setMotion(!reduced.matches);
@@ -214,16 +211,6 @@ export function createWorldHost() {
     holdWeather(hold: boolean) {
       weatherHeld = hold;
       if (!hold && claim) world?.setWeather(weatherFor(claim));
-    },
-
-    /**
-     * Whether the pinned Player tools scene is in view: on a software
-     * renderer, the world holds its last frame meanwhile, so the scene keeps
-     * its frame rate.
-     */
-    sceneInView(inView: boolean) {
-      sceneInView = inView;
-      world?.setSceneInView(inView);
     },
 
     /**

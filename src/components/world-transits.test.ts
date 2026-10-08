@@ -82,7 +82,10 @@ describe("transits between Places", () => {
   beforeEach(() => {
     root = fakeRoot();
     media = { listeners: new Set(), matches: false };
-    vi.stubGlobal("document", { querySelector: () => root });
+    vi.stubGlobal("document", {
+      querySelector: () => root,
+      activeViewTransition: null,
+    });
     vi.stubGlobal("window", {
       matchMedia: () => ({
         get matches() {
@@ -172,6 +175,32 @@ describe("transits between Places", () => {
     expect(director.flying()).toBeNull();
     expect(root.attributes.size).toBe(0);
     expect(world.weatherHeld).toBe(false);
+  });
+
+  it("keeps the Transit's mark through the view transition its page commits in, so it never crossfades", async () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
+    transits.navigate("/work/juice-bros");
+    // The page commits late, in a view transition of its own, after the
+    // flight's time is up: the camera lands at once.
+    vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 + 100);
+    let finish!: () => void;
+    const finished = new Promise<void>((resolve) => (finish = resolve));
+    (document as unknown as { activeViewTransition: unknown }).activeViewTransition = {
+      finished,
+    };
+    world.intent = "court";
+    director.show("court");
+    vi.advanceTimersByTime(50);
+    expect(director.flying()).toBeNull();
+    expect(world.weatherHeld).toBe(false);
+    expect(root.attributes.has("data-arriving")).toBe(false);
+    // The mark that turns the crossfade off stays until it is over.
+    expect(root.attributes.get("data-transit")).toBe("court");
+    finish();
+    await finished;
+    await Promise.resolve();
+    expect(root.attributes.has("data-transit")).toBe(false);
   });
 
   it("leaves from where the committed page is, so a navigation that never arrives changes nothing", () => {
