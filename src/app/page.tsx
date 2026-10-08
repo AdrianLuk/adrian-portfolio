@@ -172,11 +172,7 @@ export default async function Home() {
         </h2>
         <div className="mt-8 space-y-16">
           {highlights.map((highlight) => (
-            <HighlightPanel
-              key={highlight.id}
-              highlight={highlight}
-              className="max-w-3xl"
-            />
+            <HighlightPanel key={highlight.id} highlight={highlight} />
           ))}
         </div>
       </section>

@@ -9,19 +9,23 @@ import { LIT_SITES } from "./lit-sites";
  */
 
 /**
- * Each Lit site's panel on home, found by its Highlight id, in the Lit sites'
- * order whatever the page's; or null if any is missing, so no panel can
- * stand for the wrong site. `find` looks a panel up by its anchor id.
+ * Each Lit site's panel, found by its Highlight id, in the Lit sites' order
+ * whatever the page's; or null if any is missing, so no panel can stand for
+ * the wrong site. `find` looks a panel up by its anchor id.
  */
-export function sitePanels(): HTMLElement[] | null;
-export function sitePanels<Panel>(
-  find: (id: string) => Panel | null,
-): Panel[] | null;
-export function sitePanels(
-  find: (id: string) => unknown = (id) => document.getElementById(id),
-) {
-  const panels = LIT_SITES.map((site) => find(highlightAnchor(site.highlight)));
-  return panels.every((el) => el !== null) ? panels : null;
+export function findPanels<P>(find: (id: string) => P | null): P[] | null {
+  const panels: P[] = [];
+  for (const site of LIT_SITES) {
+    const panel = find(highlightAnchor(site.highlight));
+    if (panel === null) return null;
+    panels.push(panel);
+  }
+  return panels;
+}
+
+/** Each Lit site's panel on home, in the Lit sites' order, or null if any is missing. */
+export function sitePanels() {
+  return findPanels((id) => document.getElementById(id));
 }
 
 /**

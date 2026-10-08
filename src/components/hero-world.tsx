@@ -176,7 +176,13 @@ export function HeroWorld({
       // A panel missing from the page: rather than pair the rest with the
       // wrong Lit sites, the route never starts and the camera stays settled.
       const panels = sitePanels();
-      if (!panels) return;
+      if (!panels) {
+        console.error(
+          "A Highlight panel is missing from home: the scroll route won't start",
+        );
+        routing = false;
+        return;
+      }
       scrollRoute = createScrollRoute({
         director,
         panels,

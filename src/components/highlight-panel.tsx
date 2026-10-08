@@ -76,7 +76,7 @@ export function HighlightPanel({
       id={id}
       aria-labelledby={`${id}-heading`}
       tabIndex={-1}
-      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${look.glow} ${look.align} ${className}`}
+      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:transition-shadow motion-safe:duration-700 ${look.glow} max-w-3xl ${look.align} ${className}`}
     >
       <PanelCorners className={look.bracket} />
       <h3
