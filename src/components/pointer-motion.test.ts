@@ -21,7 +21,7 @@ describe("a panel's tilt toward the pointer", () => {
   it("never tilts past a few degrees, wherever the pointer is", () => {
     const far = tiltToward(box, 5000, -5000);
     expect(far).toEqual({ x: PANEL_TILT, y: PANEL_TILT });
-    expect(PANEL_TILT).toBeLessThanOrEqual(4);
+    expect(PANEL_TILT).toBeLessThanOrEqual(6);
   });
 
   it("reads as a CSS transform in perspective", () => {

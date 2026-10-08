@@ -135,11 +135,11 @@ const STILL_TIME = 11.5;
 
 /**
  * How far the camera turns toward the pointer at the screen's edge, in
- * radians (about a degree across, half that up and down), and how long it
+ * radians (under two degrees across, half that up and down), and how long it
  * takes to ease most of the way there, in seconds. A frame drawn after a
  * longer gap than LEAN_GAP (a still frame, say) takes the lean at once.
  */
-const LEAN = { yaw: 0.018, pitch: 0.009 };
+const LEAN = { yaw: 0.03, pitch: 0.015 };
 const LEAN_EASE = 0.4;
 const LEAN_GAP = 0.25;
 const UP = new Vector3(0, 1, 0);

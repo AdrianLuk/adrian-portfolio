@@ -1,7 +1,7 @@
 import type { CameraDirector } from "./camera-director";
 
 /** How far a Highlight's panel tilts toward the pointer at its edge, in degrees. */
-export const PANEL_TILT = 3;
+export const PANEL_TILT = 5;
 
 /** The depth a tilted panel is seen from, in px: deep enough to stay a panel, not a card flip. */
 const PERSPECTIVE = 1200;

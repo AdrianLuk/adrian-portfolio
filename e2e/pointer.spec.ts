@@ -39,8 +39,8 @@ test.describe("with motion allowed and a mouse", () => {
     await hoverPanelEdge(page);
     await expect.poll(() => inlineTransform(page)).toMatch(
       // Near the right edge, half way down: turned about y by most of the
-      // three degrees, and hardly at all about x.
-      /^perspective\(1200px\) rotateX\(-?0(\.\d+)?deg\) rotateY\(2(\.\d+)?deg\)$/,
+      // five degrees, and hardly at all about x.
+      /^perspective\(1200px\) rotateX\(-?0(\.\d+)?deg\) rotateY\(4(\.\d+)?deg\)$/,
     );
     // Off the panels (onto the nav bar): level again.
     await page.mouse.move(8, 8, { steps: 2 });
