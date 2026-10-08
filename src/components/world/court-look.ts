@@ -1,3 +1,4 @@
+import { smoothstep } from "./noise";
 import { fogColor, palette } from "./palette";
 
 /**
@@ -72,12 +73,6 @@ export function rallyBall(court: RallyCourt, time: number) {
  */
 const FULL = { floodlights: 2.6, fog: 0.28 };
 
-/** 0 to 1 as `x` goes from `a` to `b`, eased at both ends. */
-function ramp(x: number, a: number, b: number) {
-  const f = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return f * f * (3 - 2 * f);
-}
-
 /**
  * The court's look for the Camera director's blend (0 away from the court,
  * 1 at it): how bright the floodlights burn (a multiple of their usual), how
@@ -87,10 +82,10 @@ function ramp(x: number, a: number, b: number) {
  */
 export function courtLook(blend: number) {
   return {
-    floodlights: 1 + (FULL.floodlights - 1) * ramp(blend, 0, 1),
-    fog: FULL.fog * ramp(blend, 0, 1),
-    ball: ramp(blend, 0.5, 1),
-    falling: 1 - ramp(blend, 0, 0.9),
+    floodlights: 1 + (FULL.floodlights - 1) * smoothstep(0, 1, blend),
+    fog: FULL.fog * smoothstep(0, 1, blend),
+    ball: smoothstep(0.5, 1, blend),
+    falling: 1 - smoothstep(0, 0.9, blend),
   };
 }
 

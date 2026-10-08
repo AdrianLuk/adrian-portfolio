@@ -3,6 +3,7 @@
 import { LIT_SITES } from "./lit-sites";
 import type { Place } from "./world-places";
 import type { FlightPath, Pose } from "./world/flight";
+import { smoothstep } from "./world/noise";
 import {
   FLIGHT_START_RIG,
   SETTLED_RIG,
@@ -104,8 +105,6 @@ type Trip = {
 };
 
 type Planned = Trip & { transit: Transit };
-
-const smoothstep = (f: number) => f * f * (3 - 2 * f);
 
 const copyOf = ({ position, quaternion }: Pose): Pose => ({
   position: position.clone(),
@@ -280,7 +279,7 @@ export function createCameraDirector({
     if (!trip) return shown === "court" ? 1 : 0;
     if (!trip.transit) return trip.look;
     const to = trip.to === "court" ? 1 : 0;
-    const f = smoothstep(progress(trip as Planned, now));
+    const f = smoothstep(0, 1, progress(trip as Planned, now));
     return trip.look + (to - trip.look) * f;
   }
 
