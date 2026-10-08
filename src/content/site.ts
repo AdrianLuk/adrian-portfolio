@@ -811,22 +811,34 @@ export const shareCards = {
 } as const satisfies Record<"home" | "resume" | "play" | CaseStudySlug, ShareCard>;
 
 /**
- * The quieter world behind every route but home: stills of the valley, drawn
- * by scripts/share-stills.mjs, landscape up to a 4K screen and portrait for
+ * Stills of one world frame, drawn by scripts/share-stills.mjs to
+ * `/world/<name>-<width>.webp`: landscape up to a 4K screen and portrait for
  * phones and tablets, each in the shape of the screen it is shot at.
  */
-export const backdrop = {
-  landscape: stillsOf(
-    [1280, 1920, 2560, 3840],
-    { width: 2560, height: 1440 },
-    (width) => `/world/backdrop-${width}.webp`,
-  ),
-  portrait: stillsOf(
-    [645, 1290, 2048],
-    { width: 1366, height: 2960 },
-    (width) => `/world/backdrop-portrait-${width}.webp`,
-  ),
-} as const;
+function worldStills(name: string) {
+  return {
+    landscape: stillsOf(
+      [1280, 1920, 2560, 3840],
+      { width: 2560, height: 1440 },
+      (width) => `/world/${name}-${width}.webp`,
+    ),
+    portrait: stillsOf(
+      [645, 1290, 2048],
+      { width: 1366, height: 2960 },
+      (width) => `/world/${name}-portrait-${width}.webp`,
+    ),
+  } as const;
+}
+
+/** The quieter world behind every route but home and the court: the valley. */
+export const backdrop = worldStills("backdrop");
+
+/**
+ * The Juice Bros Case study's first paint: the world as the camera holds it
+ * at the court, which the live world fades in over (and which stays without
+ * WebGL).
+ */
+export const court = worldStills("court");
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */
 export function highlightAnchor(id: HighlightId): string {
