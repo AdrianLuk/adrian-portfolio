@@ -1,11 +1,11 @@
 // No Three.js here: the director is made with the world host, before the
 // first paint. The paths the world hands it do the maths.
+import { LIT_SITES } from "./lit-sites";
 import type { Place } from "./world-places";
 import type { FlightPath, Pose } from "./world/flight";
 import {
   FLIGHT_START_RIG,
   SETTLED_RIG,
-  SITE_PLAN,
   TRANSIT_MAX_SECONDS,
   type FlightRig,
 } from "./world/rigs";
@@ -107,7 +107,7 @@ export function createCameraDirector({
   /** True while the scroll route is reporting its stop. */
   let scrolling = false;
   let routeStop = 0;
-  const lit = SITE_PLAN.map(() => 0);
+  const lit = LIT_SITES.map(() => 0);
   let trip: Trip | null = null;
   /** The last pose drawn, for a Transit leaving before the paths are in. */
   let last: Pose | null = null;
@@ -225,7 +225,7 @@ export function createCameraDirector({
     return {
       beams,
       sweep,
-      sites: SITE_PLAN.map((_, i) => {
+      sites: LIT_SITES.map((_, i) => {
         // The first is the scroll cue, lit by the arrival; the rest wait dim.
         const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
         return waiting + SITE_LIGHT.lit * lit[i];

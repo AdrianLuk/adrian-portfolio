@@ -171,11 +171,11 @@ export default async function Home() {
           {work.heading}
         </h2>
         <div className="mt-8 space-y-16">
-          {highlights.map((highlight, i) => (
+          {highlights.map((highlight) => (
             <HighlightPanel
               key={highlight.id}
               highlight={highlight}
-              className={`max-w-3xl ${i % 2 === 1 ? "lg:ml-auto" : ""}`}
+              className="max-w-3xl"
             />
           ))}
         </div>

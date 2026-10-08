@@ -1,7 +1,7 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
+import { LIT_SITES, type LitSite } from "../lit-sites";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
-import { SITE_PLAN, type SitePlan } from "./rigs";
 import { valleyCentre, valleyHeight } from "./terrain";
 
 /**
@@ -15,8 +15,8 @@ import { valleyCentre, valleyHeight } from "./terrain";
  * flies at an even speed and turns smoothly from one framing to the next.
  */
 
-/** A lit site from its plan, standing where it stands. */
-export type Site = Omit<SitePlan, "z"> & { position: Vector3 };
+/** A Lit site, standing where it stands in the world. */
+export type Site = Omit<LitSite, "z"> & { position: Vector3 };
 
 /** Height of a site's light above the valley floor. */
 const SITE_HEIGHT = 24;
@@ -30,12 +30,12 @@ function above(z: number, height: number, offset = 0) {
   return new Vector3(x, valleyHeight(x, z) + height, z);
 }
 
-function site({ z, ...plan }: SitePlan): Site {
+function site({ z, ...plan }: LitSite): Site {
   return { ...plan, position: above(z, SITE_HEIGHT, plan.side * SITE_OFFSET) };
 }
 
-/** The four lit sites, from their plan in ./rigs. */
-export const SITES: readonly Site[] = SITE_PLAN.map(site);
+/** The Lit sites, in their order down the valley (../lit-sites). */
+export const SITES: readonly Site[] = LIT_SITES.map(site);
 
 /** The Outpost at the route's end, on the valley's centre line. */
 export const OUTPOST = above(-1130, 14);

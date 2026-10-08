@@ -173,9 +173,13 @@ export function HeroWorld({
       }
       // Called off meanwhile, or already started by a call that loaded first.
       if (cancelled || !routing || scrollRoute) return;
+      // A panel missing from the page: rather than pair the rest with the
+      // wrong Lit sites, the route never starts and the camera stays settled.
+      const panels = sitePanels();
+      if (!panels) return;
       scrollRoute = createScrollRoute({
         director,
-        panels: sitePanels(),
+        panels,
         locateSite: () => world()?.placeSite ?? null,
       });
     }

@@ -1,6 +1,6 @@
 import { highlightAnchor } from "@/content/site";
 import { routeAnchors, stopAt, type PageLayout } from "./route-anchors";
-import { SITE_PLAN } from "./world/rigs";
+import { LIT_SITES } from "./lit-sites";
 
 /**
  * The scroll route's reading of home: its Highlights' panels and where they
@@ -8,11 +8,20 @@ import { SITE_PLAN } from "./world/rigs";
  * scroll puts the camera before the scroll route itself has loaded.
  */
 
-/** Each lit site's panel on home, by its Highlight, in the sites' order. */
-export function sitePanels() {
-  return SITE_PLAN.map((site) =>
-    document.getElementById(highlightAnchor(site.highlight)),
-  ).filter((el) => el !== null);
+/**
+ * Each Lit site's panel on home, found by its Highlight id, in the Lit sites'
+ * order whatever the page's; or null if any is missing, so no panel can
+ * stand for the wrong site. `find` looks a panel up by its anchor id.
+ */
+export function sitePanels(): HTMLElement[] | null;
+export function sitePanels<Panel>(
+  find: (id: string) => Panel | null,
+): Panel[] | null;
+export function sitePanels(
+  find: (id: string) => unknown = (id) => document.getElementById(id),
+) {
+  const panels = LIT_SITES.map((site) => find(highlightAnchor(site.highlight)));
+  return panels.every((el) => el !== null) ? panels : null;
 }
 
 /**
@@ -36,8 +45,11 @@ export function pageLayout(
 
 /**
  * The scroll route's stop for home as it stands now: where its own scroll
- * (the top, an anchor, or a restored position) puts the camera.
+ * (the top, an anchor, or a restored position) puts the camera. With a panel
+ * missing the scroll route never starts, so the camera stays settled.
  */
 export function scrolledStop() {
-  return stopAt(window.scrollY, routeAnchors(pageLayout(sitePanels())));
+  const panels = sitePanels();
+  if (!panels) return 0;
+  return stopAt(window.scrollY, routeAnchors(pageLayout(panels)));
 }

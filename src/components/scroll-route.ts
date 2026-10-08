@@ -2,6 +2,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { CameraDirector } from "./camera-director";
 import { pageLayout } from "./home-panels";
+import { LIT_SITES } from "./lit-sites";
 import {
   litAt,
   routeAnchors,
@@ -9,7 +10,6 @@ import {
   stopAt,
   type PanelBox,
 } from "./route-anchors";
-import { SITE_PLAN } from "./world/rigs";
 import type { World } from "./world/scene";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -41,7 +41,7 @@ export function createScrollRoute({
 }: {
   /** Told the stop the scroll puts the camera at, and how lit each site is. */
   director: Pick<CameraDirector, "scrolled" | "scrollStopped" | "stop">;
-  /** The Highlights' panels, in the sites' order. */
+  /** The Highlights' panels, one per Lit site, in the Lit sites' order. */
   panels: readonly HTMLElement[];
   /**
    * The world's site finder, once it has loaded. Its canvas is held fixed
@@ -78,7 +78,7 @@ export function createScrollRoute({
       const now = locate(i);
       const x = now
         ? Math.min(Math.max(now.x, 0), width)
-        : SITE_PLAN[i].side > 0
+        : LIT_SITES[i].side > 0
           ? width
           : 0;
       const box = el.getBoundingClientRect();
