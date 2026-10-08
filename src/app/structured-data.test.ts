@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { caseStudies, contact, siteUrl } from "../content/site";
+import { caseStudies, contact, roles, siteUrl } from "../content/site";
 import robots from "./robots";
 import sitemap from "./sitemap";
-import { homeJsonLd, jsonLdScript } from "./structured-data";
+import {
+  homeJsonLd,
+  isoMonth,
+  jsonLdScript,
+  resumeJsonLd,
+} from "./structured-data";
 
 const [website, personJsonLd] = homeJsonLd["@graph"];
 
@@ -67,5 +72,65 @@ describe("home structured data", () => {
     expect(JSON.parse(json)).toEqual({
       text: "</script><script>alert(1)</script>",
     });
+  });
+});
+
+describe("Resume page structured data", () => {
+  it("is the same Person as home's", () => {
+    expect(resumeJsonLd).toMatchObject({
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "@id": `${siteUrl}/#person`,
+      name: "Adrian Luk",
+    });
+    expect(resumeJsonLd["@id"]).toBe(personJsonLd["@id"]);
+  });
+
+  it("lists every Role under alumniOf, with ISO dates and its employer", () => {
+    const role = (
+      roleName: string,
+      startDate: string,
+      endDate: string,
+      organization: string,
+    ) => ({
+      "@type": "OrganizationRole",
+      roleName,
+      startDate,
+      endDate,
+      alumniOf: { "@type": "Organization", name: organization },
+    });
+    expect(resumeJsonLd.alumniOf).toEqual([
+      role("Senior Software Engineer", "2024-03", "2026-04", "Control D"),
+      role("Full Stack Developer", "2022-10", "2024-02", "Life House"),
+      role("Frontend Engineer", "2022-03", "2022-08", "Studio"),
+      role("Full Stack Web Developer", "2020-03", "2022-03", "Brandish Agency"),
+      role("Full Stack Developer", "2018-05", "2020-03", "Elite Digital Agency"),
+    ]);
+  });
+
+  it("says he works nowhere now, since every Role has ended", () => {
+    expect(resumeJsonLd).not.toHaveProperty("worksFor");
+  });
+
+  it("names Control D, not Windscribe, and leaves the bullets out", () => {
+    const json = jsonLdScript(resumeJsonLd);
+    expect(json).not.toContain("Windscribe");
+    for (const bullet of roles.flatMap((r) => r.bullets)) {
+      expect(json).not.toContain(JSON.stringify(bullet).slice(1, -1));
+    }
+  });
+});
+
+describe("isoMonth", () => {
+  it("turns a Resume date into an ISO year and month", () => {
+    expect(isoMonth("Mar 2024")).toBe("2024-03");
+    expect(isoMonth("Oct 2022")).toBe("2022-10");
+    expect(isoMonth("May 2018")).toBe("2018-05");
+  });
+
+  it("throws on a date it can't read, rather than guessing", () => {
+    for (const date of ["March 2024", "Mar 24", "2024-03", "Present", "", "Mar  2024", "Sept 2024"]) {
+      expect(() => isoMonth(date)).toThrow();
+    }
   });
 });

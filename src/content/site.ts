@@ -83,7 +83,14 @@ export type Highlight = {
 export type Role = {
   id: RoleId;
   title: string;
+  /** As the Resume page shows it, e.g. "Control D (Windscribe)". */
   company: string;
+  /**
+   * The employer's name alone, for machine-facing copy (JSON-LD). Control D is
+   * a sister company of Windscribe, not a product of it, so its Role says
+   * "Control D": never derive this by trimming `company`.
+   */
+  organization: string;
   summary: string;
   start: string;
   end: string;
@@ -447,6 +454,7 @@ export const roles = [
     id: "control-d",
     title: "Senior Software Engineer",
     company: "Control D (Windscribe)",
+    organization: "Control D",
     summary:
       "DNS security and content filtering platform for consumer, business and MSP customers",
     start: "Mar 2024",
@@ -465,6 +473,7 @@ export const roles = [
     id: "life-house",
     title: "Full Stack Developer",
     company: "Life House",
+    organization: "Life House",
     summary: "Revenue management SaaS for independent hotels",
     start: "Oct 2022",
     end: "Feb 2024",
@@ -481,6 +490,7 @@ export const roles = [
     id: "studio",
     title: "Frontend Engineer",
     company: "Studio",
+    organization: "Studio",
     summary: "Brand and digital design agency",
     start: "Mar 2022",
     end: "Aug 2022",
@@ -495,6 +505,7 @@ export const roles = [
     id: "brandish",
     title: "Full Stack Web Developer",
     company: "Brandish Agency",
+    organization: "Brandish Agency",
     summary: "Digital agency; WordPress, headless and custom client builds",
     start: "Mar 2020",
     end: "Mar 2022",
@@ -510,6 +521,7 @@ export const roles = [
     id: "elite-digital",
     title: "Full Stack Developer",
     company: "Elite Digital Agency",
+    organization: "Elite Digital Agency",
     summary: "Digital agency; enterprise applications and client web builds",
     start: "May 2018",
     end: "Mar 2020",
