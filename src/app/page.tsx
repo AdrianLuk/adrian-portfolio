@@ -8,16 +8,22 @@ import {
   hero,
   highlights,
   person,
+  shareCards,
   work,
 } from "@/content/site";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Fragment } from "react";
+import { shareMetadata } from "./share";
+import { homeJsonLd, jsonLdScript } from "./structured-data";
 import { metaLine, primaryAction, sectionLabel, textLink } from "./styles";
 import { torontoWeather } from "./toronto-weather";
 
 // Rebuilt at most hourly, for the weather (WEATHER_REVALIDATE): segment
 // config must be a literal.
 export const revalidate = 3600;
+
+export const metadata: Metadata = shareMetadata(shareCards.home);
 
 /** Skip, set on a card at the foot of the hero while the fly-in plays. */
 const skipCard =
@@ -216,6 +222,10 @@ export default async function Home() {
           {contact.bookend}
         </p>
       </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(homeJsonLd) }}
+      />
     </div>
   );
 }
