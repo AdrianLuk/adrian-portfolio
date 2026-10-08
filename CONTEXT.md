@@ -56,6 +56,13 @@ _Avoid_: Personal project, freelance
 The free Juice Bros tools for pickleball players, such as Booking Buddy, Pickle Point Pal, Match Mixer, On Deck and Drum Roll. The set grows, so never state a count, and not all are no-login (Booking Buddy needs one). Public, and showcased in the Juice Bros Case study.
 _Avoid_: Tools (unqualified), apps
 
+**Player tools stage**:
+The pinned frame beside the copy that shows one tool's recording at a time.
+_Avoid_: Viewer, preview
+
+**Stage director**:
+The one place that decides which tool is on the Player tools stage, whether its recording plays, and how focus and scroll hand it over.
+
 **Private tools**:
 Adrian's personal tools, hosted outside this repo. The portfolio never shows or links to them.
 _Avoid_: Tools (unqualified), dashboard

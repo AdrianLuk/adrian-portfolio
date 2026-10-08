@@ -1,5 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  playerToolsSelector,
+  SCENE,
+  SCENE_STATES,
+  stageToolNamed,
+  toolCopySelector,
+  toolStageSelector,
+} from "../src/components/player-tools-markup";
+import {
   caseStudies,
   hrefFor,
   nav,
@@ -114,9 +122,9 @@ for (const mode of modes) {
   });
 }
 
-const stage = (page: Page) => page.locator("[data-tool-stage]");
+const stage = (page: Page) => page.locator(toolStageSelector);
 const frame = (page: Page, name: string) =>
-  page.locator(`[data-tool-stage] [data-stage-tool="${name}"]`);
+  page.locator(`${toolStageSelector} ${stageToolNamed(name)}`);
 
 /** Scrolls so a tool's copy starts just above the middle of the screen. */
 async function readTool(page: Page, name: string) {
@@ -171,29 +179,31 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
 
   test.beforeEach(async ({ page }) => {
     await page.goto(path);
-    await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-      "data-scene",
-      "pinned",
+    await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+      SCENE,
+      SCENE_STATES.pinned,
     );
   });
+
+  // The Stage director's unit tests hold the rules; these check its wiring to
+  // the page (scroll, focus, the toggles, the stage going off screen) and what
+  // only a browser lays out: the stage pinned, and each frame's images.
 
   test("holds the stage still and shows each tool as its text arrives, then lets it go", async ({
     page,
   }) => {
     const tops: number[] = [];
-    for (const tool of study.tools) {
+    for (const [i, tool] of study.tools.entries()) {
       await readTool(page, tool.name);
       await expect(frame(page, tool.name)).toBeVisible();
-      for (const other of study.tools.filter((t) => t !== tool)) {
-        await expect(frame(page, other.name)).toBeHidden();
-      }
+      if (i > 0) await expect(frame(page, study.tools[i - 1].name)).toBeHidden();
       await expect
         .poll(() =>
           frame(page, tool.name)
             .locator("img")
             .evaluateAll((imgs) =>
               (imgs as HTMLImageElement[]).every(
-                (i) => i.complete && i.naturalWidth > 0,
+                (img) => img.complete && img.naturalWidth > 0,
               ),
             ),
         )
@@ -222,11 +232,11 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     await expect(stage(page).locator("a, button, [controls], [tabindex]")).toHaveCount(0);
   });
 
-  test("keyboard focus on a tool's link brings that tool onto the stage, until a scroll moves on", async ({
+  test("keyboard focus on a tool's link brings that tool onto the stage", async ({
     page,
   }) => {
-    const [first, second, ...rest] = study.tools;
-    const last = rest.at(-1)!;
+    const first = study.tools[0];
+    const last = study.tools.at(-1)!;
     await readTool(page, first.name);
     await expect(frame(page, first.name)).toBeVisible();
     // A key press first, so the focus that follows is keyboard focus.
@@ -236,10 +246,42 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     );
     await expect(frame(page, last.name)).toBeVisible();
     await expect(frame(page, first.name)).toBeHidden();
-    // Scrolling on to another tool hands the stage back to the scroll.
-    await readTool(page, second.name);
-    await expect(frame(page, second.name)).toBeVisible();
-    await expect(frame(page, last.name)).toBeHidden();
+  });
+
+  test("keyboard focus moving from one tool's link to another's never hands the stage back to the scroll's tool on the way", async ({
+    page,
+  }) => {
+    const tools: readonly PlayerTool[] = study.tools;
+    // The scroll's tool has a recording: handed the stage, even for a moment,
+    // it would be told to play.
+    const byScroll = tools.find((t) => t.recording)!;
+    const [from, to] = tools.filter((t) => !t.recording).slice(-2);
+    const video = frame(page, byScroll.name).locator("video");
+    await readTool(page, byScroll.name);
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
+      .toBe(true);
+    // A key press first, so the focus that follows is keyboard focus.
+    await page.keyboard.press("Shift");
+    await toolLink(page, from.name).evaluate((el: HTMLElement) =>
+      el.focus({ preventScroll: true }),
+    );
+    await expect(frame(page, from.name)).toBeVisible();
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
+      .toBe(true);
+
+    await video.evaluate((v: HTMLVideoElement) => {
+      v.addEventListener("play", () => v.setAttribute("data-played", ""));
+    });
+    await toolLink(page, to.name).evaluate((el: HTMLElement) =>
+      el.focus({ preventScroll: true }),
+    );
+    await expect(frame(page, to.name)).toBeVisible();
+    await expect(frame(page, from.name)).toBeHidden();
+    await frames(page);
+    await expect(video).not.toHaveAttribute("data-played");
+    await expect(frame(page, byScroll.name)).toBeHidden();
   });
 
   test("a link the mouse has focused doesn't hold the stage", async ({
@@ -264,9 +306,9 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     await countShifts(page);
     // A refresh lands back where the reader was.
     await page.reload();
-    await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-      "data-scene",
-      "pinned",
+    await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+      SCENE,
+      SCENE_STATES.pinned,
     );
     await expect(frame(page, tool.name)).toBeVisible();
     await frames(page);
@@ -300,47 +342,43 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
       name: `Play recording of ${tool.name}`,
     });
     await expect(play).toBeFocused();
+    await expect(frame(page, tool.name)).toBeVisible();
     // It stays paused while the reader stays on the tool.
     await page.mouse.wheel(0, 40);
     await frames(page);
     expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
 
-    await play.click();
+    await page.keyboard.press("Enter");
     await expect
       .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
       .toBe(true);
   });
 
-  test("a tool's recording plays on the stage while it is on, and pauses after", async ({
+  test("a tool's recording plays on the stage while it is on screen, and pauses when it goes off", async ({
     page,
   }) => {
     const tools: readonly PlayerTool[] = study.tools;
-    const index = tools.findIndex((t) => t.recording);
-    const tool = tools[index];
-    const next = tools[index + 1] ?? tools[index - 1];
+    const tool = tools.find((t) => t.recording)!;
     const video = frame(page, tool.name).locator("video");
     await readTool(page, tool.name);
     await expect
       .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
       .toBe(true);
-    await readTool(page, next.name);
+    // Nothing else plays meanwhile: the recordings in the copy are out of sight.
+    expect(
+      await page.evaluate(
+        (frame) =>
+          [...document.querySelectorAll("video")].filter(
+            (v) => !v.paused && !v.closest(frame),
+          ).length,
+        stageToolNamed(tool.name),
+      ),
+    ).toBe(0);
+    // Back at the top of the page, the stage is far below the screen.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await expect
       .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
       .toBe(true);
-    // Nothing else plays meanwhile but the stage's own tool, if it has a
-    // recording: the recordings in the copy are out of sight.
-    expect(
-      await page.evaluate(
-        (name) =>
-          [...document.querySelectorAll("video")].filter(
-            (v) =>
-              !v.paused &&
-              v.closest("[data-stage-tool]")?.getAttribute("data-stage-tool") !==
-                name,
-          ).length,
-        next.name,
-      ),
-    ).toBe(0);
   });
 
   test("scrolling through the scene shifts no layout", async ({ page }) => {
@@ -383,15 +421,17 @@ test.describe("the Player tools scene when its scripts fail", () => {
     await page.goto(path);
     // Laid out pinned from the first paint, the copy's recordings out of
     // sight and out of the tab order.
-    await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-      "data-scene",
+    await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+      SCENE,
       /.+/,
     );
     await expect(stage(page)).toBeVisible();
     expect(
       await page
-        .locator("[data-tool-copy] video")
-        .evaluateAll((vs) => (vs as HTMLVideoElement[]).some((v) => v.controls)),
+        .locator(`${toolCopySelector} video`)
+        .evaluateAll((vs) =>
+          (vs as HTMLVideoElement[]).some((v) => v.controls),
+        ),
     ).toBe(false);
     // Then, with nothing to run it, the stacked list.
     await expectStacked(page, 15_000);
@@ -400,10 +440,9 @@ test.describe("the Player tools scene when its scripts fail", () => {
 
 /** The stacked list: no stage, each tool's screenshots and recording in its copy. */
 async function expectStacked(page: Page, timeout?: number) {
-  await expect(page.locator("[data-player-tools]")).not.toHaveAttribute(
-    "data-scene",
-    { timeout },
-  );
+  await expect(page.locator(playerToolsSelector)).not.toHaveAttribute(SCENE, {
+    timeout,
+  });
   await expect(stage(page)).toBeHidden();
   for (const tool of study.tools) {
     const block = page
@@ -416,7 +455,7 @@ async function expectStacked(page: Page, timeout?: number) {
   }
   expect(
     await page
-      .locator("[data-tool-copy] video")
+      .locator(`${toolCopySelector} video`)
       .evaluateAll((vs) => (vs as HTMLVideoElement[]).every((v) => v.controls)),
   ).toBe(true);
 }
@@ -547,9 +586,9 @@ test("with the Player tools pinned, a keyboard walk reaches every link in order,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(path);
-  await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-    "data-scene",
-    "pinned",
+  await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+    SCENE,
+    SCENE_STATES.pinned,
   );
   // The recordings in the copy are out of sight while the stage shows them.
   expect(await walk(page)).toEqual([]);

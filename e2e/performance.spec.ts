@@ -4,6 +4,11 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
+import {
+  playerToolsSelector,
+  SCENE,
+  SCENE_STATES,
+} from "../src/components/player-tools-markup";
 import { countDraws, heroRoot, openHome, SCENE_TIMEOUT } from "./hero";
 
 // The world's libraries are the page's heaviest code: none of it may hold up
@@ -109,9 +114,9 @@ test("the Case study's first paint comes before any of GSAP is asked for", async
   // Wide, with motion allowed: the Player tools scene loads GSAP to run.
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/work/juice-bros");
-  await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-    "data-scene",
-    "pinned",
+  await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+    SCENE,
+    SCENE_STATES.pinned,
   );
   await libraryStarts(page, request, ["gsap"]);
 });

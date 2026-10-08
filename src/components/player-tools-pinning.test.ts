@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { SCENE } from "./player-tools-markup";
 import { EARLY_PIN_SCRIPT, PINNED_MEDIA } from "./player-tools-pinning";
 
 /** The `pinned` variant in globals.css, up to the slot its rules fill. */
@@ -24,7 +25,7 @@ describe("where the Player tools pin", () => {
   });
 
   it("lays the scene out pinned only once a script has marked it", () => {
-    expect(pinnedVariant()).toContain("&:is([data-scene], [data-scene] *)");
+    expect(pinnedVariant()).toContain(`&:is([${SCENE}], [${SCENE}] *)`);
   });
 
   it("is checked by the early script against the same query", () => {

@@ -1,4 +1,5 @@
 import type { PlayerTool } from "@/content/site";
+import { stageProgress, stageTool, toolStage } from "./player-tools-markup";
 import { RecordingVideo } from "./recording-video";
 import { isSideways, Screenshot } from "./screenshot";
 
@@ -14,7 +15,7 @@ const frameClass = "overflow-hidden rounded-xl border border-fog bg-dusk";
 export function ToolStage({ tools }: { tools: readonly PlayerTool[] }) {
   return (
     <div
-      data-tool-stage
+      {...toolStage}
       aria-hidden="true"
       className="sticky top-24 hidden h-[calc(100vh-6rem)] items-center self-start pinned:flex"
     >
@@ -24,7 +25,7 @@ export function ToolStage({ tools }: { tools: readonly PlayerTool[] }) {
           return (
             <div
               key={tool.name}
-              data-stage-tool={tool.name}
+              {...stageTool(tool.name)}
               className={`absolute inset-0 ${i === 0 ? "" : "invisible opacity-0"}`}
             >
               <div
@@ -58,7 +59,7 @@ export function ToolStage({ tools }: { tools: readonly PlayerTool[] }) {
         })}
         <div className="absolute bottom-1 left-0 h-1 w-1/3 overflow-hidden rounded-full bg-fog">
           <div
-            data-stage-progress
+            {...stageProgress}
             className="h-full w-full origin-left scale-x-0 bg-cyan"
           />
         </div>

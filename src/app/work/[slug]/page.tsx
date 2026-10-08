@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { stageToggle, toolCopy } from "@/components/player-tools-markup";
 import { EARLY_PIN_SCRIPT } from "@/components/player-tools-pinning";
 import { PlayerToolsScene } from "@/components/player-tools-scene";
 import { Recording } from "@/components/recording";
@@ -86,7 +87,7 @@ function Screenshots({ showcase }: { showcase: Showcase }) {
 function Tool({ tool, label }: { tool: PlayerTool; label: string }) {
   const id = tool.name.toLowerCase().replaceAll(" ", "-");
   return (
-    <li data-tool-copy className="pinned:min-h-[70vh]">
+    <li {...toolCopy} className="pinned:min-h-[70vh]">
       <section aria-labelledby={`tool-${id}`} className="space-y-4">
         <h5
           id={`tool-${id}`}
@@ -112,7 +113,7 @@ function Tool({ tool, label }: { tool: PlayerTool; label: string }) {
           {tool.recording && (
             <button
               type="button"
-              data-stage-toggle
+              {...stageToggle}
               className="group hidden rounded-full border border-fog px-3 py-1 font-display text-sm tracking-widest text-ink/85 uppercase transition-colors [font-stretch:75%] hover:border-cyan hover:text-cyan pinned:inline-block"
             >
               <span className="group-data-paused:hidden">Pause</span>

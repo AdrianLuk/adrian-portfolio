@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { afterFirstPaint } from "./after-first-paint";
+import { playerTools, SCENE, SCENE_STATES } from "./player-tools-markup";
 import { PINNED_MEDIA } from "./player-tools-pinning";
 
 type Scene = { kill(): void };
@@ -32,14 +33,14 @@ export function PlayerToolsScene({
     let cancelled = false;
 
     // Taken over: the early script's fallback no longer applies.
-    if (root.getAttribute("data-scene") === "pending") {
-      root.setAttribute("data-scene", "loading");
+    if (root.getAttribute(SCENE) === SCENE_STATES.pending) {
+      root.setAttribute(SCENE, SCENE_STATES.loading);
     }
 
     function unpin() {
       scene?.kill();
       scene = null;
-      root!.removeAttribute("data-scene");
+      root!.removeAttribute(SCENE);
     }
 
     async function sync() {
@@ -58,7 +59,7 @@ export function PlayerToolsScene({
       }
       if (cancelled || scene || !media.matches) return;
       // Laid out first, so the motion measures the pinned layout.
-      root!.setAttribute("data-scene", "pinned");
+      root!.setAttribute(SCENE, SCENE_STATES.pinned);
       scene = createPlayerToolsMotion(root!);
     }
 
@@ -79,7 +80,7 @@ export function PlayerToolsScene({
     // The early script may have marked the root before hydration.
     <div
       ref={ref}
-      data-player-tools
+      {...playerTools}
       className={className}
       suppressHydrationWarning
     >

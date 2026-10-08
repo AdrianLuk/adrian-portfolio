@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Recording as RecordingContent } from "@/content/site";
+import { playerToolsSelector, SCENE } from "./player-tools-markup";
 import { REDUCED_MOTION } from "./reduced-motion";
 import { RecordingVideo } from "./recording-video";
 
@@ -23,11 +24,11 @@ export function Recording({ recording }: { recording: RecordingContent }) {
     const video = ref.current;
     if (!video) return;
     const reduced = window.matchMedia(REDUCED_MOTION);
-    const scene = video.closest<HTMLElement>("[data-player-tools]");
+    const scene = video.closest<HTMLElement>(playerToolsSelector);
     let onScreen = false;
 
     const sync = () => {
-      const offStage = scene?.hasAttribute("data-scene") ?? false;
+      const offStage = scene?.hasAttribute(SCENE) ?? false;
       video.controls = !offStage;
       if (onScreen && !reduced.matches && !offStage) {
         video.play().catch(() => {});
@@ -45,7 +46,7 @@ export function Recording({ recording }: { recording: RecordingContent }) {
     reduced.addEventListener("change", sync);
     const pinning = new MutationObserver(sync);
     if (scene) {
-      pinning.observe(scene, { attributeFilter: ["data-scene"] });
+      pinning.observe(scene, { attributeFilter: [SCENE] });
     }
     return () => {
       observer.disconnect();

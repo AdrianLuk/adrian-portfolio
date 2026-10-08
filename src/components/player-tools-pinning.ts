@@ -1,3 +1,5 @@
+import { SCENE, SCENE_STATES, toolCopySelector } from "./player-tools-markup";
+
 /**
  * Where the Player tools scene pins, shared by the page, its scripts and (by
  * test) the CSS that lays it out.
@@ -32,14 +34,16 @@ export const EARLY_PIN_TIMEOUT = 8000;
 export const EARLY_PIN_SCRIPT = `(function () {
   var root = document.currentScript && document.currentScript.parentElement;
   if (!root || !window.matchMedia(${JSON.stringify(PINNED_MEDIA)}).matches) return;
-  var videos = root.querySelectorAll("[data-tool-copy] video");
+  var scene = ${JSON.stringify(SCENE)};
+  var pending = ${JSON.stringify(SCENE_STATES.pending)};
+  var videos = root.querySelectorAll(${JSON.stringify(`${toolCopySelector} video`)});
   function offStage(off) {
-    if (off) root.setAttribute("data-scene", "pending");
-    else root.removeAttribute("data-scene");
+    if (off) root.setAttribute(scene, pending);
+    else root.removeAttribute(scene);
     for (var i = 0; i < videos.length; i++) videos[i].controls = !off;
   }
   offStage(true);
   setTimeout(function () {
-    if (root.getAttribute("data-scene") === "pending") offStage(false);
+    if (root.getAttribute(scene) === pending) offStage(false);
   }, ${EARLY_PIN_TIMEOUT});
 })();`;
