@@ -36,6 +36,8 @@ import {
 } from "./route";
 import { COURT_STOP, OUTPOST_STOP, transit } from "./transit";
 import {
+  drawsInSoftware,
+  holdsFrame,
   moteCountFor,
   pixelRatioFor,
   plateFinishFor,
@@ -138,7 +140,35 @@ export type World = View & {
   setView(view: WorldView | null): void;
   /** Changes the weather in place: the ground, the pools and what falls. */
   setWeather(weather: Weather): void;
+  /**
+   * Whether the pinned Player tools scene is in view. On a software
+   * renderer the world holds its last frame meanwhile (see `holdsFrame`).
+   */
+  setSceneInView(inView: boolean): void;
 };
+
+/**
+ * Whether `gl` draws in software (see `drawsInSoftware`). Chrome masks the
+ * renderer's name behind WEBGL_debug_renderer_info, which Firefox, whose
+ * name is already readable, has deprecated: asked for only when masked.
+ */
+function inSoftware(gl: WebGLRenderingContext | WebGL2RenderingContext) {
+  let name: unknown = gl.getParameter(gl.RENDERER);
+  if (name === "WebKit WebGL") {
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    if (info) name = gl.getParameter(info.UNMASKED_RENDERER_WEBGL);
+  }
+  return drawsInSoftware(typeof name === "string" ? name : null, () => {
+    const probe = document.createElement("canvas");
+    const options: WebGLContextAttributes = {
+      failIfMajorPerformanceCaveat: true,
+    };
+    const accepted =
+      probe.getContext("webgl2", options) ?? probe.getContext("webgl", options);
+    accepted?.getExtension("WEBGL_lose_context")?.loseContext();
+    return !accepted;
+  });
+}
 
 /** Lets the browser paint and handle input before the next setup step. */
 const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -244,6 +274,7 @@ export async function createWorld(
   }
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.setClearColor(palette.night);
+  const software = inSoftware(renderer.getContext());
 
   const shared: SharedUniforms = {
     uTime: { value: STILL_TIME },
@@ -319,6 +350,10 @@ export async function createWorld(
 
   let motion = options.motion;
   let onScreen = true;
+  /** True while the pinned Player tools scene is in view. */
+  let sceneInView = false;
+  /** While the frame is held, the last held frame's time (see `loop`). */
+  let heldAt: number | null = null;
   let running = false;
   let loopStart: number | null = null;
   let firstFrame = true;
@@ -494,8 +529,9 @@ export async function createWorld(
     // The motes rise round where the camera stands.
     const { x, z } = camera.position;
     motes?.points.position.set(x, valleyHeight(x, z - 90), z);
-    // The loop, when it runs, draws the new pose on its next frame.
-    if (!running) render();
+    // The loop, when it runs, draws the new pose on its next frame (unless
+    // it holds the last one, which a resize has cleared).
+    if (!running || holds()) render();
   }
 
   /**
@@ -579,8 +615,25 @@ export async function createWorld(
     return true;
   }
 
+  /** Whether the world holds its last frame now (see `holdsFrame`). */
+  const holds = () =>
+    holdsFrame({
+      software,
+      sceneInView,
+      flying: options.director.flying() !== null,
+      drawn: !firstFrame,
+    });
+
   function loop(ms: number) {
     loopStart ??= ms;
+    if (holds()) {
+      // The canvas keeps showing the last frame drawn, and the world's clock
+      // stands still, so it moves on from there once it draws again.
+      if (heldAt !== null) loopStart += ms - heldAt;
+      heldAt = ms;
+      return;
+    }
+    heldAt = null;
     shared.uTime.value = STILL_TIME + (ms - loopStart) / 1000;
     render();
   }
@@ -771,6 +824,9 @@ export async function createWorld(
       pools.setIntensity(poolIntensity());
       // Re-lays the pools, wet or dry, and brings in what falls.
       layout();
+    },
+    setSceneInView(inView) {
+      sceneInView = inView;
     },
     dispose,
   };

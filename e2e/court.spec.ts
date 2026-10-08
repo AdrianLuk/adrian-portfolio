@@ -384,12 +384,15 @@ test("the pinned Player tools scene keeps its frame rate with the world live beh
   expect(without.playing).toBe(true);
   expect(live.playing).toBe(true);
   expect(after.frames).toBeGreaterThan(30);
-  // Generous bounds: CI has no GPU, and there the world renders in software
-  // WebGL, which slows every frame of the page several times over (with a
-  // GPU the two walks run alike, at 60fps). What they rule out is a world
-  // that stalls the scene: frames many times the page's own, or a hitch.
-  expect(after.p95).toBeLessThanOrEqual(Math.max(before.p95 * 6, 120));
+  // Near parity. CI has no GPU: there the world renders in software WebGL,
+  // which would slow every frame of the page about four times over, so it
+  // holds its last frame while the scene is in view (with a GPU it draws on,
+  // and the two walks run alike, at 60fps). The headroom is for a busy
+  // machine: a dropped frame or two, never a world drawing behind the scene
+  // (which here runs the median and p95 to 50 and 67ms against 17).
+  expect(after.median).toBeLessThanOrEqual(before.median * 1.5);
+  expect(after.p95).toBeLessThanOrEqual(before.p95 * 2.5);
   expect(after.longest).toBeLessThanOrEqual(
-    Math.max(before.longest * 3, 300),
+    Math.max(before.longest * 2, 100),
   );
 });

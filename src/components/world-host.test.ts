@@ -7,6 +7,7 @@ const scene = vi.hoisted(() => ({
     setMotion: vi.fn(),
     setView: vi.fn(),
     setWeather: vi.fn(),
+    setSceneInView: vi.fn(),
     dispose: vi.fn(),
   },
   /** What the world was built with. */
@@ -62,6 +63,16 @@ describe("the world host", () => {
     expect(scene.world.dispose).toHaveBeenCalledOnce();
     expect(host.live()).toBe(false);
     expect(host.intent()).toBe("none");
+  });
+
+  it("tells the world whether the pinned Player tools scene is in view, even from before it was built", async () => {
+    const host = createWorldHost();
+    host.attach({} as HTMLCanvasElement, { kind: "court", weather: "clear" });
+    host.sceneInView(true);
+    await host.start();
+    expect(scene.world.setSceneInView).toHaveBeenLastCalledWith(true);
+    host.sceneInView(false);
+    expect(scene.world.setSceneInView).toHaveBeenLastCalledWith(false);
   });
 
   it("shows the court in the Case study's own weather, the Outpost in the clear", async () => {

@@ -73,3 +73,50 @@ export function plateFinishFor(tier: Tier) {
 }
 
 export type PlateFinish = ReturnType<typeof plateFinishFor>;
+
+/**
+ * Renderers that draw on the CPU (no GPU, or a blocklisted one): Chrome's
+ * SwiftShader, Mesa's llvmpipe and softpipe, Windows' Basic Render Driver.
+ */
+const SOFTWARE = /swiftshader|llvmpipe|softpipe|basic render driver|software/i;
+
+/**
+ * Names a browser gives in place of the GPU's, saying nothing about it:
+ * Chrome's and Safari's own.
+ */
+const MASKED = /^(webkit webgl|apple gpu)?$/i;
+
+/**
+ * Whether the world draws in software: by the renderer's name (null if the
+ * browser hides it), or, only where the name says nothing, by `caveat`:
+ * whether a context that refuses a major performance caveat
+ * (`failIfMajorPerformanceCaveat`) is refused.
+ */
+export function drawsInSoftware(
+  renderer: string | null,
+  caveat: () => boolean,
+) {
+  const name = renderer?.trim() ?? "";
+  return MASKED.test(name) ? caveat() : SOFTWARE.test(name);
+}
+
+/**
+ * Whether the court holds its last drawn frame instead of drawing a new one:
+ * only on a software renderer, where every frame of the world slows the whole
+ * page, while the pinned Player tools scene (its stage and recordings) is in
+ * view. Never with the camera in flight, nor before its first frame. On a
+ * real GPU the world always draws.
+ */
+export function holdsFrame({
+  software,
+  sceneInView,
+  flying,
+  drawn,
+}: {
+  software: boolean;
+  sceneInView: boolean;
+  flying: boolean;
+  drawn: boolean;
+}) {
+  return software && sceneInView && !flying && drawn;
+}

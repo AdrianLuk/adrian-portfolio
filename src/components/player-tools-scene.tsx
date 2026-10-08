@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { afterFirstPaint } from "./after-first-paint";
 import { playerTools, SCENE, SCENE_STATES } from "./player-tools-markup";
 import { PINNED_MEDIA } from "./player-tools-pinning";
+import { worldHost } from "./world-host";
 
 type Scene = { kill(): void };
 
@@ -31,6 +32,12 @@ export function PlayerToolsScene({
     let scene: Scene | null = null;
     let loading = false;
     let cancelled = false;
+    // The world behind the page hears while the pinned scene is in view: on a
+    // software renderer it holds its last frame meanwhile.
+    const host = worldHost();
+    const inView = new IntersectionObserver(([entry]) =>
+      host.sceneInView(!!scene && entry.isIntersecting),
+    );
 
     // Taken over: the early script's fallback no longer applies.
     if (root.getAttribute(SCENE) === SCENE_STATES.pending) {
@@ -38,6 +45,8 @@ export function PlayerToolsScene({
     }
 
     function unpin() {
+      inView.disconnect();
+      host.sceneInView(false);
       scene?.kill();
       scene = null;
       root!.removeAttribute(SCENE);
@@ -61,6 +70,7 @@ export function PlayerToolsScene({
       // Laid out first, so the motion measures the pinned layout.
       root!.setAttribute(SCENE, SCENE_STATES.pinned);
       scene = createPlayerToolsMotion(root!);
+      inView.observe(root!);
     }
 
     // GSAP loads after the first paint, as it does on the home page.
