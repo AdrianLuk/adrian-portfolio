@@ -37,6 +37,25 @@ const H = CROP.height;
 const CENTRE = { x: 850, y: 1080 };
 const RADII = { x: 750, up: 1250, down: 950 };
 
+/**
+ * His eyes, on the canvas: kept as photographed. Their whites and irises are
+ * neither warm nor dark, so the grade that sinks the hall's greys would take
+ * them too; inside these (feathered out to `feather` times their size) it
+ * leaves them alone.
+ */
+const EYES = [
+  { x: 465, y: 990 },
+  { x: 770, y: 975 },
+];
+const EYE = { x: 120, y: 65, feather: 1.6 };
+/** How much of an eye a canvas pixel is, 0 to 1. */
+const eyeAt = (x, y) =>
+  Math.max(
+    ...EYES.map((e) =>
+      smooth(EYE.feather, 1, Math.hypot((x - e.x) / EYE.x, (y - e.y) / EYE.y)),
+    ),
+  );
+
 /** The world's palette (src/components/world/palette.ts), 0 to 1. */
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
 const NIGHT = hex("#0b1026");
@@ -126,6 +145,7 @@ for (let y = 0; y < H; y++) {
     let b = rgb[i * 3 + 2] / 255;
     const Y = luma(r, g, b);
     const skin = warmth(r, g, b);
+    const eye = eyeAt(x, y);
 
     // The shine pressed back toward his skin's broad shading and the
     // highlights rolled off.
@@ -140,6 +160,8 @@ for (let y = 0; y < H; y++) {
     const grey = 0.5 * smooth(0.24, 0.42, Y) + 0.4 * smooth(0.5, 0.75, Y);
     Yt *= 1 - (1 - skin) * grey;
     Yt *= 0.45 + 0.55 * smooth(0.04, 0.5, Yt);
+    // His eyes keep their own light.
+    Yt += (Y - Yt) * eye;
     const k = Y > 0.004 ? Yt / Y : 1;
     r *= k;
     g *= k;
@@ -164,7 +186,7 @@ for (let y = 0; y < H; y++) {
     // highlights toward the world's ink, and a faint cyan fill on his right,
     // from the light that rims him.
     const Yn = luma(r, g, b);
-    const shade = 0.8 * smooth(0.3, 0.02, Yn);
+    const shade = 0.8 * smooth(0.3, 0.02, Yn) * (1 - eye);
     const cool = 0.12 * Yn ** 3;
     const fill = 0.07 * skin * smooth(CENTRE.x - 100, CENTRE.x + 300, x);
     let px = [r, g, b].map(
