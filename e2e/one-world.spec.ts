@@ -693,9 +693,19 @@ test.describe("Transits between Places", () => {
     const court = page.locator("[data-world]");
     await expect(court).toHaveAttribute("data-world", "drawn");
     expect(await canvasTag(court.locator("canvas"))).toBe("the world");
-    const before = await draws();
+    // No render loop: once the page has laid out (a resize as it settles
+    // draws the still frame again, as it should), nothing more is drawn.
+    let settledAt = await draws();
+    await expect
+      .poll(async () => {
+        const now = await draws();
+        const still = now === settledAt;
+        settledAt = now;
+        return still;
+      })
+      .toBe(true);
     await page.waitForTimeout(500);
-    expect(await draws()).toBe(before);
+    expect(await draws()).toBe(settledAt);
 
     const seen = await transit();
     expect(seen.seen).toEqual([]);

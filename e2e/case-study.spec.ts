@@ -411,7 +411,9 @@ test.describe("the Player tools scene when its scripts fail", () => {
       else await route.fulfill({ response });
     });
     await page.goto(path);
-    await expectStacked(page);
+    // The court's world starts behind the page meanwhile: in software WebGL,
+    // as on CI, its first frame holds the main thread for seconds.
+    await expectStacked(page, 15_000);
   });
 
   test("falls back to the stacked list if the page never hydrates, with no unseen keyboard stop meanwhile", async ({
