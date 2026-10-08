@@ -7,10 +7,11 @@
 
 /**
  * A page's place in the world: home stands at the hero (the opening, the
- * settled view over the name plate, the scroll route), the Resume page at
- * the Outpost.
+ * settled view over the name plate, the scroll route), the Juice Bros Case
+ * study at its court (Lit site 3's Landmark), the Resume page at the
+ * Outpost.
  */
-export type Place = "hero" | "outpost";
+export type Place = "hero" | "court" | "outpost";
 
 /**
  * The transition type a navigation that is a transit carries: the layout's
@@ -28,15 +29,15 @@ function pageOf(url: string) {
 export function placeOf(url: string): Place | null {
   const page = pageOf(url);
   if (page === "/") return "hero";
+  if (page === "/work/juice-bros") return "court";
   if (page === "/resume") return "outpost";
   return null;
 }
 
 /**
  * Where a navigation from the place `from` to `to` (a path or a URL) flies
- * the camera: between home and the Resume page, either way, and nowhere
- * else. Moving within a page never flies, nor does any page with no place in
- * the world.
+ * the camera: between any two places, either way, and nowhere else. Moving
+ * within a page never flies, nor does any page with no place in the world.
  */
 export function transitBetween(from: Place | null, to: string): Place | null {
   const arriving = placeOf(to);
