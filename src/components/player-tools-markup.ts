@@ -16,6 +16,16 @@ const STAGE_TOOL = "data-stage-tool";
 const STAGE_PROGRESS = "data-stage-progress";
 const STAGE_TOGGLE = "data-stage-toggle";
 
+/**
+ * A value as a quoted CSS string: backslashes and quotes escaped, and line
+ * breaks by their code points. Written out, as `CSS.escape` is browser-only
+ * and the e2e tests build selectors in Node.
+ */
+const cssString = (value: string) =>
+  `"${value
+    .replace(/[\\"]/g, "\\$&")
+    .replace(/[\n\r\f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`;
+
 /** The scene's root. */
 export const playerTools = { [PLAYER_TOOLS]: "" } as const;
 export const playerToolsSelector = `[${PLAYER_TOOLS}]`;
@@ -44,7 +54,7 @@ export const toolStageSelector = `[${TOOL_STAGE}]`;
 export const stageTool = (name: string) => ({ [STAGE_TOOL]: name }) as const;
 export const stageToolSelector = `[${STAGE_TOOL}]`;
 export const stageToolNamed = (name: string) =>
-  `[${STAGE_TOOL}=${JSON.stringify(name)}]`;
+  `[${STAGE_TOOL}=${cssString(name)}]`;
 
 /** The progress bar through the set. */
 export const stageProgress = { [STAGE_PROGRESS]: "" } as const;

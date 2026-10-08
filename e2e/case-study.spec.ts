@@ -185,16 +185,44 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     );
   });
 
-  // The Stage director's unit tests hold the rules; these four check its
-  // wiring to the page: one scroll, one focus, one toggle, one off-screen.
+  // The Stage director's unit tests hold the rules; these check its wiring to
+  // the page (scroll, focus, the toggles, the stage going off screen) and what
+  // only a browser lays out: the stage pinned, and each frame's images.
 
-  test("a scroll brings the tool whose text has arrived onto the stage", async ({
+  test("holds the stage still and shows each tool as its text arrives, then lets it go", async ({
     page,
   }) => {
-    const [first, second] = study.tools;
-    await readTool(page, second.name);
-    await expect(frame(page, second.name)).toBeVisible();
-    await expect(frame(page, first.name)).toBeHidden();
+    const tops: number[] = [];
+    for (const [i, tool] of study.tools.entries()) {
+      await readTool(page, tool.name);
+      await expect(frame(page, tool.name)).toBeVisible();
+      if (i > 0) await expect(frame(page, study.tools[i - 1].name)).toBeHidden();
+      await expect
+        .poll(() =>
+          frame(page, tool.name)
+            .locator("img")
+            .evaluateAll((imgs) =>
+              (imgs as HTMLImageElement[]).every(
+                (img) => img.complete && img.naturalWidth > 0,
+              ),
+            ),
+        )
+        .toBe(true);
+      await frames(page);
+      tops.push((await stage(page).boundingBox())!.y);
+    }
+    // The first tool is up as the scene scrolls in; from then on the stage
+    // holds the same place on screen for every tool.
+    const pinned = tops[1];
+    for (const top of tops.slice(1)) expect(Math.abs(top - pinned)).toBeLessThan(1);
+    expect(tops[0]).toBeGreaterThanOrEqual(pinned);
+
+    // Past the last tool, it scrolls away with the page.
+    await page
+      .getByRole("heading", { level: 3, name: study.sections.at(-1)!.heading })
+      .evaluate((el) => el.scrollIntoView({ block: "start" }));
+    await frames(page);
+    expect((await stage(page).boundingBox())!.y).toBeLessThan(pinned - 50);
   });
 
   test("the stage is a visual layer, hidden from assistive technology", async ({
@@ -218,6 +246,42 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     );
     await expect(frame(page, last.name)).toBeVisible();
     await expect(frame(page, first.name)).toBeHidden();
+  });
+
+  test("keyboard focus moving from one tool's link to another's never hands the stage back to the scroll's tool on the way", async ({
+    page,
+  }) => {
+    const tools: readonly PlayerTool[] = study.tools;
+    // The scroll's tool has a recording: handed the stage, even for a moment,
+    // it would be told to play.
+    const byScroll = tools.find((t) => t.recording)!;
+    const [from, to] = tools.filter((t) => !t.recording).slice(-2);
+    const video = frame(page, byScroll.name).locator("video");
+    await readTool(page, byScroll.name);
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
+      .toBe(true);
+    // A key press first, so the focus that follows is keyboard focus.
+    await page.keyboard.press("Shift");
+    await toolLink(page, from.name).evaluate((el: HTMLElement) =>
+      el.focus({ preventScroll: true }),
+    );
+    await expect(frame(page, from.name)).toBeVisible();
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
+      .toBe(true);
+
+    await video.evaluate((v: HTMLVideoElement) => {
+      v.addEventListener("play", () => v.setAttribute("data-played", ""));
+    });
+    await toolLink(page, to.name).evaluate((el: HTMLElement) =>
+      el.focus({ preventScroll: true }),
+    );
+    await expect(frame(page, to.name)).toBeVisible();
+    await expect(frame(page, from.name)).toBeHidden();
+    await frames(page);
+    await expect(video).not.toHaveAttribute("data-played");
+    await expect(frame(page, byScroll.name)).toBeHidden();
   });
 
   test("a link the mouse has focused doesn't hold the stage", async ({
@@ -251,7 +315,7 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     expect(await shifted(page)).toBe(0);
   });
 
-  test("a playing recording on the stage can be paused from its tool's copy", async ({
+  test("a playing recording on the stage can be paused and played from its tool's copy", async ({
     page,
   }) => {
     const tools: readonly PlayerTool[] = study.tools;
@@ -265,15 +329,29 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     const block = page
       .getByRole("main")
       .getByRole("region", { name: tool.name, exact: true });
-    await block
-      .getByRole("button", { name: `Pause recording of ${tool.name}` })
-      .click();
+    const pause = block.getByRole("button", {
+      name: `Pause recording of ${tool.name}`,
+    });
+    await expect(pause).toBeVisible();
+    await pause.focus();
+    await page.keyboard.press("Enter");
     await expect
       .poll(() => video.evaluate((v: HTMLVideoElement) => v.paused))
       .toBe(true);
-    await expect(
-      block.getByRole("button", { name: `Play recording of ${tool.name}` }),
-    ).toBeVisible();
+    const play = block.getByRole("button", {
+      name: `Play recording of ${tool.name}`,
+    });
+    await expect(play).toBeFocused();
+    await expect(frame(page, tool.name)).toBeVisible();
+    // It stays paused while the reader stays on the tool.
+    await page.mouse.wheel(0, 40);
+    await frames(page);
+    expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused))
+      .toBe(true);
   });
 
   test("a tool's recording plays on the stage while it is on screen, and pauses when it goes off", async ({

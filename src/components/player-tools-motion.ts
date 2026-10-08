@@ -8,7 +8,7 @@ import {
   toolCopySelector,
   toolStageSelector,
 } from "./player-tools-markup";
-import { createStageDirector, type StageState } from "./stage-director";
+import { createStageDirector } from "./stage-director";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -52,35 +52,35 @@ export function createPlayerToolsMotion(root: HTMLElement) {
     // it is keyboard focus.
     focused: keyboardFocus(document.activeElement),
   });
-  /** What the stage shows now. */
-  let drawn: StageState = director.state();
+  /** The tool on the stage, so only a change of tool fades. */
+  let shown = -1;
 
-  /** Brings the stage up to the director: the tools crossfade, or cut. */
+  /**
+   * Brings the stage up to the director: a new tool crossfades in, or cuts.
+   * The progress, the toggles and every recording's play state are applied
+   * in full each time, so a play() the browser refused is tried again.
+   */
   function draw(fade: boolean) {
-    const next = director.state();
-    if (next.shown !== drawn.shown) {
+    const state = director.state();
+    if (state.shown !== shown) {
+      shown = state.shown;
       frames.forEach((frame, i) => {
-        const vars = { autoAlpha: i === next.shown ? 1 : 0, overwrite: true };
+        const vars = { autoAlpha: i === shown ? 1 : 0, overwrite: true };
         if (fade) {
           gsap.to(frame, { ...vars, duration: FADE, ease: "power1.out" });
         } else gsap.set(frame, vars);
       });
     }
-    if (bar && next.progress !== drawn.progress) {
-      gsap.set(bar, { scaleX: next.progress });
-    }
-    next.paused.forEach((paused, i) => {
-      if (paused !== drawn.paused[i])
-        toggles[i]?.toggleAttribute(PAUSED, paused);
+    if (bar) gsap.set(bar, { scaleX: state.progress });
+    toggles.forEach((toggle, i) =>
+      toggle?.toggleAttribute(PAUSED, state.paused[i]),
+    );
+    // Playing one that plays, or pausing one that is paused, does nothing.
+    videos.forEach((video, i) => {
+      if (!video) return;
+      if (i === state.playing) video.play().catch(() => {});
+      else video.pause();
     });
-    if (next.playing !== drawn.playing) {
-      videos.forEach((video, i) => {
-        if (!video) return;
-        if (i === next.playing) video.play().catch(() => {});
-        else video.pause();
-      });
-    }
-    drawn = next;
   }
 
   function measure() {
@@ -101,7 +101,11 @@ export function createPlayerToolsMotion(root: HTMLElement) {
   }
 
   function onFocusOut(event: FocusEvent) {
-    director.focusOut(keyboardFocus(event.relatedTarget));
+    // Where focus goes, if to another tool's copy. Not asked whether it is
+    // keyboard focus: it has no focus yet to ask of, and a click's focusin
+    // won't take the stage anyway.
+    const next = blockOf(event.relatedTarget);
+    director.focusOut(next >= 0 ? next : null);
     draw(true);
   }
 
@@ -116,8 +120,9 @@ export function createPlayerToolsMotion(root: HTMLElement) {
     draw(true);
   }
 
-  const observer = new IntersectionObserver(([entry]) => {
-    director.visibility(entry.isIntersecting);
+  // Changes can come batched (on, then off, in one call): the last is now.
+  const observer = new IntersectionObserver((entries) => {
+    director.visibility(entries.at(-1)!.isIntersecting);
     draw(true);
   });
 

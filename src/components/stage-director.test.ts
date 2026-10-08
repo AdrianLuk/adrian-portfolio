@@ -110,6 +110,17 @@ describe("keyboard focus in a tool's copy", () => {
     director.scroll(2300);
     expect(director.state().shown).toBe(1);
   });
+
+  it("before the first measure, brings that tool up at once and holds it through the first scroll", () => {
+    const director = createStageDirector({ tools: 5, focused: null });
+    director.focusIn(3, 1700);
+    expect(director.state().shown).toBe(3);
+    director.measure(viewport, boxes);
+    director.scroll(2300);
+    expect(director.state().shown).toBe(3);
+    director.scroll(2900);
+    expect(director.state().shown).toBe(2);
+  });
 });
 
 describe("the stage's recording", () => {

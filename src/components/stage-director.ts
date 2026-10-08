@@ -96,11 +96,11 @@ export function createStageDirector({
     /** Keyboard focus came into a tool's copy, the page scrolled to `y`. */
     focusIn(tool: number, y: number) {
       focused = tool;
-      if (!boxes) return;
-      // Measured from where focusing has scrolled the page to, so only a
-      // later scroll hands the stage back.
-      byScroll = reading(y, boxes).index;
       shown = tool;
+      // Unmeasured, the first scroll only places the stage, as for focus
+      // restored at the start. Measured, it is measured from where focusing
+      // has scrolled the page to, so only a later scroll hands it back.
+      if (boxes) byScroll = reading(y, boxes).index;
     },
 
     /**
