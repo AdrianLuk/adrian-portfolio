@@ -1,5 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import {
+  playerToolsSelector,
+  SCENE,
+  SCENE_STATES,
+} from "../src/components/player-tools-markup";
 import { notFound } from "../src/content/site";
 
 const missingPath = "/this-page-does-not-exist";
@@ -31,9 +36,9 @@ test("Juice Bros case study has no axe violations with motion allowed", async ({
   // Desktop: the Player tools pinned, scrolled into the scene. Phone: the
   // stacked list, with its recordings free to play.
   await page.goto("/work/juice-bros");
-  const scene = page.locator("[data-player-tools]");
+  const scene = page.locator(playerToolsSelector);
   if ((page.viewportSize()?.width ?? 0) >= 1024) {
-    await expect(scene).toHaveAttribute("data-scene", "pinned");
+    await expect(scene).toHaveAttribute(SCENE, SCENE_STATES.pinned);
   }
   await scene.evaluate((el) =>
     window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY),

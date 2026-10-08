@@ -1,5 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  playerToolsSelector,
+  SCENE,
+  SCENE_STATES,
+  stageToolNamed,
+  toolCopySelector,
+  toolStageSelector,
+} from "../src/components/player-tools-markup";
+import {
   caseStudies,
   hrefFor,
   nav,
@@ -114,9 +122,9 @@ for (const mode of modes) {
   });
 }
 
-const stage = (page: Page) => page.locator("[data-tool-stage]");
+const stage = (page: Page) => page.locator(toolStageSelector);
 const frame = (page: Page, name: string) =>
-  page.locator(`[data-tool-stage] [data-stage-tool="${name}"]`);
+  page.locator(`${toolStageSelector} ${stageToolNamed(name)}`);
 
 /** Scrolls so a tool's copy starts just above the middle of the screen. */
 async function readTool(page: Page, name: string) {
@@ -171,9 +179,9 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
 
   test.beforeEach(async ({ page }) => {
     await page.goto(path);
-    await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-      "data-scene",
-      "pinned",
+    await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+      SCENE,
+      SCENE_STATES.pinned,
     );
   });
 
@@ -264,9 +272,9 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     await countShifts(page);
     // A refresh lands back where the reader was.
     await page.reload();
-    await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-      "data-scene",
-      "pinned",
+    await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+      SCENE,
+      SCENE_STATES.pinned,
     );
     await expect(frame(page, tool.name)).toBeVisible();
     await frames(page);
@@ -331,14 +339,11 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
     // recording: the recordings in the copy are out of sight.
     expect(
       await page.evaluate(
-        (name) =>
+        (frame) =>
           [...document.querySelectorAll("video")].filter(
-            (v) =>
-              !v.paused &&
-              v.closest("[data-stage-tool]")?.getAttribute("data-stage-tool") !==
-                name,
+            (v) => !v.paused && !v.closest(frame),
           ).length,
-        next.name,
+        stageToolNamed(next.name),
       ),
     ).toBe(0);
   });
@@ -383,15 +388,17 @@ test.describe("the Player tools scene when its scripts fail", () => {
     await page.goto(path);
     // Laid out pinned from the first paint, the copy's recordings out of
     // sight and out of the tab order.
-    await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-      "data-scene",
+    await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+      SCENE,
       /.+/,
     );
     await expect(stage(page)).toBeVisible();
     expect(
       await page
-        .locator("[data-tool-copy] video")
-        .evaluateAll((vs) => (vs as HTMLVideoElement[]).some((v) => v.controls)),
+        .locator(`${toolCopySelector} video`)
+        .evaluateAll((vs) =>
+          (vs as HTMLVideoElement[]).some((v) => v.controls),
+        ),
     ).toBe(false);
     // Then, with nothing to run it, the stacked list.
     await expectStacked(page, 15_000);
@@ -400,10 +407,9 @@ test.describe("the Player tools scene when its scripts fail", () => {
 
 /** The stacked list: no stage, each tool's screenshots and recording in its copy. */
 async function expectStacked(page: Page, timeout?: number) {
-  await expect(page.locator("[data-player-tools]")).not.toHaveAttribute(
-    "data-scene",
-    { timeout },
-  );
+  await expect(page.locator(playerToolsSelector)).not.toHaveAttribute(SCENE, {
+    timeout,
+  });
   await expect(stage(page)).toBeHidden();
   for (const tool of study.tools) {
     const block = page
@@ -416,7 +422,7 @@ async function expectStacked(page: Page, timeout?: number) {
   }
   expect(
     await page
-      .locator("[data-tool-copy] video")
+      .locator(`${toolCopySelector} video`)
       .evaluateAll((vs) => (vs as HTMLVideoElement[]).every((v) => v.controls)),
   ).toBe(true);
 }
@@ -547,9 +553,9 @@ test("with the Player tools pinned, a keyboard walk reaches every link in order,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(path);
-  await expect(page.locator("[data-player-tools]")).toHaveAttribute(
-    "data-scene",
-    "pinned",
+  await expect(page.locator(playerToolsSelector)).toHaveAttribute(
+    SCENE,
+    SCENE_STATES.pinned,
   );
   // The recordings in the copy are out of sight while the stage shows them.
   expect(await walk(page)).toEqual([]);

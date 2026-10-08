@@ -1,6 +1,14 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { activeTool, type ToolBox } from "./active-tool";
+import {
+  PAUSED,
+  stageProgressSelector,
+  stageToggleSelector,
+  stageToolSelector,
+  toolCopySelector,
+  toolStageSelector,
+} from "./player-tools-markup";
+import { createStageDirector, type StageState } from "./stage-director";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -8,72 +16,26 @@ gsap.registerPlugin(ScrollTrigger);
 const FADE = 0.35;
 
 /**
- * The Player tools' stage, in step with the page: ScrollTrigger reads the
- * native scroll (nothing snapped, nothing smoothed) and the stage shows the
- * tool whose copy has reached the reading line. Keyboard focus in a tool's
- * copy brings that tool up instead, until a scroll moves on to another tool.
- * The active tool's recording plays while the stage is on screen, unless the
- * reader has paused it with the button in its copy; the rest stay paused.
+ * The Player tools' stage, in step with the page. The Stage director decides
+ * which tool is up and whether its recording plays; this is its link to the
+ * page. ScrollTrigger reads the native scroll (nothing snapped, nothing
+ * smoothed) and measures the copy, an IntersectionObserver tells whether the
+ * stage is on screen, and keyboard focus and the Pause/Play buttons come from
+ * the copy. After each, the stage catches up with the director.
  */
 export function createPlayerToolsMotion(root: HTMLElement) {
   const blocks = Array.from(
-    root.querySelectorAll<HTMLElement>("[data-tool-copy]"),
+    root.querySelectorAll<HTMLElement>(toolCopySelector),
   );
-  const stage = root.querySelector<HTMLElement>("[data-tool-stage]")!;
+  const stage = root.querySelector<HTMLElement>(toolStageSelector)!;
   const frames = Array.from(
-    stage.querySelectorAll<HTMLElement>("[data-stage-tool]"),
+    stage.querySelectorAll<HTMLElement>(stageToolSelector),
   );
   const videos = frames.map((f) => f.querySelector("video"));
   const toggles = blocks.map((b) =>
-    b.querySelector<HTMLButtonElement>("[data-stage-toggle]"),
+    b.querySelector<HTMLButtonElement>(stageToggleSelector),
   );
-  const paused = blocks.map(() => false);
-  const bar = stage.querySelector<HTMLElement>("[data-stage-progress]");
-
-  let boxes: ToolBox[] = [];
-  let viewport = 1;
-  let shown = -1;
-  /** The tool the scroll puts on the stage (none until first measured). */
-  let byScroll = -1;
-  /** The tool holding keyboard focus, which wins until the scroll moves on. */
-  let focused: number | null = null;
-  let onScreen = false;
-
-  function measure() {
-    viewport = window.innerHeight;
-    boxes = blocks.map((el) => ({
-      top: el.getBoundingClientRect().top + window.scrollY,
-      height: el.offsetHeight,
-    }));
-  }
-
-  function playActive() {
-    videos.forEach((video, i) => {
-      if (!video) return;
-      if (i === shown && onScreen && !paused[i]) video.play().catch(() => {});
-      else video.pause();
-    });
-  }
-
-  function show(index: number, fade: boolean) {
-    if (index === shown) return;
-    frames.forEach((frame, i) => {
-      const vars = { autoAlpha: i === index ? 1 : 0, overwrite: true };
-      if (fade) gsap.to(frame, { ...vars, duration: FADE, ease: "power1.out" });
-      else gsap.set(frame, vars);
-    });
-    shown = index;
-    playActive();
-  }
-
-  function update(scroll: number, fade: boolean) {
-    const { index, progress } = activeTool(scroll, viewport, boxes);
-    // A scroll that moves on to another tool takes the stage back from focus.
-    if (byScroll >= 0 && index !== byScroll) focused = null;
-    byScroll = index;
-    if (bar) gsap.set(bar, { scaleX: progress });
-    show(focused ?? index, fade);
-  }
+  const bar = stage.querySelector<HTMLElement>(stageProgressSelector);
 
   const blockOf = (node: EventTarget | null) =>
     node instanceof Node ? blocks.findIndex((b) => b.contains(node)) : -1;
@@ -84,53 +46,94 @@ export function createPlayerToolsMotion(root: HTMLElement) {
     return i >= 0 && (target as Element).matches(":focus-visible") ? i : null;
   }
 
+  const director = createStageDirector({
+    tools: blocks.length,
+    // Focus already in a tool's copy (restored by Back, say) counts only if
+    // it is keyboard focus.
+    focused: keyboardFocus(document.activeElement),
+  });
+  /** What the stage shows now. */
+  let drawn: StageState = director.state();
+
+  /** Brings the stage up to the director: the tools crossfade, or cut. */
+  function draw(fade: boolean) {
+    const next = director.state();
+    if (next.shown !== drawn.shown) {
+      frames.forEach((frame, i) => {
+        const vars = { autoAlpha: i === next.shown ? 1 : 0, overwrite: true };
+        if (fade) {
+          gsap.to(frame, { ...vars, duration: FADE, ease: "power1.out" });
+        } else gsap.set(frame, vars);
+      });
+    }
+    if (bar && next.progress !== drawn.progress) {
+      gsap.set(bar, { scaleX: next.progress });
+    }
+    next.paused.forEach((paused, i) => {
+      if (paused !== drawn.paused[i])
+        toggles[i]?.toggleAttribute(PAUSED, paused);
+    });
+    if (next.playing !== drawn.playing) {
+      videos.forEach((video, i) => {
+        if (!video) return;
+        if (i === next.playing) video.play().catch(() => {});
+        else video.pause();
+      });
+    }
+    drawn = next;
+  }
+
+  function measure() {
+    director.measure(
+      window.innerHeight,
+      blocks.map((el) => ({
+        top: el.getBoundingClientRect().top + window.scrollY,
+        height: el.offsetHeight,
+      })),
+    );
+  }
+
   function onFocusIn(event: FocusEvent) {
     const i = keyboardFocus(event.target);
     if (i === null) return;
-    // Measured from where focusing has scrolled the page to, so only a later
-    // scroll hands the stage back.
-    byScroll = activeTool(window.scrollY, viewport, boxes).index;
-    focused = i;
-    show(i, true);
+    director.focusIn(i, window.scrollY);
+    draw(true);
   }
 
   function onFocusOut(event: FocusEvent) {
-    // Moving on to another tool is that tool's focusin.
-    if (keyboardFocus(event.relatedTarget) !== null) return;
-    if (focused === null) return;
-    focused = null;
-    show(byScroll, true);
+    director.focusOut(keyboardFocus(event.relatedTarget));
+    draw(true);
   }
 
   function onToggle(event: MouseEvent) {
     const i = toggles.indexOf(
       (event.target as Element).closest<HTMLButtonElement>(
-        "[data-stage-toggle]",
+        stageToggleSelector,
       )!,
     );
     if (i < 0) return;
-    paused[i] = !paused[i];
-    toggles[i]!.toggleAttribute("data-paused", paused[i]);
-    playActive();
+    director.toggle(i);
+    draw(true);
   }
 
   const observer = new IntersectionObserver(([entry]) => {
-    onScreen = entry.isIntersecting;
-    playActive();
+    director.visibility(entry.isIntersecting);
+    draw(true);
   });
 
-  // Focus already in a tool's copy (restored by Back, say) counts only if it
-  // is keyboard focus.
-  focused = keyboardFocus(document.activeElement);
   // Created, it refreshes at once: that measures the copy and puts the right
   // tool up without a fade, as every later refresh (a resize, say) does.
   const trigger = ScrollTrigger.create({
     start: 0,
     end: "max",
-    onUpdate: (self) => update(self.scroll(), true),
+    onUpdate: (self) => {
+      director.scroll(self.scroll());
+      draw(true);
+    },
     onRefresh: (self) => {
       measure();
-      update(self.scroll(), false);
+      director.scroll(self.scroll());
+      draw(false);
     },
   });
   observer.observe(stage);
@@ -147,7 +150,7 @@ export function createPlayerToolsMotion(root: HTMLElement) {
       root.removeEventListener("focusout", onFocusOut);
       for (const toggle of toggles) {
         toggle?.removeEventListener("click", onToggle);
-        toggle?.removeAttribute("data-paused");
+        toggle?.removeAttribute(PAUSED);
       }
       gsap.killTweensOf(frames);
       gsap.set(frames, { clearProps: "opacity,visibility" });
