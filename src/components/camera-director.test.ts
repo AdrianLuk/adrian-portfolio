@@ -10,8 +10,8 @@ import type { Place } from "./world-places";
 import { createFlightPath, type Pose } from "./world/flight";
 import { CAMERA } from "./world/pose";
 import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
-import { createRoute, outpostPose } from "./world/route";
-import { OUTPOST_STOP, transit } from "./world/transit";
+import { courtPose, createRoute, outpostPose } from "./world/route";
+import { COURT_STOP, OUTPOST_STOP, transit } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -45,6 +45,8 @@ function setup() {
     route,
     outpost: outpostPose(aspect),
     outpostStop: OUTPOST_STOP,
+    court: courtPose(aspect),
+    courtStop: COURT_STOP,
     transit,
   };
   const director = createCameraDirector({ homeStop: () => page.stop });
@@ -155,7 +157,12 @@ describe("the Camera director", () => {
     timeline.at(timeline.duration);
     const { pose, lights } = director.frame(16);
     expectSamePose(pose!, route.poseAt(0));
-    expect(lights).toEqual({ beams: 1, sweep: 0, sites: [1, 0.35, 0.35, 0.35] });
+    expect(lights).toEqual({
+      beams: 1,
+      sweep: 0,
+      sites: [1, 0.35, 0.35, 0.35],
+      court: 0,
+    });
   });
 
   it("lights each site as the scroll route says, and darkens them once it stops", () => {
@@ -173,12 +180,26 @@ describe("the Camera director", () => {
     expect(director.frame(32).lights!.sites).toEqual([1, 0.35, 0.35, 0.35]);
   });
 
-  it("holds the Outpost's pose at the Outpost, with no lights of its own", () => {
+  it("holds the Outpost's pose at the Outpost, the sites dark, with no court look", () => {
     const { director } = setup();
     director.show("outpost");
     const { pose, lights } = director.frame(0);
     expectSamePose(pose!, outpostPose(aspect));
-    expect(lights).toBeNull();
+    expect(lights).toEqual({ beams: 0, sweep: 0, sites: [0, 0, 0, 0], court: 0 });
+  });
+
+  it("holds the court's pose at the court, its look full, the sites dark", () => {
+    const { director } = setup();
+    director.show("court");
+    const { pose, lights, lean } = director.frame(0);
+    expectSamePose(pose!, courtPose(aspect));
+    expect(lights).toEqual({
+      beams: 0,
+      sweep: 0,
+      sites: [0, 0, 0, 0],
+      court: 1,
+    });
+    expect(lean).toEqual({ x: 0, y: 0 });
   });
 
   describe("never jumps at a handoff", () => {
@@ -206,6 +227,18 @@ describe("the Camera director", () => {
       const after = film(director, 216 + poses.length * FRAME, 200);
       expectNoJump([...before, ...poses, ...after]);
       expectSamePose(after.at(-1)!, paths.outpost);
+    });
+
+    it("from the scroll route to a Transit down to the court, landing on its pose", () => {
+      const { director, paths } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.scrolled(1.5, [1, 1, 0, 0]);
+      const before = film(director, 0, 200);
+      const { poses } = flyTo(director, "court", 216);
+      const after = film(director, 216 + poses.length * FRAME, 200);
+      expectNoJump([...before, ...poses, ...after]);
+      expectSamePose(after.at(-1)!, paths.court);
     });
 
     it("from the Opening to a Transit, leaving from the camera's live pose", () => {

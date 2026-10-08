@@ -10,7 +10,7 @@ import {
   type FlightRig,
 } from "./world/rigs";
 import type { Route } from "./world/route";
-import type { Departure, Transit } from "./world/transit";
+import type { Departure, Destination, Transit } from "./world/transit";
 
 /**
  * What the world hands the director each time it lays a view out: the paths
@@ -25,7 +25,11 @@ export type CameraPaths = {
   outpost: Pose;
   /** The Outpost's stop on the route. */
   outpostStop: number;
-  transit(route: Route, departure: Departure, to: number): Transit;
+  /** The court's pose, for the screen's shape: off the route, beside its stop. */
+  court: Pose;
+  /** The court's stop on the route (Juice Bros' Lit site). */
+  courtStop: number;
+  transit(route: Route, departure: Departure, to: Destination): Transit;
 };
 
 /** How brightly the world's lights burn in a frame. */
@@ -35,6 +39,12 @@ export type CameraLights = {
   sweep: number;
   /** Each Lit site's light, as a share of a beacon's full intensity. */
   sites: number[];
+  /**
+   * The court's look (its floodlights up, the fog violet, the rally ball),
+   * 0 to 1: full at the court, blended in through a Transit there and out
+   * through one leaving it, and none anywhere else.
+   */
+  court: number;
 };
 
 /**
@@ -139,6 +149,7 @@ export function createCameraDirector({
   /** The place's own camera, without a Transit; null if not yet known. */
   function viewPose(): Pose | null {
     if (shown === "outpost") return paths?.outpost ?? null;
+    if (shown === "court") return paths?.court ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     return landed
@@ -159,16 +170,24 @@ export function createCameraDirector({
   }
 
   /**
-   * Plans the Transit once its route is known: at once down to the Outpost;
-   * home only once its page is in, where its scroll says.
+   * Plans the Transit once its route is known: at once to the court or the
+   * Outpost, whose poses need no page; home only once its page is in (and
+   * its own paths measured), where its scroll says.
    */
   function plan(t: Trip, now: number) {
     const route = paths?.route;
     if (!paths || !route) return;
-    if (t.to === "hero" && shown !== "hero") return;
-    // Where the page is, not where its scroll route has eased to so far.
-    t.stop = t.to === "outpost" ? paths.outpostStop : homeStop();
-    t.transit = paths.transit(route, t.departure, t.stop);
+    if (t.to === "hero" && (shown !== "hero" || !homePaths())) return;
+    let to: Destination;
+    if (t.to === "court") {
+      t.stop = paths.courtStop;
+      to = paths.court;
+    } else {
+      // Where the page is, not where its scroll route has eased to so far.
+      t.stop = t.to === "outpost" ? paths.outpostStop : homeStop();
+      to = t.stop;
+    }
+    t.transit = paths.transit(route, t.departure, to);
     t.start = now;
   }
 
@@ -246,18 +265,33 @@ export function createCameraDirector({
     return pointer && shown === "hero" && landed && !trip ? pointer : UPRIGHT;
   }
 
+  /** How far the court's look is in, 0 to 1. */
+  function courtLook(): number {
+    return shown === "court" ? 1 : 0;
+  }
+
+  /**
+   * Home lights its plate's arrival and its sites as the Opening and the
+   * scroll route say. Elsewhere the plate is out of sight and the sites dark,
+   * and only the court's look changes.
+   */
   function lights(): CameraLights | null {
-    if (shown !== "hero" || !homePaths()) return null;
-    const { beams, sweep, beacon } = opening;
-    return {
-      beams,
-      sweep,
-      sites: LIT_SITES.map((_, i) => {
-        // The first is the scroll cue, lit by the arrival; the rest wait dim.
-        const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
-        return waiting + SITE_LIGHT.lit * lit[i];
-      }),
-    };
+    const court = courtLook();
+    if (shown === "hero" && homePaths()) {
+      const { beams, sweep, beacon } = opening;
+      return {
+        beams,
+        sweep,
+        sites: LIT_SITES.map((_, i) => {
+          // The first is the scroll cue, lit by the arrival; the rest wait dim.
+          const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
+          return waiting + SITE_LIGHT.lit * lit[i];
+        }),
+        court,
+      };
+    }
+    if (!paths || (!shown && !trip)) return null;
+    return { beams: 0, sweep: 0, sites: LIT_SITES.map(() => 0), court };
   }
 
   return {
