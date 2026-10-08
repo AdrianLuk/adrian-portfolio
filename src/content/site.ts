@@ -70,7 +70,14 @@ export type HighlightId = "control-d" | "life-house" | "juice-bros" | "bt-cup";
 export type Highlight = {
   id: HighlightId;
   title: string;
+  /** As the home page shows it, e.g. "Windscribe" for Control D. */
   byline: string;
+  /**
+   * The employer's name, for machine-facing copy (llms.txt), where it stands
+   * in for the byline. Only Control D sets it: Control D is a sister company
+   * of Windscribe, not a product of it. Never derive it by trimming `byline`.
+   */
+  organization?: string;
   /** One paragraph, or (Control D, the whole role) exactly three lines. */
   paragraph: string | readonly [string, string, string];
   /** Two verified numbers; Juice Bros has none (no stable figures, and usage numbers are never claimed). */
@@ -402,6 +409,7 @@ export const highlights = [
     id: "control-d",
     title: "Control D",
     byline: "Windscribe",
+    organization: "Control D",
     paragraph: [
       "I built single sign-on across four identity providers (Okta, Google, Microsoft Entra ID and Tailscale), including the OAuth/OIDC work in our PHP REST API.",
       "I built the org-level scheduled Reports feature end to end, from the backend scheduling through to the interface organizations use to set reports up.",

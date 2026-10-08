@@ -117,6 +117,16 @@ describe("llms.txt", () => {
     expect(text).not.toMatch(/\b(users|visitors|traffic|downloads|adoption|installs)\b/i);
   });
 
+  it("bylines the Control D Highlight with its employer, Control D, not Windscribe", () => {
+    const work = section("Selected work");
+    const controlD = work.slice(
+      work.indexOf("### Control D\n"),
+      work.indexOf("\n### ", work.indexOf("### Control D\n") + 1),
+    );
+    expect(controlD).toContain("\n*Control D*\n");
+    expect(controlD).not.toContain("Windscribe");
+  });
+
   it("quotes every Highlight's title, byline and paragraph verbatim", () => {
     for (const highlight of highlights) {
       expect(text).toContain(`### ${highlight.title}`);

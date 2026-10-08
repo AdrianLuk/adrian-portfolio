@@ -29,7 +29,7 @@ function highlightBlock(highlight: Highlight): string {
       : highlight.paragraph;
   return [
     `### ${highlight.title}`,
-    `*${highlight.byline}*`,
+    `*${highlight.organization ?? highlight.byline}*`,
     ...paragraphs,
     highlight.keyNumbers
       .map(({ value, label }) => `- ${value} ${label}`)
