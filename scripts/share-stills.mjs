@@ -7,29 +7,60 @@
 //   home, the valley as the scroll route sees it past the plate. Landscape up
 //   to 3840 wide (2560 at 1.5x, a 4K screen at 1x) and portrait for phones
 //   and tablets (2048 wide, a portrait iPad at 2x).
+// - public/world/court-*.webp: the Juice Bros Case study's first paint, the
+//   court as the camera holds it there, in the clear, on the live world's
+//   first frame (the rally ball in), at the backdrop's shapes and sizes.
 //
 // Run against the production build, on a machine with a GPU:
 //
 //   npm run build && npm run start -- --port 3300
 //   node scripts/share-stills.mjs http://localhost:3300
 //
-// Re-run it whenever the world or the share cards change.
+// Re-run it whenever the world or the share cards change. Name sets to draw
+// only those: `--share`, `--backdrop`, `--court` (for example
+// `node scripts/share-stills.mjs http://localhost:3300 --court`).
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
-import { backdrop, credits, shareCards } from "../src/content/site.ts";
+import { backdrop, court, credits, shareCards } from "../src/content/site.ts";
+import { openOnFirstFrame, WORLD_ONLY } from "./world-frame.mjs";
 
-const base = process.argv[2] ?? "http://localhost:3000";
+const args = process.argv.slice(2);
+const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
+const SETS = ["share", "backdrop", "court"];
+const named = SETS.filter((set) => args.includes(`--${set}`));
+const unknown = args.filter(
+  (a) => a.startsWith("--") && !SETS.includes(a.slice(2)),
+);
+if (unknown.length) {
+  console.error(`Unknown ${unknown.join(", ")}: the sets are --${SETS.join(", --")}`);
+  process.exit(1);
+}
+const sets = new Set(named.length ? named : SETS);
 const SCENE_TIMEOUT = 60_000;
 
 /** How far down the home page the backdrop's camera has flown, 0 to 1. */
 const BACKDROP_SCROLL = 0.32;
 
-/** Everything but the world's canvas, hidden without moving anything. */
-const WORLD_ONLY = `
-  body * { visibility: hidden !important; }
-  canvas { visibility: visible !important; }
-`;
+/** The Case study whose Place is the court. */
+const COURT_PAGE = "/work/juice-bros";
+
+/** The world's two still shapes: wide, and a tall phone or tablet. */
+function stillShots(stills) {
+  return [
+    { viewport: { width: 2560, height: 1440 }, sizes: stills.landscape },
+    { viewport: { width: 1366, height: 2960 }, sizes: stills.portrait },
+  ];
+}
+
+/** Writes one screenshot at each of a still's widths. */
+async function writeStills(png, sizes) {
+  for (const { src, width } of sizes) {
+    const file = `public${src}`;
+    await sharp(png).resize({ width }).webp({ quality: 80 }).toFile(file);
+    console.log("wrote", file);
+  }
+}
 
 /** Clicks Skip the moment the flight starts, so the camera lands at once. */
 function skipOpening(name) {
@@ -119,11 +150,7 @@ async function shareStills(browser) {
 /** The backdrop: the valley past the plate, wide and tall. */
 async function backdropStills(browser) {
   mkdirSync("public/world", { recursive: true });
-  const shots = [
-    { viewport: { width: 2560, height: 1440 }, sizes: backdrop.landscape },
-    { viewport: { width: 1366, height: 2960 }, sizes: backdrop.portrait },
-  ];
-  for (const { viewport, sizes } of shots) {
+  for (const { viewport, sizes } of stillShots(backdrop)) {
     const page = await openHome(browser, { viewport, motion: true });
     await page.evaluate((at) => {
       const end = document.documentElement.scrollHeight - window.innerHeight;
@@ -133,13 +160,35 @@ async function backdropStills(browser) {
     await page.waitForTimeout(4000);
     await page.addStyleTag({ content: WORLD_ONLY });
     await page.waitForTimeout(300);
-    const png = await page.screenshot();
-    for (const { src, width } of sizes) {
-      const file = `public${src}`;
-      await sharp(png).resize({ width }).webp({ quality: 80 }).toFile(file);
-      console.log("wrote", file);
-    }
+    await writeStills(await page.screenshot(), sizes);
     await page.context().close();
+  }
+}
+
+/**
+ * The court: the Case study's world on its first frame, with motion (so the
+ * rally ball is in, where the live world starts it) and the weather held
+ * clear.
+ */
+async function courtStills(browser) {
+  mkdirSync("public/world", { recursive: true });
+  for (const { viewport, sizes } of stillShots(court)) {
+    const context = await browser.newContext({
+      viewport,
+      deviceScaleFactor: 1.5,
+      reducedMotion: "no-preference",
+    });
+    const page = await context.newPage();
+    const drawn = await openOnFirstFrame(
+      page,
+      `${base}${COURT_PAGE}?weather=clear`,
+      { timeout: SCENE_TIMEOUT },
+    );
+    if (!drawn) throw new Error(`The world never drew at ${COURT_PAGE}`);
+    await page.addStyleTag({ content: WORLD_ONLY });
+    await page.waitForTimeout(300);
+    await writeStills(await page.screenshot(), sizes);
+    await context.close();
   }
 }
 
@@ -148,8 +197,9 @@ const browser = await chromium.launch({
   args: ["--enable-gpu", "--use-angle=default", "--ignore-gpu-blocklist"],
 });
 try {
-  await shareStills(browser);
-  await backdropStills(browser);
+  if (sets.has("share")) await shareStills(browser);
+  if (sets.has("backdrop")) await backdropStills(browser);
+  if (sets.has("court")) await courtStills(browser);
 } finally {
   await browser.close();
 }
