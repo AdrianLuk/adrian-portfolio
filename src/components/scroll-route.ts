@@ -92,7 +92,8 @@ export function createScrollRoute({
     next.forEach((shift, i) => {
       if (shift === shifts[i]) return;
       shifts[i] = shift;
-      panels[i].style.transform = shift ? `translateX(${shift}px)` : "";
+      // `translate`, not `transform`: the pointer's tilt has that.
+      panels[i].style.translate = shift ? `${shift}px` : "";
     });
   }
 
@@ -136,7 +137,7 @@ export function createScrollRoute({
       follow.tween.kill();
       director.scrollStopped();
       for (const el of panels) {
-        el.style.removeProperty("transform");
+        el.style.removeProperty("translate");
         el.removeAttribute("data-lit");
       }
     },

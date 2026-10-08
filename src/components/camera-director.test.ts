@@ -138,9 +138,10 @@ function flyTo(
 describe("the Camera director", () => {
   it("draws nothing until it knows the place and its paths", () => {
     const director = createCameraDirector({ homeStop: () => 0 });
-    expect(director.frame(0)).toEqual({ pose: null, lights: null });
+    const nothing = { pose: null, lights: null, lean: { x: 0, y: 0 } };
+    expect(director.frame(0)).toEqual(nothing);
     director.show("hero");
-    expect(director.frame(16)).toEqual({ pose: null, lights: null });
+    expect(director.frame(16)).toEqual(nothing);
   });
 
   it("flies the Opening and lands it on the settled view, the first Lit site at full light", () => {
@@ -368,6 +369,47 @@ describe("the Camera director", () => {
     director.arrive();
     expect(director.flying()).toBeNull();
     expectSamePose(director.frame(32).pose!, route.poseAt(1.2));
+  });
+
+  describe("the lean toward the pointer", () => {
+    const upright = { x: 0, y: 0 };
+
+    it("leans home's landed camera toward the pointer, and back upright once it leaves", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.pointerAt({ x: 0.5, y: -0.25 });
+      expect(director.frame(0).lean).toEqual({ x: 0.5, y: -0.25 });
+      director.pointerAt(null);
+      expect(director.frame(16).lean).toEqual(upright);
+    });
+
+    it("holds the pointer to the screen's edges", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.pointerAt({ x: 3, y: -2 });
+      expect(director.frame(0).lean).toEqual({ x: 1, y: -1 });
+    });
+
+    it("stays upright through the Opening", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.pointerAt({ x: 1, y: 1 });
+      expect(director.frame(0).lean).toEqual(upright);
+    });
+
+    it("stays upright through a Transit, and at the Outpost", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.pointerAt({ x: 1, y: 1 });
+      director.fly("outpost", 0);
+      expect(director.frame(16).lean).toEqual(upright);
+      director.show("outpost");
+      director.arrive();
+      expect(director.frame(32).lean).toEqual(upright);
+    });
   });
 
   it("has nowhere to fly from before any place has been drawn", () => {
