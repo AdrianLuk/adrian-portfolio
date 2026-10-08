@@ -147,6 +147,22 @@ describe("the scroll route", () => {
   }
 });
 
+describe("the scroll route past the second site", () => {
+  it("is the same for every layout of the same shape, so a nominal layout can stand in for home's", () => {
+    for (const aspect of [1.6, 0.46]) {
+      const a = settledLayout(21, -18, 7);
+      const b = settledLayout(11.75, -3, 9);
+      const one = createRoute(a.settled, a.plateCentre, aspect);
+      const other = createRoute(b.settled, b.plateCentre, aspect);
+      for (let stop = 2; stop <= ROUTE_STOPS - 1; stop += 0.05) {
+        const [p, q] = [one.poseAt(stop), other.poseAt(stop)];
+        expect(p.position.distanceTo(q.position)).toBeLessThan(1e-3);
+        expect(p.quaternion.angleTo(q.quaternion)).toBeLessThan(1e-6);
+      }
+    }
+  });
+});
+
 /** True if `p` is within `margin` of the box (as in structures.test.ts). */
 function near(p: Vector3, b: Box, margin: number) {
   return (
