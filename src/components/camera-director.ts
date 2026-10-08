@@ -92,6 +92,8 @@ type Trip = {
   departure: Departure;
   /** The camera as it left, held there until the Transit is planned. */
   held: Pose;
+  /** How far the court's look was in as it left (see CameraLights). */
+  look: number;
   /** The path, once its route (and its stop on it) is known. */
   transit: Transit | null;
   /** The route stop it lands at. */
@@ -103,6 +105,8 @@ type Trip = {
 
 type Planned = Trip & { transit: Transit };
 
+const smoothstep = (f: number) => f * f * (3 - 2 * f);
+
 const copyOf = ({ position, quaternion }: Pose): Pose => ({
   position: position.clone(),
   quaternion: quaternion.clone(),
@@ -111,8 +115,9 @@ const copyOf = ({ position, quaternion }: Pose): Pose => ({
 /**
  * The Camera director: the one place that decides where the world's camera
  * is, and how the world is lit, frame by frame, as it hands over between the
- * Opening, the scroll route, a Transit and the Outpost. The camera never
- * jumps: at a handoff it holds where it is until the next driver reports.
+ * Opening, the scroll route, a Transit, the court and the Outpost. The
+ * camera never jumps: at a handoff it holds where it is until the next
+ * driver reports.
  *
  * Every driver reports to it, and none of them reads another's state: the
  * Opening's timeline its values and its landing, the scroll route its stop,
@@ -240,6 +245,7 @@ export function createCameraDirector({
       if (t.to === "hero" && Math.abs(homeStop() - t.stop) > CHASE) {
         // Home's scroll moved on meanwhile: fly on to meet it.
         t.held = poseIn(t, now);
+        t.look = courtLook(now);
         t.departure = { pose: t.held };
         plan(t, now);
       } else if (
@@ -258,16 +264,24 @@ export function createCameraDirector({
 
   /**
    * Home's camera leans toward the pointer once the Opening has landed, and
-   * only then: never through the Opening, a Transit or at the Outpost, whose
-   * camera stands still.
+   * only then: never through the Opening, a Transit, at the court or at the
+   * Outpost, whose cameras stand still.
    */
   function lean(): CameraLean {
     return pointer && shown === "hero" && landed && !trip ? pointer : UPRIGHT;
   }
 
-  /** How far the court's look is in, 0 to 1. */
-  function courtLook(): number {
-    return shown === "court" ? 1 : 0;
+  /**
+   * How far the court's look is in at `now`, 0 to 1: through a Transit, from
+   * where it was as the camera left to where the destination wants it, eased
+   * along with the camera; otherwise full at the court and out elsewhere.
+   */
+  function courtLook(now: number): number {
+    if (!trip) return shown === "court" ? 1 : 0;
+    if (!trip.transit) return trip.look;
+    const to = trip.to === "court" ? 1 : 0;
+    const f = smoothstep(progress(trip as Planned, now));
+    return trip.look + (to - trip.look) * f;
   }
 
   /**
@@ -275,8 +289,8 @@ export function createCameraDirector({
    * scroll route say. Elsewhere the plate is out of sight and the sites dark,
    * and only the court's look changes.
    */
-  function lights(): CameraLights | null {
-    const court = courtLook();
+  function lights(now: number): CameraLights | null {
+    const court = courtLook(now);
     if (shown === "hero" && homePaths()) {
       const { beams, sweep, beacon } = opening;
       return {
@@ -371,7 +385,8 @@ export function createCameraDirector({
     fly(to: Place, now: number) {
       const from = departure(now);
       if (!from) return false;
-      trip = { to, ...from, transit: null, stop: 0, start: 0, since: now };
+      const look = courtLook(now);
+      trip = { to, ...from, look, transit: null, stop: 0, start: 0, since: now };
       plan(trip, now);
       return true;
     },
@@ -393,7 +408,7 @@ export function createCameraDirector({
     frame(now: number): CameraFrame {
       const pose = trip ? poseIn(trip, now) : viewPose();
       if (pose) last = pose;
-      return { pose, lights: lights(), lean: lean() };
+      return { pose, lights: lights(now), lean: lean() };
     },
   };
 }
