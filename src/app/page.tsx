@@ -1,3 +1,4 @@
+import { ContactPortrait } from "@/components/contact-portrait";
 import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
 import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
@@ -199,26 +200,35 @@ export default async function Home() {
         <h2 id="contact-heading" className={sectionLabel}>
           {contact.heading}
         </h2>
-        <div className={`mt-6 ${outpostPanel}`}>
+        {/* His photo heads the panel on a phone; wider, it stands beside the
+          lead and the links, short of the district on the right. */}
+        <div
+          className={`mt-6 grid gap-y-4 [grid-template-areas:'photo'_'lead'_'links'] md:grid-cols-[auto_auto] md:grid-rows-[auto_1fr] md:justify-start md:gap-x-16 md:[grid-template-areas:'lead_photo'_'links_photo'] ${outpostPanel}`}
+        >
           <PanelCorners className="border-cyan md:hidden" />
-          <p className="max-w-2xl text-lg text-ink/90">{contact.lead}</p>
-          <p className="mt-4 text-lg">
-            <Link href={contact.resume.href} className={textLink}>
-              {contact.resume.label}
-            </Link>
+          <ContactPortrait className="mb-2 [grid-area:photo] md:mb-0" />
+          <p className="max-w-2xl text-lg text-ink/90 [grid-area:lead] md:max-w-xs">
+            {contact.lead}
           </p>
-          <ul className="mt-6 space-y-3 text-lg">
-            {contact.channels.map((channel) => (
-              <li key={channel.id}>
-                <span className="mr-3 font-display text-sm tracking-widest text-ink/70 uppercase [font-stretch:75%]">
-                  {channel.label}
-                </span>
-                <a href={channel.href} className={textLink}>
-                  {channel.text}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <div className="[grid-area:links]">
+            <p className="text-lg">
+              <Link href={contact.resume.href} className={textLink}>
+                {contact.resume.label}
+              </Link>
+            </p>
+            <ul className="mt-6 space-y-3 text-lg">
+              {contact.channels.map((channel) => (
+                <li key={channel.id}>
+                  <span className="mr-3 font-display text-sm tracking-widest text-ink/70 uppercase [font-stretch:75%]">
+                    {channel.label}
+                  </span>
+                  <a href={channel.href} className={textLink}>
+                    {channel.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
         {/* The site as its own evidence, each fact one the source bears out. */}
         <div className={`mt-12 ${outpostPanel}`}>

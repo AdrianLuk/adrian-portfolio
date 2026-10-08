@@ -250,6 +250,49 @@ test("the outpost has a lead, the resume link, the contact channels and one book
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });
 
+test.describe("Adrian's portrait in the outpost", () => {
+  const { portrait } = contact;
+
+  test("is a WebP, named for him, sized before it loads", async ({ page }) => {
+    await page.goto("/");
+    const photo = page.locator("#contact").getByRole("img", { name: portrait.alt });
+    await expect(photo).toBeVisible();
+    // Its box is reserved from the markup, so loading it shifts nothing.
+    const width = Number(await photo.getAttribute("width"));
+    const height = Number(await photo.getAttribute("height"));
+    expect(width).toBeGreaterThan(0);
+    expect(height / width).toBe(portrait.height / portrait.width);
+    for (const still of portrait.stills) {
+      await expect(photo).toHaveAttribute(
+        "srcset",
+        new RegExp(`${still.src} ${still.width}w`),
+      );
+    }
+    // Loaded lazily, as it comes near.
+    await photo.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+    expect(
+      await photo.evaluate((img: HTMLImageElement) => img.currentSrc),
+    ).toMatch(/\/contact\/[\w-]+\.webp$/);
+  });
+
+  test("leaves the channels in the first view of the section on a phone", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/#contact");
+    const outpost = page.locator("#contact");
+    await expect(outpost.getByRole("img", { name: portrait.alt })).toBeInViewport();
+    for (const channel of contact.channels) {
+      await expect(
+        outpost.getByRole("link", { name: channel.text }),
+      ).toBeInViewport({ ratio: 1 });
+    }
+  });
+});
+
 test("the outpost says how the site is built and links its source, before the bookend", async ({
   page,
 }) => {

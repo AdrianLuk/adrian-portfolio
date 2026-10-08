@@ -623,6 +623,20 @@ export const contact = {
     },
   ],
   /**
+   * Adrian's photo beside the channels: cropped to head and shoulders and
+   * graded into the night by scripts/portrait.mjs, at fixed widths in one
+   * 4:5 shape.
+   */
+  portrait: {
+    alt: "Adrian Luk",
+    width: 4,
+    height: 5,
+    stills: [240, 480, 720].map((width) => ({
+      src: `/contact/adrian-luk-${width}.webp`,
+      width,
+    })),
+  },
+  /**
    * How the site itself is built: each fact one the public repo bears out,
    * so a visitor can check it there.
    */
@@ -647,6 +661,12 @@ export const contact = {
   lead: string;
   resume: { label: string; href: string };
   channels: readonly ContactChannel[];
+  portrait: {
+    alt: string;
+    width: number;
+    height: number;
+    stills: readonly { src: string; width: number }[];
+  };
   built: {
     heading: string;
     lead: string;
