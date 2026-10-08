@@ -814,6 +814,8 @@ test.describe("camera flights between Places", () => {
     await expect(world).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
     });
+    // Faded in over the still (a direct load's), before the camera leaves.
+    await expect(world.locator("canvas")).toHaveCSS("opacity", "1");
     await tagCanvas(world.locator("canvas"));
 
     await resumeLink(page).focus();
