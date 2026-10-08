@@ -26,7 +26,7 @@ export type RallyCourt = {
  * every `shot` seconds, struck at `hit` above the floor and rising `rise`
  * over it at the top of its arc.
  */
-export const RALLY_BALL = { radius: 0.32, shot: 2.4, hit: 1.6, rise: 4.2 };
+export const RALLY_BALL = { radius: 0.6, shot: 2.4, hit: 1.6, rise: 4.2 };
 
 /**
  * Where each shot is struck: how deep (a share of the half court, from the
