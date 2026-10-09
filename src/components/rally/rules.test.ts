@@ -514,6 +514,39 @@ describe("the kitchen wall", () => {
     const { game } = run(dragged, 3);
     expect(game.player.z).toBeGreaterThan(7);
   });
+
+  it("keeps the sideways part of a drag that runs into it: the player slides along the wall", () => {
+    const start = rally();
+    const dragged = step(start, FRAME, { drag: { x: -6, z: -30 } });
+    const { game } = run(dragged, 2);
+    expect(game.phase).toBe("rally");
+    expect(game.player.z).toBeGreaterThan(7);
+    expect(game.player.z).toBeLessThan(8);
+    expect(game.player.x).toBeCloseTo(start.player.x - 6, 1);
+  });
+
+  it("carries a drag along the wall once the player stands at it", () => {
+    const at = run(rally(), 3, { move: { x: 0, z: -1 } }).game;
+    const dragged = step(at, FRAME, { drag: { x: 4, z: -4 } });
+    // Before the point can end: 12 ft/s for this long covers about 1.8 ft.
+    const { game } = run(dragged, 0.15);
+    expect(game.phase).toBe("rally");
+    expect(game.player.z).toBe(at.player.z);
+    expect(game.player.x - at.player.x).toBeGreaterThan(1.5);
+    expect(game.dragLeft.x).toBeGreaterThan(0);
+  });
+});
+
+describe("the edge of the player's room", () => {
+  const rally = () => run(startGame(createGame()), 0.2, { serve: true }).game;
+
+  it("keeps the part of a drag along it: a drag off the side still carries the player back", () => {
+    const start = rally();
+    const dragged = step(start, FRAME, { drag: { x: -40, z: 4 } });
+    const { game } = run(dragged, 3);
+    expect(game.player.x).toBeCloseTo(-15, 5);
+    expect(game.player.z).toBeCloseTo(start.player.z + 4, 1);
+  });
 });
 
 describe("the score call", () => {

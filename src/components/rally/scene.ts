@@ -16,7 +16,8 @@ import { createGlowPoints } from "../world/glow-points";
 import { createBalls } from "../world/landmarks";
 import { palette } from "../world/palette";
 import type { CourtStage } from "../world/scene";
-import { REACH, type Game, type Side } from "./rules";
+import { dragOnCourt } from "./drag";
+import { REACH, type Game, type Side, type Vec } from "./rules";
 
 /**
  * The Rally game drawn into the world, on the Juice Bros court itself, in
@@ -32,6 +33,12 @@ export type RallyView = {
   draw(game: Game): void;
   /** The ball's trail and the hits' flashes: off in slow mode. */
   setEffects(on: boolean): void;
+  /**
+   * How far a touch drag moves the player, in feet, from where they're
+   * heading (`from`): as far as moves their image with the finger (`by`, in
+   * normalised device coordinates; see ./drag). Null past the horizon.
+   */
+  drag(from: Vec, by: { x: number; y: number }): Vec | null;
   /** Takes the game off the court, and frees its GPU memory. */
   dispose(): void;
 };
@@ -69,7 +76,8 @@ function createFigure(color: Color) {
  * game's.
  */
 export async function createRallyView(stage: CourtStage): Promise<RallyView> {
-  const { shared, scale } = stage;
+  const { shared } = stage;
+  const { scale } = stage.court;
   // In Juice Bros' light, as its Landmark burns it.
   const light = palette[litSite("juice-bros").light];
   const group = new Group();
@@ -202,6 +210,7 @@ export async function createRallyView(stage: CourtStage): Promise<RallyView> {
       effects = on;
       if (last) draw(last);
     },
+    drag: (from, by) => dragOnCourt(stage.camera, stage.court, from, by),
     dispose,
   };
 }

@@ -13,7 +13,12 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
-import { courtLook, RALLY_BALL, rallyBall } from "./court-look";
+import {
+  courtLook,
+  RALLY_BALL,
+  rallyBall,
+  type RallyCourt,
+} from "./court-look";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
@@ -129,8 +134,10 @@ export type CourtGuest = {
 export type CourtStage = {
   /** The world's own clock and pixel ratio, which every glow reads. */
   shared: SharedUniforms;
-  /** World units to the foot. */
-  scale: number;
+  /** Where the court stands, and its scale: world units to the foot. */
+  court: RallyCourt;
+  /** The world's camera, for mapping a drag on screen onto the court. */
+  camera: PerspectiveCamera;
   /**
    * Puts `guest` on the court once its shaders have compiled (off the main
    * thread where the browser allows): the court's own rally ball steps off
@@ -887,7 +894,8 @@ export async function createWorld(
 
   const court: CourtStage = {
     shared,
-    scale: structures.court.scale,
+    court: structures.court,
+    camera,
     async host(next) {
       await renderer.compileAsync(next.group, camera, scene);
       guest = next;

@@ -636,8 +636,9 @@ function clampTo(side: Side, at: Vec): Vec {
 /**
  * The player's movement for one tick, at top speed: along the keys, and
  * through as much of the drag still to cover as that speed allows. The
- * player slides along the wall at their kitchen line; a drag that runs into
- * the edge of the player's room, or that wall, is dropped.
+ * player slides along the wall at their kitchen line, and along the edge of
+ * their room: the part of a drag that runs into either is dropped, and the
+ * rest carries on.
  */
 function movePlayer(game: Game, input: Input, dt: number): Game {
   const move = input.move ?? { x: 0, z: 0 };
@@ -652,13 +653,13 @@ function movePlayer(game: Game, input: Input, dt: number): Game {
   };
   const room = clampTo("player", wanted);
   const player = { x: room.x, z: Math.max(room.z, PLAYER_WALL) };
-  const blocked = player.x !== wanted.x || player.z !== wanted.z;
   return {
     ...game,
     player,
-    dragLeft: blocked
-      ? { x: 0, z: 0 }
-      : { x: dragLeft.x * (1 - share), z: dragLeft.z * (1 - share) },
+    dragLeft: {
+      x: player.x === wanted.x ? dragLeft.x * (1 - share) : 0,
+      z: player.z === wanted.z ? dragLeft.z * (1 - share) : 0,
+    },
   };
 }
 

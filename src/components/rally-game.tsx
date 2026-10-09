@@ -35,7 +35,10 @@ type Copy = (typeof rally)["game"];
 /** The longest step a frame may take, so a stall (a hidden tab, a slow frame) doesn't jump the ball. */
 const MAX_STEP = 0.05;
 
-/** Feet the player moves per CSS pixel of drag, per pixel of the court's width. */
+/**
+ * Feet the player moves per CSS pixel of drag, per pixel of the court's
+ * width, where the drag can't follow the court (past its horizon).
+ */
 const DRAG_FEET = 34;
 
 /** A pointer that moves less than this (CSS px) and lifts is a tap: it serves. */
@@ -342,6 +345,8 @@ export function RallyGame({
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    // The first finger keeps the court: a second never takes its drag over.
+    if (pointer.current) return;
     pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: 0 };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -354,11 +359,23 @@ export function RallyGame({
     p.x = event.clientX;
     p.y = event.clientY;
     p.moved += Math.hypot(dx, dy);
-    if (gameRef.current.paused) return;
-    const feet = DRAG_FEET / Math.max(1, event.currentTarget.clientWidth);
+    const game = gameRef.current;
+    if (game.paused) return;
+    // The player's image keeps pace with the finger, near the net as at the
+    // baseline: from where they're heading, through the world's camera.
+    const { clientWidth, clientHeight } = event.currentTarget;
+    const from = {
+      x: game.player.x + game.dragLeft.x + drag.current.x,
+      z: game.player.z + game.dragLeft.z + drag.current.z,
+    };
+    const feet = DRAG_FEET / Math.max(1, clientWidth);
+    const moved = viewRef.current?.drag(from, {
+      x: (2 * dx) / Math.max(1, clientWidth),
+      y: (-2 * dy) / Math.max(1, clientHeight),
+    }) ?? { x: dx * feet, z: dy * feet };
     drag.current = {
-      x: drag.current.x + dx * feet,
-      z: drag.current.z + dy * feet,
+      x: drag.current.x + moved.x,
+      z: drag.current.z + moved.z,
     };
   }
 
@@ -434,6 +451,9 @@ export function RallyGame({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={() => (pointer.current = null)}
+        onLostPointerCapture={(event) => {
+          if (pointer.current?.id === event.pointerId) pointer.current = null;
+        }}
       />
       {filled && (
         <p
