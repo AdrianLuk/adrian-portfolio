@@ -81,7 +81,7 @@ test.describe("before any script runs", () => {
     }
   });
 
-  test("the opening credits, the outpost and its resume link are in the markup", async ({
+  test("the opening credits, the Contact section and its resume link are in the markup", async ({
     page,
   }) => {
     await page.goto("/");
@@ -231,26 +231,26 @@ test("the opening has five credit lines, the last being the Skip control", async
   ).toHaveText(credits.skip);
 });
 
-test("the outpost has a lead, the resume link, the contact channels and one bookend", async ({
+test("the Contact section has a lead, the resume link, the contact channels and one bookend", async ({
   page,
 }) => {
   await page.goto("/");
-  const outpost = page.locator("#contact");
-  await expect(outpost.getByText(contact.lead)).toBeVisible();
+  const section = page.locator("#contact");
+  await expect(section.getByText(contact.lead)).toBeVisible();
   await expect(
-    outpost.getByRole("link", { name: contact.resume.label }),
+    section.getByRole("link", { name: contact.resume.label }),
   ).toHaveAttribute("href", contact.resume.href);
   for (const channel of contact.channels) {
     await expect(
-      outpost.getByRole("link", { name: channel.text }),
+      section.getByRole("link", { name: channel.text }),
     ).toHaveAttribute("href", channel.href);
   }
   await expect(page.getByText(contact.bookend)).toHaveCount(1);
-  await expect(outpost.getByText(contact.bookend)).toBeVisible();
+  await expect(section.getByText(contact.bookend)).toBeVisible();
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });
 
-test.describe("Adrian's portrait in the outpost", () => {
+test.describe("Adrian's portrait in the Contact section", () => {
   const { portrait } = contact;
 
   test("is a WebP, named for him, sized before it loads", async ({ page }) => {
@@ -282,37 +282,99 @@ test.describe("Adrian's portrait in the outpost", () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/#contact");
-    const outpost = page.locator("#contact");
-    await expect(outpost.getByRole("img", { name: portrait.alt })).toBeInViewport();
+    const section = page.locator("#contact");
+    await expect(section.getByRole("img", { name: portrait.alt })).toBeInViewport();
     for (const channel of contact.channels) {
       await expect(
-        outpost.getByRole("link", { name: channel.text }),
+        section.getByRole("link", { name: channel.text }),
       ).toBeInViewport({ ratio: 1 });
     }
   });
 });
 
-test("the outpost says how the site is built and links its source, before the bookend", async ({
+test("the Contact section says how the site is built and links its source, before the bookend", async ({
   page,
 }) => {
   await page.goto("/");
-  const outpost = page.locator("#contact");
-  const heading = outpost.getByRole("heading", {
+  const section = page.locator("#contact");
+  const heading = section.getByRole("heading", {
     level: 3,
     name: contact.built.heading,
   });
   await expect(heading).toBeVisible();
   for (const fact of contact.built.facts) {
-    await expect(outpost.getByRole("listitem").filter({ hasText: fact })).toBeVisible();
+    await expect(section.getByRole("listitem").filter({ hasText: fact })).toBeVisible();
   }
-  const source = outpost.getByRole("link", { name: contact.built.source.label });
+  const source = section.getByRole("link", { name: contact.built.source.label });
   await expect(source).toHaveAttribute("href", contact.built.source.href);
   // The bookend stays the last word.
   const [sourceBox, bookendBox] = await Promise.all([
     source.boundingBox(),
-    outpost.getByText(contact.bookend).boundingBox(),
+    section.getByText(contact.bookend).boundingBox(),
   ]);
   expect(sourceBox!.y).toBeLessThan(bookendBox!.y);
+});
+
+test.describe("the closing view", () => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    test.describe(`at ${viewport.width} by ${viewport.height}`, () => {
+      test.use({ viewport });
+
+      test("ends the Contact section with the dedication, then the bookend, the last word", async ({
+        page,
+      }) => {
+        await page.goto("/");
+        const section = page.locator("#contact");
+        await expect(
+          section.getByText(contact.dedication, { exact: true }),
+        ).toHaveCount(1);
+        // In the page's order: the source link, the dedication, the bookend.
+        const order = await section.evaluate(
+          (root, texts) => {
+            const all = [...root.querySelectorAll("*")];
+            const at = (text: string) =>
+              all.findIndex((el) => el.textContent?.trim() === text);
+            return texts.map(at);
+          },
+          [contact.built.source.label, contact.dedication, contact.bookend],
+        );
+        expect(order.every((i) => i >= 0)).toBe(true);
+        expect(order[0]).toBeLessThan(order[1]);
+        expect(order[1]).toBeLessThan(order[2]);
+        // Nothing in the section follows the bookend.
+        const last = await section.evaluate((root) => {
+          let el: Element = root;
+          while (el.lastElementChild) el = el.lastElementChild;
+          return el.textContent?.trim();
+        });
+        expect(last).toBe(contact.bookend);
+      });
+
+      test("is the page's last screen, clear of copy but the dedication and the bookend over its lower half", async ({
+        page,
+      }) => {
+        await page.goto("/");
+        await page.evaluate(() =>
+          window.scrollTo(0, document.documentElement.scrollHeight),
+        );
+        const section = page.locator("#contact");
+        const dedication = section.getByText(contact.dedication, { exact: true });
+        const bookend = section.getByText(contact.bookend, { exact: true });
+        for (const line of [dedication, bookend]) {
+          await expect(line).toBeInViewport({ ratio: 1 });
+          const box = (await line.boundingBox())!;
+          expect(box.y).toBeGreaterThan(viewport.height / 2);
+        }
+        // The panels above it are scrolled away.
+        await expect(
+          section.getByRole("link", { name: contact.built.source.label }),
+        ).not.toBeInViewport();
+      });
+    });
+  }
 });
 
 test("every page's footer links the site's source", async ({ page }) => {

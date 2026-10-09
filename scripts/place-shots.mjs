@@ -6,6 +6,9 @@
 // - <prefix>-desktop-world.webp and <prefix>-phone-world.webp: the world
 //   alone, as the camera holds it at the page's Place (at the Case study,
 //   the landed court frame). Only for a page with a world.
+// - For home, <prefix>-desktop-end.webp and <prefix>-phone-end.webp, and
+//   their -world versions: the page scrolled to the bottom, where the scroll
+//   route ends on its closing view of Hong Kong.
 //
 // With motion allowed, and the world held on its first frame so two runs
 // match (see ./world-frame.mjs); the weather is held clear. Run it against a
@@ -24,7 +27,8 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
-import { openOnFirstFrame, WORLD_ONLY } from "./world-frame.mjs";
+import { credits } from "../src/content/site.ts";
+import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const gpu = args.includes("--gpu");
@@ -78,6 +82,40 @@ async function shoot(browser, { name, viewport, scale }) {
   await context.close();
 }
 
+/**
+ * Home scrolled to the bottom, the scroll route's end: the opening skipped,
+ * the world live (not held), given time for the camera to ease on.
+ */
+async function shootEnd(browser, { name, viewport, scale }) {
+  const context = await browser.newContext({
+    viewport,
+    deviceScaleFactor: scale,
+    reducedMotion: "no-preference",
+  });
+  const page = await context.newPage();
+  await page.addInitScript(skipOpening, credits.skip);
+  await page.goto(clearUrl());
+  await page.evaluate(() => document.fonts.ready);
+  await page.reload();
+  await page.locator('[data-state="settled"]').waitFor({ timeout: SCENE_TIMEOUT });
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  );
+  // The camera eases on after the scroll stops.
+  await page.waitForTimeout(5000);
+  const file = `${prefix}-${name}-end.webp`;
+  await sharp(await page.screenshot()).webp({ quality: 80 }).toFile(file);
+  console.log("wrote", file);
+  await page.addStyleTag({ content: WORLD_ONLY });
+  await page.waitForTimeout(300);
+  const world = `${prefix}-${name}-end-world.webp`;
+  await sharp(await page.screenshot()).webp({ quality: 80 }).toFile(world);
+  console.log("wrote", world);
+  await context.close();
+}
+
+const home = new URL(clearUrl()).pathname === "/";
+
 mkdirSync(dirname(prefix), { recursive: true });
 const browser = await chromium.launch({
   args: gpu
@@ -86,7 +124,10 @@ const browser = await chromium.launch({
       ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
 });
 try {
-  for (const shape of SHAPES) await shoot(browser, shape);
+  for (const shape of SHAPES) {
+    await shoot(browser, shape);
+    if (home) await shootEnd(browser, shape);
+  }
 } finally {
   await browser.close();
 }

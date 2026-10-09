@@ -21,8 +21,8 @@ const FLIGHT_ZONE = 120;
 export const WORLD_BACK = 700;
 
 /**
- * The world's far edge, down the valley: far enough past the Outpost that the
- * route's last view fades into fog before it ends.
+ * The world's far edge, down the valley: far enough past Hong Kong and Victoria
+ * Peak that the route's last view fades into fog before it ends.
  */
 export const WORLD_FRONT = -1700;
 
@@ -46,16 +46,30 @@ export function corridorHalfWidth(z: number) {
 }
 
 /**
- * The harbour: water on the valley's floor in front of downtown, as Lake
- * Ontario's is in front of Toronto's, where the valley opens out on its left
- * side into a bay, so the Skyline's camera can stand back on the far shore
- * and look across the water at the city. It runs down the valley from `near`
- * to `far`, from downtown's shore (`shore` right of the centre line) across
- * to a beach `beach` short of the bay's wall, which stands `bay` further out
- * than the floor's usual edge at its widest. Its surface lies at `level`,
- * below the lowest the floor dips anywhere else, over a basin at `basin`.
+ * A harbour: water on the valley's floor, running down the valley from
+ * `near` to `far`, from a shore `shore` right of the centre line across to a
+ * beach `beach` short of the floor's left edge. With a `bay` the valley opens
+ * out on its left side, that much further than the floor's usual edge at its
+ * widest. Its surface lies at `level`, below the lowest the floor dips
+ * anywhere else, over a basin at `basin`.
  */
-export const HARBOUR = {
+export type Harbour = {
+  readonly near: number;
+  readonly far: number;
+  readonly shore: number;
+  readonly beach: number;
+  readonly bay: number;
+  readonly level: number;
+  readonly basin: number;
+};
+
+/**
+ * The Harbour: Toronto's water, in front of downtown, as Lake Ontario's is
+ * in front of the city, where the valley opens out on its left side into a
+ * bay, so the Skyline's camera can stand back on the far shore and look
+ * across the water at the city.
+ */
+export const HARBOUR: Harbour = {
   near: -440,
   far: -575,
   shore: 26,
@@ -63,65 +77,131 @@ export const HARBOUR = {
   bay: 150,
   level: -1.5,
   basin: -4,
-} as const;
+};
 
-/** How far along the harbour depth z lies, 0 at its mouth to 1 at its end. */
-const alongHarbour = (z: number) =>
-  (z - HARBOUR.near) / (HARBOUR.far - HARBOUR.near);
+/**
+ * Victoria Harbour: Hong Kong's water, from just past the route's last stop
+ * (Tsim Sha Tsui's shore) across the valley's whole floor to the Island's
+ * front row, opening out on the left into a small bay, so on a wide screen
+ * the closing view's copy, on the left, stands over water too.
+ */
+export const VICTORIA_HARBOUR: Harbour = {
+  near: -1058,
+  far: -1182,
+  shore: 32,
+  beach: 4,
+  bay: 70,
+  level: -1.5,
+  basin: -4,
+};
+
+/** The world's two harbours, down the valley. */
+export const HARBOURS: readonly Harbour[] = [HARBOUR, VICTORIA_HARBOUR];
+
+/** How far along `harbour` depth z lies, 0 at its mouth to 1 at its end. */
+const alongHarbour = (z: number, harbour: Harbour) =>
+  (z - harbour.near) / (harbour.far - harbour.near);
+
+/** The harbour whose stretch of the valley takes in depth z, if any. */
+const harbourAt = (z: number) =>
+  HARBOURS.find((h) => z <= h.near && z >= h.far);
 
 /**
  * How much further the floor reaches on the valley's left side at depth z
- * than `corridorHalfWidth` says: the bay, widest midway down the harbour and
- * closing to nothing at either end.
+ * than `corridorHalfWidth` says, for `harbour`'s bay: widest midway down the
+ * harbour and closing to nothing at either end.
  */
-export function bayWidth(z: number) {
-  const t = alongHarbour(z);
-  return t <= 0 || t >= 1 ? 0 : HARBOUR.bay * Math.sin(Math.PI * t) ** 0.6;
+export function bayWidth(z: number, harbour: Harbour) {
+  const t = alongHarbour(z, harbour);
+  return t <= 0 || t >= 1 ? 0 : harbour.bay * Math.sin(Math.PI * t) ** 0.6;
 }
 
 /**
- * How much of the harbour's water stands at (x, z), 0 to 1: full over the
+ * How much of `harbour`'s water stands at (x, z), 0 to 1: full over the
  * basin, easing out over the last few units to each shore and at either end.
  */
-export function harbourWater(x: number, z: number) {
-  const t = alongHarbour(z);
+export function harbourWater(x: number, z: number, harbour: Harbour) {
+  const t = alongHarbour(z, harbour);
   if (t <= 0 || t >= 1) return 0;
   const off = x - valleyCentre(z);
-  const left = -(corridorHalfWidth(z) + bayWidth(z) - HARBOUR.beach);
+  const left = -(corridorHalfWidth(z) + bayWidth(z, harbour) - harbour.beach);
   return (
     smoothstep(left, left + 8, off) *
-    (1 - smoothstep(HARBOUR.shore - 8, HARBOUR.shore, off)) *
+    (1 - smoothstep(harbour.shore - 8, harbour.shore, off)) *
     smoothstep(0, 0.08, t) *
     (1 - smoothstep(0.92, 1, t))
   );
 }
 
+/** How much of either harbour's water stands at (x, z), 0 to 1. */
+export function waterAt(x: number, z: number) {
+  const harbour = harbourAt(z);
+  return harbour ? harbourWater(x, z, harbour) : 0;
+}
+
 /**
- * The ground's height at (x, z), or the harbour's surface where its water
+ * The ground's height at (x, z), or a harbour's surface where its water
  * stands: what a camera above it stands over.
  */
 export function surfaceHeight(x: number, z: number) {
-  return harbourWater(x, z) > 0
-    ? Math.max(valleyHeight(x, z), HARBOUR.level)
+  const harbour = harbourAt(z);
+  return harbour && harbourWater(x, z, harbour) > 0
+    ? Math.max(valleyHeight(x, z), harbour.level)
     : valleyHeight(x, z);
 }
 
 /**
- * True if (x, z) lies on the valley's floor (the bay included), clear of its
+ * True if (x, z) lies on the valley's floor (a bay included), clear of its
  * walls: where the camera may fly.
  */
 export function onFloor(x: number, z: number) {
   const off = x - valleyCentre(z);
   const w = corridorHalfWidth(z);
-  return off >= 0 ? off < w : -off < w + bayWidth(z);
+  const harbour = harbourAt(z);
+  return off >= 0 ? off < w : -off < w + (harbour ? bayWidth(z, harbour) : 0);
+}
+
+/**
+ * Victoria Peak: a ridge across the valley's far end, behind Hong Kong, from
+ * its foot (`foot`, down the valley) up to its crest (`crest`), `height`
+ * above the floor and higher to the right, where the Peak itself stands.
+ */
+const PEAK = { foot: -1310, crest: -1405, height: 52, rightRise: 16 };
+
+/** How far Victoria Peak lifts the ground at (x, z), given its offset `off`. */
+function peakRise(x: number, z: number, off: number) {
+  const rise = smoothstep(-PEAK.foot, -PEAK.crest, -z);
+  if (rise === 0) return 0;
+  const line =
+    PEAK.height +
+    PEAK.rightRise * smoothstep(-40, 60, off) +
+    10 * (ridgedNoise(x * 0.035 + 2.3, 4.1) - 0.5);
+  return rise * line;
 }
 
 /** Terrain height at (x, z). The floor sits near 0; ridges climb to ~60. */
 export function valleyHeight(x: number, z: number) {
+  return terrainHeight(x, z, true);
+}
+
+/**
+ * Terrain height at (x, z) as the valley stands short of Hong Kong: without
+ * Victoria Harbour or Victoria Peak, both lost in fog past the hero's sight.
+ * The ridge the city is kept under is measured on it (./structures), so
+ * Hong Kong's end of the valley moves nothing in the city.
+ */
+export function heightShortOfHongKong(x: number, z: number) {
+  return terrainHeight(x, z, false);
+}
+
+function terrainHeight(x: number, z: number, hongKong: boolean) {
   const off = x - valleyCentre(z);
   const dx = Math.abs(off);
-  // On the left, the bay opens the floor out.
-  const w = corridorHalfWidth(z) + (off < 0 ? bayWidth(z) : 0);
+  const at = harbourAt(z);
+  const harbour = hongKong || at !== VICTORIA_HARBOUR ? at : undefined;
+  // On the left, a bay opens the floor out.
+  const w =
+    corridorHalfWidth(z) + (off < 0 && harbour ? bayWidth(z, harbour) : 0);
 
   // Broad swells on the floor, so the moon picks out facets, flattened along
   // the line where the plate stands so its baseline meets the ground.
@@ -133,9 +213,11 @@ export function valleyHeight(x: number, z: number) {
   const ridges = 28 + 34 * ridgedNoise(x * 0.011 + 7.1, z * 0.011 - 3.4);
   // Far ranges keep climbing past the valley's walls.
   const ranges = 0.18 * Math.max(0, dx - w - 70);
-  const ground = floor + wallRise * wallRise * ridges + ranges;
+  const walls = wallRise * wallRise * ridges + ranges;
+  const ground =
+    floor + (hongKong ? Math.max(walls, peakRise(x, z, off)) : walls);
 
-  // The harbour's basin, under its water.
-  const water = harbourWater(x, z);
-  return water > 0 ? ground + (HARBOUR.basin - ground) * water : ground;
+  // A harbour's basin, under its water.
+  const water = harbour ? harbourWater(x, z, harbour) : 0;
+  return water > 0 ? ground + (harbour!.basin - ground) * water : ground;
 }

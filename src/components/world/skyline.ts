@@ -87,6 +87,19 @@ export type Ring = {
 };
 
 /**
+ * A line of light drawn on a face, as the Bank of China's X-braced lattice
+ * is: a thin strip `width` across from `from` to `to`, lying on the face
+ * whose outward normal (in plan) is `facing`.
+ */
+export type Stroke = {
+  from: readonly [number, number, number];
+  to: readonly [number, number, number];
+  width: number;
+  facing: readonly [number, number];
+  color: Color;
+};
+
+/**
  * A steep hipped roof in copper (verdigris, so cyan), as on a château: a
  * four-sided frustum turned square on over a square `size` across, from `y`
  * to `top`, overhanging a little.
@@ -766,16 +779,57 @@ function ringGeometry(r: Ring): BufferGeometry {
 }
 
 /**
+ * A stroke as a strip standing just proud of its face, seen from either
+ * side (its two faces wound both ways), in its light.
+ */
+function strokeGeometry(s: Stroke): BufferGeometry {
+  const [ax, ay, az] = s.from;
+  const [bx, by, bz] = s.to;
+  const [nx, nz] = s.facing;
+  // Across the stroke, in the face's plane: along × normal.
+  let [cx, cy, cz] = [(by - ay) * nz, (bz - az) * nx - (bx - ax) * nz, -(by - ay) * nx];
+  const k = s.width / 2 / Math.hypot(cx, cy, cz);
+  [cx, cy, cz] = [cx * k, cy * k, cz * k];
+  const lift = 0.06;
+  const corner = (x: number, y: number, z: number, side: number) => [
+    x + cx * side + nx * lift,
+    y + cy * side,
+    z + cz * side + nz * lift,
+  ];
+  const [a0, a1, b0, b1] = [
+    corner(ax, ay, az, -1),
+    corner(ax, ay, az, 1),
+    corner(bx, by, bz, -1),
+    corner(bx, by, bz, 1),
+  ];
+  const positions = [a0, a1, b1, a0, b1, b0, a0, b1, a1, a0, b0, b1].flat();
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  g.setAttribute(
+    "color",
+    new Float32BufferAttribute(
+      Array.from({ length: 12 }, () => s.color.toArray()).flat(),
+      3,
+    ),
+  );
+  return g;
+}
+
+/**
  * The landmarks' round solids, shaded like the city (moonlit facets, lit
- * windows, fog) in one draw, and their rings of light in another. `haze` is
- * how much of the world's fog they take; rings seen from inside, as a
- * stadium's are, need `insideRings`.
+ * windows, fog) in one draw, and their rings and strokes of light in
+ * another. `haze` is how much of the world's fog they take; rings seen from
+ * inside, as a stadium's are, need `insideRings`.
  */
 export function createSkylineMeshes(
   solids: readonly Solid[],
   rings: readonly Ring[],
   windowLight: string,
-  { haze = HAZE, insideRings = false } = {},
+  {
+    haze = HAZE,
+    insideRings = false,
+    strokes = [] as readonly Stroke[],
+  } = {},
 ) {
   const material = new ShaderMaterial({
     uniforms: {
@@ -831,7 +885,10 @@ export function createSkylineMeshes(
   });
   const body = new Mesh(mergeGeometries(solids.map(solidGeometry)), material);
   const light = new Mesh(
-    mergeGeometries(rings.map(ringGeometry)),
+    mergeGeometries([
+      ...rings.map(ringGeometry),
+      ...strokes.map(strokeGeometry),
+    ]),
     // Unfogged: the rings carry the skyline's shape through the haze.
     new MeshBasicMaterial({
       vertexColors: true,

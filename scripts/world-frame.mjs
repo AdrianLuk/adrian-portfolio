@@ -7,6 +7,24 @@ export const WORLD_ONLY = `
 `;
 
 /**
+ * In the page: clicks Skip (the control named `name`) the moment home's
+ * flight starts, so the camera lands at once.
+ */
+export function skipOpening(name) {
+  new MutationObserver(() => {
+    const hero = document.querySelector("[data-state]");
+    if (hero?.getAttribute("data-state") !== "flight") return;
+    Array.from(document.querySelectorAll("button"))
+      .find((b) => b.textContent === name)
+      ?.click();
+  }).observe(document, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["data-state"],
+  });
+}
+
+/**
  * In the page: the moment the world has drawn its first frame, tells it the
  * tab is hidden, so it stops (as it does in a background tab) and the canvas
  * keeps that frame.

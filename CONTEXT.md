@@ -24,16 +24,20 @@ _Avoid_: Stop, beacon, mast
 The light structure at a Lit site that shows its Project: Control D's shielded gate, Life House's hotel tower, Juice Bros' pickleball court, BT Cup's stadium bowl. Built from light, recognisable by its silhouette, and carrying its site's light.
 _Avoid_: Model, building, monument
 
-**Outpost**:
-The financial district at the far end of the home page's world, where the scroll route ends: the view behind home's Contact section. It is no page's Place.
-_Avoid_: Downtown, end stop, last stop
+**Hong Kong**:
+The city at the far end of the home page's world, where the scroll route ends: home's closing view, behind the dedication and the bookend, seen across Victoria Harbour. It is no page's Place.
+_Avoid_: Outpost, HK, skyline (the Skyline is Toronto's Place)
+
+**Victoria Harbour**:
+Hong Kong's water, on the valley floor between the scroll route's last stop and the city's front row: its landmarks' neon red tips streak across it.
+_Avoid_: Harbour (that's Toronto's), bay
 
 **Skyline**:
 The Place where the Resume page stands: a still camera low on the Harbour's far shore, looking across the water at Toronto's skyline as from the Islands (the Rogers Centre, the CN Tower, the financial core running on to the right), lit magenta: the CN Tower's wash and the fog turn the palette's magenta there.
 _Avoid_: Downtown, waterfront
 
 **Harbour**:
-The water on the valley floor in front of downtown, as Lake Ontario's is in front of Toronto: the valley opens out on its left into a bay, and the skyline's lights streak across it. Home's scroll route flies along it; the Skyline stands on its far shore.
+Toronto's water: the water on the valley floor in front of downtown, as Lake Ontario's is in front of Toronto: the valley opens out on its left into a bay, and the skyline's lights streak across it. Home's scroll route flies along it; the Skyline stands on its far shore.
 _Avoid_: Lake, bay (the bay is the part of the valley it fills), waterfront
 
 **Opening**:

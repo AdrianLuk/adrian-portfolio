@@ -678,6 +678,13 @@ export const contact = {
       href: "https://github.com/AdrianLuk/adrian-portfolio",
     },
   },
+  /**
+   * Why the scroll route ends where it does: its own line after "How this
+   * site is built" (not one of its facts), over the closing view, just
+   * before the bookend. Plain, in his voice, no joke.
+   */
+  dedication:
+    "The city at the end of the road is Hong Kong, where my parents are from.",
   bookend: "The end. (Hire me.)",
 } as const satisfies {
   heading: string;
@@ -691,6 +698,7 @@ export const contact = {
     facts: readonly string[];
     source: { label: string; href: string };
   };
+  dedication: string;
   bookend: string;
 };
 
