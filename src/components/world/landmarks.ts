@@ -16,12 +16,13 @@ import type { HighlightId } from "@/content/site";
 import { courtFootprint, layoutCourt } from "./court";
 import type { RallyCourt } from "./court-look";
 import { COURT } from "./court-size";
+import { DIAMOND, layoutDiamond } from "./diamond";
 import type { Glow } from "./glow-points";
 import { fogChunk, fogUniforms, palette } from "./palette";
 import { SITES, type Site } from "./route";
 import type { SharedUniforms } from "./shared";
 import { hippedRoof, type Box, type Ring, type Solid } from "./skyline";
-import { groundUnder, valleyHeight } from "./terrain";
+import { groundUnder, valleyCentre, valleyHeight } from "./terrain";
 import type { Portal, Shield } from "./shield";
 import type { Veil } from "./veil";
 
@@ -62,6 +63,13 @@ const NEON: Record<string, [number, number, number, number][]> = (() => {
   };
 })();
 
+/**
+ * Where the Diamond's field stands: midway between Juice Bros' court and BT
+ * Cup's bowl, set back left of the valley's centre line, in the bowl's plaza
+ * (no tower stands there), so the route glimpses it but never frames it.
+ */
+const DIAMOND_AT = { z: -870, off: -37, scale: 0.2 };
+
 /** A ball of light: Juice Bros' pickleball, the site's light. */
 export type Ball = { x: number; y: number; z: number; r: number; color: Color };
 
@@ -92,6 +100,8 @@ export type Landmarks = {
   court: RallyCourt;
   /** Each site's landmark, whole, in the sites' order. */
   bounds: Box[];
+  /** The Diamond, whole: not a Lit site, so not among `bounds`. */
+  diamond: Box;
   /**
    * Every part as a box, for keeping the camera clear of them and under the
    * ridge (the ball is a light, as the glows are, not a part).
@@ -114,7 +124,7 @@ function standing(
 
 export function layoutLandmarks(): Landmarks {
   let rally: RallyCourt | null = null;
-  const out: Omit<Landmarks, "court"> = {
+  const out: Omit<Landmarks, "court" | "diamond"> = {
     bodies: [],
     rooms: [],
     bands: [],
@@ -139,6 +149,7 @@ export function layoutLandmarks(): Landmarks {
   for (const site of SITES) {
     out.bounds.push(build[site.highlight](site, palette[site.light]));
   }
+  const field = diamond();
   out.parts.push(
     ...out.bodies,
     ...out.rooms,
@@ -175,7 +186,7 @@ export function layoutLandmarks(): Landmarks {
     })),
   );
   if (!rally) throw new Error("No court among the Lit sites");
-  return { ...out, court: rally };
+  return { ...out, court: rally, diamond: field };
 
   /**
    * Control D: a shield, a dome of hex cells of light, over a gate, a ring
@@ -487,6 +498,39 @@ export function layoutLandmarks(): Landmarks {
     }
     out.balls.push({ x: p.x, y: p.y, z: p.z, r: BALL, color: light });
     return standing(p.x, p.z, low - 2, p.y + BALL, w + 2, d, light);
+  }
+
+  /**
+   * The Diamond: a baseball diamond in the world's light on a plinth, home
+   * plate nearest home, with a light atop each foul pole.
+   */
+  function diamond() {
+    const F = DIAMOND.foulLine * DIAMOND_AT.scale;
+    const span = F + 2 * DIAMOND.lip * DIAMOND_AT.scale;
+    const x = valleyCentre(DIAMOND_AT.z) + DIAMOND_AT.off;
+    const { low, high } = groundUnder(x, DIAMOND_AT.z, span, span);
+    const d = layoutDiamond({
+      x: x + F / 2,
+      z: DIAMOND_AT.z + F / 2,
+      level: high + 0.3,
+      scale: DIAMOND_AT.scale,
+      color: palette.cyan,
+    });
+    out.bodies.push(d.plinth);
+    out.bands.push(...d.surfaces, ...d.lines, ...d.bases, ...d.poles);
+    out.rings.push(d.mound);
+    for (const [i, pole] of d.poles.entries()) {
+      out.glows.push({
+        x: pole.x,
+        y: pole.y + pole.h / 2 + 0.4,
+        z: pole.z,
+        color: palette.ink,
+        size: 2.4,
+        seed: i / 2,
+      });
+    }
+    const top = d.poles[0].y + d.poles[0].h / 2;
+    return standing(x, DIAMOND_AT.z, low - 2, top, span, span, palette.cyan);
   }
 
   /**
