@@ -802,7 +802,7 @@ export const rally = {
     },
     over: {
       won: "You win. Dinkbot would like a word.",
-      lost: "Dinkbot wins. It's been practising.",
+      lost: "Dinkbot wins. It's been practicing.",
       action: "Play again",
     },
     score: { player: "You", ai: "Dinkbot" },
