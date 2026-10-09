@@ -337,9 +337,9 @@ export function layoutHongKong() {
 
   // IFC 2 (407 m to its roof, 412 m to its crown's tips): a square plan
   // with its corners bevelled back and each face's middle stepped forward,
-  // narrowing as it rises in setbacks at its corners, to its open crown: a
-  // ring of blades standing past the top floor, curving in as they rise so
-  // their tips close in near the top, the sky showing between them.
+  // narrowing as it rises in setbacks at its corners, to its crown: its
+  // faces carried on past the top floor in even sheets that curve in and
+  // taper to meet at the top.
   {
     const H = 71.5;
     const S = 10;
@@ -391,42 +391,57 @@ export function layoutHongKong() {
         setbacks.map(([k, size, cut]) => ({ h: H * k, outline: plan(size, cut) })),
       ),
     );
-    // The crown's fins, evenly round the top floor's edge: each a blade
-    // rising off the edge and curving in over the roof, the corners' the
-    // tallest, so their tips close in on one another near the top.
+    // The crown: the faces carried on past the top floor in even sheets,
+    // each curving in towards the axis as it rises and narrowing to a
+    // point, so together they close over the roof, slim gaps between them.
     const crown = localPlan(S * 0.82, 3.4);
     const edges = crown.map((p, i) => {
       const q = crown[(i + 1) % crown.length];
       return { p, q, length: Math.hypot(q[0] - p[0], q[1] - p[1]) };
     });
     const perimeter = edges.reduce((sum, e) => sum + e.length, 0);
-    const FINS = 16;
-    const RISE = 6;
-    for (let i = 0; i < FINS; i++) {
-      let d = ((i + 0.5) / FINS) * perimeter;
-      const edge = edges.find((e) => (d -= e.length) <= 0)!;
-      const t = 1 + d / edge.length;
-      const u = edge.p[0] + (edge.q[0] - edge.p[0]) * t;
-      const v = edge.p[1] + (edge.q[1] - edge.p[1]) * t;
-      const out = Math.hypot(u, v);
-      const [du, dv] = [u / out, v / out];
-      const cornerward = Math.abs(Math.sin(2 * Math.atan2(v, u))) ** 1.6;
-      const rise = H * (0.07 + 0.03 * cornerward);
-      // Up the blade, its section: thin across, narrowing to its tip, and
-      // drawn in towards the axis, slowly at first, then sharply.
+    /** The point `d` round the top floor's edge. */
+    const round = (d: number) => {
+      let left = d;
+      const edge = edges.find((e) => (left -= e.length) <= 0)!;
+      const t = 1 + left / edge.length;
+      return [
+        edge.p[0] + (edge.q[0] - edge.p[0]) * t,
+        edge.p[1] + (edge.q[1] - edge.p[1]) * t,
+      ] as const;
+    };
+    const SHEETS = 12;
+    const RISE = 8;
+    const THICK = 0.18;
+    for (let i = 0; i < SHEETS; i++) {
+      const a = round(((i + 0.06) / SHEETS) * perimeter);
+      const b = round(((i + 0.94) / SHEETS) * perimeter);
+      const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as const;
       const sections = Array.from({ length: RISE + 1 }, (_, k) => {
         const f = k / RISE;
-        const r = out * (1 - 0.82 * f ** 2);
-        const half = 0.26 * (1 - f) + 0.05;
-        const thin = 0.16;
-        const [cu, cv] = [du * r, dv * r];
-        const outline: Outline = facingShore([
-          [cu + du * thin - dv * half, cv + dv * thin + du * half],
-          [cu - du * thin - dv * half, cv - dv * thin + du * half],
-          [cu - du * thin + dv * half, cv - dv * thin - du * half],
-          [cu + du * thin + dv * half, cv + dv * thin - du * half],
-        ]);
-        return { h: H * 0.9 - 0.3 + rise * f, outline };
+        // In towards the axis, slowly at first, then sharply; and narrower.
+        const r = 1 - 0.88 * f ** 1.8;
+        const w = Math.max(0.04, (1 - f) ** 0.9);
+        const outer = [a, b].map(
+          ([u, v]) =>
+            [
+              (mid[0] + (u - mid[0]) * w) * r,
+              (mid[1] + (v - mid[1]) * w) * r,
+            ] as const,
+        );
+        const inner = outer.map(([u, v]) => {
+          const k = 1 - THICK / Math.hypot(u, v);
+          return [u * k, v * k] as const;
+        });
+        let quad: Outline = [outer[0], outer[1], inner[1], inner[0]];
+        // Anticlockwise, as every outline runs.
+        const area = quad.reduce(
+          (sum, [u, v], j) =>
+            sum + u * quad[(j + 1) % 4][1] - quad[(j + 1) % 4][0] * v,
+          0,
+        );
+        if (area < 0) quad = [...quad].reverse();
+        return { h: H * 0.9 - 0.3 + H * 0.1 * f, outline: facingShore(quad) };
       });
       solids.push(
         loft(x, z, ground, sections, { windows: false, wash: 0.55 }),
