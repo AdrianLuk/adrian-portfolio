@@ -106,7 +106,7 @@ const TICK = 1 / 240;
 const POINT_PAUSE = 1.4;
 const AI_SERVE_DELAY = 1;
 /** The player's top speed, in feet per second. */
-const PLAYER_SPEED = 12;
+const PLAYER_SPEED = 15;
 /** How far behind the baseline and outside the sidelines a player may go. */
 const ROOM_BACK = 8;
 const ROOM_SIDE = 5;
@@ -122,8 +122,8 @@ const REACH_HIGH = 6;
 const SHOT_SPEED = 34;
 const SHOT_DEPTH = 15;
 const SHOT_INSIDE = 1.5;
-/** First to 7, win by 2. */
-const GAME_TO = 7;
+/** First to 11, win by 2. */
+const GAME_TO = 11;
 const WIN_BY = 2;
 
 /**
@@ -136,7 +136,7 @@ const WIN_BY = 2;
  */
 export const AI_REACTION_MS = 260;
 export const AI_MAX_SPEED = 13;
-export const AI_ERROR_RATE = 0.12;
+export const AI_ERROR_RATE = 0.08;
 export const AI_ANGLE = [0.2, 1] as const;
 export const AI_DEPTH = [10, 19] as const;
 /**

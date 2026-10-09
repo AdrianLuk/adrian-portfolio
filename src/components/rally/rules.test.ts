@@ -100,30 +100,30 @@ describe("the game", () => {
   const nextPoint = (game: Game) =>
     runUntil(game, (_, events) => events.some((e) => e.type === "point"), runAway);
 
-  it("ends when a side reaches 7 with a 2-point lead", () => {
+  it("ends when a side reaches 11 with a 2-point lead", () => {
     const { game, events } = nextPoint(
-      startGame(createGame({ score: { player: 3, ai: 6 }, server: "ai" })),
+      startGame(createGame({ score: { player: 3, ai: 10 }, server: "ai" })),
     );
     expect(game.phase).toBe("over");
     expect(game.winner).toBe("ai");
     expect(events).toContainEqual({ type: "over", winner: "ai" });
   });
 
-  it("goes on past 6–6 until someone leads by 2", () => {
+  it("goes on past 10–10 until someone leads by 2", () => {
     const first = nextPoint(
-      startGame(createGame({ score: { player: 6, ai: 6 }, server: "ai" })),
+      startGame(createGame({ score: { player: 10, ai: 10 }, server: "ai" })),
     );
-    expect(first.game.score).toEqual({ player: 6, ai: 7 });
+    expect(first.game.score).toEqual({ player: 10, ai: 11 });
     expect(first.game.phase).not.toBe("over");
 
     const second = nextPoint(first.game);
-    expect(second.game.score).toEqual({ player: 6, ai: 8 });
+    expect(second.game.score).toEqual({ player: 10, ai: 12 });
     expect(second.game.phase).toBe("over");
   });
 
   it("holds still once it's over", () => {
     const over = nextPoint(
-      startGame(createGame({ score: { player: 0, ai: 6 }, server: "ai" })),
+      startGame(createGame({ score: { player: 0, ai: 10 }, server: "ai" })),
     ).game;
     const { game, events } = run(over, 3, runAway);
     expect(game.ball).toEqual(over.ball);
@@ -469,13 +469,13 @@ describe("a touch drag", () => {
   }
 
   it("moves the player as far as the finger did, no faster than the keys", () => {
-    // 12 ft/s, the keys' top speed: a quarter second covers 3 ft, not 8.
-    expect(dragged(false, 0.25)).toBeCloseTo(3, 0);
+    // 15 ft/s, the keys' top speed: a fifth of a second covers 3 ft, not 8.
+    expect(dragged(false, 0.2)).toBeCloseTo(3, 0);
     expect(dragged(false, 1.5)).toBeCloseTo(8, 1);
   });
 
   it("runs at half speed in slow mode, like everything else", () => {
-    expect(dragged(true, 0.25)).toBeCloseTo(1.5, 0);
+    expect(dragged(true, 0.2)).toBeCloseTo(1.5, 0);
   });
 });
 
@@ -528,7 +528,7 @@ describe("the kitchen wall", () => {
   it("carries a drag along the wall once the player stands at it", () => {
     const at = run(rally(), 3, { move: { x: 0, z: -1 } }).game;
     const dragged = step(at, FRAME, { drag: { x: 4, z: -4 } });
-    // Before the point can end: 12 ft/s for this long covers about 1.8 ft.
+    // Before the point can end: 15 ft/s for this long covers about 2.2 ft.
     const { game } = run(dragged, 0.15);
     expect(game.phase).toBe("rally");
     expect(game.player.z).toBe(at.player.z);

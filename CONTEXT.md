@@ -57,7 +57,7 @@ The one place that decides where the world's camera is and how the world is lit,
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:
-The short pickleball game on `/play`: singles against an AI, Dinkbot, played in the world, on the Juice Bros court, rally scoring to 7, win by 2.
+The short pickleball game on `/play`: singles against an AI, Dinkbot, played in the world, on the Juice Bros court, rally scoring to 11, win by 2.
 _Avoid_: Mini-game, minigame, Pong
 
 **Easter egg**:
