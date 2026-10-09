@@ -4,25 +4,26 @@ import { EARN_EVENT, type AchievementId } from "../src/components/achievements";
 import { achievements as copy } from "../src/content/site";
 
 const counter = (page: Page, n: number) =>
-  page.getByRole("contentinfo").getByRole("button", { name: `${copy.label}: ${n} of 6` });
+  page.getByRole("contentinfo").getByRole("button", { name: `${copy.label}: ${n} ${copy.of} 6` });
 const toast = (page: Page) => page.getByRole("status");
 const dialog = (page: Page) => page.getByRole("dialog", { name: copy.label });
 
-/**
- * Earns `id` as an Easter egg does (beating Dinkbot raises it on the
- * Rally game's win), once the footer is listening.
- */
+/** Raises EARN_EVENT for `id`, as an Easter egg does (the Rally game, on beating Dinkbot). */
+const raise = (page: Page, id: AchievementId) =>
+  page.evaluate(
+    ([type, detail]) => window.dispatchEvent(new CustomEvent(type, { detail })),
+    [EARN_EVENT, id],
+  );
+
+/** Earns `id`, retrying until the footer is listening and counts `n`. */
 async function earn(page: Page, id: AchievementId, n: number) {
   await expect(async () => {
-    await page.evaluate(
-      ([type, detail]) => window.dispatchEvent(new CustomEvent(type, { detail })),
-      [EARN_EVENT, id],
-    );
+    await raise(page, id);
     await expect(counter(page, n)).toBeVisible({ timeout: 500 });
   }).toPass();
 }
 
-test("beating Dinkbot toasts Dinkbot down and First Blood together, counted in the footer and remembered", async ({
+test("earning Dinkbot down toasts it and First Blood together, counted in the footer and remembered", async ({
   page,
 }) => {
   await page.goto("/play");
@@ -40,10 +41,7 @@ test("beating Dinkbot toasts Dinkbot down and First Blood together, counted in t
   await expect(toast(page)).toBeEmpty({ timeout: 10_000 });
 
   // Replaying never toasts again.
-  await page.evaluate(
-    ([type, detail]) => window.dispatchEvent(new CustomEvent(type, { detail })),
-    [EARN_EVENT, "dinkbot-down"],
-  );
+  await raise(page, "dinkbot-down");
   await page.waitForTimeout(500);
   await expect(toast(page)).toBeEmpty();
 

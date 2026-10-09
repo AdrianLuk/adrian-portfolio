@@ -3,20 +3,17 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { achievements } from "@/content/site";
 import {
-  ACHIEVEMENT_IDS,
   createAchievements,
   EARN_EVENT,
+  NONE_EARNED,
   type AchievementId,
   type Achievements,
 } from "./achievements";
 
 type Copy = typeof achievements;
 
-/** How long a toast stays up, unless hovered or focused. */
+/** How long a toast stays up, unless hovered. */
 const TOAST_MS = 5000;
-
-/** Nothing earned: the server's render, and the first client one, before storage is read. */
-const NONE = ACHIEVEMENT_IDS.map((id) => ({ id, earned: false }));
 
 let store: Achievements | undefined;
 /** The visitor's Achievements, on this browser's localStorage (whose very access may throw). */
@@ -31,10 +28,11 @@ const subscribe = (listener: () => void) => getStore().subscribe(listener);
  * The footer's Achievements: a counter that opens their list in a modal
  * dialog, and a toast, a polite live region, when an Easter egg raises
  * EARN_EVENT for one not yet earned. The toast never takes focus, and holds
- * while hovered or focused.
+ * while hovered.
  */
 export function AchievementCounter({ copy }: { copy: Copy }) {
-  const list = useSyncExternalStore(subscribe, () => getStore().list(), () => NONE);
+  // Nothing earned on the server, and on the client's first render, before storage is read.
+  const list = useSyncExternalStore(subscribe, () => getStore().list(), () => NONE_EARNED);
   const count = list.filter((a) => a.earned).length;
   const [toast, setToast] = useState<AchievementId[] | null>(null);
   const [held, setHeld] = useState(false);
@@ -64,7 +62,7 @@ export function AchievementCounter({ copy }: { copy: Copy }) {
         className="underline decoration-ink/40 underline-offset-4 hover:text-cyan hover:decoration-cyan"
         onClick={() => dialogRef.current?.showModal()}
       >
-        {copy.label}: <span className="tabular-nums">{count}</span> of {list.length}
+        {copy.label}: <span className="tabular-nums">{count}</span> {copy.of} {list.length}
       </button>
 
       <dialog
@@ -103,12 +101,12 @@ export function AchievementCounter({ copy }: { copy: Copy }) {
         </button>
       </dialog>
 
-      {/* Always in the page, so a screen reader hears what lands in it. */}
+      {/* Always in the page, so a screen reader hears what lands in it. Top
+        centre, under the site header: clear of the Rally game's buttons and
+        this counter. */}
       <div
         role="status"
-        className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center"
-        onFocus={() => setHeld(true)}
-        onBlur={() => setHeld(false)}
+        className="pointer-events-none fixed inset-x-4 top-16 z-40 flex justify-center"
       >
         {toast && (
           <p
@@ -120,7 +118,7 @@ export function AchievementCounter({ copy }: { copy: Copy }) {
               {toast.length > 1 ? copy.toast.many : copy.toast.one}
             </span>
             <span className="font-semibold">
-              {toast.map((id) => copy.names[id]).join(" and ")}
+              {toast.map((id) => copy.names[id]).join(` ${copy.and} `)}
             </span>
           </p>
         )}

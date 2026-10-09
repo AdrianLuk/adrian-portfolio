@@ -746,6 +746,10 @@ export const footer = {
 /** The Achievements: the footer's counter, its list and the toasts. */
 export const achievements = {
   label: "Achievements",
+  /** The counter's "2 of 6". */
+  of: "of",
+  /** Joins the names in a toast of two: "Dinkbot down and First Blood". */
+  and: "and",
   names: {
     "first-blood": "First Blood",
     "back-to-base": "Back to base",
