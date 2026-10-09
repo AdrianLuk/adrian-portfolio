@@ -54,7 +54,7 @@ The source of truth for the site's scope, decisions and content-accuracy rules. 
   - Nothing flashes more than three times a second.
   - Replayable where it makes sense.
   - Personal facts only from the list under "Personal facts".
-  - A visitor who finds no egg gets the site exactly as before.
+  - A visitor who finds no egg loses nothing: no content or function sits behind one.
 - **Naming:** use the resume's names. The product leads and the company goes in the byline: "Control D" / Windscribe, "BT Cup" / Elite Digital Agency for PepsiCo Canada. Spell it "BT Cup" on the site (the resume and the old repo spell it "btcup"; the web copy of the Resume PDF is updated to match).
 - **Repo visibility:** public, and meant to be pinned on the GitHub profile. Its source is part of the product, so keep the docs written as neutral guidance: no private notes, no secrets, nothing that doesn't belong in front of a hiring manager.
 

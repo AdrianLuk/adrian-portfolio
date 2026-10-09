@@ -73,7 +73,7 @@ The four plain lines about Adrian outside work (pickleball, baseball, gaming, K-
 _Avoid_: Hobbies, personal section, About me
 
 **Recall**:
-The Easter egg borrowed from League of Legends: holding `B`, or holding Adrian's name in the header, channels for about three seconds, then takes the visitor home (a Transit from a page with a Place). Letting go early cancels it.
+The Easter egg borrowed from League of Legends: holding `B`, or holding Adrian's name in the header, channels for about three seconds, then takes the visitor home (a Transit from a page with a Place; on home, back to the top). Letting go early cancels it.
 _Avoid_: Teleport, B-hold
 
 **Encore**:
@@ -81,7 +81,7 @@ The stretch of home past the closing bookend: the camera turns to frame the stad
 _Avoid_: Outro, ending, concert
 
 **Home Run Derby**:
-The baseball game under `/play`: the visitor bats against Curvebot for ten pitches at the Diamond, each swing's timing deciding a home run, fly-out, foul or strike. "The Derby" for short.
+The baseball game on a page of its own under `/play`: the visitor bats against Curvebot for ten pitches at the Diamond, each swing's timing deciding a home run, fly-out, foul or strike. "The Derby" for short.
 _Avoid_: Baseball game, batting game, mini-game
 
 **Curvebot**:
@@ -97,7 +97,7 @@ The About page's scroll route: the camera moves from the court (pickleball) to t
 _Avoid_: About route, second route
 
 **About page**:
-The page (`/about`) about Adrian outside work, along the Hobby route: roots first ("Born and raised in Canada. My parents are from Hong Kong."), then pickleball, baseball, K-pop and the gaming line. A Place, whose first stop is the court. Hong Kong is not its Place.
+The page (`/about`) about Adrian outside work, along the Hobby route: roots first ("Born and raised in Canada. My parents are from Hong Kong."), then pickleball, baseball, K-pop and the gaming line. Its Place is the Hobby route, starting at the court; Hong Kong is not on it.
 _Avoid_: Bio, About me, personal page
 
 **Role**:
