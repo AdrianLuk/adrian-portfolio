@@ -26,10 +26,12 @@ export const COURT_CASE_STUDY = "juice-bros" satisfies CaseStudySlug;
 const COURT_PAGE = `/work/${COURT_CASE_STUDY}`;
 
 /**
- * The transition type a navigation that is a transit carries: the layout's
- * crossfade is off for it, so the camera's flight is the transition.
+ * The transition type every navigation that isn't a Transit carries: only a
+ * commit with it crossfades. A Transit's camera flight is its transition, and
+ * a commit that isn't a navigation (a page's metadata streaming in on its
+ * own after it, on a slow machine) has nothing to cross.
  */
-export const TRANSIT_TRANSITION_TYPE = "world-transit";
+export const CROSSFADE_TRANSITION_TYPE = "crossfade";
 
 /** A URL's page: its path, without a trailing slash, query or anchor. */
 function pageOf(url: string) {

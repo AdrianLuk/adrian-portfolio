@@ -108,7 +108,7 @@ export function createWorldTransits(host: TransitHost) {
     /**
      * The router is navigating to `url`: starts, retargets, carries on with
      * or calls off a Transit. True when the navigation is a Transit (it then
-     * carries TRANSIT_TRANSITION_TYPE).
+     * doesn't carry CROSSFADE_TRANSITION_TYPE).
      */
     navigate(url: string) {
       const flying = director.flying();

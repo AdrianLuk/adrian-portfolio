@@ -877,6 +877,41 @@ test.describe("Transits between Places", () => {
     await plain.close();
   });
 
+  test("on a slow machine, the Case study's metadata committing after the court lands doesn't crossfade it", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    // As slow as CI's runner can be: the page's streamed metadata then
+    // commits on its own, once the camera has landed, outside the Transit.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+    await caseStudyLink(page).focus();
+    await page.keyboard.press("Enter");
+    await flown(transit, page, "court");
+    await expect(page).toHaveTitle(new RegExp(caseStudies[0].title));
+    await page.evaluate(
+      () =>
+        (document as { activeViewTransition?: ViewTransition | null })
+          .activeViewTransition?.ready.catch(() => {}),
+    );
+    expect(
+      (await transitions()).flat().filter((d) => d > 0),
+    ).toEqual([]);
+    await page.context().close();
+  });
+
   test("the camera flies Case study → Resume page, turning round to the Skyline, and Back to the court", async ({
     browser,
   }, testInfo) => {

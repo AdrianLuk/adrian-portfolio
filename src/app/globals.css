@@ -144,9 +144,9 @@ body {
 }
 
 /* While the camera flies (a transit), the flight is the transition. The
-   layout's ViewTransition turns the crossfade off by the transit's type, but
-   a page whose data wasn't prefetched by the click commits in a later
-   transition that has lost that type: the world's root says it all the same. */
+   layout's ViewTransition crossfades only a commit carrying a navigation's
+   crossfade type, which a transit's doesn't; the world's root says so too,
+   for a commit that carries it while the camera is still flying. */
 :root:has([data-world-root][data-transit])::view-transition-group(*),
 :root:has([data-world-root][data-transit])::view-transition-old(*),
 :root:has([data-world-root][data-transit])::view-transition-new(*) {

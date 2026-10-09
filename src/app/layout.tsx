@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import { Anybody, Hanken_Grotesk } from "next/font/google";
 import { ViewTransition } from "react";
-import { TRANSIT_TRANSITION_TYPE } from "@/components/world-places";
+import { CROSSFADE_TRANSITION_TYPE } from "@/components/world-places";
 import { footer, nav, person, shareCards } from "@/content/site";
 import { shareMetadata } from "./share";
 import { glowsLit } from "./styles";
@@ -66,9 +66,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           copy waits to land with it (src/components/world-transits.ts). */}
         <main data-world-root className="flex-1">
           {/* Each navigation updates it: a short crossfade between routes,
-            except where the world's camera flies instead (a transit). */}
+            except where the world's camera flies instead (a transit). Any
+            other commit (a page's metadata streaming in late) is not
+            animated. */}
           <ViewTransition
-            default={{ [TRANSIT_TRANSITION_TYPE]: "none", default: "auto" }}
+            default={{ [CROSSFADE_TRANSITION_TYPE]: "auto", default: "none" }}
           >
             {children}
           </ViewTransition>
