@@ -43,7 +43,7 @@ export type GameEvent =
   | { type: "serve"; side: Side }
   | { type: "hit"; side: Side; shot: Shot; volley: boolean; x: number; z: number }
   | { type: "bounce"; side: Side; in: boolean; x: number; z: number }
-  | { type: "point"; winner: Side; reason: PointReason }
+  | { type: "point"; winner: Side; reason: PointReason; sideOut: boolean }
   | { type: "over"; winner: Side };
 
 export type Game = {
@@ -353,14 +353,21 @@ function inServiceCourt(game: Game, x: number, z: number) {
   );
 }
 
-/** The point goes to `winner`; the game may be over. */
+/**
+ * The rally goes to `winner`. Side-out scoring: only the server scores; a
+ * rally the receiver wins is a side out, and the serve passes to them. The
+ * game may be over.
+ */
 function point(game: Game, winner: Side, reason: PointReason): Game {
-  const score = { ...game.score, [winner]: game.score[winner] + 1 };
+  const sideOut = winner !== game.server;
+  const score = sideOut
+    ? game.score
+    : { ...game.score, [winner]: game.score[winner] + 1 };
   const won =
     score[winner] >= GAME_TO && score[winner] - score[other(winner)] >= WIN_BY;
   const events: GameEvent[] = [
     ...game.events,
-    { type: "point", winner, reason },
+    { type: "point", winner, reason, sideOut },
   ];
   if (won) events.push({ type: "over", winner });
   return {
