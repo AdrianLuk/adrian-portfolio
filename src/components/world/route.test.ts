@@ -13,9 +13,15 @@ import {
   SITES,
   skylinePose,
 } from "./route";
-import { DOWNTOWN } from "./skyline";
 import { layoutStructures, type Box } from "./structures";
-import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
+import {
+  corridorHalfWidth,
+  HARBOUR,
+  harbourWater,
+  onFloor,
+  valleyCentre,
+  valleyHeight,
+} from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
 function settledLayout(height: number, plateX: number, centreHeight: number) {
@@ -283,7 +289,6 @@ describe("the Skyline pose", () => {
     ...skyline.bounds,
   ];
   const { x, z, foot, pod, tip } = skyline.cnTower;
-  const court = SITES.find((s) => s.highlight === "juice-bros")!.position;
 
   const shapes = {
     "ultrawide": 2.4,
@@ -304,25 +309,37 @@ describe("the Skyline pose", () => {
       const p = pose.position;
       const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
 
-      it("stands low on the floor, down the valley past downtown, looking back up it", () => {
-        expect(p.z).toBeLessThan(DOWNTOWN.far);
-        // Short of the court, the next Place down the valley.
-        expect(p.z).toBeGreaterThan(court.z);
+      it("stands low on the harbour's far shore, across the water from downtown, looking at it", () => {
+        expect(p.z).toBeLessThan(HARBOUR.near);
+        expect(p.z).toBeGreaterThan(HARBOUR.far);
+        // On land, on the bay's side of the valley.
+        expect(harbourWater(p.x, p.z)).toBe(0);
+        expect(p.x).toBeLessThan(valleyCentre(p.z) - corridorHalfWidth(p.z));
         // Lower than any of the scroll route's stops (16 above the floor).
         expect(p.y - valleyHeight(p.x, p.z)).toBeLessThan(12);
-        expect(forward.z).toBeGreaterThan(0.5);
-        // Looking up at the tower, but not at the sky alone.
+        // Across the valley, toward downtown's side.
+        expect(forward.x).toBeGreaterThan(0.7);
+        // Looking up at the tower a little, but not at the sky alone.
         expect(forward.y).toBeGreaterThan(0);
-        expect(forward.y).toBeLessThan(0.4);
+        expect(forward.y).toBeLessThan(0.3);
       });
 
-      it("clears the ground by 2 and every tower, Landmark part and the skyline by 3, inside the valley", () => {
+      it("clears the ground by 2 and every tower, Landmark part and the skyline by 3, on the floor", () => {
         expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(2);
-        expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
-          corridorHalfWidth(p.z) - 1,
-        );
+        expect(onFloor(p.x, p.z)).toBe(true);
         const met = towers.find((tower) => near(p, tower, 3));
         expect(met, "a tower within 3").toBeUndefined();
+      });
+
+      it("looks across the water: the harbour fills the foot of the frame, below the tower", () => {
+        // Halfway to the tower, on the water's surface.
+        const mid = p.clone().lerp(new Vector3(x, 0, z), 0.5).setY(HARBOUR.level);
+        expect(harbourWater(mid.x, mid.z)).toBe(1);
+        const water = onScreen(pose, mid, aspect);
+        expect(water.y).toBeGreaterThan(-1);
+        expect(water.y).toBeLessThan(-0.5);
+        const shoreline = onScreen(pose, new Vector3(x, HARBOUR.level, z), aspect);
+        expect(shoreline.y).toBeLessThan(-0.2);
       });
 
       it("frames the CN Tower right of the copy on a wide screen, nearer the middle on a narrow one", () => {

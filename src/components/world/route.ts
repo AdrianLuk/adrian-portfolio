@@ -3,7 +3,12 @@ import { LIT_SITES, type LitSite } from "../lit-sites";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
 import { CN_TOWER, CN_TOWER_HEIGHT } from "./skyline";
-import { valleyCentre, valleyHeight } from "./terrain";
+import {
+  bayWidth,
+  corridorHalfWidth,
+  valleyCentre,
+  valleyHeight,
+} from "./terrain";
 
 /**
  * The scroll route, as pure maths: where the camera is and which way it looks
@@ -155,35 +160,33 @@ export const CN_TOWER_TOP = new Vector3(
 );
 
 /**
- * Where the camera stands at the Skyline: how far down the valley (past
- * downtown, short of the court), how far off its centre line (toward
- * downtown's side) and how high above the floor, and where the CN Tower's
- * tip sits up the screen, in normalised device coordinates: on a narrow
- * screen, above the Resume page's title. From there the city's other towers
- * on that side stand clear of the view, and the valley's far wall fills the
- * left of the frame, behind the copy.
+ * Where the camera stands at the Skyline: how far down the valley (where the
+ * harbour's bay is widest), how far in from the bay's wall (on its beach,
+ * the harbour's far shore) and how high above the ground, and where the CN
+ * Tower's tip sits up the screen, in normalised device coordinates: on a
+ * narrow screen, above the Resume page's title.
  */
 const SKYLINE_VIEW = {
-  z: -710,
-  aside: 20,
-  height: 7,
-  tipY: { wide: 0.72, narrow: 0.8 },
+  z: -512,
+  inset: 6,
+  height: 6,
+  tipY: { wide: 0.8, narrow: 0.8 },
 };
 
 /**
  * The Skyline's pose, for a screen of this shape: a still camera low on the
- * valley floor down the valley from downtown, looking back up at Toronto's
- * skyline (the scroll route only ever looks on down the valley): the CN
- * Tower with the Rogers Centre's dome at its foot and the financial core
- * behind. The tower stands right of the copy (as the Outpost does on home:
- * about 0.45 across on a wide screen, 0.2 on a narrow one), its tip in the
- * frame, so the camera looks up a little. It doesn't depend on the layout,
- * so it needs no route to find, and it stands off the route (the Transit
- * eases onto it as it lands).
+ * harbour's far shore, looking across the water at Toronto's skyline, as
+ * from the Islands: the Rogers Centre's dome, the CN Tower, the financial
+ * core running on to the right. The tower stands right of the copy (as the
+ * Outpost does on home: about 0.45 across on a wide screen, 0.2 on a narrow
+ * one), its tip in the frame, so the camera looks up a little, and the water
+ * fills the foot of the frame. It doesn't depend on the layout, so it needs
+ * no route to find, and it stands off the route (the Transit eases onto it
+ * as it lands).
  */
 export function skylinePose(aspect: number): Pose {
-  const { z, aside, height, tipY } = SKYLINE_VIEW;
-  const x = valleyCentre(z) + aside;
+  const { z, inset, height, tipY } = SKYLINE_VIEW;
+  const x = valleyCentre(z) - corridorHalfWidth(z) - bayWidth(z) + inset;
   const position = new Vector3(x, valleyHeight(x, z) + height, z);
   const level = CN_TOWER_TOP.clone().setY(position.y);
   const quaternion = framing(position, level, siteScreenX(aspect), aspect);

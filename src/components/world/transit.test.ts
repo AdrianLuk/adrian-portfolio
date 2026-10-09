@@ -5,7 +5,7 @@ import { CAMERA } from "./pose";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { courtPose, createRoute, SITES, skylinePose } from "./route";
 import { layoutStructures, type Box } from "./structures";
-import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
+import { harbourWater, onFloor, surfaceHeight, valleyCentre } from "./terrain";
 import {
   COURT_STOP,
   SETTLED_STOP,
@@ -52,8 +52,19 @@ function along(transit: Transit, steps = 400) {
  */
 const STEP_LIMIT = 12;
 
+/**
+ * The fastest the camera may pan landing at, or leaving, the Skyline, in
+ * degrees a second: a medium-speed turn, slower than the route's own swings
+ * between its Lit sites (about 200).
+ */
+const PAN_LIMIT = 150;
+
 /** The most the camera may turn in one of `along`'s steps. */
 const TURN_LIMIT = (3 * Math.PI) / 180;
+
+/** Which way along the valley a transit from `from` to `to` runs. */
+const wayBetween = (from: Pose, to: Pose) =>
+  from.position.z > to.position.z ? "down" : "up";
 
 /** The poses move only `way` the valley, never jumping or snapping round. */
 function expectSmooth(poses: Pose[], way: "up" | "down") {
@@ -106,10 +117,9 @@ function expectClear(poses: Pose[], ...landings: Pose[]) {
     )
       ? LANDING_GROUND
       : 8;
-    expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(low);
-    expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
-      corridorHalfWidth(p.z),
-    );
+    // Over the harbour, above its water.
+    expect(p.y - surfaceHeight(p.x, p.z)).toBeGreaterThan(low);
+    expect(onFloor(p.x, p.z), "over the valley's floor or the bay").toBe(true);
     const met = towers.find((tower) => near(p, tower, 3));
     expect(met, `a tower near ${p.toArray().map(Math.round)}`).toBeUndefined();
   }
@@ -143,6 +153,39 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
       expectClear(along(transitPath(route, settled, skylineView)), skylineView);
     });
 
+    it("home ↔ Skyline sweeps across the harbour, leaving the route's line only over its water", () => {
+      for (const trip of [
+        transitPath(route, settled, skylineView),
+        transitPath(route, skylineView, SETTLED_STOP),
+      ]) {
+        for (const { position: p } of along(trip)) {
+          if (Math.abs(p.x - valleyCentre(p.z)) < 20) continue;
+          const ashore = p.distanceTo(skylineView.position) < LANDING_REACH;
+          expect(ashore || harbourWater(p.x, p.z) > 0).toBe(true);
+        }
+      }
+    });
+
+    it("home ↔ Skyline turns at a medium-speed pan, never a whip round", () => {
+      for (const trip of [
+        transitPath(route, settled, skylineView),
+        transitPath(route, skylineView, SETTLED_STOP),
+      ]) {
+        const poses = along(trip);
+        const step = trip.duration / (poses.length - 1);
+        // Away from the route's own swings between its Lit sites: within the
+        // pan's reach of the Skyline.
+        for (let i = 1; i < poses.length; i++) {
+          const p = poses[i].position;
+          if (p.distanceTo(skylineView.position) > 200) continue;
+          const degrees =
+            (poses[i].quaternion.angleTo(poses[i - 1].quaternion) * 180) /
+            Math.PI;
+          expect(degrees / step).toBeLessThan(PAN_LIMIT);
+        }
+      }
+    });
+
     it("the Skyline to home leaves from the Skyline pose and lands on the settled view", () => {
       const transit = transitPath(route, skylineView, SETTLED_STOP);
       expectSamePose(transit.poseAt(0), skylineView);
@@ -164,11 +207,8 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         expectSamePose(transit.poseAt(0), departure);
         expectSamePose(transit.poseAt(1), skylineView);
         const poses = along(transit);
-        // From past downtown's stretch, back up the valley to it.
-        expectSmooth(
-          poses,
-          departure.position.z > skylineView.position.z ? "down" : "up",
-        );
+        // From past the harbour, back up the valley to it.
+        expectSmooth(poses, wayBetween(departure, skylineView));
         expectClear(poses, skylineView);
       }
     });
@@ -189,7 +229,10 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           to === SETTLED_STOP ? settled : skylineView,
         );
         const poses = along(transit);
-        expectSmooth(poses, to === SETTLED_STOP ? "up" : "down");
+        expectSmooth(
+          poses,
+          wayBetween(departure, to === SETTLED_STOP ? settled : skylineView),
+        );
         expectClear(poses, skylineView);
       }
     });
@@ -224,14 +267,14 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           expect(trip.duration).toBeGreaterThan(0);
           expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
           const poses = along(trip);
-          expectSmooth(poses, to === SETTLED_STOP ? "up" : "down");
+          expectSmooth(poses, wayBetween(departure, landing));
           expectClear(poses, skylineView);
         }
       }
     });
 
     it("takes longer the further it flies, and never longer than the cap", () => {
-      const durations = [0, 1, 2, 2.9].map(
+      const durations = [0, 0.5, 1].map(
         (at) => transitPath(route, route.poseAt(at), skylineView).duration,
       );
       for (let i = 1; i < durations.length; i++) {

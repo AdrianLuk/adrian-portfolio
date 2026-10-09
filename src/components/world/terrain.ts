@@ -45,10 +45,83 @@ export function corridorHalfWidth(z: number) {
   return 88 - 52 * smoothstep(PLATE_ZONE, 480, -z);
 }
 
+/**
+ * The harbour: water on the valley's floor in front of downtown, as Lake
+ * Ontario's is in front of Toronto's, where the valley opens out on its left
+ * side into a bay, so the Skyline's camera can stand back on the far shore
+ * and look across the water at the city. It runs down the valley from `near`
+ * to `far`, from downtown's shore (`shore` right of the centre line) across
+ * to a beach `beach` short of the bay's wall, which stands `bay` further out
+ * than the floor's usual edge at its widest. Its surface lies at `level`,
+ * below the lowest the floor dips anywhere else, over a basin at `basin`.
+ */
+export const HARBOUR = {
+  near: -440,
+  far: -575,
+  shore: 26,
+  beach: 10,
+  bay: 150,
+  level: -1.5,
+  basin: -4,
+} as const;
+
+/** How far along the harbour depth z lies, 0 at its mouth to 1 at its end. */
+const alongHarbour = (z: number) =>
+  (z - HARBOUR.near) / (HARBOUR.far - HARBOUR.near);
+
+/**
+ * How much further the floor reaches on the valley's left side at depth z
+ * than `corridorHalfWidth` says: the bay, widest midway down the harbour and
+ * closing to nothing at either end.
+ */
+export function bayWidth(z: number) {
+  const t = alongHarbour(z);
+  return t <= 0 || t >= 1 ? 0 : HARBOUR.bay * Math.sin(Math.PI * t) ** 0.6;
+}
+
+/**
+ * How much of the harbour's water stands at (x, z), 0 to 1: full over the
+ * basin, easing out over the last few units to each shore and at either end.
+ */
+export function harbourWater(x: number, z: number) {
+  const t = alongHarbour(z);
+  if (t <= 0 || t >= 1) return 0;
+  const off = x - valleyCentre(z);
+  const left = -(corridorHalfWidth(z) + bayWidth(z) - HARBOUR.beach);
+  return (
+    smoothstep(left, left + 8, off) *
+    (1 - smoothstep(HARBOUR.shore - 8, HARBOUR.shore, off)) *
+    smoothstep(0, 0.08, t) *
+    (1 - smoothstep(0.92, 1, t))
+  );
+}
+
+/**
+ * The ground's height at (x, z), or the harbour's surface where its water
+ * stands: what a camera above it stands over.
+ */
+export function surfaceHeight(x: number, z: number) {
+  return harbourWater(x, z) > 0
+    ? Math.max(valleyHeight(x, z), HARBOUR.level)
+    : valleyHeight(x, z);
+}
+
+/**
+ * True if (x, z) lies on the valley's floor (the bay included), clear of its
+ * walls: where the camera may fly.
+ */
+export function onFloor(x: number, z: number) {
+  const off = x - valleyCentre(z);
+  const w = corridorHalfWidth(z);
+  return off >= 0 ? off < w : -off < w + bayWidth(z);
+}
+
 /** Terrain height at (x, z). The floor sits near 0; ridges climb to ~60. */
 export function valleyHeight(x: number, z: number) {
-  const dx = Math.abs(x - valleyCentre(z));
-  const w = corridorHalfWidth(z);
+  const off = x - valleyCentre(z);
+  const dx = Math.abs(off);
+  // On the left, the bay opens the floor out.
+  const w = corridorHalfWidth(z) + (off < 0 ? bayWidth(z) : 0);
 
   // Broad swells on the floor, so the moon picks out facets, flattened along
   // the line where the plate stands so its baseline meets the ground.
@@ -60,6 +133,9 @@ export function valleyHeight(x: number, z: number) {
   const ridges = 28 + 34 * ridgedNoise(x * 0.011 + 7.1, z * 0.011 - 3.4);
   // Far ranges keep climbing past the valley's walls.
   const ranges = 0.18 * Math.max(0, dx - w - 70);
+  const ground = floor + wallRise * wallRise * ridges + ranges;
 
-  return floor + wallRise * wallRise * ridges + ranges;
+  // The harbour's basin, under its water.
+  const water = harbourWater(x, z);
+  return water > 0 ? ground + (HARBOUR.basin - ground) * water : ground;
 }

@@ -10,6 +10,7 @@ import {
 } from "three";
 import type { Glow } from "./glow-points";
 import type { Pool } from "./ground-pools";
+import { createHarbour, reflectedLights } from "./harbour";
 import { createBalls, createTrophies, layoutLandmarks } from "./landmarks";
 import { seededRandom } from "./noise";
 import { FOG_DENSITY, fogChunk, fogUniforms, MOON, palette } from "./palette";
@@ -24,6 +25,7 @@ import {
 } from "./skyline";
 import {
   corridorHalfWidth,
+  harbourWater,
   valleyCentre,
   valleyHeight,
   WORLD_BACK,
@@ -303,6 +305,24 @@ export function layoutStructures() {
     }
     return null;
   };
+  /**
+   * Makes the random draws `tower` would have made for a tower the harbour
+   * keeps from standing, so every other tower stands as it did before the
+   * harbour was dug.
+   */
+  const skipTower = () => {
+    const rings = 1 + Math.floor(random() * 3);
+    for (let r = 0; r < rings; r++) random();
+    random();
+    random();
+  };
+  /** True if any of a footprint `size` across at (x, z) stands in the harbour. */
+  const inHarbour = (x: number, z: number, size: number) =>
+    [-1, 0, 1].some((u) =>
+      [-1, 0, 1].some(
+        (v) => harbourWater(x + (u * size) / 2, z + (v * size) / 2) > 0,
+      ),
+    );
   /** True if (z) on `side` falls in the plaza kept open round a lit site. */
   const inPlaza = (z: number, side: number) =>
     SITES.some(
@@ -314,9 +334,9 @@ export function layoutStructures() {
 
   // The city behind the street, from just behind the plate to the far end: a
   // second row, wide and deep, one in five a tall one, every one under the
-  // ridge behind, making way for downtown, the plazas, the landmarks and the
-  // hero's views. (Its draws are made either way, so the rest of the city
-  // stands where it did.)
+  // ridge behind, making way for downtown, the harbour, the plazas, the
+  // landmarks and the hero's views. (Its draws are made either way, so the
+  // rest of the city stands where it did.)
   for (let i = 0; i < 46; i++) {
     const z = -110 - i * 19 - random() * 12;
     const side = i % 2 === 0 ? -1 : 1;
@@ -331,13 +351,18 @@ export function layoutStructures() {
     if (downtown || inPlaza(z, side)) continue;
     const x = clearOfViews(along, z, Math.hypot(width, depth), side);
     if (x === null || onLandmark(x, z, width, depth)) continue;
+    if (inHarbour(x, z, Math.hypot(width, depth))) {
+      skipTower();
+      continue;
+    }
     tower(x, z, height, width, -side, light, { depth, underRidge: true });
   }
 
   // Gates: twin pylons either side of the floor, far enough out to clear the
-  // sky above the plate. No bar spans them: a line across the sky is a stroke.
+  // sky above the plate, the first past the harbour. No bar spans them: a
+  // line across the sky is a stroke.
   for (const [z, color] of [
-    [-540, palette.cyan],
+    [-650, palette.cyan],
     [-800, palette.violet],
   ] as const) {
     const c = valleyCentre(z);
@@ -348,7 +373,7 @@ export function layoutStructures() {
   }
 
   // Runway lights down the floor, either side of the line the flight follows,
-  // and down the canyon it comes in by.
+  // and down the canyon it comes in by; none on the harbour's water.
   const runway = [];
   for (let z = -112; z > -1100; z -= 7) runway.push(z);
   for (let z = 200; z < WORLD_BACK; z += 7) runway.push(z);
@@ -357,6 +382,9 @@ export function layoutStructures() {
     const far = -z > 300;
     for (const side of [-1, 1]) {
       const x = c + side * 14;
+      // Drawn either way, so the lights past the harbour flicker as before.
+      const seed = random();
+      if (harbourWater(x, z) > 0) continue;
       glows.push({
         x,
         y: valleyHeight(x, z) + 0.35,
@@ -364,7 +392,7 @@ export function layoutStructures() {
         color:
           Math.round(Math.abs(z) / 7) % 6 === 0 ? palette.violet : palette.cyan,
         size: far ? 1.6 : 1.1,
-        seed: random(),
+        seed,
       });
     }
   }
@@ -476,7 +504,8 @@ export function layoutStructures() {
   // the street the camera comes down to frame it, and the street opens on the
   // hero's views of the beacon and the Rogers Centre as the valley bends, the
   // frontage stepping back just far enough to clear them; it makes way for
-  // downtown as the city does. Last, so the random draws above are unchanged.
+  // downtown and the harbour as the city does. Last, so the random draws
+  // above are unchanged.
   for (const side of [-1, 1]) {
     for (let z = STREET.start; z > STREET.end; z -= 10 + random() * 6) {
       const crossStreet = random() < 0.18;
@@ -492,6 +521,10 @@ export function layoutStructures() {
       if (crossStreet || inPlaza(z, side) || downtown) continue;
       const x = clearOfViews(along, z, Math.hypot(width, depth), side);
       if (x === null || onLandmark(x, z, width, depth)) continue;
+      if (inHarbour(x, z, Math.hypot(width, depth))) {
+        skipTower();
+        continue;
+      }
       tower(x, z, height, width, -side, light, { depth, underRidge: true });
     }
   }
@@ -564,6 +597,7 @@ export function createStructures(shared: SharedUniforms) {
       createPortals(landmarks.portals),
       ...createTrophies(landmarks.trophies, shared),
       ...createBalls(landmarks.balls),
+      createHarbour(shared, reflectedLights(skyline)),
     ],
     glows,
     floodlights: landmarks.floodlights,

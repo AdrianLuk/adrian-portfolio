@@ -29,8 +29,12 @@ The financial district at the far end of the home page's world, where the scroll
 _Avoid_: Downtown, end stop, last stop
 
 **Skyline**:
-The Place where the Resume page stands: a still camera low on the valley floor, down the valley from downtown, looking back up at Toronto's skyline (the CN Tower with the Rogers Centre at its foot, the financial core behind), lit magenta: the CN Tower's wash and the fog turn the palette's magenta there. Home's scroll never shows it from there.
+The Place where the Resume page stands: a still camera low on the Harbour's far shore, looking across the water at Toronto's skyline as from the Islands (the Rogers Centre, the CN Tower, the financial core running on to the right), lit magenta: the CN Tower's wash and the fog turn the palette's magenta there.
 _Avoid_: Downtown, waterfront
+
+**Harbour**:
+The water on the valley floor in front of downtown, as Lake Ontario's is in front of Toronto: the valley opens out on its left into a bay, and the skyline's lights streak across it. Home's scroll route flies along it; the Skyline stands on its far shore.
+_Avoid_: Lake, bay (the bay is the part of the valley it fills), waterfront
 
 **Opening**:
 The home page's fly-in on a first visit: the camera's flight down the canyon to the name plate, with the opening credits. "Flight" alone means the opening. The Opening owns its credits and Skip, and every way it ends; once it has settled, the scroll route takes the camera on.
@@ -41,7 +45,7 @@ A page's spot in the one world, with its own look, that the camera flies to: hom
 _Avoid_: Scene, view, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (turning round as it passes downtown, to face it), between the court and the Skyline, or back up it to home.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
