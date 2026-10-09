@@ -5,17 +5,18 @@ import { magentaWash, type layoutSkyline } from "./skyline";
 import {
   bayWidth,
   corridorHalfWidth,
-  HARBOUR,
+  type Harbour,
   valleyCentre,
 } from "./terrain";
 
 /**
- * The harbour's water (./terrain's HARBOUR): a dark, moonlit surface that
- * the skyline's lights streak across, as the city's do across Toronto's
- * harbour at night. Its reflections are drawn, not mirrored: each of a few
- * points of light (up the CN Tower, along the Rogers Centre's rim, atop the
- * financial core) shows where the rippled water would throw it back to the
- * camera, so the water costs one draw and no second render of the world.
+ * A harbour's water (./terrain's HARBOURS): a dark, moonlit surface that its
+ * city's lights streak across, as Toronto's do across its harbour at night,
+ * and Hong Kong's across Victoria Harbour. Its reflections are drawn, not
+ * mirrored: each of a few points of light (up the CN Tower, along the Rogers
+ * Centre's rim, atop the financial core; Hong Kong's landmarks' tips) shows
+ * where the rippled water would throw it back to the camera, so each
+ * harbour's water costs one draw and no second render of the world.
  */
 
 /** A point of light the water throws back. */
@@ -33,7 +34,7 @@ export type Reflected = {
 /** The most points of light the water's shader takes. */
 export const MAX_REFLECTED = 24;
 
-/** The points of light the water throws back, from the skyline's layout. */
+/** The points of light the Harbour throws back, from the skyline's layout. */
 export function reflectedLights(
   skyline: ReturnType<typeof layoutSkyline>,
 ): Reflected[] {
@@ -77,30 +78,34 @@ export function reflectedLights(
   return lights.slice(0, MAX_REFLECTED);
 }
 
-/** The harbour's extent in plan, sampled down its length: x across, z down. */
-function extent() {
+/** A harbour's extent in plan, sampled down its length: x across, z down. */
+function extent(harbour: Harbour) {
   let minX = Infinity;
   let maxX = -Infinity;
-  for (let z = HARBOUR.near; z >= HARBOUR.far; z -= 5) {
+  for (let z = harbour.near; z >= harbour.far; z -= 5) {
     const c = valleyCentre(z);
-    minX = Math.min(minX, c - corridorHalfWidth(z) - bayWidth(z));
-    maxX = Math.max(maxX, c + HARBOUR.shore + 2);
+    minX = Math.min(minX, c - corridorHalfWidth(z) - bayWidth(z, harbour));
+    maxX = Math.max(maxX, c + harbour.shore + 2);
   }
-  return { minX, maxX, near: HARBOUR.near + 2, far: HARBOUR.far - 2 };
+  return { minX, maxX, near: harbour.near + 2, far: harbour.far - 2 };
 }
 
 /**
- * The water's mesh: a flat sheet at the harbour's level over its whole
- * extent. The ground stands above it everywhere but over the basin, so the
- * depth test cuts it to the harbour's shape.
+ * A harbour's water as a mesh: a flat sheet at its level over its whole
+ * extent, throwing back `lights`. The ground stands above it everywhere but
+ * over the basin, so the depth test cuts it to the harbour's shape.
  */
-export function createHarbour(shared: SharedUniforms, lights: Reflected[]) {
-  const { minX, maxX, near, far } = extent();
+export function createHarbour(
+  shared: SharedUniforms,
+  harbour: Harbour,
+  lights: Reflected[],
+) {
+  const { minX, maxX, near, far } = extent(harbour);
   const width = maxX - minX;
   const depth = near - far;
   const geometry = new PlaneGeometry(width, depth, 1, 1);
   geometry.rotateX(-Math.PI / 2);
-  geometry.translate(minX + width / 2, HARBOUR.level, far + depth / 2);
+  geometry.translate(minX + width / 2, harbour.level, far + depth / 2);
 
   const padded = [...lights];
   while (padded.length < MAX_REFLECTED) {

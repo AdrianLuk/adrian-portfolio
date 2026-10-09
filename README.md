@@ -1,6 +1,6 @@
 # adrianluk.com
 
-The portfolio of Adrian Luk, a senior frontend engineer. The site is built as one night world: a procedural WebGL valley the camera flies down, arriving at the name, then carried on by the scroll past four lit sites (the Highlights) to an outpost where the resume and contact wait.
+The portfolio of Adrian Luk, a senior frontend engineer. The site is built as one night world: a procedural WebGL valley the camera flies down, arriving at the name, then carried on by the scroll past four lit sites (the Highlights) to Hong Kong across Victoria Harbour, where the contact copy waits and the route ends.
 
 It's meant to be the proof of its own claims, so it's held to these:
 

@@ -1,16 +1,29 @@
-import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
+import {
+  Euler,
+  InstancedMesh,
+  PerspectiveCamera,
+  Quaternion,
+  Vector3,
+} from "three";
 import { describe, expect, it } from "vitest";
 import { createFlightPath } from "./flight";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { FOG_DENSITY } from "./palette";
 import { CAMERA, settledYaw } from "./pose";
 import { createRoute, ROUTE_STOPS, SITES } from "./route";
-import { HERO_SIGHT, layoutStructures, type Box } from "./structures";
+import {
+  createStructures,
+  HERO_SIGHT,
+  layoutStructures,
+  type Box,
+} from "./structures";
 import {
   corridorHalfWidth,
-  harbourWater,
+  heightShortOfHongKong,
   valleyCentre,
   valleyHeight,
+  VICTORIA_HARBOUR,
+  waterAt,
 } from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
@@ -90,55 +103,110 @@ function crosses(a: Vector3, b: Vector3, box: Box) {
 }
 
 const {
-  buildings: lit,
-  darkBuildings,
-  district,
+  buildings,
   masts,
   landmarks,
   skyline,
+  hongKong,
 } = layoutStructures();
-const buildings = [...lit, ...darkBuildings];
-const towers = [...buildings, ...masts, ...landmarks.parts, ...skyline.bounds];
+const towers = [
+  ...buildings,
+  ...masts,
+  ...landmarks.parts,
+  ...skyline.bounds,
+  ...hongKong.bounds,
+];
 const { cnTower } = skyline;
 
 describe("the city", () => {
-  it("ends in a district on the valley floor, clear of the walls' slopes", () => {
-    for (const b of district) {
-      const off = Math.abs(b.x - valleyCentre(b.z)) + b.w / 2;
+  it("ends in Hong Kong, on the valley floor, clear of the walls' slopes", () => {
+    for (const b of hongKong.bounds) {
+      const off = Math.abs(b.x - valleyCentre(b.z)) + Math.hypot(b.w, b.d) / 2;
       expect(off).toBeLessThan(corridorHalfWidth(b.z));
     }
   });
 
-  it("is lost in the fog past the hero's sight", () => {
+  it("raises Hong Kong's five landmarks, ICC the tallest, at the back", () => {
+    const names = hongKong.landmarks.map((l) => l.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "ICC",
+        "IFC 2",
+        "Bank of China Tower",
+        "Central Plaza",
+        "The Center",
+      ]),
+    );
+    const height = (l: { foot: number; tip: number }) => l.tip - l.foot;
+    const icc = hongKong.landmarks.find((l) => l.name === "ICC")!;
+    for (const other of hongKong.landmarks) {
+      if (other === icc) continue;
+      expect(height(other)).toBeLessThan(height(icc));
+      expect(other.z).toBeGreaterThan(icc.z);
+    }
+  });
+
+  it("draws every kind of box it has, and none it hasn't: no instanced draw stands empty", () => {
+    // An empty one never gets its instance colours, and its shader fails.
+    const { meshes } = createStructures({
+      uTime: { value: 0 },
+      uPixelRatio: { value: 1 },
+    });
+    for (const mesh of meshes) {
+      if (mesh instanceof InstancedMesh) {
+        expect(mesh.count).toBeGreaterThan(0);
+        expect(mesh.instanceColor).not.toBeNull();
+      }
+    }
+  });
+
+    it("is lost in the fog past the hero's sight", () => {
     const fog = 1 - Math.exp(-((HERO_SIGHT * FOG_DENSITY) ** 2));
     expect(fog).toBeGreaterThanOrEqual(0.99);
   });
 
-  it("is topped by the CN Tower: no building stands taller from its foot", () => {
+  it("loses Hong Kong's end of the valley in that fog, from Victoria Harbour on", () => {
+    expect(-VICTORIA_HARBOUR.near).toBeGreaterThan(HERO_SIGHT);
+  });
+
+  it("is topped by the CN Tower: nothing, crowns and masts included, reaches higher over the ground", () => {
     const height = cnTower.tip - cnTower.foot;
+    const over = (x: number, top: number, z: number) =>
+      top - valleyHeight(x, z);
     for (const b of [
       ...buildings,
+      ...masts,
       ...landmarks.bounds,
       ...skyline.towers,
       ...skyline.darkTowers,
+      ...hongKong.towers,
+      ...hongKong.darkTowers,
+      ...hongKong.bounds,
     ]) {
-      expect(b.h).toBeLessThan(height);
+      expect(over(b.x, b.y + b.h / 2, b.z)).toBeLessThan(height);
+    }
+    for (const s of [...skyline.solids, ...hongKong.solids]) {
+      if (s.relit) continue; // The CN Tower itself.
+      expect(over(s.x, s.y + s.h, s.z)).toBeLessThan(height);
+    }
+    for (const l of hongKong.landmarks) {
+      expect(l.tip - l.foot, l.name).toBeLessThan(height);
     }
   });
 
-  it("makes way for the harbour: nothing stands in its water", () => {
+  it("makes way for both harbours: nothing stands in their water", () => {
     const wet = (b: Box) =>
       [-1, 0, 1].some((u) =>
         [-1, 0, 1].some(
-          (v) => harbourWater(b.x + (u * b.w) / 2, b.z + (v * b.d) / 2) > 0,
+          (v) => waterAt(b.x + (u * b.w) / 2, b.z + (v * b.d) / 2) > 0,
         ),
       );
     for (const b of [
       ...buildings,
-      ...darkBuildings,
       ...masts,
       ...landmarks.bounds,
       ...skyline.bounds,
+      ...hongKong.bounds,
     ]) {
       expect(wet(b), `a tower at ${Math.round(b.x)}, ${Math.round(b.z)}`).toBe(
         false,
@@ -196,10 +264,12 @@ describe("the city", () => {
           const dz = b.z - eye.z;
           const distance = Math.hypot(dx, dz);
           let crest = -Infinity;
+          // Hong Kong's end of the valley lies past the hero's sight, lost
+          // in fog, so the ridge is the valley's short of it.
           for (let d = distance + 10; d < 1600; d += 4) {
             const x = eye.x + (dx / distance) * d;
             const z = eye.z + (dz / distance) * d;
-            crest = Math.max(crest, elevation(valleyHeight(x, z), d));
+            crest = Math.max(crest, elevation(heightShortOfHongKong(x, z), d));
           }
           const top = elevation(b.y + b.h / 2, distance - b.d / 2);
           expect(top, `building at z ${b.z.toFixed(0)}`).toBeLessThan(crest);

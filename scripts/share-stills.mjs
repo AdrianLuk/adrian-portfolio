@@ -31,7 +31,7 @@ import {
   skylineStills,
   valleyStills,
 } from "../src/content/site.ts";
-import { openOnFirstFrame, WORLD_ONLY } from "./world-frame.mjs";
+import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
@@ -69,21 +69,6 @@ async function writeStills(png, sizes) {
     await sharp(png).resize({ width }).webp({ quality: 80 }).toFile(file);
     console.log("wrote", file);
   }
-}
-
-/** Clicks Skip the moment the flight starts, so the camera lands at once. */
-function skipOpening(name) {
-  new MutationObserver(() => {
-    const hero = document.querySelector("[data-state]");
-    if (hero?.getAttribute("data-state") !== "flight") return;
-    Array.from(document.querySelectorAll("button"))
-      .find((b) => b.textContent === name)
-      ?.click();
-  }).observe(document, {
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["data-state"],
-  });
 }
 
 async function openHome(browser, { viewport, motion }) {

@@ -7,7 +7,7 @@
 // dark while his skin keeps its light, the court's blue, the turf's green, the
 // scoreboard's glow and the floor's white are drained and sunk, the overhead
 // lights' shine on his forehead is tamed, his shadows go indigo, and a cyan
-// rim of light catches his right edge, as if from the Outpost's towers. A
+// rim of light catches his right edge, as if from Hong Kong's towers. A
 // wide, heavily feathered vignette centred on his head and shoulders lets the
 // frame's edges fall into the night.
 //
