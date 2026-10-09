@@ -57,8 +57,48 @@ The one place that decides where the world's camera is and how the world is lit,
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:
-The short pickleball game on `/play`: singles against an AI, Dinkbot, played in the world, on the Juice Bros court, rally scoring to 7, win by 2. Its own UI is the one place outside the opening credits and the closing bookend where the copy jokes.
+The short pickleball game on `/play`: singles against an AI, Dinkbot, played in the world, on the Juice Bros court, rally scoring to 7, win by 2.
 _Avoid_: Mini-game, minigame, Pong
+
+**Easter egg**:
+A hidden or playful extra that shows who Adrian is outside work: the Home Run Derby, the Recall, the Encore, the 404's themed variants and the Achievements. Every one follows the ground rules in `docs/HANDOFF.md`, and a visitor who finds none loses nothing.
+_Avoid_: Secret, hidden feature, gimmick
+
+**Achievement**:
+One of six milestones a visitor earns by finding or playing an Easter egg: First Blood, Back to base, Encore!, Full rotation, Back-to-back-to-back and Dinkbot down. Toasted the first time it is earned, counted in the footer, and remembered in that browser only.
+_Avoid_: Badge, trophy (the trophy is BT Cup's hologram), award
+
+**Off the clock**:
+The four plain lines about Adrian outside work (pickleball, baseball, gaming, K-pop), each linking to its Easter egg. In the Contact section until the About page ships, then on the About page.
+_Avoid_: Hobbies, personal section, About me
+
+**Recall**:
+The Easter egg borrowed from League of Legends: holding `B`, or holding Adrian's name in the header, channels for about three seconds, then takes the visitor home (a Transit from a page with a Place). Letting go early cancels it.
+_Avoid_: Teleport, B-hold
+
+**Encore**:
+The stretch of home past the closing bookend: the camera turns to frame the stadium bowl, which fills with lightsticks, and a wall of light tickets lists the K-pop concerts Adrian has been to. The bookend stays the Contact section's last word.
+_Avoid_: Outro, ending, concert
+
+**Home Run Derby**:
+The baseball game under `/play`: the visitor bats against Curvebot for ten pitches at the Diamond, each swing's timing deciding a home run, fly-out, foul or strike. "The Derby" for short.
+_Avoid_: Baseball game, batting game, mini-game
+
+**Curvebot**:
+The Home Run Derby's pitcher, an AI, as Dinkbot is the Rally game's opponent. It mixes pitches of different speeds and has a short line for each outcome.
+_Avoid_: Pitcher (unqualified), Knucklebot
+
+**Diamond**:
+The baseball diamond built from light in the valley between the court and the stadium bowl: the Home Run Derby's Place and a stop on the Hobby route. Home's scroll route glimpses it but never frames it. It is not a Lit site.
+_Avoid_: Ballpark, field
+
+**Hobby route**:
+The About page's scroll route: the camera moves from the court (pickleball) to the Diamond (baseball) to the stadium bowl (K-pop) as each section's panel enters. It runs on the same route engine as home's.
+_Avoid_: About route, second route
+
+**About page**:
+The page (`/about`) about Adrian outside work, along the Hobby route: roots first ("Born and raised in Canada. My parents are from Hong Kong."), then pickleball, baseball, K-pop and the gaming line. A Place, whose first stop is the court. Hong Kong is not its Place.
+_Avoid_: Bio, About me, personal page
 
 **Role**:
 A position Adrian held, with company, title and dates, such as Senior Software Engineer at Control D (Windscribe). A Role can include several Projects.
