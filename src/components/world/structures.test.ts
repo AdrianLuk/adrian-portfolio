@@ -1,11 +1,22 @@
-import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
+import {
+  Euler,
+  InstancedMesh,
+  PerspectiveCamera,
+  Quaternion,
+  Vector3,
+} from "three";
 import { describe, expect, it } from "vitest";
 import { createFlightPath } from "./flight";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { FOG_DENSITY } from "./palette";
 import { CAMERA, settledYaw } from "./pose";
 import { createRoute, ROUTE_STOPS, SITES } from "./route";
-import { HERO_SIGHT, layoutStructures, type Box } from "./structures";
+import {
+  createStructures,
+  HERO_SIGHT,
+  layoutStructures,
+  type Box,
+} from "./structures";
 import {
   corridorHalfWidth,
   heightShortOfHongKong,
@@ -92,14 +103,12 @@ function crosses(a: Vector3, b: Vector3, box: Box) {
 }
 
 const {
-  buildings: lit,
-  darkBuildings,
+  buildings,
   masts,
   landmarks,
   skyline,
   hongKong,
 } = layoutStructures();
-const buildings = [...lit, ...darkBuildings];
 const towers = [
   ...buildings,
   ...masts,
@@ -137,7 +146,21 @@ describe("the city", () => {
     }
   });
 
-  it("is lost in the fog past the hero's sight", () => {
+  it("draws every kind of box it has, and none it hasn't: no instanced draw stands empty", () => {
+    // An empty one never gets its instance colours, and its shader fails.
+    const { meshes } = createStructures({
+      uTime: { value: 0 },
+      uPixelRatio: { value: 1 },
+    });
+    for (const mesh of meshes) {
+      if (mesh instanceof InstancedMesh) {
+        expect(mesh.count).toBeGreaterThan(0);
+        expect(mesh.instanceColor).not.toBeNull();
+      }
+    }
+  });
+
+    it("is lost in the fog past the hero's sight", () => {
     const fog = 1 - Math.exp(-((HERO_SIGHT * FOG_DENSITY) ** 2));
     expect(fog).toBeGreaterThanOrEqual(0.99);
   });
@@ -152,6 +175,7 @@ describe("the city", () => {
       top - valleyHeight(x, z);
     for (const b of [
       ...buildings,
+      ...masts,
       ...landmarks.bounds,
       ...skyline.towers,
       ...skyline.darkTowers,
@@ -179,7 +203,6 @@ describe("the city", () => {
       );
     for (const b of [
       ...buildings,
-      ...darkBuildings,
       ...masts,
       ...landmarks.bounds,
       ...skyline.bounds,

@@ -26,8 +26,8 @@ import {
  * down the valley, stopping beside each lit site in turn (the Highlights, in
  * order), and ends looking across Victoria Harbour at Hong Kong. The route
  * is measured in stops: 0 is the settled view, 1 to 4 frame the four sites,
- * 5 Hong Kong; in between it
- * flies at an even speed and turns smoothly from one framing to the next.
+ * 5 Hong Kong; in between it flies at an even speed and turns smoothly from
+ * one framing to the next.
  */
 
 /** A Lit site, standing where it stands in the world. */
@@ -59,7 +59,7 @@ export const SITES: readonly Site[] = LIT_SITES.map(site);
  */
 export const HONG_KONG = new Vector3(
   HONG_KONG_CENTRE.x,
-  valleyHeight(HONG_KONG_CENTRE.x, HONG_KONG_CENTRE.z) + 19,
+  valleyHeight(HONG_KONG_CENTRE.x, HONG_KONG_CENTRE.z) + 13,
   HONG_KONG_CENTRE.z,
 );
 
@@ -71,6 +71,13 @@ const STOP_LEAD = 80;
 
 /** Height above the floor the camera stops at, and cruises at in between. */
 const STOP_HEIGHT = 16;
+
+/**
+ * How high the route's last stop stands over Tsim Sha Tsui's shore: lower
+ * than the other stops, as from the promenade, so Hong Kong stands whole
+ * above the frame's middle with Victoria Harbour below it.
+ */
+const SHORE_HEIGHT = 10;
 const CRUISE_HEIGHT = 24;
 
 /** World units between the points the route's spline passes through. */
@@ -124,7 +131,7 @@ function stopPose(target: Vector3, ndcX: number, aspect: number): Pose {
  * layout, so it needs no route to find.
  */
 export function hongKongPose(aspect: number): Pose {
-  const position = above(HONG_KONG_SHORE.z, STOP_HEIGHT);
+  const position = above(HONG_KONG_SHORE.z, SHORE_HEIGHT);
   const ndcX = aspect >= 1 ? siteScreenX(aspect) : 0;
   return { position, quaternion: framing(position, HONG_KONG, ndcX, aspect) };
 }

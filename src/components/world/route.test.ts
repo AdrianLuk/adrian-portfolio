@@ -206,8 +206,8 @@ describe("the closing view", () => {
 
       it("stands the city in the upper half, Victoria Harbour across the lower", () => {
         for (const { x, z, foot } of hongKong.landmarks) {
-          // Each landmark's foot about the frame's middle, or above it.
-          expect(onScreen(pose, new Vector3(x, foot, z), aspect).y).toBeGreaterThan(-0.5);
+          // Each landmark's foot a little below the frame's middle at most.
+          expect(onScreen(pose, new Vector3(x, foot, z), aspect).y).toBeGreaterThan(-0.25);
         }
         // The frame's lower half looks down onto the water, wherever the
         // closing view's copy stands: across a narrow screen, and on the
@@ -262,11 +262,10 @@ function near(p: Vector3, b: Box, margin: number) {
 }
 
 describe("the court pose", () => {
-  const { buildings, darkBuildings, masts, landmarks, skyline } =
+  const { buildings, masts, landmarks, skyline } =
     layoutStructures();
   const towers = [
     ...buildings,
-    ...darkBuildings,
     ...masts,
     ...landmarks.parts,
     ...skyline.bounds,
@@ -359,11 +358,10 @@ describe("the court pose", () => {
 });
 
 describe("the Skyline pose", () => {
-  const { buildings, darkBuildings, masts, landmarks, skyline } =
+  const { buildings, masts, landmarks, skyline } =
     layoutStructures();
   const towers = [
     ...buildings,
-    ...darkBuildings,
     ...masts,
     ...landmarks.parts,
     ...skyline.bounds,

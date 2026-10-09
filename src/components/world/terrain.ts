@@ -184,6 +184,17 @@ export function valleyHeight(x: number, z: number) {
   return terrainHeight(x, z, true);
 }
 
+/** The lowest and highest ground under a w by d footprint centred on (x, z). */
+export function groundUnder(x: number, z: number, w: number, d: number) {
+  const heights = [];
+  for (const u of [-0.5, 0, 0.5]) {
+    for (const v of [-0.5, 0, 0.5]) {
+      heights.push(valleyHeight(x + u * w, z + v * d));
+    }
+  }
+  return { low: Math.min(...heights), high: Math.max(...heights) };
+}
+
 /**
  * Terrain height at (x, z) as the valley stands short of Hong Kong: without
  * Victoria Harbour or Victoria Peak, both lost in fog past the hero's sight.

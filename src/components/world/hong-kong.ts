@@ -5,7 +5,7 @@ import type { Reflected } from "./harbour";
 import { seededRandom } from "./noise";
 import { palette } from "./palette";
 import type { Box, Outline, Ring, Solid, Stroke } from "./skyline";
-import { valleyCentre, valleyHeight } from "./terrain";
+import { groundUnder, valleyCentre, valleyHeight } from "./terrain";
 
 /**
  * Hong Kong, at the far end of home's world where the scroll route ends, as
@@ -48,15 +48,8 @@ function inView(dist: number, across: number) {
 }
 
 /** The lowest ground under a w by d footprint at (x, z). */
-function groundUnder(x: number, z: number, w: number, d = w) {
-  return Math.min(
-    valleyHeight(x, z),
-    valleyHeight(x - w / 2, z - d / 2),
-    valleyHeight(x + w / 2, z - d / 2),
-    valleyHeight(x - w / 2, z + d / 2),
-    valleyHeight(x + w / 2, z + d / 2),
-  );
-}
+const footOf = (x: number, z: number, w: number, d = w) =>
+  groundUnder(x, z, w, d).low;
 
 /** An outline turned to face the shore, square on to the closing view. */
 function facingShore(outline: Outline): Outline {
@@ -65,22 +58,6 @@ function facingShore(outline: Outline): Outline {
     ([u, v]) =>
       [RIGHT[0] * u - AHEAD[0] * v, RIGHT[1] * u - AHEAD[1] * v] as const,
   );
-}
-
-/** A square `size` across with its corners cut back by `cut`, facing the shore. */
-function chamfered(size: number, cut: number): Outline {
-  const h = size / 2;
-  const c = Math.min(cut, h);
-  return facingShore([
-    [h - c, h],
-    [-(h - c), h],
-    [-h, h - c],
-    [-h, -(h - c)],
-    [-(h - c), -h],
-    [h - c, -h],
-    [h, -(h - c)],
-    [h, h - c],
-  ]);
 }
 
 /** An outline scaled about its axis. */
@@ -183,92 +160,105 @@ export function layoutHongKong() {
     pools.push({ x, y: foot, z, width: 22, depth: 36, color: cyan });
   }
 
-  // Central Plaza (374 m): a triangle in plan, its corners cut, under a
-  // glass pyramid and its mast, its crown ringed in light.
+  // Central Plaza (309 m to its roof, 374 m to its mast's tip): a triangle in
+  // plan with its three corners cut off, rising from the base through the
+  // tower's body (to 266 m) into its top: six plant floors, ringed by the
+  // four bars of its neon clock, under a glass pyramid, through which its
+  // 102 m mast rises.
   {
     const H = 65;
-    const { x, z } = inView(168, -17);
-    const ground = groundUnder(x, z, 11);
+    const body = 46.2;
+    const top = 50.3;
+    const roof = 53.6;
+    const { x, z } = inView(172, -18);
+    const ground = footOf(x, z, 12);
     const tri: Outline = facingShore(
       [0, 1, 2].flatMap((i) => {
         const a = Math.PI / 2 + (i * 2 * Math.PI) / 3;
-        return [-0.32, 0.32].map(
-          (da) => [Math.cos(a + da) * 6.4, Math.sin(a + da) * 6.4] as const,
+        return [-0.36, 0.36].map(
+          (da) => [Math.cos(a + da) * 6.8, Math.sin(a + da) * 6.8] as const,
         );
       }),
     );
-    const shaft = H * 0.74;
-    const roof = shaft + H * 0.1;
     solids.push(
       loft(x, z, ground, [
         { h: 0, outline: tri },
-        { h: shaft, outline: scaled(tri, 0.94) },
+        { h: body, outline: tri },
+        { h: body, outline: scaled(tri, 0.95) },
+        { h: top, outline: scaled(tri, 0.95) },
       ]),
       loft(
         x,
         z,
         ground,
         [
-          { h: shaft, outline: scaled(tri, 0.94) },
-          { h: roof, outline: scaled(tri, 0.22) },
+          { h: top, outline: scaled(tri, 0.95) },
+          { h: roof, outline: scaled(tri, 0.12) },
         ],
-        { windows: false, wash: 0.5 },
+        { windows: false, wash: 0.55 },
       ),
-      mast(x, z, ground + roof - 0.5, ground + H),
+      mast(x, z, ground + roof - 1, ground + H),
     );
-    for (const k of [0.6, 0.66, 0.72]) {
+    // The neon clock: four bars round the tower's top.
+    for (let k = 0; k < 4; k++) {
       rings.push({
         x,
-        y: ground + H * k,
+        y: ground + body + 0.6 + k * 1.0,
         z,
         r: 0,
-        h: 0.3,
+        h: 0.4,
         color: cyan,
-        outline: scaled(tri, 0.96),
+        outline: scaled(tri, 0.97),
       });
     }
     rings.push({
       x,
-      y: ground + shaft + 0.2,
+      y: ground + top + 0.15,
       z,
       r: 0,
-      h: 0.4,
+      h: 0.35,
       color: red,
-      outline: scaled(tri, 0.95),
+      outline: scaled(tri, 0.96),
     });
     landmark("Central Plaza", x, z, ground, ground + H, 12);
   }
 
-  // The Bank of China Tower (367 m with its masts): a square in plan cut by
-  // its diagonals into four triangular prisms, each ending higher than the
-  // last in a sloping glass roof that rises to the core; its faces' X-braced
-  // lattice in lines of light; twin masts on the highest.
+  // The Bank of China Tower (315 m to its roof, 367 m to its masts' tips):
+  // a 52 m square in plan, cut by its diagonals into four triangular shafts
+  // that end one by one (at the 25th, 38th and 51st floors, the last at the
+  // 70th), each in a sloping glass roof rising to the core, until a single
+  // triangular prism remains, its twin masts on top. Its faces' X-braced
+  // lattice, an X to each 52 m cube, in lines of light.
   {
     const H = 64;
-    const body = 54;
-    const S = 10;
+    const body = 54.7;
+    /** The 52 m square's side. */
+    const S = 9;
     const { x, z } = inView(180, -5);
-    const ground = groundUnder(x, z, S * 1.4);
+    const ground = footOf(x, z, S * 1.4);
     const h = S / 2;
-    /** Each prism by the side it faces (local), and where its roof begins. */
-    const prisms = [
-      { side: [0, 1], top: body * 0.46 },
-      { side: [-1, 0], top: body * 0.64 },
-      { side: [1, 0], top: body * 0.82 },
+    /** Each shaft by the side it faces (local), and the top of its roof. */
+    // Turned so the shaft facing the harbour is one of the tall ones: its
+    // lattice climbs the front, the lower two step down either side.
+    const shafts = [
+      { side: [-1, 0], top: (body * 25) / 70 },
+      { side: [1, 0], top: (body * 38) / 70 },
+      { side: [0, 1], top: (body * 51) / 70 },
       { side: [0, -1], top: body },
     ] as const;
-    const slope = h;
-    for (const { side, top } of prisms) {
+    /** How far each roof rises from the face to the core. */
+    const slope = h * 1.3;
+    for (const { side, top } of shafts) {
       const [sx, sz] = side;
-      // The prism's outer side, corner to corner, and the core.
+      // The shaft's outer side, corner to corner, and the core.
       const a = [sx * h - sz * h, sz * h + sx * h] as const;
       const b = [sx * h + sz * h, sz * h - sx * h] as const;
       const tri = facingShore([[0, 0], b, a]);
-      const core = facingShore([
+      const core: Outline = [
         [0, 0],
         [0, 0],
         [0, 0],
-      ]);
+      ];
       solids.push(
         loft(x, z, ground, [
           { h: 0, outline: tri },
@@ -276,8 +266,8 @@ export function layoutHongKong() {
           { h: top, outline: core },
         ]),
       );
-      // The lattice on its outer face: an X a storey-block high, from the
-      // ground to the foot of its roof, and the roof's edges.
+      // The lattice on its outer face: an X to each cube, from the ground
+      // to the foot of its roof, and the roof's edges.
       const [[ax, az], [bx, bz]] = [tri[2], tri[1]];
       const facing = facingShore([[sx, sz]])[0];
       const n = Math.hypot(facing[0], facing[1]);
@@ -299,187 +289,217 @@ export function layoutHongKong() {
       }
       line(P(0, 0), P(0, wall));
       line(P(1, 0), P(1, wall));
-      // The roof's sloping edges, up to the core.
       const apex = [x, ground + top, z] as const;
       line(P(0, wall), apex);
       line(P(1, wall), apex);
     }
+    // The twin masts, on the last prism's peak.
     const tip = ground + H;
-    for (const u of [-0.9, 0.9]) {
+    for (const u of [-0.7, 0.7]) {
       solids.push(
-        mast(
-          x + RIGHT[0] * u,
-          z + RIGHT[1] * u,
-          ground + body - 3,
-          tip - (u < 0 ? 1.5 : 0),
-        ),
+        mast(x + RIGHT[0] * u, z + RIGHT[1] * u, ground + body - 2, tip),
       );
     }
     landmark("Bank of China Tower", x, z, ground, tip, S * 1.4);
   }
 
-  // IFC 2 (412 m): a square shaft with its corners cut back, tapering a
-  // little, then stepping in to its crown, whose tips reach up like claws.
+  // IFC 2 (407 m to its roof, 412 m to its crown's tips): a square plan
+  // with its corners bevelled back and each face's middle stepped forward,
+  // narrowing as it rises in setbacks at its corners, to an open,
+  // sculptural crown: fins at its corners and mid-faces reaching up past
+  // the top floor, so the sky shows through.
   {
-    const H = 71;
+    const H = 71.5;
     const S = 10;
-    const { x, z } = inView(192, 11);
-    const ground = groundUnder(x, z, S);
-    const plan = chamfered(S, 1.6);
-    const steps: [number, number][] = [
-      [0, 1],
-      [0.76, 0.9],
-      [0.76, 0.8],
-      [0.82, 0.8],
-      [0.82, 0.68],
-      [0.87, 0.68],
-      [0.87, 0.56],
-      [0.91, 0.56],
+    const { x, z } = inView(204, 11);
+    const ground = footOf(x, z, S);
+    /** A face's middle steps forward `step`; its corners bevel back `cut`. */
+    const plan = (size: number, cut: number, step = 0.35): Outline => {
+      const h = size / 2;
+      const m = size * 0.2;
+      const side: [number, number][] = [
+        [h, h - cut],
+        [h - cut, h],
+        [m, h],
+        [m, h + step],
+        [-m, h + step],
+        [-m, h],
+      ];
+      // The same quarter, turned to each side in turn, anticlockwise.
+      const quarter = (k: number) =>
+        side.map(([u, v]) => {
+          const a = (k * Math.PI) / 2;
+          return [
+            u * Math.cos(a) - v * Math.sin(a),
+            u * Math.sin(a) + v * Math.cos(a),
+          ] as const;
+        });
+      return facingShore([0, 1, 2, 3].flatMap(quarter));
+    };
+    /** Its setbacks: [height, size, bevel]. */
+    const setbacks: [number, number, number][] = [
+      [0, S, 1.2],
+      [0.56, S, 1.2],
+      [0.56, S * 0.97, 1.8],
+      [0.68, S * 0.97, 1.8],
+      [0.68, S * 0.93, 2.4],
+      [0.79, S * 0.93, 2.4],
+      [0.79, S * 0.88, 3],
+      [0.87, S * 0.88, 3],
+      [0.87, S * 0.82, 3.4],
+      [0.94, S * 0.82, 3.4],
     ];
     solids.push(
       loft(
         x,
         z,
         ground,
-        steps.map(([k, s]) => ({ h: H * k, outline: scaled(plan, s) })),
+        setbacks.map(([k, size, cut]) => ({ h: H * k, outline: plan(size, cut) })),
       ),
     );
-    // The crown: its four corners reaching up past the roof, like claws.
-    for (const [u, v] of [
-      [-1, -1],
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-    ]) {
-      const k = S * 0.21;
+    // The crown's fins: four at the corners, the tallest, and four at the
+    // faces' middles, leaning a little in.
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4 + Math.PI / 4;
+      const corner = i % 2 === 0;
+      const r = corner ? S * 0.33 : S * 0.43;
+      const [u, v] = [Math.cos(a) * r, Math.sin(a) * r];
       solids.push({
         shape: "frustum",
-        x: x + RIGHT[0] * u * k - AHEAD[0] * v * k,
-        y: ground + H * 0.91,
-        z: z + RIGHT[1] * u * k - AHEAD[1] * v * k,
-        rBottom: 0.9,
-        rTop: 0.15,
-        h: H * 0.09,
+        x: x + RIGHT[0] * u - AHEAD[0] * v,
+        y: ground + H * 0.9,
+        z: z + RIGHT[1] * u - AHEAD[1] * v,
+        rBottom: corner ? 0.75 : 0.5,
+        rTop: 0.1,
+        h: corner ? H * 0.1 : H * 0.075,
         segments: 4,
         color: cyan,
-        wash: 0.35,
+        wash: 0.4,
       });
     }
-    for (const [k, s] of [
-      [0.76, 0.9],
-      [0.82, 0.8],
-      [0.87, 0.68],
+    for (const [k, size, cut] of [
+      [0.56, S, 1.2],
+      [0.68, S * 0.97, 1.8],
+      [0.79, S * 0.93, 2.4],
+      [0.87, S * 0.88, 3],
     ]) {
       rings.push({
         x,
         y: ground + H * k + 0.15,
         z,
         r: 0,
-        h: 0.3,
+        h: 0.28,
         color: cyan,
-        outline: scaled(plan, s + 0.01),
+        outline: scaled(plan(size, cut), 1.01),
       });
     }
     rings.push({
       x,
-      y: ground + H * 0.91 + 0.15,
+      y: ground + H * 0.94 + 0.15,
       z,
       r: 0,
-      h: 0.35,
+      h: 0.32,
       color: red,
-      outline: scaled(plan, 0.57),
+      outline: scaled(plan(S * 0.82, 3.4), 1.01),
     });
     landmark("IFC 2", x, z, ground, ground + H, S);
   }
 
-  // The Center (346 m): a square shaft turned on the diagonal, its crown
-  // stepping in, each step ringed in neon, under a mast.
+  // The Center (292 m to its roof, 346 m to its mast's tip): an eight-
+  // pointed star in plan, two squares offset by 45°, its points running up
+  // the shaft; bars of neon round it, closer together towards the top; and
+  // a mast on its roof.
   {
     const H = 60;
-    const S = 9;
+    const roof = 50.7;
+    /** Half the side of each of its two squares. */
+    const half = 3.8;
     const { x, z } = inView(200, 22);
-    const ground = groundUnder(x, z, S * 1.2);
-    const plan = facingShore(
-      [0, 1, 2, 3].map(
-        (i) =>
-          [
-            Math.cos((i * Math.PI) / 2) * S * 0.7,
-            Math.sin((i * Math.PI) / 2) * S * 0.7,
-          ] as const,
-      ),
+    const ground = footOf(x, z, half * 2.8);
+    const star = facingShore(
+      Array.from({ length: 16 }, (_, i) => {
+        const a = (i * Math.PI) / 8;
+        const r = i % 2 === 0 ? half * Math.SQRT2 : half / Math.cos(Math.PI / 8);
+        return [Math.cos(a) * r, Math.sin(a) * r] as const;
+      }),
     );
-    const tiers: [number, number][] = [
-      [0.7, 1],
-      [0.76, 0.84],
-      [0.81, 0.68],
-      [0.85, 0.52],
-    ];
-    const sections = [{ h: 0, outline: plan }];
-    for (const [k, s] of tiers) {
-      const prev = sections.at(-1)!;
-      sections.push({ h: H * k, outline: prev.outline });
-      sections.push({ h: H * k, outline: scaled(plan, s) });
-      // Its bands of neon, three to a tier.
-      for (let b = 0; b < 3; b++) {
-        rings.push({
-          x,
-          y: ground + H * k - 0.6 - b * 1.1,
-          z,
-          r: 0,
-          h: 0.32,
-          color: b === 0 && k === 0.85 ? red : cyan,
-          outline: scaled(prev.outline, 1.02),
-        });
-      }
-    }
-    sections.push({ h: H * 0.87, outline: scaled(plan, 0.52) });
     solids.push(
-      loft(x, z, ground, sections),
-      mast(x, z, ground + H * 0.87 - 0.5, ground + H),
+      loft(x, z, ground, [
+        { h: 0, outline: star },
+        { h: roof - 2.5, outline: star },
+        { h: roof, outline: scaled(star, 0.86) },
+      ]),
+      mast(x, z, ground + roof - 0.5, ground + H),
     );
-    landmark("The Center", x, z, ground, ground + H, S * 1.4);
+    // Its neon: bars from a third of the way up, each gap shorter than the
+    // last, the topmost in red.
+    const bars: number[] = [];
+    for (let y = roof * 0.34, gap = 4; y < roof - 3; y += gap) {
+      bars.push(y);
+      gap = Math.max(1.1, gap * 0.86);
+    }
+    bars.forEach((y, i) => {
+      rings.push({
+        x,
+        y: ground + y,
+        z,
+        r: 0,
+        h: 0.3,
+        color: i === bars.length - 1 ? red : cyan,
+        outline: scaled(star, 1.02),
+      });
+    });
+    landmark("The Center", x, z, ground, ground + H, half * 2.8);
   }
 
-  // ICC (484 m), the tallest, at the back: a square shaft with notched
-  // corners, its crown sloping in to a flat top.
+  // ICC (484 m, its parapets included), the tallest, at the back: a square
+  // in plan with re-entrant corners, notched the whole way up and deepening
+  // a little as they rise; its faces curving out at the foot, splaying into
+  // the ground; its top flat behind its parapets.
   {
     const H = 84;
     const S = 11;
     const { x, z } = inView(252, 4);
-    const ground = groundUnder(x, z, S);
-    const h = S / 2;
-    const n = S * 0.12;
-    const plan = facingShore([
-      [h, h - n],
-      [h - n, h - n],
-      [h - n, h],
-      [-(h - n), h],
-      [-(h - n), h - n],
-      [-h, h - n],
-      [-h, -(h - n)],
-      [-(h - n), -(h - n)],
-      [-(h - n), -h],
-      [h - n, -h],
-      [h - n, -(h - n)],
-      [h, -(h - n)],
-    ]);
+    const ground = footOf(x, z, S * 1.3);
+    /** The square `size` across, its corners notched `notch` deep. */
+    const plan = (size: number, notch: number): Outline => {
+      const h = size / 2;
+      const n = notch;
+      return facingShore([
+        [h, h - n],
+        [h - n, h - n],
+        [h - n, h],
+        [-(h - n), h],
+        [-(h - n), h - n],
+        [-h, h - n],
+        [-h, -(h - n)],
+        [-(h - n), -(h - n)],
+        [-(h - n), -h],
+        [h - n, -h],
+        [h - n, -(h - n)],
+        [h, -(h - n)],
+      ]);
+    };
     solids.push(
       loft(x, z, ground, [
-        { h: 0, outline: plan },
-        { h: H * 0.88, outline: scaled(plan, 0.93) },
-        { h: H * 0.97, outline: scaled(plan, 0.66) },
-        { h: H, outline: scaled(plan, 0.62) },
+        // The faces' curves, splaying out at the foot.
+        { h: 0, outline: plan(S * 1.3, S * 0.1) },
+        { h: H * 0.02, outline: plan(S * 1.16, S * 0.1) },
+        { h: H * 0.05, outline: plan(S * 1.07, S * 0.1) },
+        { h: H * 0.09, outline: plan(S * 1.02, S * 0.1) },
+        { h: H * 0.13, outline: plan(S, S * 0.1) },
+        { h: H, outline: plan(S * 0.96, S * 0.15) },
       ]),
     );
     rings.push(
       {
         x,
-        y: ground + H * 0.88,
+        y: ground + H * 0.81,
         z,
         r: 0,
         h: 0.35,
         color: cyan,
-        outline: scaled(plan, 0.945),
+        outline: scaled(plan(S * 0.97, S * 0.14), 1.01),
       },
       {
         x,
@@ -488,10 +508,10 @@ export function layoutHongKong() {
         r: 0,
         h: 0.35,
         color: red,
-        outline: scaled(plan, 0.64),
+        outline: scaled(plan(S * 0.96, S * 0.15), 1.01),
       },
     );
-    landmark("ICC", x, z, ground, ground + H, S);
+    landmark("ICC", x, z, ground, ground + H, S * 1.3);
   }
 
   // The towers round the landmarks: the Island's waterfront and a row
@@ -510,7 +530,7 @@ export function layoutHongKong() {
   ] as const;
   for (const [dist, across, height, w, d, dark] of plan) {
     const { x, z } = inView(dist, across);
-    const ground = groundUnder(x, z, w, d);
+    const ground = footOf(x, z, w, d);
     const box = {
       x,
       y: ground - 2 + (height + 2) / 2,

@@ -21,7 +21,7 @@ import { fogChunk, fogUniforms, palette } from "./palette";
 import { SITES, type Site } from "./route";
 import type { SharedUniforms } from "./shared";
 import { hippedRoof, type Box, type Ring, type Solid } from "./skyline";
-import { valleyHeight } from "./terrain";
+import { groundUnder, valleyHeight } from "./terrain";
 import type { Portal, Shield } from "./shield";
 import type { Veil } from "./veil";
 
@@ -98,17 +98,6 @@ export type Landmarks = {
    */
   parts: Box[];
 };
-
-/** The lowest and highest ground under a w by d footprint centred on (x, z). */
-function groundUnder(x: number, z: number, w: number, d: number) {
-  const heights = [];
-  for (const u of [-0.5, 0, 0.5]) {
-    for (const v of [-0.5, 0, 0.5]) {
-      heights.push(valleyHeight(x + u * w, z + v * d));
-    }
-  }
-  return { low: Math.min(...heights), high: Math.max(...heights) };
-}
 
 /** A box standing from `foot` to `top`. */
 function standing(

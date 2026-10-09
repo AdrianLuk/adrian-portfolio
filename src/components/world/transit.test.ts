@@ -87,11 +87,9 @@ function near(p: Vector3, b: Box, margin: number) {
   );
 }
 
-const { buildings, darkBuildings, masts, landmarks, skyline } =
-  layoutStructures();
+const { buildings, masts, landmarks, skyline } = layoutStructures();
 const towers = [
   ...buildings,
-  ...darkBuildings,
   ...masts,
   ...landmarks.parts,
   ...skyline.bounds,

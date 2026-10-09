@@ -176,19 +176,14 @@ function bodyMaterial({ windows = false, dark = false, haze = 1 } = {}) {
  * canyon, windowed and lit from within, kept under the mountains; Toronto's
  * skyline on the right-hand wall (skyline.ts), which the city makes way for;
  * Hong Kong across Victoria Harbour, where the route ends (hong-kong.ts); a
- * landmark at
- * each lit site (landmarks.ts); slim light masts at the two gates; and runway
- * lights down the floor. Each emitter also throws a pool of light onto the
+ * landmark at each lit site (landmarks.ts); slim light masts at the two
+ * gates; and runway lights down the floor. Each emitter also throws a pool of light onto the
  * ground at its foot.
  */
 export function layoutStructures() {
   const random = seededRandom(0x11ad);
-  /**
-   * The city's buildings, windowed (the dark-glass ones apart); and the
-   * masts, which are not.
-   */
+  /** The city's buildings, windowed; and the masts, which are not. */
   const buildings: Box[] = [];
-  const darkBuildings: Box[] = [];
   const masts: Box[] = [];
   const bands: Box[] = [];
   const glows: Glow[] = [];
@@ -213,8 +208,6 @@ export function layoutStructures() {
     building?: {
       depth: number;
       underRidge: boolean;
-      dark?: boolean;
-      pool?: boolean;
     },
   ) {
     const depth = building?.depth ?? width;
@@ -238,7 +231,7 @@ export function layoutStructures() {
       d: depth,
       color: light,
     };
-    (building?.dark ? darkBuildings : building ? buildings : masts).push(box);
+    (building ? buildings : masts).push(box);
     // A vertical seam of light on the face looking into the valley.
     bands.push({
       x: x + (facing * width) / 2,
@@ -273,7 +266,6 @@ export function layoutStructures() {
     // Long in z: seen at a grazing angle, a round pool would read as a line.
     // A mast's width, even under a building: any wider floods the floor.
     const spill = Math.min(width, 3.8);
-    if (building?.pool === false) return box;
     pools.push({
       x,
       y: valleyHeight(x, z),
@@ -478,7 +470,6 @@ export function layoutStructures() {
   const hongKong = layoutHongKong();
   return {
     buildings,
-    darkBuildings,
     masts,
     bands,
     landmarks,
@@ -496,7 +487,6 @@ export function layoutStructures() {
 export function createStructures(shared: SharedUniforms) {
   const {
     buildings,
-    darkBuildings,
     masts,
     bands,
     landmarks,
@@ -511,7 +501,6 @@ export function createStructures(shared: SharedUniforms) {
   const meshes = (
     [
       [bodyMaterial({ windows: true }), [...buildings, ...landmarks.rooms]],
-      [bodyMaterial({ windows: true, dark: true }), darkBuildings],
       [
         bodyMaterial({ windows: true, haze: HAZE }),
         [...skyline.towers, ...hongKong.towers],
