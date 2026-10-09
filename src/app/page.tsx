@@ -47,11 +47,11 @@ const landsAfterFlight =
   "opening:translate-y-3 opening:opacity-0 in-data-[arriving=hero]:invisible in-data-[arriving=hero]:opacity-0 motion-safe:group-data-[state=settled]:transition-[opacity,translate] motion-safe:group-data-[state=settled]:duration-700";
 
 /**
- * The contact copy's panels. On a phone the district stands behind the copy,
+ * The contact copy's panels. On a phone Hong Kong comes up behind the copy,
  * so it sits on a panel there, as the Highlights do; wider, it has the left
  * clear.
  */
-const outpostPanel =
+const contactPanel =
   "relative max-md:rounded-sm max-md:bg-dusk/80 max-md:p-6 max-md:shadow-2xl max-md:shadow-cyan/10";
 
 export default async function Home() {
@@ -201,9 +201,9 @@ export default async function Home() {
           {contact.heading}
         </h2>
         {/* His photo heads the panel on a phone; wider, it stands beside the
-          lead and the links, short of the district on the right. */}
+          lead and the links, short of Hong Kong on the right. */}
         <div
-          className={`mt-6 grid gap-y-4 [grid-template-areas:'photo'_'lead'_'links'] md:grid-cols-[auto_auto] md:grid-rows-[auto_1fr] md:justify-start md:gap-x-16 md:[grid-template-areas:'lead_photo'_'links_photo'] ${outpostPanel}`}
+          className={`mt-6 grid gap-y-4 [grid-template-areas:'photo'_'lead'_'links'] md:grid-cols-[auto_auto] md:grid-rows-[auto_1fr] md:justify-start md:gap-x-16 md:[grid-template-areas:'lead_photo'_'links_photo'] ${contactPanel}`}
         >
           <PanelCorners className="border-cyan md:hidden" />
           <ContactPortrait className="mb-2 [grid-area:photo] md:mb-0" />
@@ -231,7 +231,7 @@ export default async function Home() {
           </div>
         </div>
         {/* The site as its own evidence, each fact one the source bears out. */}
-        <div className={`mt-12 ${outpostPanel}`}>
+        <div className={`mt-12 ${contactPanel}`}>
           <PanelCorners className="border-cyan md:hidden" />
           <h3 className="font-display text-xl font-bold [font-stretch:115%]">
             {contact.built.heading}
@@ -250,9 +250,15 @@ export default async function Home() {
             </a>
           </p>
         </div>
-        <p className="mt-16 font-display text-2xl font-bold [font-stretch:120%]">
-          {contact.bookend}
-        </p>
+        {/* The closing view: the page's last screen, where the camera reaches
+          the route's last stop, Hong Kong whole in its upper half and
+          Victoria Harbour across its lower. Clear of copy but the bookend,
+          over the water, with no panel behind it. */}
+        <div className="flex min-h-svh flex-col justify-end [text-shadow:0_1px_14px_var(--color-night)]">
+          <p className="font-display text-2xl font-bold [font-stretch:120%]">
+            {contact.bookend}
+          </p>
+        </div>
       </section>
       <script
         type="application/ld+json"

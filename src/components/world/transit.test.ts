@@ -5,7 +5,7 @@ import { CAMERA } from "./pose";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
 import { courtPose, createRoute, SITES, skylinePose } from "./route";
 import { layoutStructures, type Box } from "./structures";
-import { harbourWater, onFloor, surfaceHeight, valleyCentre } from "./terrain";
+import { HARBOUR, harbourWater, onFloor, surfaceHeight, valleyCentre } from "./terrain";
 import {
   COURT_STOP,
   SETTLED_STOP,
@@ -87,11 +87,9 @@ function near(p: Vector3, b: Box, margin: number) {
   );
 }
 
-const { buildings, darkBuildings, masts, landmarks, skyline } =
-  layoutStructures();
+const { buildings, masts, landmarks, skyline } = layoutStructures();
 const towers = [
   ...buildings,
-  ...darkBuildings,
   ...masts,
   ...landmarks.parts,
   ...skyline.bounds,
@@ -161,7 +159,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         for (const { position: p } of along(trip)) {
           if (Math.abs(p.x - valleyCentre(p.z)) < 20) continue;
           const ashore = p.distanceTo(skylineView.position) < LANDING_REACH;
-          expect(ashore || harbourWater(p.x, p.z) > 0).toBe(true);
+          expect(ashore || harbourWater(p.x, p.z, HARBOUR) > 0).toBe(true);
         }
       }
     });

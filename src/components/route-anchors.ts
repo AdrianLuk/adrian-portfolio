@@ -18,7 +18,7 @@ export type PageLayout = {
 
 /**
  * The scroll position at which the camera reaches each stop: the settled view
- * at the top, each site as its panel is centred in the viewport, the Outpost
+ * at the top, each site as its panel is centred in the viewport, Hong Kong
  * at the foot of the page. Clamped to the page and never decreasing, so a
  * short page simply arrives at its last stops together.
  */

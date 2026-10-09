@@ -7,8 +7,8 @@ import {
   CN_TOWER_TOP,
   courtPose,
   createRoute,
-  OUTPOST,
-  outpostPose,
+  HONG_KONG,
+  hongKongPose,
   ROUTE_STOPS,
   SITES,
   skylineView,
@@ -19,8 +19,10 @@ import {
   HARBOUR,
   harbourWater,
   onFloor,
+  surfaceHeight,
   valleyCentre,
   valleyHeight,
+  VICTORIA_HARBOUR,
 } from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
@@ -105,9 +107,10 @@ describe("the scroll route", () => {
         route.poseAt(i / 100),
       );
 
-      it("clears the ground and the plate, and stays in the valley", () => {
+      it("clears the ground, the water and the plate, and stays in the valley", () => {
         for (const { position: p } of poses) {
           expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(8);
+          expect(p.y - surfaceHeight(p.x, p.z)).toBeGreaterThan(8);
           expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
             corridorHalfWidth(p.z),
           );
@@ -141,21 +144,93 @@ describe("the scroll route", () => {
         }
       });
 
-      it("ends at the Outpost, framed right of the contact copy", () => {
+      it("ends looking at Hong Kong: right of the contact copy on a wide screen, centred on a narrow one", () => {
         const pose = route.poseAt(ROUTE_STOPS - 1);
-        const { x, y, z } = onScreen(pose, OUTPOST, aspect);
+        const { x, y, z } = onScreen(pose, HONG_KONG, aspect);
         expect(z).toBeLessThan(1);
-        expect(x).toBeGreaterThan(0.1);
-        expect(x).toBeLessThan(0.7);
-        expect(Math.abs(y)).toBeLessThan(0.6);
-        expect(clearView(pose.position, OUTPOST)).toBe(true);
+        if (aspect >= 1) {
+          expect(x).toBeGreaterThan(0.3);
+          expect(x).toBeLessThan(0.6);
+        } else {
+          expect(Math.abs(x)).toBeLessThan(1e-6);
+        }
+        expect(Math.abs(y)).toBeLessThan(0.3);
+        expect(clearView(pose.position, HONG_KONG)).toBe(true);
       });
 
-      it("ends on the Outpost's own pose, which needs no route to find", () => {
+      it("ends on Hong Kong's own pose, which needs no route to find", () => {
         const end = route.poseAt(ROUTE_STOPS - 1);
-        const pose = outpostPose(aspect);
+        const pose = hongKongPose(aspect);
         expect(pose.position.distanceTo(end.position)).toBeLessThan(1e-6);
         expect(pose.quaternion.angleTo(end.quaternion)).toBeLessThan(1e-6);
+      });
+    });
+  }
+});
+
+describe("the closing view", () => {
+  const { hongKong } = layoutStructures();
+
+  const shapes = {
+    "phone, 390 by 844": 390 / 844,
+    "phone, 360 by 640": 360 / 640,
+    "desktop": 1.6,
+  };
+
+  for (const [name, aspect] of Object.entries(shapes)) {
+    describe(name, () => {
+      const pose = hongKongPose(aspect);
+      const p = pose.position;
+
+      it("stands at the route's last stop, on Tsim Sha Tsui's shore, over land", () => {
+        expect(p.z).toBe(-1050);
+        expect(p.z).toBeGreaterThan(VICTORIA_HARBOUR.near);
+        expect(p.y - surfaceHeight(p.x, p.z)).toBeGreaterThan(8);
+      });
+
+      it("stands every landmark whole in the frame, its base to its tip", () => {
+        expect(hongKong.landmarks).toHaveLength(5);
+        for (const { name: landmark, x, z, foot, tip } of hongKong.landmarks) {
+          for (const y of [foot, tip]) {
+            const at = onScreen(pose, new Vector3(x, y, z), aspect);
+            expect(at.z, `${landmark} in front of the camera`).toBeLessThan(1);
+            expect(Math.abs(at.x), `${landmark} across`).toBeLessThan(0.95);
+            // Under the nav bar, which covers about the top 6% of the screen.
+            expect(at.y, `${landmark} up`).toBeLessThan(0.85);
+            expect(at.y, `${landmark} up`).toBeGreaterThan(-0.95);
+          }
+          expect(clearView(p, new Vector3(x, foot + 2, z)), landmark).toBe(true);
+          expect(clearView(p, new Vector3(x, tip, z)), landmark).toBe(true);
+        }
+      });
+
+      it("stands the city in the upper half, Victoria Harbour across the lower", () => {
+        for (const { x, z, foot } of hongKong.landmarks) {
+          // Each landmark's foot a little below the frame's middle at most.
+          expect(onScreen(pose, new Vector3(x, foot, z), aspect).y).toBeGreaterThan(-0.25);
+        }
+        // The frame's lower half looks down onto the water, wherever the
+        // closing view's copy stands: across a narrow screen, and on the
+        // left of a wide one.
+        const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
+        const camera = new PerspectiveCamera(CAMERA.fovY, aspect, 0.5, 2600);
+        camera.position.copy(p);
+        camera.quaternion.copy(pose.quaternion);
+        camera.updateMatrixWorld();
+        for (const ndcX of aspect >= 1 ? [-0.75, -0.35, 0] : [-0.9, 0, 0.9]) {
+          for (const ndcY of [-0.95, -0.7, -0.5]) {
+            const ray = new Vector3(ndcX, ndcY, 0.5)
+              .unproject(camera)
+              .sub(p)
+              .normalize();
+            const t = (VICTORIA_HARBOUR.level - p.y) / ray.y;
+            const hit = p.clone().addScaledVector(ray, t);
+            const at = `at ${ndcX}, ${ndcY}`;
+            expect(t, `the ray ${at} meets the water ahead`).toBeGreaterThan(0);
+            expect(harbourWater(hit.x, hit.z, VICTORIA_HARBOUR), at).toBe(1);
+          }
+        }
+        expect(forward.y).toBeGreaterThan(-0.05);
       });
     });
   }
@@ -187,11 +262,10 @@ function near(p: Vector3, b: Box, margin: number) {
 }
 
 describe("the court pose", () => {
-  const { buildings, darkBuildings, masts, landmarks, skyline } =
+  const { buildings, masts, landmarks, skyline } =
     layoutStructures();
   const towers = [
     ...buildings,
-    ...darkBuildings,
     ...masts,
     ...landmarks.parts,
     ...skyline.bounds,
@@ -284,11 +358,10 @@ describe("the court pose", () => {
 });
 
 describe("the Skyline pose", () => {
-  const { buildings, darkBuildings, masts, landmarks, skyline } =
+  const { buildings, masts, landmarks, skyline } =
     layoutStructures();
   const towers = [
     ...buildings,
-    ...darkBuildings,
     ...masts,
     ...landmarks.parts,
     ...skyline.bounds,
@@ -320,7 +393,7 @@ describe("the Skyline pose", () => {
         expect(p.z).toBeLessThan(HARBOUR.near);
         expect(p.z).toBeGreaterThan(HARBOUR.far);
         // On land, on the bay's side of the valley.
-        expect(harbourWater(p.x, p.z)).toBe(0);
+        expect(harbourWater(p.x, p.z, HARBOUR)).toBe(0);
         expect(p.x).toBeLessThan(valleyCentre(p.z) - corridorHalfWidth(p.z));
         // Lower than any of the scroll route's stops (16 above the floor).
         expect(p.y - valleyHeight(p.x, p.z)).toBeLessThan(12);
@@ -341,7 +414,7 @@ describe("the Skyline pose", () => {
       it("looks across the water: the harbour fills the foot of the frame, below the tower", () => {
         // Halfway to the tower, on the water's surface.
         const mid = p.clone().lerp(new Vector3(x, 0, z), 0.5).setY(HARBOUR.level);
-        expect(harbourWater(mid.x, mid.z)).toBe(1);
+        expect(harbourWater(mid.x, mid.z, HARBOUR)).toBe(1);
         const water = see(mid);
         expect(water.y).toBeGreaterThan(-1);
         // The lower quarter on a wide screen; zoomed out on a narrow one, the

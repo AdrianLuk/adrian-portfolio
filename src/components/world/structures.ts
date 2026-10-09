@@ -11,10 +11,11 @@ import {
 import type { Glow } from "./glow-points";
 import type { Pool } from "./ground-pools";
 import { createHarbour, reflectedLights } from "./harbour";
+import { layoutHongKong } from "./hong-kong";
 import { createBalls, createTrophies, layoutLandmarks } from "./landmarks";
 import { seededRandom } from "./noise";
 import { FOG_DENSITY, fogChunk, fogUniforms, MOON, palette } from "./palette";
-import { OUTPOST, SITES } from "./route";
+import { SITES } from "./route";
 import type { SharedUniforms } from "./shared";
 import {
   createSkylineMeshes,
@@ -25,9 +26,12 @@ import {
 } from "./skyline";
 import {
   corridorHalfWidth,
-  harbourWater,
+  HARBOUR,
+  heightShortOfHongKong,
   valleyCentre,
   valleyHeight,
+  VICTORIA_HARBOUR,
+  waterAt,
   WORLD_BACK,
 } from "./terrain";
 import { createPortals, createShields } from "./shield";
@@ -51,13 +55,13 @@ const SKYLINE = 0.85;
 
 /**
  * How far the hero can see: past this the fog hides 99% of anything, so a
- * building beyond it needn't keep under the ridge (the Outpost's district).
+ * building beyond it needn't keep under the ridge (Hong Kong's).
  */
 export const HERO_SIGHT = Math.sqrt(Math.log(100)) / FOG_DENSITY;
 
 /**
  * The street of towers along the runway: where it starts (behind the plate)
- * and ends (short of the Outpost's district), how far off the valley's centre
+ * and ends (short of Victoria Harbour), how far off the valley's centre
  * line its frontage stands (the runway's lights are 14 off it) and the city's
  * second row behind it, the plaza kept open round each lit site, from ahead
  * of where the camera stops to frame it (80 short of it) to past it, and the
@@ -85,7 +89,7 @@ function underRidge(x: number, z: number, ground: number) {
       for (let d = near + 6; d < 1600; d += 8) {
         const px = (x / near) * d;
         const pz = (z / near) * d;
-        crest = Math.max(crest, elevation(valleyHeight(px, pz), d));
+        crest = Math.max(crest, elevation(heightShortOfHongKong(px, pz), d));
       }
       const foot = elevation(ground, near);
       const top = foot + (crest - foot) * SKYLINE;
@@ -171,19 +175,15 @@ function bodyMaterial({ windows = false, dark = false, haze = 1 } = {}) {
  * of tall, wide towers along the valley's walls and down the opening's
  * canyon, windowed and lit from within, kept under the mountains; Toronto's
  * skyline on the right-hand wall (skyline.ts), which the city makes way for;
- * a financial district at the Outpost, where the route ends; a landmark at
- * each lit site (landmarks.ts); slim light masts at the two gates; and runway
- * lights down the floor. Each emitter also throws a pool of light onto the
+ * Hong Kong across Victoria Harbour, where the route ends (hong-kong.ts); a
+ * landmark at each lit site (landmarks.ts); slim light masts at the two
+ * gates; and runway lights down the floor. Each emitter also throws a pool of light onto the
  * ground at its foot.
  */
 export function layoutStructures() {
   const random = seededRandom(0x11ad);
-  /**
-   * The city's buildings, windowed (the district's dark-glass ones apart);
-   * and the masts, which are not.
-   */
+  /** The city's buildings, windowed; and the masts, which are not. */
   const buildings: Box[] = [];
-  const darkBuildings: Box[] = [];
   const masts: Box[] = [];
   const bands: Box[] = [];
   const glows: Glow[] = [];
@@ -208,8 +208,6 @@ export function layoutStructures() {
     building?: {
       depth: number;
       underRidge: boolean;
-      dark?: boolean;
-      pool?: boolean;
     },
   ) {
     const depth = building?.depth ?? width;
@@ -233,7 +231,7 @@ export function layoutStructures() {
       d: depth,
       color: light,
     };
-    (building?.dark ? darkBuildings : building ? buildings : masts).push(box);
+    (building ? buildings : masts).push(box);
     // A vertical seam of light on the face looking into the valley.
     bands.push({
       x: x + (facing * width) / 2,
@@ -268,7 +266,6 @@ export function layoutStructures() {
     // Long in z: seen at a grazing angle, a round pool would read as a line.
     // A mast's width, even under a building: any wider floods the floor.
     const spill = Math.min(width, 3.8);
-    if (building?.pool === false) return box;
     pools.push({
       x,
       y: valleyHeight(x, z),
@@ -306,9 +303,9 @@ export function layoutStructures() {
     return null;
   };
   /**
-   * Makes the random draws `tower` would have made for a tower the harbour
-   * keeps from standing, so every other tower stands as it did before the
-   * harbour was dug.
+   * Makes the random draws `tower` would have made for a tower that no
+   * longer stands (in a harbour, or making way for Hong Kong), so every
+   * other tower stands as it did before.
    */
   const skipTower = () => {
     const rings = 1 + Math.floor(random() * 3);
@@ -316,11 +313,11 @@ export function layoutStructures() {
     random();
     random();
   };
-  /** True if any of a footprint `size` across at (x, z) stands in the harbour. */
+  /** True if any of a footprint `size` across at (x, z) stands in either harbour. */
   const inHarbour = (x: number, z: number, size: number) =>
     [-1, 0, 1].some((u) =>
       [-1, 0, 1].some(
-        (v) => harbourWater(x + (u * size) / 2, z + (v * size) / 2) > 0,
+        (v) => waterAt(x + (u * size) / 2, z + (v * size) / 2) > 0,
       ),
     );
   /** True if (z) on `side` falls in the plaza kept open round a lit site. */
@@ -384,7 +381,7 @@ export function layoutStructures() {
       const x = c + side * 14;
       // Drawn either way, so the lights past the harbour flicker as before.
       const seed = random();
-      if (harbourWater(x, z) > 0) continue;
+      if (waterAt(x, z) > 0) continue;
       glows.push({
         x,
         y: valleyHeight(x, z) + 0.35,
@@ -434,69 +431,11 @@ export function layoutStructures() {
     pools.push({ x, y, z, width: 34, depth: 60, color: palette[site.light] });
   }
 
-  // The Outpost at the route's end: a financial district on the valley floor
-  // past its light, three rows climbing from the front to the tallest at the
-  // back, three in dark glass, the tallest crowned. Each is [along (from the
-  // Outpost, down the valley), across (from the valley's centre line),
-  // height, width, depth, light, dark glass]. The hero can't see this far,
-  // so it may rise over the ridge; never over the CN Tower.
-  const { cyan, violet } = palette;
-  const plan = [
-    [-45, -1, 26, 10, 8, violet, false],
-    [-45, 12, 34, 9, 9, cyan, false],
-    [-45, 25, 22, 11, 8, violet, false],
-    [-75, -2, 44, 10, 9, cyan, true],
-    [-75, 10, 58, 11, 10, cyan, false],
-    [-75, 21, 48, 9, 8, cyan, true],
-    [-75, 30, 36, 8, 8, violet, false],
-    [-110, 8, 62, 10, 10, violet, false],
-    [-110, 19, 80, 11, 11, cyan, false],
-    [-110, 29, 66, 9, 9, cyan, true],
-  ] as const;
-  const district: Box[] = [];
-  for (const [along, across, height, width, depth, light, dark] of plan) {
-    const z = OUTPOST.z + along;
-    const box = tower(
-      valleyCentre(z) + across,
-      z,
-      height,
-      width,
-      -Math.sign(across),
-      light,
-      {
-        depth,
-        underRidge: true,
-        dark,
-        pool: false,
-      },
-    );
-    district.push(box);
-  }
-  // The tallest gets a stepped crown, two setbacks on its roof.
-  const tallest = district.reduce((a, b) =>
-    b.y + b.h / 2 > a.y + a.h / 2 ? b : a,
-  );
-  const roof = tallest.y + tallest.h / 2;
-  const crown = [
-    { ...tallest, y: roof + 2, w: tallest.w * 0.7, h: 4, d: tallest.d * 0.65 },
-    {
-      ...tallest,
-      y: roof + 5.25,
-      w: tallest.w * 0.4,
-      h: 2.5,
-      d: tallest.d * 0.35,
-    },
-  ];
-  buildings.push(...crown);
-  district.push(...crown);
-  pools.push({
-    x: OUTPOST.x,
-    y: valleyHeight(OUTPOST.x, OUTPOST.z),
-    z: OUTPOST.z,
-    width: 70,
-    depth: 90,
-    color: cyan,
-  });
+  // Hong Kong stands where a financial district once did, at the route's
+  // end, laid out apart (./hong-kong) with its own random draws; the ten
+  // towers it replaced are drawn for still, so the street after them stands
+  // where it did.
+  for (let i = 0; i < 10; i++) skipTower();
 
   // A street of towers lining the runway on both sides, set back a pavement
   // from its lights, broken by cross streets, so the floor reads as a city
@@ -528,16 +467,16 @@ export function layoutStructures() {
       tower(x, z, height, width, -side, light, { depth, underRidge: true });
     }
   }
+  const hongKong = layoutHongKong();
   return {
     buildings,
-    darkBuildings,
-    district,
     masts,
     bands,
     landmarks,
-    glows: [...glows, ...landmarks.glows, ...skyline.glows],
-    pools: [...pools, ...skyline.pools],
+    glows: [...glows, ...landmarks.glows, ...skyline.glows, ...hongKong.glows],
+    pools: [...pools, ...skyline.pools, ...hongKong.pools],
     skyline,
+    hongKong,
   };
 }
 
@@ -548,13 +487,13 @@ export function layoutStructures() {
 export function createStructures(shared: SharedUniforms) {
   const {
     buildings,
-    darkBuildings,
     masts,
     bands,
     landmarks,
     glows,
     pools,
     skyline,
+    hongKong,
   } = layoutStructures();
   const geometry = new BoxGeometry(1, 1, 1);
   const m = new Matrix4();
@@ -562,11 +501,13 @@ export function createStructures(shared: SharedUniforms) {
   const meshes = (
     [
       [bodyMaterial({ windows: true }), [...buildings, ...landmarks.rooms]],
-      [bodyMaterial({ windows: true, dark: true }), darkBuildings],
-      [bodyMaterial({ windows: true, haze: HAZE }), skyline.towers],
+      [
+        bodyMaterial({ windows: true, haze: HAZE }),
+        [...skyline.towers, ...hongKong.towers],
+      ],
       [
         bodyMaterial({ windows: true, dark: true, haze: HAZE }),
-        skyline.darkTowers,
+        [...skyline.darkTowers, ...hongKong.darkTowers],
       ],
       [bodyMaterial(), [...masts, ...landmarks.bodies]],
       [new MeshBasicMaterial(), [...bands, ...landmarks.bands]],
@@ -588,6 +529,9 @@ export function createStructures(shared: SharedUniforms) {
     meshes: [
       ...meshes,
       ...createSkylineMeshes(skyline.solids, skyline.rings, WINDOW_LIGHT),
+      ...createSkylineMeshes(hongKong.solids, hongKong.rings, WINDOW_LIGHT, {
+        strokes: hongKong.strokes,
+      }),
       ...createSkylineMeshes(landmarks.solids, landmarks.rings, WINDOW_LIGHT, {
         haze: 1,
         insideRings: true,
@@ -597,7 +541,8 @@ export function createStructures(shared: SharedUniforms) {
       createPortals(landmarks.portals),
       ...createTrophies(landmarks.trophies, shared),
       ...createBalls(landmarks.balls),
-      createHarbour(shared, reflectedLights(skyline)),
+      createHarbour(shared, HARBOUR, reflectedLights(skyline)),
+      createHarbour(shared, VICTORIA_HARBOUR, hongKong.reflected),
     ],
     glows,
     floodlights: landmarks.floodlights,

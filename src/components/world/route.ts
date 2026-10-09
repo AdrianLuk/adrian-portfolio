@@ -1,6 +1,7 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
 import type { Pose } from "./flight";
+import { HONG_KONG_CENTRE, HONG_KONG_SHORE } from "./hong-kong";
 import { CAMERA } from "./pose";
 import {
   CN_TOWER,
@@ -12,6 +13,7 @@ import {
 import {
   bayWidth,
   corridorHalfWidth,
+  HARBOUR,
   valleyCentre,
   valleyHeight,
 } from "./terrain";
@@ -22,9 +24,10 @@ import {
  *
  * From the settled view the camera climbs over the name plate and carries on
  * down the valley, stopping beside each lit site in turn (the Highlights, in
- * order), and ends at the Outpost. The route is measured in stops: 0 is the
- * settled view, 1 to 4 frame the four sites, 5 the Outpost; in between it
- * flies at an even speed and turns smoothly from one framing to the next.
+ * order), and ends looking across Victoria Harbour at Hong Kong. The route
+ * is measured in stops: 0 is the settled view, 1 to 4 frame the four sites,
+ * 5 Hong Kong; in between it flies at an even speed and turns smoothly from
+ * one framing to the next.
  */
 
 /** A Lit site, standing where it stands in the world. */
@@ -49,10 +52,18 @@ function site({ z, ...plan }: LitSite): Site {
 /** The Lit sites, in their order down the valley (../lit-sites). */
 export const SITES: readonly Site[] = LIT_SITES.map(site);
 
-/** The Outpost at the route's end, on the valley's centre line. */
-export const OUTPOST = above(-1130, 14);
+/**
+ * Hong Kong's middle, which the route's last stop looks at: a little above
+ * the camera's own height, so the view looks up a touch, the city whole in
+ * its upper half and Victoria Harbour across its lower.
+ */
+export const HONG_KONG = new Vector3(
+  HONG_KONG_CENTRE.x,
+  valleyHeight(HONG_KONG_CENTRE.x, HONG_KONG_CENTRE.z) + 13,
+  HONG_KONG_CENTRE.z,
+);
 
-/** Stops along the route: the settled view, each site, the Outpost. */
+/** Stops along the route: the settled view, each site, Hong Kong. */
 export const ROUTE_STOPS = SITES.length + 2;
 
 /** How far short of a site the camera stops to frame it. */
@@ -60,6 +71,13 @@ const STOP_LEAD = 80;
 
 /** Height above the floor the camera stops at, and cruises at in between. */
 const STOP_HEIGHT = 16;
+
+/**
+ * How high the route's last stop stands over Tsim Sha Tsui's shore: lower
+ * than the other stops, as from the promenade, so Hong Kong stands whole
+ * above the frame's middle with Victoria Harbour below it.
+ */
+const SHORE_HEIGHT = 10;
 const CRUISE_HEIGHT = 24;
 
 /** World units between the points the route's spline passes through. */
@@ -106,12 +124,16 @@ function stopPose(target: Vector3, ndcX: number, aspect: number): Pose {
 }
 
 /**
- * The route's last stop, the Outpost framed right of home's contact copy,
- * for a screen of this shape. It doesn't depend on the layout, so it needs
- * no route to find.
+ * The route's last stop, home's closing view, for a screen of this shape:
+ * on Tsim Sha Tsui's shore, looking across Victoria Harbour at Hong Kong,
+ * right of the contact copy on a wide screen and centred on a narrow one,
+ * where the whole city must stand in the frame. It doesn't depend on the
+ * layout, so it needs no route to find.
  */
-export function outpostPose(aspect: number): Pose {
-  return stopPose(OUTPOST, siteScreenX(aspect), aspect);
+export function hongKongPose(aspect: number): Pose {
+  const position = above(HONG_KONG_SHORE.z, SHORE_HEIGHT);
+  const ndcX = aspect >= 1 ? siteScreenX(aspect) : 0;
+  return { position, quaternion: framing(position, HONG_KONG, ndcX, aspect) };
 }
 
 /** Which of the Lit sites is Juice Bros' court, where the Case study stands. */
@@ -196,7 +218,7 @@ const headingTo = (from: Vector3, to: { x: number; z: number }) =>
  * harbour's far shore, looking across the water at Toronto's skyline, as
  * from the Islands: the Rogers Centre's dome, the CN Tower, the financial
  * core running on to the right. On a wide screen the tower stands right of
- * the copy (as the Outpost does on home, about 0.45 across), with the
+ * the copy (as Hong Kong does on home, about 0.45 across), with the
  * world's own field of view. On a narrow one the camera zooms out (`fovY`,
  * in degrees) and turns so the Rogers Centre and the CN Tower both stand in
  * the frame. Either way the tower's tip is in the frame, so the camera
@@ -206,7 +228,7 @@ const headingTo = (from: Vector3, to: { x: number; z: number }) =>
  */
 export function skylineView(aspect: number): { pose: Pose; fovY: number } {
   const { z, inset, height, tipY } = SKYLINE_VIEW;
-  const x = valleyCentre(z) - corridorHalfWidth(z) - bayWidth(z) + inset;
+  const x = valleyCentre(z) - corridorHalfWidth(z) - bayWidth(z, HARBOUR) + inset;
   const position = new Vector3(x, valleyHeight(x, z) + height, z);
   const level = CN_TOWER_TOP.clone().setY(position.y);
   let fovY: number = CAMERA.fovY;
@@ -294,8 +316,8 @@ export function createRoute(
     const aim = s.position.clone().setY(s.position.y - AIM_BELOW);
     stopAt(stopPose(aim, s.side * siteScreenX(aspect), aspect));
   }
-  // To the right, clear of the contact copy, which sits on the left.
-  stopAt(outpostPose(aspect));
+  // On a wide screen, to the right, clear of the contact copy on the left.
+  stopAt(hongKongPose(aspect));
 
   const curve = new CatmullRomCurve3(points, false, "centripetal");
   const perSegment = 12;
