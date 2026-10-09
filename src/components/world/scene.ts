@@ -115,7 +115,7 @@ type NamePlate = ReturnType<typeof createNamePlate>;
 export type CreditPlacement = { x: number; y: number; scale: number };
 
 /**
- * What the Rally game puts on the world's court (see ../rally/court-game):
+ * What the Rally game puts on the world's court (see ../rally/scene):
  * its objects, in the court's feet from where the net crosses its centre
  * line, the player's half nearer home.
  */

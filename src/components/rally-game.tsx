@@ -213,13 +213,13 @@ export function RallyGame({
         setHud((s) => ({ ...s, slow: true }));
       }
       try {
-        // The game's drawing code may load while the camera flies here...
+        // The game's drawing code may load during the Transit here...
         const [{ createRallyView }, live] = await Promise.all([
           import("./rally/scene"),
           host.start(),
         ]);
         // ...but its objects are built (their shaders compiled) only once
-        // the camera has landed, so the flight doesn't stutter. Without a
+        // the camera has landed, so the Transit doesn't stutter. Without a
         // world, the world's own state says the game can't run.
         if (cancelled || !live) return;
         await worldTransits().landed();

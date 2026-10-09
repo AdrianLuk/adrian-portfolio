@@ -142,7 +142,7 @@ export function createWorldTransits(host: TransitHost) {
     /**
      * Resolves once no Transit is under way: at once, or as the camera lands
      * (or the Transit is called off). A page's heavy work waits on it, so
-     * the flight doesn't stutter.
+     * the Transit doesn't stutter.
      */
     landed() {
       return new Promise<void>((resolve) => {
