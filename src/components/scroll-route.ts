@@ -1,10 +1,9 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import type { CameraDirector } from "./camera-director";
-import { pageLayout } from "./home-panels";
-import { LIT_SITES } from "./lit-sites";
+import type { CameraDirector, ScrollRouteName } from "./camera-director";
 import {
   litAt,
+  pageLayout,
   routeAnchors,
   scrollFor,
   stopAt,
@@ -37,12 +36,18 @@ const EDGE = 16;
 export function createScrollRoute({
   director,
   panels,
+  route,
   locateSite,
 }: {
   /** Told the stop the scroll puts the camera at, and how lit each site is. */
   director: Pick<CameraDirector, "scrolled" | "scrollStopped" | "stop">;
-  /** The Highlights' panels, one per Lit site, in the Lit sites' order. */
+  /** The panels, one per stop after the first, in the route's order. */
   panels: readonly HTMLElement[];
+  /**
+   * The scroll route the director flies, and which side of the screen each
+   * panel's stop stands (+1 = right), in the panels' order.
+   */
+  route: { name: ScrollRouteName; sides: readonly (1 | -1)[] };
   /**
    * The world's site finder, once it has loaded. Its canvas is held fixed
    * over the viewport while the route runs, so canvas pixels are viewport
@@ -78,7 +83,7 @@ export function createScrollRoute({
       const now = locate(i);
       const x = now
         ? Math.min(Math.max(now.x, 0), width)
-        : LIT_SITES[i].side > 0
+        : route.sides[i] > 0
           ? width
           : 0;
       const box = el.getBoundingClientRect();
@@ -103,7 +108,7 @@ export function createScrollRoute({
       panels[i].toggleAttribute("data-lit", amount >= 0.5);
       return amount;
     });
-    director.scrolled(stopAt(scroll.y, anchors), lit);
+    director.scrolled(stopAt(scroll.y, anchors), lit, route.name);
     placePanels();
   }
 

@@ -1,7 +1,8 @@
 /**
  * The scroll route's link to the page, as pure maths: which stop of the route
  * the camera is at for a scroll position, and how lit each site is. The page
- * scrolls natively; these only read where it has got to.
+ * scrolls natively; these only read where it has got to. `pageLayout` alone
+ * reads the page, with no GSAP, so any page with a scroll route can use it.
  */
 
 /** A panel's place on the page, in document pixels. */
@@ -15,6 +16,25 @@ export type PageLayout = {
   /** The Highlights' panels, in order. */
   panels: readonly PanelBox[];
 };
+
+/**
+ * The page as the scroll route measures it: the viewport, how far it
+ * scrolls, and each panel's place in the flow (a panel only ever shifts
+ * sideways, so its top is where the page put it).
+ */
+export function pageLayout(
+  panels: readonly HTMLElement[],
+  maxScroll = document.documentElement.scrollHeight - window.innerHeight,
+): PageLayout {
+  return {
+    viewport: window.innerHeight,
+    maxScroll: Math.max(0, maxScroll),
+    panels: panels.map((el) => ({
+      top: el.getBoundingClientRect().top + window.scrollY,
+      height: el.offsetHeight,
+    })),
+  };
+}
 
 /**
  * The scroll position at which the camera reaches each stop: the settled view
