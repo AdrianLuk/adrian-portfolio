@@ -2,6 +2,7 @@ import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
+import { CN_TOWER, CN_TOWER_HEIGHT } from "./skyline";
 import { valleyCentre, valleyHeight } from "./terrain";
 
 /**
@@ -94,9 +95,9 @@ function stopPose(target: Vector3, ndcX: number, aspect: number): Pose {
 }
 
 /**
- * The route's last stop, the Outpost framed right of the copy (the contact
- * copy on home, the Resume page's on its own), for a screen of this shape.
- * It doesn't depend on the layout, so it needs no route to find.
+ * The route's last stop, the Outpost framed right of home's contact copy,
+ * for a screen of this shape. It doesn't depend on the layout, so it needs
+ * no route to find.
  */
 export function outpostPose(aspect: number): Pose {
   return stopPose(OUTPOST, siteScreenX(aspect), aspect);
@@ -143,6 +144,60 @@ export function courtPose(aspect: number): Pose {
   return {
     position,
     quaternion: new Quaternion().setFromRotationMatrix(look).multiply(tilt),
+  };
+}
+
+/** The tip of the CN Tower's antenna, which the Skyline's camera looks up to. */
+export const CN_TOWER_TOP = new Vector3(
+  CN_TOWER.x,
+  CN_TOWER.ground + CN_TOWER_HEIGHT,
+  CN_TOWER.z,
+);
+
+/**
+ * Where the camera stands at the Skyline: how far down the valley (past
+ * downtown, short of the court), how far off its centre line (toward
+ * downtown's side) and how high above the floor, and where the CN Tower's
+ * tip sits up the screen, in normalised device coordinates: on a narrow
+ * screen, above the Resume page's title. From there the city's other towers
+ * on that side stand clear of the view, and the valley's far wall fills the
+ * left of the frame, behind the copy.
+ */
+const SKYLINE_VIEW = {
+  z: -710,
+  aside: 20,
+  height: 7,
+  tipY: { wide: 0.72, narrow: 0.8 },
+};
+
+/**
+ * The Skyline's pose, for a screen of this shape: a still camera low on the
+ * valley floor down the valley from downtown, looking back up at Toronto's
+ * skyline (the scroll route only ever looks on down the valley): the CN
+ * Tower with the Rogers Centre's dome at its foot and the financial core
+ * behind. The tower stands right of the copy (as the Outpost does on home:
+ * about 0.45 across on a wide screen, 0.2 on a narrow one), its tip in the
+ * frame, so the camera looks up a little. It doesn't depend on the layout,
+ * so it needs no route to find, and it stands off the route (the Transit
+ * eases onto it as it lands).
+ */
+export function skylinePose(aspect: number): Pose {
+  const { z, aside, height, tipY } = SKYLINE_VIEW;
+  const x = valleyCentre(z) + aside;
+  const position = new Vector3(x, valleyHeight(x, z) + height, z);
+  const level = CN_TOWER_TOP.clone().setY(position.y);
+  const quaternion = framing(position, level, siteScreenX(aspect), aspect);
+  const tanY = Math.tan(((CAMERA.fovY / 2) * Math.PI) / 180);
+  // Tilting the view up moves what it sees down the screen.
+  const rise = Math.atan(
+    (CN_TOWER_TOP.y - position.y) / position.distanceTo(level),
+  );
+  const tilt = rise - Math.atan((aspect >= 1 ? tipY.wide : tipY.narrow) * tanY);
+  return {
+    position,
+    quaternion: quaternion.multiply(
+      new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), tilt),
+    ),
   };
 }
 

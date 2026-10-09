@@ -3,12 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createFlightPath, type Pose } from "./flight";
 import { CAMERA } from "./pose";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
-import { courtPose, createRoute, outpostPose, SITES } from "./route";
+import { courtPose, createRoute, SITES, skylinePose } from "./route";
 import { layoutStructures, type Box } from "./structures";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 import {
   COURT_STOP,
-  OUTPOST_STOP,
   SETTLED_STOP,
   TRANSIT_MAX_SECONDS,
   transit,
@@ -88,24 +87,25 @@ const towers = [
 ];
 
 /**
- * The relaxed rule for the last metres into the court's low pose: within
- * LANDING_REACH world units of it, the camera need only clear the ground by
- * the court pose's own margin, 2, not the route's 8.
+ * The relaxed rule for the last metres into a low pose (the court's, the
+ * Skyline's): within LANDING_REACH world units of it, the camera need only
+ * clear the ground by the pose's own margin, 2, not the route's 8.
  */
 const LANDING_REACH = 60;
 const LANDING_GROUND = 2;
 
 /**
  * Every pose clears each tower by 3 and stays in the valley, as the route
- * does, and clears the ground by 8 (by 2 within LANDING_REACH of `landing`,
- * the court pose).
+ * does, and clears the ground by 8 (by 2 within LANDING_REACH of any of
+ * `landings`, the low poses it leaves or lands on).
  */
-function expectClear(poses: Pose[], landing?: Pose) {
+function expectClear(poses: Pose[], ...landings: Pose[]) {
   for (const { position: p } of poses) {
-    const low =
-      landing && p.distanceTo(landing.position) < LANDING_REACH
-        ? LANDING_GROUND
-        : 8;
+    const low = landings.some(
+      (landing) => p.distanceTo(landing.position) < LANDING_REACH,
+    )
+      ? LANDING_GROUND
+      : 8;
     expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(low);
     expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
       corridorHalfWidth(p.z),
@@ -120,15 +120,17 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
 )) {
   describe(`a transit, ${name}`, () => {
     const route = createRoute(settled, plateCentre, aspect);
+    /** The Skyline's pose, where the Resume page stands. */
+    const skylineView = skylinePose(aspect);
 
-    it("home to the Outpost leaves from the settled view and lands on the Outpost pose", () => {
-      const transit = transitPath(route, settled, OUTPOST_STOP);
+    it("home to the Skyline leaves from the settled view and lands on the Skyline pose", () => {
+      const transit = transitPath(route, settled, skylineView);
       expectSamePose(transit.poseAt(0), settled);
-      expectSamePose(transit.poseAt(1), outpostPose(aspect));
+      expectSamePose(transit.poseAt(1), skylineView);
     });
 
-    it("home to the Outpost runs down the valley, over the plate, without a jump", () => {
-      const poses = along(transitPath(route, settled, OUTPOST_STOP));
+    it("home to the Skyline runs down the valley, over the plate, without a jump", () => {
+      const poses = along(transitPath(route, settled, skylineView));
       expectSmooth(poses, "down");
       for (const { position: p } of poses) {
         if (Math.abs(p.z - plateCentre.z) < 15) {
@@ -137,33 +139,37 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
       }
     });
 
-    it("home to the Outpost never meets a tower, a landmark, the skyline or the ground", () => {
-      expectClear(along(transitPath(route, settled, OUTPOST_STOP)));
+    it("home to the Skyline never meets a tower, a landmark, the skyline or the ground", () => {
+      expectClear(along(transitPath(route, settled, skylineView)), skylineView);
     });
 
-    it("the Outpost to home leaves from the Outpost pose and lands on the settled view", () => {
-      const transit = transitPath(route, outpostPose(aspect), SETTLED_STOP);
-      expectSamePose(transit.poseAt(0), outpostPose(aspect));
+    it("the Skyline to home leaves from the Skyline pose and lands on the settled view", () => {
+      const transit = transitPath(route, skylineView, SETTLED_STOP);
+      expectSamePose(transit.poseAt(0), skylineView);
       expectSamePose(transit.poseAt(1), settled);
     });
 
-    it("the Outpost to home runs back up the valley, clear of everything, without a jump", () => {
+    it("the Skyline to home runs back up the valley, clear of everything, without a jump", () => {
       const poses = along(
-        transitPath(route, outpostPose(aspect), SETTLED_STOP),
+        transitPath(route, skylineView, SETTLED_STOP),
       );
       expectSmooth(poses, "up");
-      expectClear(poses);
+      expectClear(poses, skylineView);
     });
 
     it("leaves from partway along the scroll route, joining it where the camera is", () => {
       for (const at of [0.5, 1, 2.37, 4]) {
         const departure = route.poseAt(at);
-        const transit = transitPath(route, departure, OUTPOST_STOP);
+        const transit = transitPath(route, departure, skylineView);
         expectSamePose(transit.poseAt(0), departure);
-        expectSamePose(transit.poseAt(1), outpostPose(aspect));
+        expectSamePose(transit.poseAt(1), skylineView);
         const poses = along(transit);
-        expectSmooth(poses, "down");
-        expectClear(poses);
+        // From past downtown's stretch, back up the valley to it.
+        expectSmooth(
+          poses,
+          departure.position.z > skylineView.position.z ? "down" : "up",
+        );
+        expectClear(poses, skylineView);
       }
     });
 
@@ -175,18 +181,21 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           .setFromAxisAngle(new Vector3(0, 1, 0), (12 * Math.PI) / 180)
           .multiply(quaternion),
       };
-      for (const to of [SETTLED_STOP, OUTPOST_STOP]) {
+      for (const to of [SETTLED_STOP, skylineView]) {
         const transit = transitPath(route, departure, to);
         expectSamePose(transit.poseAt(0), departure);
-        expectSamePose(transit.poseAt(1), route.poseAt(to));
+        expectSamePose(
+          transit.poseAt(1),
+          to === SETTLED_STOP ? settled : skylineView,
+        );
         const poses = along(transit);
         expectSmooth(poses, to === SETTLED_STOP ? "up" : "down");
-        expectClear(poses);
+        expectClear(poses, skylineView);
       }
     });
 
-    it("home ↔ Outpost, joining or leaving the route within its reach (as every Transit does), still leaves from the camera, lands exactly, runs smooth and keeps under the cap", () => {
-      // Off the route by a little or a lot, at home's end or the Outpost's,
+    it("home ↔ Skyline, joining or leaving the route within its reach (as every Transit does), still leaves from the camera, lands exactly, runs smooth and keeps under the cap", () => {
+      // Off the route by a little or a lot, at home's end or the Skyline's,
       // and partway through a Transit turned round.
       const { position, quaternion } = route.poseAt(2.5);
       const offRoute = (shift: Vector3, degrees: number): Pose => ({
@@ -195,20 +204,20 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           .setFromAxisAngle(new Vector3(0, 1, 0), (degrees * Math.PI) / 180)
           .multiply(quaternion),
       });
-      const out = transitPath(route, settled, OUTPOST_STOP);
-      const back = transitPath(route, outpostPose(aspect), SETTLED_STOP);
+      const out = transitPath(route, settled, skylineView);
+      const back = transitPath(route, skylineView, SETTLED_STOP);
       const departures = [
         settled,
-        outpostPose(aspect),
+        skylineView,
         offRoute(new Vector3(6, 3, 0), 12),
         offRoute(new Vector3(-8, 5, 0), -15),
         out.poseAt(0.3),
         back.poseAt(0.6),
       ];
       for (const departure of departures) {
-        for (const to of [SETTLED_STOP, OUTPOST_STOP]) {
+        for (const to of [SETTLED_STOP, skylineView]) {
           const trip = transitPath(route, departure, to);
-          const landing = to === SETTLED_STOP ? settled : outpostPose(aspect);
+          const landing = to === SETTLED_STOP ? settled : skylineView;
           if (departure.position.distanceTo(landing.position) < 1e-6) continue;
           expectSamePose(trip.poseAt(0), departure);
           expectSamePose(trip.poseAt(1), landing);
@@ -216,20 +225,20 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
           const poses = along(trip);
           expectSmooth(poses, to === SETTLED_STOP ? "up" : "down");
-          expectClear(poses);
+          expectClear(poses, skylineView);
         }
       }
     });
 
     it("takes longer the further it flies, and never longer than the cap", () => {
-      const durations = [0, 2, 4, 4.9].map(
-        (at) => transitPath(route, route.poseAt(at), OUTPOST_STOP).duration,
+      const durations = [0, 1, 2, 2.9].map(
+        (at) => transitPath(route, route.poseAt(at), skylineView).duration,
       );
       for (let i = 1; i < durations.length; i++) {
         expect(durations[i]).toBeLessThan(durations[i - 1]);
       }
       expect(durations[durations.length - 1]).toBeGreaterThan(0);
-      const back = transitPath(route, outpostPose(aspect), SETTLED_STOP);
+      const back = transitPath(route, skylineView, SETTLED_STOP);
       for (const duration of [...durations, back.duration]) {
         expect(duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
       }
@@ -261,9 +270,9 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
             travel: opening.travel(rig),
             settle: rig.settle,
           };
-          const trip = transit(route, departure, OUTPOST_STOP);
+          const trip = transit(route, departure, skylineView);
           expectSamePose(trip.poseAt(0), opening.poseAt(rig));
-          expectSamePose(trip.poseAt(1), outpostPose(aspect));
+          expectSamePose(trip.poseAt(1), skylineView);
           expect(trip.duration).toBeGreaterThan(0);
           expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
 
@@ -283,7 +292,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           for (const { position } of poses.slice(0, through)) {
             expect(onOpening(position)).toBe(true);
           }
-          expectClear(poses.slice(through + 1));
+          expectClear(poses.slice(through + 1), skylineView);
         });
       }
 
@@ -292,7 +301,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         const out = transit(
           route,
           { opening, travel: opening.travel(rig), settle: rig.settle },
-          OUTPOST_STOP,
+          skylineView,
         );
         const t = 0.1;
         const back = transit(route, out.departureAt(t), SETTLED_STOP);
@@ -305,7 +314,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
     });
 
     it("turns back mid-flight from exactly where the camera is", () => {
-      const out = transitPath(route, settled, OUTPOST_STOP);
+      const out = transitPath(route, settled, skylineView);
       for (const t of [0.05, 0.3, 0.6, 0.95]) {
         const departure = out.poseAt(t);
         const back = transitPath(route, departure, SETTLED_STOP);
@@ -313,7 +322,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         expectSamePose(back.poseAt(1), settled);
         const poses = along(back);
         expectSmooth(poses, "up");
-        expectClear(poses);
+        expectClear(poses, skylineView);
       }
     });
 
@@ -338,7 +347,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
       it("home to the court runs down the valley, over the plate, clear of everything, without a jump", () => {
         const poses = along(toCourt(settled));
         expectSmooth(poses, "down");
-        expectClear(poses, court);
+        expectClear(poses, court, skylineView);
         for (const { position: p } of poses) {
           if (Math.abs(p.z - plateCentre.z) < 15) {
             expect(p.y).toBeGreaterThan(plateCentre.y + 15);
@@ -352,25 +361,25 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         expectSamePose(trip.poseAt(1), settled);
         const poses = along(trip);
         expectSmooth(poses, "up");
-        expectClear(poses, court);
+        expectClear(poses, court, skylineView);
       });
 
-      it("the court to the Outpost runs on down the valley and lands on the Outpost pose", () => {
-        const trip = transitPath(route, court, OUTPOST_STOP);
+      it("the court to the Skyline turns round, a little way back up the valley, and lands on the Skyline pose", () => {
+        const trip = transitPath(route, court, skylineView);
         expectSamePose(trip.poseAt(0), court);
-        expectSamePose(trip.poseAt(1), outpostPose(aspect));
-        const poses = along(trip);
-        expectSmooth(poses, "down");
-        expectClear(poses, court);
-      });
-
-      it("the Outpost to the court runs back up the valley and lands exactly on the court pose", () => {
-        const trip = toCourt(outpostPose(aspect));
-        expectSamePose(trip.poseAt(0), outpostPose(aspect));
-        expectSamePose(trip.poseAt(1), court);
+        expectSamePose(trip.poseAt(1), skylineView);
         const poses = along(trip);
         expectSmooth(poses, "up");
-        expectClear(poses, court);
+        expectClear(poses, court, skylineView);
+      });
+
+      it("the Skyline to the court turns round, a little way on down the valley, and lands exactly on the court pose", () => {
+        const trip = toCourt(skylineView);
+        expectSamePose(trip.poseAt(0), skylineView);
+        expectSamePose(trip.poseAt(1), court);
+        const poses = along(trip);
+        expectSmooth(poses, "down");
+        expectClear(poses, court, skylineView);
       });
 
       it("leaves for the court from anywhere along the scroll route", () => {
@@ -382,7 +391,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           expect(trip.duration).toBeGreaterThan(0);
           const poses = along(trip);
           expectSmooth(poses, at < COURT_STOP + 0.5 ? "down" : "up");
-          expectClear(poses, court);
+          expectClear(poses, court, skylineView);
         }
       });
 
@@ -395,9 +404,9 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
             way: "down",
           },
           {
-            out: transitPath(route, court, OUTPOST_STOP),
+            out: transitPath(route, court, skylineView),
             back: COURT_STOP,
-            way: "up",
+            way: "down",
           },
         ] as const;
         for (const { out, back, way } of trips) {
@@ -415,7 +424,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
             );
             const poses = along(trip);
             expectSmooth(poses, way);
-            expectClear(poses, court);
+            expectClear(poses, court, skylineView);
           }
         }
       });
@@ -447,9 +456,9 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         expect(toCourt(route.poseAt(COURT_STOP)).duration).toBeGreaterThan(0);
         for (const trip of [
           toCourt(settled),
-          toCourt(outpostPose(aspect)),
+          toCourt(skylineView),
           transitPath(route, court, SETTLED_STOP),
-          transitPath(route, court, OUTPOST_STOP),
+          transitPath(route, court, skylineView),
         ]) {
           expect(trip.duration).toBeGreaterThan(0);
           expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);

@@ -5,22 +5,19 @@ import { COURT_SITE, ROUTE_STOPS, type Route } from "./route";
 
 /**
  * A transit, as pure maths: the camera's flight between two Places (home,
- * the court, the Outpost). Unit tested without WebGL.
+ * the court, the Skyline). Unit tested without WebGL.
  *
  * It runs along the scroll route at an accelerated, eased pace: down the
  * valley, or back up it. The camera joins the route at its own depth (the
  * route only ever moves on down the valley), so a transit can leave from
  * anywhere along it: the settled view, beside a lit site, partway between,
- * the court, or partway through another transit. It ends on one of the
- * route's stops, or on a pose off the route beside one (the court's), easing
- * off the route onto it as it lands.
+ * the court, the Skyline, or partway through another transit. It ends on
+ * one of the route's stops, or on a pose off the route (the court's, the
+ * Skyline's), easing off the route onto it as it lands.
  */
 
 /** The route's first stop, the settled view over the name plate. */
 export const SETTLED_STOP = 0;
-
-/** The route's last stop, the Outpost, where the Resume page stands. */
-export const OUTPOST_STOP = ROUTE_STOPS - 1;
 
 /**
  * The route's stop at the court, Juice Bros' Lit site. The court's own pose
@@ -124,8 +121,21 @@ function stopAtDepth(route: Route, samples: Samples, z: number) {
  * it is past them.
  */
 const JOIN = 0.4;
-// Applies to every Transit, home ↔ Outpost included, not only the court's.
+// Applies to every Transit, home ↔ Skyline included, not only the court's.
 const JOIN_REACH = 50;
+
+/**
+ * World units of the way, per radian, over which a camera turns from where
+ * it looks onto the route (or off it, onto a pose it lands on), when that
+ * takes longer than JOIN_REACH: the Skyline looks back up the valley, so a
+ * camera landing there turns round as it passes downtown, keeping it in view,
+ * rather than whipping round at the end. It still only moves off the route
+ * within JOIN_REACH.
+ */
+const TURN_REACH = 110;
+
+/** How far round `q` turns, in radians. */
+const angleOf = (q: Quaternion) => 2 * Math.acos(Math.min(1, Math.abs(q.w)));
 
 /** Seconds a transit flying `distance` world units takes, up to the cap. */
 function durationFor(distance: number) {
@@ -144,7 +154,7 @@ const copyOf = ({ position, quaternion }: Pose): Pose => ({
 
 /**
  * Where a transit leaves from: a camera's pose (on the scroll route, at the
- * Outpost, partway through another transit), or a point in the opening
+ * court or the Skyline, partway through another transit), or a point in the opening
  * flight, which the transit finishes before it takes the route (the opening
  * runs down the canyon behind the plate, where the route can't reach).
  */
@@ -160,7 +170,8 @@ export type Departure =
 
 /**
  * Where a transit lands: one of the route's stops, or a pose off the route
- * (the court's), which it eases onto from where the route passes its depth.
+ * (the court's, the Skyline's), which it eases onto from where the route
+ * passes its depth.
  */
 export type Arrival = number | Pose;
 
@@ -259,7 +270,18 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
 
   const distance =
     Math.abs(toLength - fromLength) + offset.length() + landing.length();
-  const joining = Math.min(JOIN, JOIN_REACH / Math.max(distance, 1e-9));
+  /** The share of the distance over `reach` world units, up to JOIN. */
+  const share = (reach: number) =>
+    Math.min(JOIN, reach / Math.max(distance, 1e-9));
+  const joining = share(JOIN_REACH);
+  const turning = share(Math.max(JOIN_REACH, TURN_REACH * angleOf(turn)));
+  const landingTurning = share(
+    Math.max(JOIN_REACH, TURN_REACH * angleOf(landingTurn)),
+  );
+
+  /** How far eased in a phase `within` long is, `from` the start of it. */
+  const phase = (from: number, within: number) =>
+    ease(Math.min(1, Math.max(0, from / within)));
 
   /** The camera a fraction `f` (0 to 1) of the way along the distance. */
   function along(f: number): Pose {
@@ -269,16 +291,18 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
     const { position, quaternion } = route.poseAt(
       lookup(samples, "length", length, "stop"),
     );
-    const off = 1 - ease(Math.min(1, f / joining));
-    const on = ease(Math.max(0, (f - (1 - joining)) / joining));
+    const off = 1 - phase(f, joining);
+    const on = phase(f - (1 - joining), joining);
+    const turnedOff = 1 - phase(f, turning);
+    const turnedOn = phase(f - (1 - landingTurning), landingTurning);
     return {
       position: position
         .addScaledVector(offset, off)
         .addScaledVector(landing, on),
       quaternion: straight
         .clone()
-        .slerp(landingTurn, on)
-        .multiply(straight.clone().slerp(turn, off))
+        .slerp(landingTurn, turnedOn)
+        .multiply(straight.clone().slerp(turn, turnedOff))
         .multiply(quaternion),
     };
   }

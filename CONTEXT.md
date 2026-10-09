@@ -25,23 +25,27 @@ The light structure at a Lit site that shows its Project: Control D's shielded g
 _Avoid_: Model, building, monument
 
 **Outpost**:
-The financial district at the far end of the home page's world, where the scroll route ends: the Resume page's Place. The Resume page shows it live, the camera still where the route ends.
-_Avoid_: Downtown, skyline (Toronto's skyline is another part of the world), end stop, last stop
+The financial district at the far end of the home page's world, where the scroll route ends: the view behind home's Contact section. It is no page's Place.
+_Avoid_: Downtown, end stop, last stop
+
+**Skyline**:
+The Place where the Resume page stands: a still camera low on the valley floor, down the valley from downtown, looking back up at Toronto's skyline (the CN Tower with the Rogers Centre at its foot, the financial core behind), lit magenta: the CN Tower's wash and the fog turn the palette's magenta there. Home's scroll never shows it from there.
+_Avoid_: Downtown, waterfront
 
 **Opening**:
 The home page's fly-in on a first visit: the camera's flight down the canyon to the name plate, with the opening credits. "Flight" alone means the opening. The Opening owns its credits and Skip, and every way it ends; once it has settled, the scroll route takes the camera on.
 _Avoid_: Intro, fly-through
 
 **Place**:
-A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net) and the Outpost for the Resume page. A page without a Place, such as `/play` or the 404, shows a still of the world instead.
+A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net) and the Skyline for the Resume page. A page without a Place, such as `/play` or the 404, shows a still of the world instead.
 _Avoid_: Scene, view, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Outpost, between the court and the Outpost, or back up it to home.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (turning round as it passes downtown, to face it), between the court and the Skyline, or back up it to home.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
-The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court and the Outpost. It never lets the camera jump.
+The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court and the Skyline. It never lets the camera jump.
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:

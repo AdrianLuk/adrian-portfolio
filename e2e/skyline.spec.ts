@@ -1,11 +1,24 @@
 import { expect, test, type Page } from "@playwright/test";
 import { credits, resume, roles } from "../src/content/site";
 import { countFrames, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { placeIn } from "./place";
 
-// The Resume page stands at the outpost: the world, live, from the scroll
-// route's last stop, over the still backdrop that paints first.
+// The Resume page stands at the Skyline: the world, live, from low down the
+// valley looking back up at Toronto's skyline, over the Skyline's still that
+// paints first.
 
 const world = (page: Page) => page.locator("[data-world]");
+const still = (page: Page) => page.locator('[data-backdrop="skyline"] img');
+
+/** The Skyline's still, decoded: which file it shows. */
+const stillShown = (page: Page) =>
+  still(page).evaluate(async (img: HTMLImageElement) => {
+    await img.decode();
+    return {
+      src: new URL(img.currentSrc).pathname,
+      loaded: img.naturalWidth > 0,
+    };
+  });
 
 const drawn = (page: Page) =>
   expect(world(page)).toHaveAttribute("data-world", "drawn", {
@@ -45,15 +58,19 @@ const canvasState = (page: Page) =>
       };
     });
 
-test("the outpost is drawn live over the still, held fixed as the page scrolls", async ({
+test("the Skyline is drawn live over its still, held fixed as the page scrolls", async ({
   page,
 }) => {
   const errors = collectErrors(page);
   // Small enough to render quickly in software WebGL.
   await page.setViewportSize({ width: 960, height: 600 });
   await page.goto("/resume");
-  // The still is the first paint, and stays underneath.
+  // The Skyline's still is the first paint, and stays underneath.
   await expect(page.locator("[data-backdrop]")).toHaveCount(1);
+  expect(await stillShown(page)).toMatchObject({
+    src: expect.stringMatching(/^\/world\/skyline-/),
+    loaded: true,
+  });
   await drawn(page);
   await expect.poll(async () => (await canvasState(page)).opacity).toBe("1");
   expect(await canvasState(page)).toMatchObject({
@@ -71,7 +88,7 @@ test("the outpost is drawn live over the still, held fixed as the page scrolls",
   expect(errors).toEqual([]);
 });
 
-test("without WebGL the still backdrop stays, and nothing errors", async ({
+test("without WebGL the Skyline's still stays, and nothing errors", async ({
   page,
 }) => {
   const errors = collectErrors(page);
@@ -79,16 +96,15 @@ test("without WebGL the still backdrop stays, and nothing errors", async ({
   await page.goto("/resume");
   await expect(world(page)).toHaveAttribute("data-world", "unavailable");
   expect((await canvasState(page)).opacity).toBe("0");
-  const still = page.locator("[data-backdrop] img");
-  await still.evaluate((img: HTMLImageElement) => img.decode());
-  await expect(still).toBeVisible();
+  expect((await stillShown(page)).loaded).toBe(true);
+  await expect(still(page)).toBeVisible();
   await expect(
     page.getByRole("heading", { level: 2, name: resume.heading }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test("a lost GPU context falls back to the still, and a restored one draws again", async ({
+test("a lost GPU context falls back to the Skyline's still, and a restored one draws again", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 960, height: 600 });
@@ -111,9 +127,23 @@ test("a lost GPU context falls back to the still, and a restored one draws again
   await context("loseContext");
   await expect(world(page)).toHaveAttribute("data-world", "pending");
   await expect.poll(async () => (await canvasState(page)).opacity).toBe("0");
-  await expect(page.locator("[data-backdrop] img")).toBeVisible();
+  await expect(still(page)).toBeVisible();
   await context("restoreContext");
   await drawn(page);
+});
+
+test("?weather=snow lies on the ground at the Skyline, and nothing falls", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  const at = { path: "/resume", copy: "main > div > :not([data-world])" };
+  const clear = await placeIn(browser, testInfo, { ...at, weather: "clear" });
+  const snow = await placeIn(browser, testInfo, { ...at, weather: "snow" });
+  // Falling snow is one more thing drawn every frame: there is none.
+  expect(clear.perFrame).toBeGreaterThan(0);
+  expect(snow.perFrame).toBe(clear.perFrame);
+  // The snow lies on the ground: the valley lighter.
+  expect(snow.ground).toBeGreaterThan(clear.ground + 2);
 });
 
 test.describe("under prefers-reduced-motion", () => {

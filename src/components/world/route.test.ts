@@ -4,13 +4,16 @@ import { courtFootprint } from "./court";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
 import {
+  CN_TOWER_TOP,
   courtPose,
   createRoute,
   OUTPOST,
   outpostPose,
   ROUTE_STOPS,
   SITES,
+  skylinePose,
 } from "./route";
+import { DOWNTOWN } from "./skyline";
 import { layoutStructures, type Box } from "./structures";
 import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
 
@@ -258,6 +261,94 @@ describe("the court pose", () => {
           corner(1, 1),
         ]) {
           expect(clearView(p, point.clone().setY(floor + 1))).toBe(true);
+        }
+      });
+
+      it("stands upright, not rolled", () => {
+        const right = new Vector3(1, 0, 0).applyQuaternion(pose.quaternion);
+        expect(Math.abs(right.y)).toBeLessThan(1e-9);
+      });
+    });
+  }
+});
+
+describe("the Skyline pose", () => {
+  const { buildings, darkBuildings, masts, landmarks, skyline } =
+    layoutStructures();
+  const towers = [
+    ...buildings,
+    ...darkBuildings,
+    ...masts,
+    ...landmarks.parts,
+    ...skyline.bounds,
+  ];
+  const { x, z, foot, pod, tip } = skyline.cnTower;
+  const court = SITES.find((s) => s.highlight === "juice-bros")!.position;
+
+  const shapes = {
+    "ultrawide": 2.4,
+    "desktop": 1.6,
+    "tablet, landscape": 1.33,
+    "square": 1,
+    "tablet, portrait": 0.75,
+    "phone": 0.46,
+  };
+
+  it("looks up to the CN Tower's own tip", () => {
+    expect(CN_TOWER_TOP.toArray()).toEqual([x, tip, z]);
+  });
+
+  for (const [name, aspect] of Object.entries(shapes)) {
+    describe(name, () => {
+      const pose = skylinePose(aspect);
+      const p = pose.position;
+      const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
+
+      it("stands low on the floor, down the valley past downtown, looking back up it", () => {
+        expect(p.z).toBeLessThan(DOWNTOWN.far);
+        // Short of the court, the next Place down the valley.
+        expect(p.z).toBeGreaterThan(court.z);
+        // Lower than any of the scroll route's stops (16 above the floor).
+        expect(p.y - valleyHeight(p.x, p.z)).toBeLessThan(12);
+        expect(forward.z).toBeGreaterThan(0.5);
+        // Looking up at the tower, but not at the sky alone.
+        expect(forward.y).toBeGreaterThan(0);
+        expect(forward.y).toBeLessThan(0.4);
+      });
+
+      it("clears the ground by 2 and every tower, Landmark part and the skyline by 3, inside the valley", () => {
+        expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(2);
+        expect(Math.abs(p.x - valleyCentre(p.z))).toBeLessThan(
+          corridorHalfWidth(p.z) - 1,
+        );
+        const met = towers.find((tower) => near(p, tower, 3));
+        expect(met, "a tower within 3").toBeUndefined();
+      });
+
+      it("frames the CN Tower right of the copy on a wide screen, nearer the middle on a narrow one", () => {
+        const top = onScreen(pose, CN_TOWER_TOP, aspect);
+        const shaft = onScreen(pose, new Vector3(x, (foot + pod) / 2, z), aspect);
+        expect(top.z, "in front of the camera").toBeLessThan(1);
+        for (const point of [top, shaft]) {
+          if (aspect >= 1) {
+            // The clear right-hand third.
+            expect(point.x).toBeGreaterThan(1 / 3);
+            expect(point.x).toBeLessThan(0.7);
+          } else {
+            expect(Math.abs(point.x)).toBeLessThan(0.4);
+          }
+        }
+      });
+
+      it("keeps the tower's tip in the frame: on a narrow screen, above the Resume page's title", () => {
+        const top = onScreen(pose, CN_TOWER_TOP, aspect);
+        expect(top.y).toBeLessThan(0.9);
+        expect(top.y).toBeGreaterThan(aspect >= 1 ? 0.5 : 0.75);
+      });
+
+      it("sees the tower from its pod to its tip, with nothing of the terrain in the way", () => {
+        for (const y of [pod, (pod + tip) / 2, tip]) {
+          expect(clearView(p, new Vector3(x, y, z))).toBe(true);
         }
       });
 

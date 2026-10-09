@@ -5,6 +5,7 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   FrontSide,
+  type IUniform,
   LatheGeometry,
   Mesh,
   MeshBasicMaterial,
@@ -50,7 +51,7 @@ export type Outline = readonly (readonly [number, number])[];
  * its axis, or a loft through its `sections` (outlines at heights over its
  * base, each with as many points). `windows` lays the city's lit windows on
  * it; `wash` floods it with its light, as the CN Tower's shaft is lit at
- * night.
+ * night; `relit` turns that wash magenta at the Skyline (see `magentaWash`).
  */
 export type Solid = {
   shape: "frustum" | "dome" | "lathe" | "loft";
@@ -64,6 +65,7 @@ export type Solid = {
   color: Color;
   windows?: boolean;
   wash?: number;
+  relit?: boolean;
   profile?: readonly (readonly [number, number])[];
   sections?: readonly { h: number; outline: Outline }[];
   /** Turned round its axis: a 4-sided frustum turned an eighth is square on. */
@@ -175,6 +177,13 @@ export function stadiumOutline(
 /** The stretch of the valley's right side the skyline takes over from the city. */
 export const DOWNTOWN = { side: 1, near: -455, far: -640 } as const;
 
+/**
+ * How far the CN Tower's wash has turned magenta, 0 to 1: the Skyline's look
+ * (./skyline-look), which the scene sets each frame. Every skyline shader
+ * shares this one uniform; only the solids marked `relit` take it.
+ */
+export const magentaWash: IUniform<number> = { value: 0 };
+
 /** The CN Tower's height, its foot to the tip of its antenna. */
 export const CN_TOWER_HEIGHT = 96;
 
@@ -189,6 +198,9 @@ function onWall(offset: number, z: number) {
   const x = valleyCentre(z) + DOWNTOWN.side * offset;
   return { x, z, ground: valleyHeight(x, z) };
 }
+
+/** The CN Tower's foot: where it stands, and the ground there. */
+export const CN_TOWER = onWall(44, -560);
 
 export function layoutSkyline() {
   const solids: Solid[] = [];
@@ -210,7 +222,7 @@ export function layoutSkyline() {
   // up, its white radome ringing the foot of the glass; the core going on,
   // alone, to the SkyPod; and the stepped antenna on top. Stouter than life,
   // so it reads from the far end of the valley.
-  const cn = onWall(44, -560);
+  const cn = CN_TOWER;
   const H = CN_TOWER_HEIGHT;
   /** The main pod's radius, at the radome, and the core's under the pod. */
   const POD = 7;
@@ -248,7 +260,7 @@ export function layoutSkyline() {
     color,
     ...extra,
   });
-  solids.push(
+  const tower: Solid[] = [
     {
       shape: "loft",
       ...at(cn, cn.ground - 1),
@@ -299,7 +311,9 @@ export function layoutSkyline() {
     frustum(mastY + 10.5, 0.32, 0.1, cn.ground + H - mastY - 10.5, 6, white, {
       wash: 0.5,
     }),
-  );
+  ];
+  // Its wash, and only the tower's, turns magenta at the Skyline.
+  solids.push(...tower.map((s) => ({ ...s, relit: true })));
   rings.push(
     { ...at(cn, podY + 2.5), r: POD - 0.25, h: 0.45, color: cyan },
     { ...at(cn, podBase + 3.1), r: POD + 0.15, h: 0.35, color: violet },
@@ -707,6 +721,10 @@ function solidGeometry(s: Solid): BufferGeometry {
     "aWash",
     new Float32BufferAttribute(new Array(n).fill(s.wash ?? 0), 1),
   );
+  g.setAttribute(
+    "aRelit",
+    new Float32BufferAttribute(new Array(n).fill(s.relit ? 1 : 0), 1),
+  );
   return g;
 }
 
@@ -755,30 +773,37 @@ export function createSkylineMeshes(
       ...fogUniforms(),
       uBase: { value: palette.night.clone().lerp(palette.dusk, 0.7) },
       uMoon: { value: MOON },
+      uMagenta: { value: palette.magenta },
+      uMagentaWash: magentaWash,
     },
     vertexShader: /* glsl */ `
       attribute vec3 aLight;
       attribute float aWindows;
       attribute float aWash;
+      attribute float aRelit;
       varying vec3 vWorld;
       varying vec3 vLight;
       varying float vWindows;
       varying float vWash;
+      varying float vRelit;
       void main() {
         vLight = aLight;
         vWindows = aWindows;
         vWash = aWash;
+        vRelit = aRelit;
         vec4 world = modelMatrix * vec4(position, 1.0);
         vWorld = world.xyz;
         gl_Position = projectionMatrix * viewMatrix * world;
       }
     `,
     fragmentShader: /* glsl */ `
-      uniform vec3 uBase, uMoon;
+      uniform vec3 uBase, uMoon, uMagenta;
+      uniform float uMagentaWash;
       varying vec3 vWorld;
       varying vec3 vLight;
       varying float vWindows;
       varying float vWash;
+      varying float vRelit;
       ${fogChunk}
       ${windowLight}
       const float HAZE = ${haze.toFixed(2)};
@@ -786,7 +811,8 @@ export function createSkylineMeshes(
         vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
         float diffuse = max(dot(n, uMoon), 0.0);
         vec3 col = uBase * (0.55 + 1.1 * diffuse);
-        col += vLight * vWash * (0.35 + 0.25 * max(dot(n, -uMoon), 0.0));
+        vec3 wash = mix(vLight, uMagenta, vRelit * uMagentaWash);
+        col += wash * vWash * (0.35 + 0.25 * max(dot(n, -uMoon), 0.0));
         col += vWindows * windowLight(vWorld, n, vLight);
         col = mix(col, uFogColor, fogAmount(vWorld) * HAZE);
         gl_FragColor = vec4(col, 1.0);

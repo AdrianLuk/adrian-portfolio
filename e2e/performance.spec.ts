@@ -83,7 +83,7 @@ test("the Resume page's first paint comes before any of Three.js is asked for", 
 }) => {
   await page.setViewportSize({ width: 960, height: 600 });
   await page.goto("/resume");
-  // In by then: the outpost has drawn.
+  // In by then: the Skyline has drawn.
   await expect(page.locator("[data-world]")).toHaveAttribute(
     "data-world",
     "drawn",

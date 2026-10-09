@@ -104,22 +104,23 @@ export function drawsInSoftware(
  * Whether the world holds its last drawn frame instead of drawing a new one.
  * Only on a software renderer, where every frame of the world slows the whole
  * page, and then only:
- * - at the court, once the camera has landed and a frame of it landed is
- *   drawn: one still frame, as under reduced motion, so the Case study's
- *   copy and its pinned Player tools scene keep their frame rate;
+ * - at a Place whose camera holds still (the court, the Skyline), once the
+ *   camera has landed and a frame of it landed is drawn: one still frame, as
+ *   under reduced motion, so the page's copy (and the Case study's pinned
+ *   Player tools scene) keep their frame rate;
  * - through a Transit, until the page it flies to is in: the page gets the
  *   main thread to render in, and its copy can arrive with the camera.
  * On a real GPU the world always draws.
  */
 export function holdsFrame({
   software,
-  atCourt,
+  atStillPlace,
   flying,
   landed,
   awaitingPage,
 }: {
   software: boolean;
-  atCourt: boolean;
+  atStillPlace: boolean;
   flying: boolean;
   /** Whether the last frame drawn was drawn with the camera landed. */
   landed: boolean;
@@ -127,5 +128,5 @@ export function holdsFrame({
   awaitingPage: boolean;
 }) {
   if (!software) return false;
-  return awaitingPage || (atCourt && !flying && landed);
+  return awaitingPage || (atStillPlace && !flying && landed);
 }

@@ -1,8 +1,8 @@
 import { Color } from "three";
 import { describe, expect, it } from "vitest";
-import { courtLook, RALLY_BALL, rallyBall, tintFog } from "./court-look";
+import { courtLook, RALLY_BALL, rallyBall } from "./court-look";
 import { layoutLandmarks } from "./landmarks";
-import { fogColor, palette } from "./palette";
+import { fogColor, palette, tintFog } from "./palette";
 
 const landmarks = layoutLandmarks();
 const court = landmarks.court;

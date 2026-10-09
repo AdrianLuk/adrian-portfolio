@@ -10,6 +10,8 @@
 // - public/world/court-*.webp: the Juice Bros Case study's first paint, the
 //   court as the camera holds it there, in the clear, on the live world's
 //   first frame (the rally ball in), at the backdrop's shapes and sizes.
+// - public/world/skyline-*.webp: the Resume page's first paint, likewise:
+//   the Skyline as the camera holds it there.
 //
 // Run against the production build, on a machine with a GPU:
 //
@@ -17,7 +19,7 @@
 //   node scripts/share-stills.mjs http://localhost:3300
 //
 // Re-run it whenever the world or the share cards change. Name sets to draw
-// only those: `--share`, `--valley`, `--court` (for example
+// only those: `--share`, `--valley`, `--court`, `--skyline` (for example
 // `node scripts/share-stills.mjs http://localhost:3300 --court`).
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
@@ -26,13 +28,14 @@ import {
   courtStills,
   credits,
   shareCards,
+  skylineStills,
   valleyStills,
 } from "../src/content/site.ts";
 import { openOnFirstFrame, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
-const SETS = ["share", "valley", "court"];
+const SETS = ["share", "valley", "court", "skyline"];
 const named = SETS.filter((set) => args.includes(`--${set}`));
 const unknown = args.filter(
   (a) => a.startsWith("--") && !SETS.includes(a.slice(2)),
@@ -47,8 +50,9 @@ const SCENE_TIMEOUT = 60_000;
 /** How far down the home page the valley's camera has flown, 0 to 1. */
 const VALLEY_SCROLL = 0.32;
 
-/** The Case study whose Place is the court. */
+/** The pages whose Places have stills of their own: the court, the Skyline. */
 const COURT_PAGE = "/work/juice-bros";
+const SKYLINE_PAGE = "/resume";
 
 /** The world's two still shapes: wide, and a tall phone or tablet. */
 function stillShots(stills) {
@@ -171,25 +175,23 @@ async function drawValley(browser) {
 }
 
 /**
- * The court: the Case study's world on its first frame, with motion (so the
- * rally ball is in, where the live world starts it) and the weather held
- * clear.
+ * A Place's still: its page's world on its first frame, with motion (so at
+ * the court the rally ball is in, where the live world starts it) and the
+ * weather held clear.
  */
-async function drawCourt(browser) {
+async function drawPlace(browser, path, stills) {
   mkdirSync("public/world", { recursive: true });
-  for (const { viewport, sizes } of stillShots(courtStills)) {
+  for (const { viewport, sizes } of stillShots(stills)) {
     const context = await browser.newContext({
       viewport,
       deviceScaleFactor: 1.5,
       reducedMotion: "no-preference",
     });
     const page = await context.newPage();
-    const drawn = await openOnFirstFrame(
-      page,
-      `${base}${COURT_PAGE}?weather=clear`,
-      { timeout: SCENE_TIMEOUT },
-    );
-    if (!drawn) throw new Error(`The world never drew at ${COURT_PAGE}`);
+    const drawn = await openOnFirstFrame(page, `${base}${path}?weather=clear`, {
+      timeout: SCENE_TIMEOUT,
+    });
+    if (!drawn) throw new Error(`The world never drew at ${path}`);
     await page.addStyleTag({ content: WORLD_ONLY });
     await page.waitForTimeout(300);
     await writeStills(await page.screenshot(), sizes);
@@ -204,7 +206,9 @@ const browser = await chromium.launch({
 try {
   if (sets.has("share")) await shareStills(browser);
   if (sets.has("valley")) await drawValley(browser);
-  if (sets.has("court")) await drawCourt(browser);
+  if (sets.has("court")) await drawPlace(browser, COURT_PAGE, courtStills);
+  if (sets.has("skyline"))
+    await drawPlace(browser, SKYLINE_PAGE, skylineStills);
 } finally {
   await browser.close();
 }

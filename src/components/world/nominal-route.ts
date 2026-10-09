@@ -4,7 +4,7 @@ import { createRoute, type Route } from "./route";
 
 /**
  * A stand-in for home's scroll route on a visit that hasn't shown home: a
- * Transit between the court and the Outpost still runs along the route, but
+ * Transit between the court and the Skyline still runs along the route, but
  * the route exists only once home's headline is measured. From the second
  * Lit site on, the route doesn't depend on home's layout (only on the
  * screen's shape), so a route planned from a typical settled view flies

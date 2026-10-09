@@ -22,10 +22,8 @@ export type CameraPaths = {
   /** The Opening's path and the scroll route; null until home's headline is measured. */
   opening: FlightPath | null;
   route: Route | null;
-  /** The Outpost's pose, for the screen's shape. */
-  outpost: Pose;
-  /** The Outpost's stop on the route. */
-  outpostStop: number;
+  /** The Skyline's pose, for the screen's shape: off the route, down the valley from downtown. */
+  skyline: Pose;
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
   /** The court's stop on the route (Juice Bros' Lit site). */
@@ -46,7 +44,15 @@ export type CameraLights = {
    * through one leaving it, and none anywhere else.
    */
   court: number;
+  /**
+   * The Skyline's look (the CN Tower's wash and the fog magenta), 0 to 1,
+   * blended the same way: full at the Skyline, none anywhere else.
+   */
+  skyline: number;
 };
+
+/** The Places with a look of their own (see CameraLights). */
+type Looks = Pick<CameraLights, "court" | "skyline">;
 
 /**
  * Where the camera leans, toward the pointer: -1 to 1 each way from the
@@ -93,8 +99,8 @@ type Trip = {
   departure: Departure;
   /** The camera as it left, held there until the Transit is planned. */
   held: Pose;
-  /** How far the court's look was in as it left (see CameraLights). */
-  look: number;
+  /** How far each Place's look was in as it left (see CameraLights). */
+  looks: Looks;
   /** The path, once its route (and its stop on it) is known. */
   transit: Transit | null;
   /** The route stop it lands at. */
@@ -114,7 +120,7 @@ const copyOf = ({ position, quaternion }: Pose): Pose => ({
 /**
  * The Camera director: the one place that decides where the world's camera
  * is, and how the world is lit, frame by frame, as it hands over between the
- * Opening, the scroll route, a Transit, the court and the Outpost. The
+ * Opening, the scroll route, a Transit, the court and the Skyline. The
  * camera never jumps: at a handoff it holds where it is until the next
  * driver reports.
  *
@@ -152,7 +158,7 @@ export function createCameraDirector({
 
   /** The place's own camera, without a Transit; null if not yet known. */
   function viewPose(): Pose | null {
-    if (shown === "outpost") return paths?.outpost ?? null;
+    if (shown === "skyline") return paths?.skyline ?? null;
     if (shown === "court") return paths?.court ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
@@ -175,7 +181,7 @@ export function createCameraDirector({
 
   /**
    * Plans the Transit once its route is known: at once to the court or the
-   * Outpost, whose poses need no page; home only once its page is in (and
+   * Skyline, whose poses need no page; home only once its page is in (and
    * its own paths measured), where its scroll says.
    */
   function plan(t: Trip, now: number) {
@@ -186,9 +192,11 @@ export function createCameraDirector({
     if (t.to === "court") {
       t.stop = paths.courtStop;
       to = paths.court;
+    } else if (t.to === "skyline") {
+      to = paths.skyline;
     } else {
       // Where the page is, not where its scroll route has eased to so far.
-      t.stop = t.to === "outpost" ? paths.outpostStop : homeStop();
+      t.stop = homeStop();
       to = t.stop;
     }
     t.transit = paths.transit(route, t.departure, to);
@@ -244,7 +252,7 @@ export function createCameraDirector({
       if (t.to === "hero" && Math.abs(homeStop() - t.stop) > CHASE) {
         // Home's scroll moved on meanwhile: fly on to meet it.
         t.held = poseIn(t, now);
-        t.look = courtBlend(now);
+        t.looks = looks(now);
         t.departure = { pose: t.held };
         plan(t, now);
       } else if (
@@ -264,32 +272,37 @@ export function createCameraDirector({
   /**
    * Home's camera leans toward the pointer once the Opening has landed, and
    * only then: never through the Opening, a Transit, at the court or at the
-   * Outpost, whose cameras stand still.
+   * Skyline, whose cameras stand still.
    */
   function lean(): CameraLean {
     return pointer && shown === "hero" && landed && !trip ? pointer : UPRIGHT;
   }
 
   /**
-   * How far the court's look is in at `now`, 0 to 1: through a Transit, from
-   * where it was as the camera left to where the Place it flies to has it, eased
-   * along with the camera; otherwise full at the court and out elsewhere.
+   * How far each Place's look is in at `now`, 0 to 1: through a Transit,
+   * from where it was as the camera left to where the Place it flies to has
+   * it, eased along with the camera; otherwise full at its own Place and out
+   * elsewhere.
    */
-  function courtBlend(now: number): number {
-    if (!trip) return shown === "court" ? 1 : 0;
-    if (!trip.transit) return trip.look;
-    const to = trip.to === "court" ? 1 : 0;
-    const f = smoothstep(0, 1, progress(trip as Planned, now));
-    return trip.look + (to - trip.look) * f;
+  function looks(now: number): Looks {
+    const at = (place: keyof Looks) => {
+      if (!trip) return shown === place ? 1 : 0;
+      const from = trip.looks[place];
+      if (!trip.transit) return from;
+      const to = trip.to === place ? 1 : 0;
+      const f = smoothstep(0, 1, progress(trip as Planned, now));
+      return from + (to - from) * f;
+    };
+    return { court: at("court"), skyline: at("skyline") };
   }
 
   /**
    * Home lights its plate's arrival and its sites as the Opening and the
    * scroll route say. Elsewhere the plate is out of sight and the sites dark,
-   * and only the court's look changes.
+   * and only the Places' looks change.
    */
   function lights(now: number): CameraLights | null {
-    const court = courtBlend(now);
+    const look = looks(now);
     if (shown === "hero" && homePaths()) {
       const { beams, sweep, beacon } = opening;
       return {
@@ -300,11 +313,11 @@ export function createCameraDirector({
           const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
           return waiting + SITE_LIGHT.lit * lit[i];
         }),
-        court,
+        ...look,
       };
     }
     if (!paths || (!shown && !trip)) return null;
-    return { beams: 0, sweep: 0, sites: LIT_SITES.map(() => 0), court };
+    return { beams: 0, sweep: 0, sites: LIT_SITES.map(() => 0), ...look };
   }
 
   return {
@@ -384,8 +397,15 @@ export function createCameraDirector({
     fly(to: Place, now: number) {
       const from = departure(now);
       if (!from) return false;
-      const look = courtBlend(now);
-      trip = { to, ...from, look, transit: null, stop: 0, start: 0, since: now };
+      trip = {
+        to,
+        ...from,
+        looks: looks(now),
+        transit: null,
+        stop: 0,
+        start: 0,
+        since: now,
+      };
       plan(trip, now);
       return true;
     },

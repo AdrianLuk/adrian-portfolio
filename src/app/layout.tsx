@@ -62,7 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         {/* The world's root: it carries data-transit while the camera flies
           between two Places (home, the Juice Bros Case study's court, the
-          Resume page's Outpost), and data-arriving while the arriving page's
+          Resume page's Skyline), and data-arriving while the arriving page's
           copy waits to land with it (src/components/world-transits.ts). */}
         <main data-world-root className="flex-1">
           {/* Each navigation updates it: a short crossfade between routes,
