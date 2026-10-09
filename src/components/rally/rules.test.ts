@@ -79,8 +79,27 @@ describe("points", () => {
       type: "point",
       winner: "ai",
       reason: "double-bounce",
+      sideOut: false,
     });
     expect(game.score).toEqual({ player: 0, ai: 1 });
+  });
+
+  it("is a side out when the receiver wins the rally: no point, and the serve passes", () => {
+    // The player's serve, then the player out of reach of the return.
+    const { game, events } = runUntil(
+      startGame(createGame({ score: { player: 3, ai: 10 } })),
+      (_, events) => events.some((e) => e.type === "point"),
+      (g) => (g.phase === "serving" ? { serve: true } : runAway),
+    );
+    expect(events).toContainEqual({
+      type: "point",
+      winner: "ai",
+      reason: "double-bounce",
+      sideOut: true,
+    });
+    expect(game.score).toEqual({ player: 3, ai: 10 });
+    expect(game.server).toBe("ai");
+    expect(game.phase).toBe("point");
   });
 
   it("gives the next serve to the point's winner, from the left on an odd score", () => {

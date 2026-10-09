@@ -182,7 +182,7 @@ export function RallyGame({
       for (const event of game.events) {
         if (event.type === "point") {
           const won = event.winner === "player";
-          const line = `${won ? copy.point.won : copy.point.lost}: ${copy.point.reasons[event.reason]}.`;
+          const line = `${event.sideOut ? copy.point.sideOut : won ? copy.point.won : copy.point.lost}: ${copy.point.reasons[event.reason]}.`;
           if (game.phase === "over") {
             const message = `${won ? copy.over.won : copy.over.lost} ${finalScore(game.score)}.`;
             setAnnouncement(`${line} ${message}`);
