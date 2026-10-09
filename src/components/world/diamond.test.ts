@@ -248,16 +248,22 @@ describe("home's scroll route and the Diamond", () => {
   for (const [name, aspect] of Object.entries(shapes)) {
     describe(name, () => {
       const route = nominalRoute(aspect);
+      // The valley is too narrow to push it past 0.32 on an ultrawide screen,
+      // so there it may show nearer, a background glimpse behind the street.
+      const ultrawide = name === "ultrawide";
 
-      it("never frames it: at no stop is it centred, or where the stop frames its Lit site", () => {
+      it("never frames it: at every stop it is out of frame, lost in the fog, or out at the frame's edge away from the stop's Lit site", () => {
         for (let stop = 0; stop < ROUTE_STOPS; stop++) {
           const pose = route.poseAt(stop);
           const seen = sighting(pose, aspect);
-          if (!seen.shows) continue;
+          if (!seen.shows || (!ultrawide && seen.fog > 0.5)) continue;
           const site = SITES[stop - 1];
           // The settled view and Hong Kong's frame nothing beside their own.
           expect(site, `in view at stop ${stop}`).toBeDefined();
-          expect(Math.abs(seen.x), `at stop ${stop}`).toBeGreaterThan(0.2);
+          // Past where a narrow screen frames the site itself (0.2 to 0.3).
+          expect(Math.abs(seen.x), `at stop ${stop}`).toBeGreaterThanOrEqual(
+            ultrawide ? 0.2 : 0.45,
+          );
           // Across the frame from the site, behind its panel on a wide
           // screen, and further off than the site.
           expect(Math.sign(seen.x), `at stop ${stop}`).toBe(-site.side);
