@@ -8,20 +8,33 @@ const counter = (page: Page, n: number) =>
 const toast = (page: Page) => page.getByRole("status");
 const dialog = (page: Page) => page.getByRole("dialog", { name: copy.label });
 
-/** Raises EARN_EVENT for `id`, as an Easter egg does (the Rally game, on beating Dinkbot). */
-const raise = (page: Page, id: AchievementId) =>
+/**
+ * Raises EARN_EVENT for `id`, as an Easter egg does (the Rally game, on
+ * beating Dinkbot), and returns the toast's text, read in the page the moment
+ * it shows: on a loaded machine one Playwright round trip can outlast the
+ * toast's 5s. Raised again every 250ms until the footer hears it (hydrated);
+ * empty if no toast shows within `ms`.
+ */
+const toastFor = (page: Page, id: AchievementId, ms = 15_000) =>
   page.evaluate(
-    ([type, detail]) => window.dispatchEvent(new CustomEvent(type, { detail })),
-    [EARN_EVENT, id],
+    ([type, detail, ms]) =>
+      new Promise<string>((resolve) => {
+        const text = () => document.querySelector('[role="status"]')?.textContent ?? "";
+        const raise = () => window.dispatchEvent(new CustomEvent(type, { detail }));
+        const done = (shown: string) => {
+          observer.disconnect();
+          clearInterval(again);
+          clearTimeout(stop);
+          resolve(shown);
+        };
+        const observer = new MutationObserver(() => text() && done(text()));
+        observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+        const again = setInterval(raise, 250);
+        const stop = setTimeout(() => done(""), ms);
+        raise();
+      }),
+    [EARN_EVENT, id, ms] as const,
   );
-
-/** Earns `id`, retrying until the footer is listening and counts `n`. */
-async function earn(page: Page, id: AchievementId, n: number) {
-  await expect(async () => {
-    await raise(page, id);
-    await expect(counter(page, n)).toBeVisible({ timeout: 500 });
-  }).toPass();
-}
 
 test("earning Dinkbot down toasts it and First Blood together, counted in the footer and remembered", async ({
   page,
@@ -30,10 +43,11 @@ test("earning Dinkbot down toasts it and First Blood together, counted in the fo
   await expect(counter(page, 0)).toBeVisible();
   const focused = await page.evaluate(() => document.activeElement?.tagName);
 
-  await earn(page, "dinkbot-down", 2);
-  await expect(toast(page)).toContainText(copy.toast.many);
-  await expect(toast(page)).toContainText(copy.names["dinkbot-down"]);
-  await expect(toast(page)).toContainText(copy.names["first-blood"]);
+  const shown = await toastFor(page, "dinkbot-down");
+  expect(shown).toContain(copy.toast.many);
+  expect(shown).toContain(copy.names["dinkbot-down"]);
+  expect(shown).toContain(copy.names["first-blood"]);
+  await expect(counter(page, 2)).toBeVisible();
   // Announced politely, and focus stays where it was.
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe(focused);
 
@@ -41,9 +55,7 @@ test("earning Dinkbot down toasts it and First Blood together, counted in the fo
   await expect(toast(page)).toBeEmpty({ timeout: 10_000 });
 
   // Replaying never toasts again.
-  await raise(page, "dinkbot-down");
-  await page.waitForTimeout(500);
-  await expect(toast(page)).toBeEmpty();
+  expect(await toastFor(page, "dinkbot-down", 1_000)).toBe("");
 
   // Remembered on the next visit, on every page.
   await page.goto("/resume");
@@ -52,8 +64,14 @@ test("earning Dinkbot down toasts it and First Blood together, counted in the fo
 
 test("a toast holds while hovered", async ({ page }) => {
   await page.goto("/");
-  await earn(page, "dinkbot-down", 2);
-  await toast(page).hover();
+  // The pointer waits where the toast will show (top centre), so it's hovered
+  // from its first frame, before its timer could run out.
+  const spot = await toast(page).evaluate((status) => {
+    const box = status.getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + 24 };
+  });
+  await page.mouse.move(spot.x, spot.y);
+  expect(await toastFor(page, "dinkbot-down")).toContain(copy.names["dinkbot-down"]);
   await page.waitForTimeout(7_000);
   await expect(toast(page)).toContainText(copy.names["dinkbot-down"]);
   await page.mouse.move(0, 0);
@@ -64,7 +82,7 @@ test("the counter opens the list by keyboard: unearned as ???, Esc closes it, fo
   page,
 }) => {
   await page.goto("/resume");
-  await earn(page, "dinkbot-down", 2);
+  await toastFor(page, "dinkbot-down");
   const button = counter(page, 2);
   await button.focus();
   await page.keyboard.press("Enter");
@@ -114,6 +132,6 @@ test("with storage unavailable, the site still works and the visit's progress co
     });
   });
   await page.goto("/");
-  await earn(page, "dinkbot-down", 2);
-  await expect(toast(page)).toContainText(copy.names["dinkbot-down"]);
+  expect(await toastFor(page, "dinkbot-down")).toContain(copy.names["dinkbot-down"]);
+  await expect(counter(page, 2)).toBeVisible();
 });
