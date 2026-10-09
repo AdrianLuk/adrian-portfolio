@@ -263,7 +263,7 @@ test("the Off the clock block has its four lines and the pickleball links", asyn
       section.getByRole("listitem").filter({ hasText: line.text }),
     ).toBeVisible();
   }
-  const pickleball = contact.offClock.lines[0];
+  const pickleball = contact.offClock.lines.find((line) => line.id === "pickleball")!;
   for (const link of pickleball.links ?? []) {
     await expect(
       section.getByRole("link", { name: link.label }),
