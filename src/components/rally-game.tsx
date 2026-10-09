@@ -7,11 +7,15 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
+import { arrivesAtPlay, overPlace } from "@/app/styles";
 import type { rally } from "@/content/site";
 import { afterFirstPaint } from "./after-first-paint";
 import { REDUCED_MOTION } from "./reduced-motion";
-import type { WorldState } from "./world-host";
+import { useWorldState } from "./use-world-state";
+import { worldHost, type WorldState } from "./world-host";
+import { worldTransits } from "./world-transits";
 import {
   createGame,
   isLive,
@@ -31,7 +35,10 @@ type Copy = (typeof rally)["game"];
 /** The longest step a frame may take, so a stall (a hidden tab, a slow frame) doesn't jump the ball. */
 const MAX_STEP = 0.05;
 
-/** Feet the player moves per CSS pixel of drag, per pixel of the court's width. */
+/**
+ * Feet the player moves per CSS pixel of drag, per pixel of the court's
+ * width, where the drag can't follow the court (past its horizon).
+ */
 const DRAG_FEET = 34;
 
 /** A pointer that moves less than this (CSS px) and lifts is a tap: it serves. */
@@ -64,24 +71,41 @@ const primary =
 const overlayTitle =
   "font-display text-3xl font-extrabold uppercase [font-stretch:120%]";
 
+/** Shadowed in the night, so a line on the court holds over its lights. */
+const overCourt =
+  "[text-shadow:0_0_12px_var(--color-night),0_1px_3px_var(--color-night)]";
+
 /** The final score, the player's first. */
 const finalScore = (score: Record<Side, number>) => `${score.player}–${score.ai}`;
 
 /**
- * The Rally game: the court drawn by Three.js (loaded after the first paint),
- * the game's own UI over it, and a polite live region announcing the serve,
- * each point with the score, pauses and the result. Nothing moves before
- * Start. Under reduced motion slow mode starts on; anyone can switch it.
+ * The Rally game, played in the world on the Juice Bros court: the game's
+ * objects drawn into the world's own scene (their Three.js loaded after the
+ * first paint, and built once the camera has landed at the court), the
+ * game's own UI over it, and a polite live region announcing the serve,
+ * each point with the score, pauses and the result. Before Start the page's
+ * copy (`intro`, the game's panel, `outro`) stands over the court; in play
+ * it steps aside, and the court fills the screen with only the score, Pause
+ * and the Dink pad over it; at a pause or the game's end it returns.
+ * Nothing moves before Start. Under reduced motion slow mode starts on;
+ * anyone can switch it.
  */
 export function RallyGame({
   copy,
   describedBy,
+  intro,
+  outro,
+  corners,
 }: {
   copy: Copy;
   /** The id of the page's controls hint, which describes the court. */
   describedBy: string;
+  /** The page's heading and hint, and its link on, over the court. */
+  intro: ReactNode;
+  outro: ReactNode;
+  /** The game's panel's corner brackets, in the court's light. */
+  corners: ReactNode;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
@@ -94,7 +118,18 @@ export function RallyGame({
   const drag = useRef({ x: 0, z: 0 });
   const pointer = useRef<{ id: number; x: number; y: number; moved: number } | null>(null);
 
-  const [view, setView] = useState<WorldState>("pending");
+  /** Whether the game's objects are on the world's court yet. */
+  const [hosted, setHosted] = useState<"waiting" | "hosted" | "failed">(
+    "waiting",
+  );
+  const world = useWorldState();
+  /** The court as the game sees it: drawn once the world is, with the game on it. */
+  const view: WorldState =
+    world === "unavailable" || hosted === "failed"
+      ? "unavailable"
+      : world === "drawn" && hosted === "hosted"
+        ? "drawn"
+        : "pending";
   const [announcement, setAnnouncement] = useState("");
   const [dinkHeld, setDinkHeld] = useState(false);
   const [hud, setHud] = useState<Hud>(() => hudFor(gameRef.current, ""));
@@ -172,55 +207,49 @@ export function RallyGame({
 
   // Three.js is the page's heaviest code: it never holds up the first paint.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const host = worldHost();
     let cancelled = false;
     async function start() {
-      if (!canvas) return;
       // Slow mode starts on under reduced motion, before Start can be pressed.
       if (window.matchMedia(REDUCED_MOTION).matches) {
         gameRef.current = setSlow(gameRef.current, true);
         setHud((s) => ({ ...s, slow: true }));
       }
       try {
-        const { createRallyView } = await import("./rally/scene");
+        // The game's drawing code may load during the Transit here...
+        const [{ createRallyView }, live] = await Promise.all([
+          import("./rally/scene"),
+          host.start(),
+        ]);
+        // ...but its objects are built (their shaders compiled) only once
+        // the camera has landed, so the Transit doesn't stutter. Without a
+        // world, the world's own state says the game can't run.
+        if (cancelled || !live) return;
+        await worldTransits().landed();
         if (cancelled) return;
-        const created = await createRallyView(canvas, {
-          onLost: () => setView("pending"),
-          onRestored: () => {
-            draw();
-            setView("drawn");
-          },
-        });
+        const created = await createRallyView(live.court);
         if (cancelled) {
-          created?.dispose();
-          return;
-        }
-        if (!created) {
-          setView("unavailable");
+          created.dispose();
           return;
         }
         viewRef.current = created;
         created.setEffects(!gameRef.current.slow);
         created.draw(gameRef.current);
-        setView("drawn");
+        setHosted("hosted");
       } catch {
         // A stale chunk after a deploy, say.
-        if (!cancelled) setView("unavailable");
+        if (!cancelled) setHosted("failed");
       }
     }
-    const resize = new ResizeObserver(() => viewRef.current?.layout());
-    resize.observe(canvas);
     const cancelStart = afterFirstPaint(start);
     return () => {
       cancelled = true;
       cancelStart();
-      resize.disconnect();
       cancelAnimationFrame(frameRef.current);
       viewRef.current?.dispose();
       viewRef.current = null;
     };
-  }, [draw]);
+  }, []);
 
   const pause = useCallback(
     (paused: boolean) => {
@@ -316,6 +345,8 @@ export function RallyGame({
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    // The first finger keeps the court: a second never takes its drag over.
+    if (pointer.current) return;
     pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: 0 };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -328,11 +359,23 @@ export function RallyGame({
     p.x = event.clientX;
     p.y = event.clientY;
     p.moved += Math.hypot(dx, dy);
-    if (gameRef.current.paused) return;
-    const feet = DRAG_FEET / Math.max(1, event.currentTarget.clientWidth);
+    const game = gameRef.current;
+    if (game.paused) return;
+    // The player's image keeps pace with the finger, near the net as at the
+    // baseline: from where they're heading, through the world's camera.
+    const { clientWidth, clientHeight } = event.currentTarget;
+    const from = {
+      x: game.player.x + game.dragLeft.x + drag.current.x,
+      z: game.player.z + game.dragLeft.z + drag.current.z,
+    };
+    const feet = DRAG_FEET / Math.max(1, clientWidth);
+    const moved = viewRef.current?.drag(from, {
+      x: (2 * dx) / Math.max(1, clientWidth),
+      y: (-2 * dy) / Math.max(1, clientHeight),
+    }) ?? { x: dx * feet, z: dy * feet };
     drag.current = {
-      x: drag.current.x + dx * feet,
-      z: drag.current.z + dy * feet,
+      x: drag.current.x + moved.x,
+      z: drag.current.z + moved.z,
     };
   }
 
@@ -345,15 +388,20 @@ export function RallyGame({
   }
 
   const playing = isLive(hud.phase);
+  /** In play and not paused: the court fills the screen, and the copy steps aside. */
+  const filled = playing && !hud.paused;
   const lit = view === "drawn";
 
   return (
     <div
-      className="relative"
+      // A gap, not margins, so the screen-filling layers stand flush.
+      className="flex flex-col gap-6"
       data-world={view}
       data-phase={hud.phase}
       data-paused={hud.paused}
       data-slow={hud.slow}
+      // The site's header steps aside with the copy (see globals.css).
+      data-court-filled={filled || undefined}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
       onBlur={(event) => {
@@ -364,8 +412,13 @@ export function RallyGame({
         }
       }}
     >
-      <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-6 gap-y-2 pb-3">
-        <dl className="flex gap-6 font-display text-lg font-bold tracking-wide uppercase [font-stretch:110%]">
+      <StepsAside away={filled}>{intro}</StepsAside>
+
+      {/* The score and Pause, pinned to the screen's top corners in play. */}
+      <div
+        className={`pointer-events-none fixed inset-x-0 top-0 z-30 flex items-start justify-between gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 ${filled ? "" : "invisible"}`}
+      >
+        <dl className="flex gap-5 rounded-full bg-night/80 px-5 py-2 font-display text-lg font-bold tracking-wide uppercase [font-stretch:110%]">
           <div className="flex items-baseline gap-2">
             <dt className="text-cyan">{copy.score.player}</dt>
             <dd className="tabular-nums">{hud.score.player}</dd>
@@ -377,7 +430,7 @@ export function RallyGame({
         </dl>
         <button
           type="button"
-          className={`${button} ${playing ? "" : "invisible"}`}
+          className={`${button} pointer-events-auto`}
           onClick={() => (hud.paused ? resume() : pause(true))}
           tabIndex={playing ? 0 : -1}
         >
@@ -385,115 +438,111 @@ export function RallyGame({
         </button>
       </div>
 
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-sm border border-fog bg-night/40 sm:aspect-[4/3]">
-        <canvas
-          ref={canvasRef}
+      {/* The court, the whole screen: in play it takes the keys, the drag
+        and the tap; otherwise every pointer passes through it. */}
+      <div
+        ref={surfaceRef}
+        role="application"
+        aria-label={copy.label}
+        aria-describedby={describedBy}
+        tabIndex={playing ? 0 : -1}
+        className={`fixed inset-0 z-20 touch-none select-none focus-visible:outline-offset-[-6px] ${filled ? "" : "pointer-events-none"}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => (pointer.current = null)}
+        onLostPointerCapture={(event) => {
+          if (pointer.current?.id === event.pointerId) pointer.current = null;
+        }}
+      />
+      {filled && (
+        <p
           aria-hidden="true"
-          className="absolute inset-0 size-full opacity-0 data-[world=drawn]:opacity-100"
-          data-world={view}
-        />
-        <div
-          ref={surfaceRef}
-          role="application"
-          aria-label={copy.label}
-          aria-describedby={describedBy}
-          tabIndex={playing ? 0 : -1}
-          className="absolute inset-0 touch-none select-none"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={() => (pointer.current = null)}
-        />
-        {playing && !hud.paused && (
-          <p
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 bg-linear-to-b from-night/80 to-transparent px-4 pt-3 pb-6 text-center font-display text-sm tracking-widest uppercase [font-stretch:90%]"
-          >
-            {hud.call}
-            {hud.phase === "serving" && hud.server === "player" && (
-              <span className="block pt-1 text-cyan">{copy.serveHint}</span>
-            )}
-          </p>
-        )}
-        {!playing && (
-          <Overlay>
-            {hud.phase === "over" ? (
-              <>
-                <h3 className={overlayTitle}>
-                  {hud.winner === "player" ? copy.over.won : copy.over.lost}
-                </h3>
-                <p className="font-display text-5xl font-extrabold tabular-nums">
-                  {finalScore(hud.score)}
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className={overlayTitle}>
-                  {copy.start.title}
-                </h3>
-                <p className="text-ink/85">{copy.start.line}</p>
-              </>
-            )}
-            <SlowMode copy={copy.slowMode} checked={hud.slow} onChange={toggleSlow} />
-            {view === "unavailable" ? (
-              <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
-            ) : (
-              <>
-                <button
-                  ref={actionRef}
-                  type="button"
-                  className={primary}
-                  disabled={!lit}
-                  onClick={begin}
-                >
-                  {hud.phase === "over" ? copy.over.action : copy.start.action}
-                </button>
-                {/* Kept in the flow once the court is lit, so the centred overlay doesn't shift. */}
-                <p className={`text-sm text-ink/70 ${lit ? "invisible" : ""}`}>
-                  {copy.loading}
-                </p>
-              </>
-            )}
-          </Overlay>
-        )}
-
-        {playing && hud.paused && (
-          <Overlay>
-            <h3 className={overlayTitle}>
-              {copy.paused.title}
-            </h3>
-            <p className="text-ink/85">{copy.paused.line}</p>
-            <button ref={resumeRef} type="button" className={primary} onClick={resume}>
-              {copy.resume}
-            </button>
-          </Overlay>
-        )}
-      </div>
-
-      {/* A pad for touch, under the court so it covers none of it: held,
-        your next shot is a dink. Keyboard players hold Space on the court
-        instead, so the pad stays out of the tab order and the accessibility
-        tree. Its row is always there, so showing it shifts nothing. */}
-      <div className="flex justify-end pt-3">
-        <div
-          aria-hidden="true"
-          data-dink-pad
-          data-held={dinkHeld}
-          // Violet is Juice Bros' light (./lit-sites), written out for Tailwind.
-          className={`flex h-14 min-w-36 touch-none items-center justify-center rounded-full border-2 border-violet/80 bg-night/70 px-8 font-display text-sm font-bold tracking-widest text-ink uppercase select-none [font-stretch:90%] data-[held=true]:bg-violet data-[held=true]:text-night ${playing && !hud.paused ? "" : "invisible"}`}
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setDinking(true);
-          }}
-          // Pressing it mustn't take focus off the court: that would pause the game.
-          onMouseDown={(event) => event.preventDefault()}
-          onPointerUp={() => setDinking(false)}
-          onPointerCancel={() => setDinking(false)}
-          onLostPointerCapture={() => setDinking(false)}
+          className={`pointer-events-none fixed inset-x-0 top-[calc(max(1rem,env(safe-area-inset-top))+3.75rem)] z-30 px-4 text-center font-display text-sm tracking-widest uppercase [font-stretch:90%] ${overCourt}`}
         >
-          {copy.dink}
+          {hud.call}
+          {hud.phase === "serving" && hud.server === "player" && (
+            <span className="block pt-1 text-cyan">{copy.serveHint}</span>
+          )}
+        </p>
+      )}
+
+      <StepsAside away={filled}>
+        <div className={`${overPlace.court} flex flex-col items-start gap-5`}>
+          {corners}
+          {playing && hud.paused ? (
+            <>
+              <h3 className={overlayTitle}>{copy.paused.title}</h3>
+              <p className="text-ink/85">{copy.paused.line}</p>
+              <button ref={resumeRef} type="button" className={primary} onClick={resume}>
+                {copy.resume}
+              </button>
+            </>
+          ) : (
+            <>
+              {hud.phase === "over" ? (
+                <>
+                  <h3 className={overlayTitle}>
+                    {hud.winner === "player" ? copy.over.won : copy.over.lost}
+                  </h3>
+                  <p className="font-display text-5xl font-extrabold tabular-nums">
+                    {finalScore(hud.score)}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className={overlayTitle}>{copy.start.title}</h3>
+                  <p className="text-ink/85">{copy.start.line}</p>
+                </>
+              )}
+              <SlowMode copy={copy.slowMode} checked={hud.slow} onChange={toggleSlow} />
+              {view === "unavailable" ? (
+                <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                  <button
+                    ref={actionRef}
+                    type="button"
+                    className={primary}
+                    disabled={!lit}
+                    onClick={begin}
+                  >
+                    {hud.phase === "over" ? copy.over.action : copy.start.action}
+                  </button>
+                  {/* Kept in the flow once the court is lit, so nothing shifts. */}
+                  <p className={`text-sm text-ink/70 ${lit ? "invisible" : ""}`}>
+                    {copy.loading}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
+      </StepsAside>
+
+      {/* A pad for touch, at the foot of the screen in play: held, your next
+        shot is a dink. Keyboard players hold Space on the court instead, so
+        the pad stays out of the tab order and the accessibility tree. */}
+      <div
+        aria-hidden="true"
+        data-dink-pad
+        data-held={dinkHeld}
+        // Violet is Juice Bros' light (./lit-sites), written out for Tailwind.
+        className={`fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 flex h-14 min-w-36 touch-none items-center justify-center rounded-full border-2 border-violet/80 bg-night/70 px-8 font-display text-sm font-bold tracking-widest text-ink uppercase select-none [font-stretch:90%] data-[held=true]:bg-violet data-[held=true]:text-night sm:right-6 ${filled ? "" : "invisible"}`}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setDinking(true);
+        }}
+        // Pressing it mustn't take focus off the court: that would pause the game.
+        onMouseDown={(event) => event.preventDefault()}
+        onPointerUp={() => setDinking(false)}
+        onPointerCancel={() => setDinking(false)}
+        onLostPointerCapture={() => setDinking(false)}
+      >
+        {copy.dink}
       </div>
+
+      <StepsAside away={filled}>{outro}</StepsAside>
 
       <p aria-live="polite" className="sr-only">
         {announcement}
@@ -502,10 +551,24 @@ export function RallyGame({
   );
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
+/**
+ * The page's copy over the court: held back while the camera flies to
+ * /play, as any Transit destination's is, and stepping aside (faded out,
+ * then out of reach of focus) while `away`, the court filling the screen.
+ * It comes back within reach at once, so focus can return to it.
+ */
+function StepsAside({ away, children }: { away: boolean; children: ReactNode }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-night/70 p-6 text-center">
-      {children}
+    <div className={arrivesAtPlay}>
+      <div
+        className={
+          away
+            ? "invisible opacity-0 motion-safe:[transition:opacity_500ms,visibility_0s_500ms]"
+            : "motion-safe:transition-opacity motion-safe:duration-500"
+        }
+      >
+        {children}
+      </div>
     </div>
   );
 }

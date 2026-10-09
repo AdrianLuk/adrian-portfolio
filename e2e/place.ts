@@ -78,7 +78,8 @@ export async function placeIn(
   const page = await context.newPage();
   const draws = await watchDraws(page);
   await page.goto(`${path}?weather=${weather}`);
-  const world = page.locator("[data-world]");
+  // The world's own wrapper (on /play, the game's root carries data-world too).
+  const world = page.locator("[data-world]:has(> canvas)");
   await expect(world).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });

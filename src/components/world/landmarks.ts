@@ -462,6 +462,7 @@ export function layoutLandmarks(): Landmarks {
       halfWidth: (COURT.width * SCALE) / 2,
       halfLength: (COURT.length * SCALE) / 2,
       netHeight: COURT.netHeight * SCALE,
+      scale: SCALE,
     };
 
     const top = high + POLE;

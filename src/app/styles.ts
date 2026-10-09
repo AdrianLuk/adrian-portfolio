@@ -64,3 +64,11 @@ export const arrivesAtSkyline =
  */
 export const arrivesAtCourt =
   "in-data-[arriving=court]:invisible in-data-[arriving=court]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
+
+/**
+ * /play's copy over the court, held back the same way while the world's
+ * root carries data-arriving="play" (the camera flying to the court's view
+ * from behind the player's baseline), then faded in.
+ */
+export const arrivesAtPlay =
+  "in-data-[arriving=play]:invisible in-data-[arriving=play]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";

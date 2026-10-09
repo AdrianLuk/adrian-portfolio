@@ -19,6 +19,8 @@ export type RallyCourt = {
   halfLength: number;
   /** The net's height at its middle, its tape's top, above the floor. */
   netHeight: number;
+  /** World units to the foot: the Rally game's feet drawn on it. */
+  scale: number;
 };
 
 /**

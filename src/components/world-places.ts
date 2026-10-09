@@ -11,10 +11,22 @@ import type { CaseStudySlug } from "@/content/site";
 /**
  * A page's place in the world: home stands at the hero (the opening, the
  * settled view over the name plate, the scroll route), the Juice Bros Case
- * study at its court (Lit site 3's Landmark), the Resume page at the
- * Skyline (face to face with Toronto's skyline).
+ * study and the Rally game at its court (Lit site 3's Landmark), the Resume
+ * page at the Skyline (face to face with Toronto's skyline).
  */
 export type Place = "hero" | "court" | "skyline";
+
+/**
+ * A page's view of its Place, where the camera stands there: each Place's
+ * own, but the court has one per page, courtside for the Juice Bros Case
+ * study ("court") and behind the player's baseline for /play ("play"). A
+ * navigation between two views of one Place is a Transit too.
+ */
+export type PlaceView = Place | "play";
+
+/** The Place a view is of. */
+export const placeOfView = (view: PlaceView): Place =>
+  view === "play" ? "court" : view;
 
 /**
  * The Case study whose Place is the court: Juice Bros', whose Landmark it
@@ -39,21 +51,32 @@ function pageOf(url: string) {
   return pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
 }
 
-/** The place the page at `url` (a path or a full URL) has, if any. */
-export function placeOf(url: string): Place | null {
+/** The view of its place the page at `url` (a path or a full URL) has, if any. */
+export function viewOf(url: string): PlaceView | null {
   const page = pageOf(url);
   if (page === "/") return "hero";
   if (page === COURT_PAGE) return "court";
+  if (page === "/play") return "play";
   if (page === "/resume") return "skyline";
   return null;
 }
 
+/** The place the page at `url` (a path or a full URL) has, if any. */
+export function placeOf(url: string): Place | null {
+  const view = viewOf(url);
+  return view && placeOfView(view);
+}
+
 /**
- * Where a navigation from the place `from` to `to` (a path or a URL) flies
- * the camera: between any two places, either way, and nowhere else. Moving
- * within a page never flies, nor does any page with no place in the world.
+ * Where a navigation from the view `from` to `to` (a path or a URL) flies
+ * the camera: between any two views, either way (the court's two
+ * included), and nowhere else. Moving within a page never flies, nor does
+ * any page with no place in the world.
  */
-export function transitBetween(from: Place | null, to: string): Place | null {
-  const arriving = placeOf(to);
+export function transitBetween(
+  from: PlaceView | null,
+  to: string,
+): PlaceView | null {
+  const arriving = viewOf(to);
   return from && arriving && from !== arriving ? arriving : null;
 }

@@ -143,6 +143,29 @@ body {
   animation-duration: 260ms;
 }
 
+/* The Rally game in play: the court fills the screen, so the site's header
+   and footer step aside with the page's copy (faded, then out of reach of
+   focus), and return at once at a pause or the game's end
+   (src/components/rally-game.tsx). */
+body > :is(header, footer) {
+  transition: opacity 500ms;
+}
+
+:root:has([data-court-filled]) body > :is(header, footer) {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 500ms,
+    visibility 0s 500ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body > :is(header, footer),
+  :root:has([data-court-filled]) body > :is(header, footer) {
+    transition: none;
+  }
+}
+
 /* While the camera flies (a transit), the flight is the transition. The
    layout's ViewTransition crossfades only a commit carrying a navigation's
    crossfade type, which a transit's doesn't; the world's root says so too,

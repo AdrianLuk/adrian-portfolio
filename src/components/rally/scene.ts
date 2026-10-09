@@ -4,38 +4,28 @@ import {
   CircleGeometry,
   Color,
   Group,
-  InstancedMesh,
   Material,
-  Matrix4,
   Mesh,
   MeshBasicMaterial,
-  PerspectiveCamera,
   Points,
-  Quaternion,
   RingGeometry,
-  Scene,
-  SRGBColorSpace,
   Vector3,
-  WebGLRenderer,
 } from "three";
 import { litSite } from "../lit-sites";
-import { layoutCourt } from "../world/court";
-import { createGlowPoints, type Glow } from "../world/glow-points";
+import { createGlowPoints } from "../world/glow-points";
 import { createBalls } from "../world/landmarks";
 import { palette } from "../world/palette";
-import { pixelRatioFor } from "../world/quality";
-import type { SharedUniforms } from "../world/shared";
-import { createSky } from "../world/sky";
-import type { Box } from "../world/skyline";
-import { createVeils } from "../world/veil";
-import { REACH, type Game, type Side } from "./rules";
+import type { CourtStage } from "../world/scene";
+import { dragOnCourt } from "./drag";
+import { REACH, type Game, type Side, type Vec } from "./rules";
 
 /**
- * The Rally game drawn in Three.js: the Juice Bros court from the world, in
- * feet, lit by its floodlights, seen from a fixed camera raised behind the
- * player's baseline. The player stands in cyan, the world's light; the AI in
- * magenta. The scene draws only when asked: the page steps the game and
- * calls `draw` each frame while it plays, and once when anything changes.
+ * The Rally game drawn into the world, on the Juice Bros court itself, in
+ * feet: the world stands it there, and its camera, raised behind the
+ * player's baseline, frames it. The player stands in cyan, the world's
+ * light; the AI in magenta. It draws only when asked: the page steps the
+ * game and calls `draw` each frame while it plays, and once when anything
+ * changes.
  */
 
 export type RallyView = {
@@ -43,16 +33,14 @@ export type RallyView = {
   draw(game: Game): void;
   /** The ball's trail and the hits' flashes: off in slow mode. */
   setEffects(on: boolean): void;
-  /** Re-sizes and re-fits the camera, after a resize. */
-  layout(): void;
+  /**
+   * How far a touch drag moves the player, in feet, from where they're
+   * heading (`from`): as far as moves their image with the finger (`by`, in
+   * normalised device coordinates; see ./drag). Null past the horizon.
+   */
+  drag(from: Vec, by: { x: number; y: number }): Vec | null;
+  /** Takes the game off the court, and frees its GPU memory. */
   dispose(): void;
-};
-
-export type RallyViewOptions = {
-  /** The GPU dropped the context: the canvas is blank until it's restored. */
-  onLost: () => void;
-  /** The context is back: draw again. */
-  onRestored: () => void;
 };
 
 /** How many of the ball's last places its trail shows. */
@@ -60,38 +48,6 @@ const TRAIL = 9;
 /** How long a hit's flash lasts, in milliseconds. */
 const FLASH_MS = 260;
 const BALL_RADIUS = 0.42;
-
-/** What the camera must keep in frame: both baselines, room round them, and the ball's height. */
-const FRAME_POINTS = [
-  [-13, 0, 27],
-  [13, 0, 27],
-  [-11, 0, -23],
-  [11, 0, -23],
-  [0, 9, -23],
-].map(([x, y, z]) => new Vector3(x, y, z));
-
-/**
- * Fits the fixed camera to the canvas's shape: raised behind the player's
- * baseline, looking down the court, with the narrowest view that keeps the
- * whole court in frame. A portrait phone stands it further back and higher.
- */
-function fitCamera(camera: PerspectiveCamera, aspect: number) {
-  const portrait = aspect < 1;
-  camera.position.set(0, portrait ? 30 : 19, portrait ? 46 : 41);
-  camera.lookAt(0, 0, portrait ? -2 : -3);
-  camera.aspect = aspect;
-  const p = new Vector3();
-  for (let fov = 24; fov <= 90; fov += 1) {
-    camera.fov = fov;
-    camera.updateProjectionMatrix();
-    camera.updateMatrixWorld();
-    const fits = FRAME_POINTS.every((point) => {
-      p.copy(point).project(camera);
-      return Math.abs(p.x) <= 0.94 && Math.abs(p.y) <= 0.94;
-    });
-    if (fits) return;
-  }
-}
 
 /** A player: a column of light, the paddle's reach as a ring round it, and the paddle. */
 function createFigure(color: Color) {
@@ -115,52 +71,16 @@ function createFigure(color: Color) {
 }
 
 /**
- * Builds the scene on `canvas` and resolves once its shaders have compiled.
- * Null when WebGL is unavailable.
+ * Builds the game's objects and puts them on the world's court once their
+ * shaders have compiled: the court's own rally ball steps off for the
+ * game's.
  */
-export async function createRallyView(
-  canvas: HTMLCanvasElement,
-  options: RallyViewOptions,
-): Promise<RallyView | null> {
-  let renderer: WebGLRenderer;
-  try {
-    renderer = new WebGLRenderer({ canvas, antialias: true });
-  } catch {
-    return null;
-  }
-  renderer.outputColorSpace = SRGBColorSpace;
-  renderer.setClearColor(palette.night);
-
-  const shared: SharedUniforms = {
-    uTime: { value: 0 },
-    uPixelRatio: { value: 1 },
-  };
-  const scene = new Scene();
-  const camera = new PerspectiveCamera(40, 1, 0.5, 2000);
-
-  // The court, as the world lays it out, in Juice Bros' light, as its Landmark burns it.
+export async function createRallyView(stage: CourtStage): Promise<RallyView> {
+  const { shared } = stage;
+  const { scale } = stage.court;
+  // In Juice Bros' light, as its Landmark burns it.
   const light = palette[litSite("juice-bros").light];
-  const court = layoutCourt({ x: 0, z: 0, level: 0, scale: 1, color: light });
-  const boxes: Box[] = [court.plinth, ...court.surfaces, ...court.lines, ...court.posts, court.tape];
-  const lamps: Glow[] = [];
-  for (const u of [-1, 1]) {
-    for (const v of [-1, 1]) {
-      const x = u * 12;
-      const z = v * 19;
-      boxes.push({ x, y: 9, z, w: 0.4, h: 18, d: 0.4, color: palette.dusk });
-      lamps.push({ x: x - u * 0.8, y: 17.6, z, color: palette.ink, size: 2.4, seed: 0 });
-    }
-  }
-  const unit = new BoxGeometry(1, 1, 1);
-  const courtMesh = new InstancedMesh(unit, new MeshBasicMaterial(), boxes.length);
-  const m = new Matrix4();
-  const q = new Quaternion();
-  boxes.forEach((b, i) => {
-    courtMesh.setMatrixAt(i, m.compose(new Vector3(b.x, b.y, b.z), q, new Vector3(b.w, b.h, b.d)));
-    courtMesh.setColorAt(i, b.color);
-  });
-  courtMesh.computeBoundingSphere();
-  const floodlights = createGlowPoints(lamps, shared, { intensity: 1.2 });
+  const group = new Group();
 
   const figures: Record<Side, ReturnType<typeof createFigure>> = {
     player: createFigure(palette.cyan),
@@ -174,37 +94,25 @@ export async function createRallyView(
   );
   shadow.position.y = 0.06;
 
+  // A glow's size is in world units, which the court's scale doesn't reach.
   const trail = createGlowPoints(
     Array.from({ length: TRAIL }, (_, i) => ({
       x: 0,
       y: 0,
       z: 0,
       color: light.clone().lerp(palette.ink, 0.3),
-      size: 0.9 * (1 - i / TRAIL),
+      size: 0.9 * (1 - i / TRAIL) * scale,
       seed: 0,
     })),
     shared,
     { intensity: 0.55 },
   );
   const flash = createGlowPoints(
-    [{ x: 0, y: 0, z: 0, color: palette.ink, size: 4, seed: 0 }],
+    [{ x: 0, y: 0, z: 0, color: palette.ink, size: 4 * scale, seed: 0 }],
     shared,
   );
 
-  // The world's night sky over the court, and dark ground round it to the horizon.
-  const sky = createSky(shared);
-  const ground = new Mesh(
-    new CircleGeometry(900, 48).rotateX(-Math.PI / 2),
-    new MeshBasicMaterial({ color: palette.night.clone().lerp(palette.dusk, 0.5) }),
-  );
-  ground.position.y = -0.02;
-
-  scene.add(
-    ...sky.objects,
-    ground,
-    courtMesh,
-    createVeils([court.net]),
-    floodlights.points,
+  group.add(
     figures.player.group,
     figures.ai.group,
     shadow,
@@ -217,19 +125,6 @@ export async function createRallyView(
   const history: Vector3[] = [];
   let flashAt = -Infinity;
   let last: Game | null = null;
-
-  function layout() {
-    const width = Math.max(1, canvas.clientWidth);
-    const height = Math.max(1, canvas.clientHeight);
-    const ratio = pixelRatioFor(window.devicePixelRatio);
-    renderer.setPixelRatio(ratio);
-    renderer.setSize(width, height, false);
-    shared.uPixelRatio.value = ratio;
-    for (const glow of [floodlights, trail, flash]) glow.setViewportHeight(height);
-    fitCamera(camera, width / height);
-    sky.follow(camera.position.x, camera.position.y, camera.position.z);
-    if (last) draw(last);
-  }
 
   /** Where a player holds the paddle: out towards the ball when it's near, at their side otherwise. */
   function placePaddle(side: Side, game: Game) {
@@ -279,25 +174,19 @@ export async function createRallyView(
     flash.points.visible = effects && fade > 0;
     flash.setIntensity(Math.max(0, fade));
 
-    renderer.render(scene, camera);
+    stage.draw();
   }
 
-  const onContextLost = (event: Event) => {
-    event.preventDefault();
-    options.onLost();
+  const guest = {
+    group,
+    setViewportHeight(height: number) {
+      for (const glow of [trail, flash]) glow.setViewportHeight(height);
+    },
   };
-  const onContextRestored = () => {
-    layout();
-    options.onRestored();
-  };
-  canvas.addEventListener("webglcontextlost", onContextLost);
-  canvas.addEventListener("webglcontextrestored", onContextRestored);
 
   function dispose() {
-    canvas.removeEventListener("webglcontextlost", onContextLost);
-    canvas.removeEventListener("webglcontextrestored", onContextRestored);
-    scene.traverse((object) => {
-      if (object instanceof InstancedMesh) object.dispose();
+    stage.release(guest);
+    group.traverse((object) => {
       if (object instanceof Mesh || object instanceof Points) {
         object.geometry.dispose();
         const materials: Material[] = Array.isArray(object.material)
@@ -306,16 +195,13 @@ export async function createRallyView(
         for (const material of materials) material.dispose();
       }
     });
-    renderer.dispose();
-    renderer.forceContextLoss();
   }
 
   try {
-    layout();
-    await renderer.compileAsync(scene, camera);
-  } catch {
+    await stage.host(guest);
+  } catch (error) {
     dispose();
-    return null;
+    throw error;
   }
 
   return {
@@ -324,7 +210,7 @@ export async function createRallyView(
       effects = on;
       if (last) draw(last);
     },
-    layout,
+    drag: (from, by) => dragOnCourt(stage.camera, stage.court, from, by),
     dispose,
   };
 }
