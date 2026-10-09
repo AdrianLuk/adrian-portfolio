@@ -11,6 +11,7 @@ import {
 import type { ScrollRoute } from "./scroll-route";
 // Plain data only: Three.js and GSAP load after the first paint.
 import { sitePanels } from "./home-panels";
+import { HOME_SCROLL_ROUTE } from "./lit-sites";
 import {
   createOpening,
   CREDIT_CARD,
@@ -183,6 +184,7 @@ export function HeroWorld({
       scrollRoute = createScrollRoute({
         director,
         panels,
+        route: HOME_SCROLL_ROUTE,
         locateSite: () => world()?.placeSite ?? null,
       });
     }

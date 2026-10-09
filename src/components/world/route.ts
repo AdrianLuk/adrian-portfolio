@@ -369,29 +369,50 @@ export function skylinePose(aspect: number): Pose {
   return skylineView(aspect).pose;
 }
 
-/** Builds the route for one layout (the settled pose and the screen's shape). */
+/**
+ * Home's route for one layout (the settled pose and the screen's shape): from
+ * the settled view up and over the plate, then to each Lit site and on to
+ * Hong Kong.
+ */
 export function createRoute(
   settled: Pose,
   plateCentre: Vector3,
   aspect: number,
 ) {
-  const points: Vector3[] = [settled.position.clone()];
-  /** Index into `points` of each stop. */
-  const stopPoints: number[] = [0];
-  const views: Quaternion[] = [settled.quaternion.clone()];
-
   // Up and over the plate, then down the valley.
   const overY = plateCentre.y + CLIMB.over;
-  let from = plateCentre.z - CLIMB.beyond;
-  points.push(
+  const climb = [
     new Vector3(
       settled.position.x,
       (settled.position.y + overY) / 2 + CLIMB.lift,
       plateCentre.z + CLIMB.ahead,
     ),
     new Vector3(plateCentre.x / 2, overY, plateCentre.z),
-    above(from, CRUISE_HEIGHT + CLIMB.extra),
-  );
+    above(plateCentre.z - CLIMB.beyond, CRUISE_HEIGHT + CLIMB.extra),
+  ];
+  const sites = SITES.map((s) => {
+    const aim = s.position.clone().setY(s.position.y - AIM_BELOW);
+    return stopPose(aim, s.side * siteScreenX(aspect), aspect);
+  });
+  // On a wide screen, to the right, clear of the contact copy on the left.
+  const hongKong = hongKongPose(aspect);
+  return routeThrough([settled, ...sites, hongKong], climb);
+}
+
+/**
+ * A scroll route through `stops`, in order down the valley: from the first,
+ * through the `climb` points (if any), then cruising down the valley to each
+ * next stop. It is measured in stops: 0 is the first, 1 the next, and so on.
+ */
+export function routeThrough(
+  stops: readonly Pose[],
+  climb: readonly Vector3[] = [],
+) {
+  const points: Vector3[] = [stops[0].position.clone(), ...climb];
+  /** Index into `points` of each stop. */
+  const stopPoints: number[] = [0];
+  const views: Quaternion[] = [stops[0].quaternion.clone()];
+  let from = points[points.length - 1].z;
 
   /** Cruises on down the valley to a stop. */
   function stopAt({ position, quaternion }: Pose) {
@@ -399,17 +420,12 @@ export function createRoute(
       points.push(above(z, CRUISE_HEIGHT));
     }
     stopPoints.push(points.length);
-    points.push(position);
-    views.push(quaternion);
+    points.push(position.clone());
+    views.push(quaternion.clone());
     from = position.z;
   }
 
-  for (const s of SITES) {
-    const aim = s.position.clone().setY(s.position.y - AIM_BELOW);
-    stopAt(stopPose(aim, s.side * siteScreenX(aspect), aspect));
-  }
-  // On a wide screen, to the right, clear of the contact copy on the left.
-  stopAt(hongKongPose(aspect));
+  for (const stop of stops.slice(1)) stopAt(stop);
 
   const curve = new CatmullRomCurve3(points, false, "centripetal");
   const perSegment = 12;
@@ -420,10 +436,10 @@ export function createRoute(
   const stopFractions = stopPoints.map((i) => lengths[i * perSegment] / total);
 
   return {
-    /** The camera at `stop` (0 to ROUTE_STOPS - 1; fractions in between). */
+    /** The camera at `stop` (0 to the last stop; fractions in between). */
     poseAt(stop: number): Pose {
-      const s = Math.min(ROUTE_STOPS - 1, Math.max(0, stop));
-      const k = Math.min(ROUTE_STOPS - 2, Math.floor(s));
+      const s = Math.min(stops.length - 1, Math.max(0, stop));
+      const k = Math.min(stops.length - 2, Math.floor(s));
       const f = s - k;
       const u =
         stopFractions[k] + (stopFractions[k + 1] - stopFractions[k]) * f;
@@ -436,4 +452,4 @@ export function createRoute(
   };
 }
 
-export type Route = ReturnType<typeof createRoute>;
+export type Route = ReturnType<typeof routeThrough>;

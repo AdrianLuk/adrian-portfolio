@@ -1,5 +1,5 @@
 import { highlightAnchor } from "@/content/site";
-import { routeAnchors, stopAt, type PageLayout } from "./route-anchors";
+import { pageLayout, routeAnchors, stopAt } from "./route-anchors";
 import { LIT_SITES } from "./lit-sites";
 
 /**
@@ -26,25 +26,6 @@ export function findPanels<P>(find: (id: string) => P | null): P[] | null {
 /** Each Lit site's panel on home, in the Lit sites' order, or null if any is missing. */
 export function sitePanels() {
   return findPanels((id) => document.getElementById(id));
-}
-
-/**
- * The page as the scroll route measures it: the viewport, how far it
- * scrolls, and each panel's place in the flow (a panel only ever shifts
- * sideways, so its top is where the page put it).
- */
-export function pageLayout(
-  panels: readonly HTMLElement[],
-  maxScroll = document.documentElement.scrollHeight - window.innerHeight,
-): PageLayout {
-  return {
-    viewport: window.innerHeight,
-    maxScroll: Math.max(0, maxScroll),
-    panels: panels.map((el) => ({
-      top: el.getBoundingClientRect().top + window.scrollY,
-      height: el.offsetHeight,
-    })),
-  };
 }
 
 /**

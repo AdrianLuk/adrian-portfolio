@@ -39,6 +39,15 @@ export const LIT_SITES: readonly LitSite[] = highlights.map(({ id }, i) => ({
   light: LIGHTS[id] ?? "cyan",
 }));
 
+/**
+ * Home's scroll route: its name, and which side each panel's stop stands,
+ * in the panels' order.
+ */
+export const HOME_SCROLL_ROUTE = {
+  name: "home",
+  sides: LIT_SITES.map((s) => s.side),
+} as const;
+
 /** The Lit site that stands for a Highlight. */
 export function litSite(id: HighlightId): LitSite {
   const site = LIT_SITES.find((s) => s.highlight === id);
