@@ -164,8 +164,8 @@ describe("the automatic swing", () => {
 
 /**
  * A player who plays the serve and return from the baseline, then rushes the
- * net to stand in the ball's line at `depth` feet from it: inside the
- * kitchen at under 7.
+ * net to stand in the ball's line at `depth` feet from it: under 7 is
+ * inside the kitchen, so the wall at its line stops it there.
  */
 const rusher =
   (depth: number) =>
@@ -490,6 +490,29 @@ describe("pausing", () => {
 
     const resumed = run(setPaused(held.game, false), 0.1).game;
     expect(resumed.ball).not.toEqual(rally.ball);
+  });
+});
+
+describe("the kitchen wall", () => {
+  const rally = () => run(startGame(createGame()), 0.2, { serve: true }).game;
+
+  it("stops the player just behind their kitchen line", () => {
+    const { game } = run(rally(), 3, { move: { x: 0, z: -1 } });
+    expect(game.player.z).toBeGreaterThan(7);
+    expect(game.player.z).toBeLessThan(8);
+  });
+
+  it("lets the player slide along it", () => {
+    const at = run(rally(), 3, { move: { x: 0, z: -1 } }).game;
+    const { game } = run(at, 0.25, { move: { x: -1, z: -1 } });
+    expect(game.player.z).toBe(at.player.z);
+    expect(game.player.x).toBeLessThan(at.player.x - 1);
+  });
+
+  it("stops a drag into the kitchen at the wall", () => {
+    const dragged = step(rally(), FRAME, { drag: { x: 0, z: -30 } });
+    const { game } = run(dragged, 3);
+    expect(game.player.z).toBeGreaterThan(7);
   });
 });
 

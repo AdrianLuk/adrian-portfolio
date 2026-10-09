@@ -110,6 +110,11 @@ const PLAYER_SPEED = 12;
 /** How far behind the baseline and outside the sidelines a player may go. */
 const ROOM_BACK = 8;
 const ROOM_SIDE = 5;
+/**
+ * The invisible wall that keeps the player out of their kitchen: half a
+ * foot behind the kitchen line, so they always stand where they may volley.
+ */
+const PLAYER_WALL = KITCHEN + 0.5;
 /** How far from a player the paddle reaches, and how high. */
 export const REACH = 3;
 const REACH_HIGH = 6;
@@ -630,8 +635,9 @@ function clampTo(side: Side, at: Vec): Vec {
 
 /**
  * The player's movement for one tick, at top speed: along the keys, and
- * through as much of the drag still to cover as that speed allows. A drag
- * that runs into the edge of the player's room is dropped.
+ * through as much of the drag still to cover as that speed allows. The
+ * player slides along the wall at their kitchen line; a drag that runs into
+ * the edge of the player's room, or that wall, is dropped.
  */
 function movePlayer(game: Game, input: Input, dt: number): Game {
   const move = input.move ?? { x: 0, z: 0 };
@@ -644,7 +650,8 @@ function movePlayer(game: Game, input: Input, dt: number): Game {
     x: game.player.x + move.x * scale * PLAYER_SPEED * dt + dragLeft.x * share,
     z: game.player.z + move.z * scale * PLAYER_SPEED * dt + dragLeft.z * share,
   };
-  const player = clampTo("player", wanted);
+  const room = clampTo("player", wanted);
+  const player = { x: room.x, z: Math.max(room.z, PLAYER_WALL) };
   const blocked = player.x !== wanted.x || player.z !== wanted.z;
   return {
     ...game,
