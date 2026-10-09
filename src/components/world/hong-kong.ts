@@ -227,8 +227,10 @@ export function layoutHongKong() {
   // a 52 m square in plan, cut by its diagonals into four triangular shafts
   // that end one by one (at the 25th, 38th and 51st floors, the last at the
   // 70th), each in a sloping glass roof rising to the core, until a single
-  // triangular prism remains, its twin masts on top. Its faces' X-braced
-  // lattice, an X to each 52 m cube, in lines of light.
+  // triangular prism remains, its twin masts on top. Its X-braced lattice
+  // in lines of light on every face it shows, to the top: an X to each 52 m
+  // cube up its outer faces, more up the inner faces each shaft bares above
+  // the ones that end below it, and its sloping roofs' triangles.
   {
     const H = 64;
     const body = 54.7;
@@ -248,6 +250,18 @@ export function layoutHongKong() {
     ] as const;
     /** How far each roof rises from the face to the core. */
     const slope = h * 1.3;
+    /** A point on the tower: (u, v) in plan off its axis, y over its foot. */
+    const at = (u: number, v: number, y: number) => {
+      const [[px, pz]] = facingShore([[u, v]]);
+      return [x + px, ground + y, z + pz] as const;
+    };
+    const lineOn =
+      (normal: readonly [number, number]) =>
+      (
+        from: readonly [number, number, number],
+        to: readonly [number, number, number],
+      ) =>
+        strokes.push({ from, to, width: 0.3, facing: normal, color: cyan });
     for (const { side, top } of shafts) {
       const [sx, sz] = side;
       // The shaft's outer side, corner to corner, and the core.
@@ -276,10 +290,7 @@ export function layoutHongKong() {
       const blocks = Math.max(1, Math.round(wall / S));
       const P = (u: number, y: number) =>
         [x + ax + (bx - ax) * u, ground + y, z + az + (bz - az) * u] as const;
-      const line = (
-        from: readonly [number, number, number],
-        to: readonly [number, number, number],
-      ) => strokes.push({ from, to, width: 0.22, facing: normal, color: cyan });
+      const line = lineOn(normal);
       for (let k = 0; k < blocks; k++) {
         const y0 = (wall * k) / blocks;
         const y1 = (wall * (k + 1)) / blocks;
@@ -289,9 +300,45 @@ export function layoutHongKong() {
       }
       line(P(0, 0), P(0, wall));
       line(P(1, 0), P(1, wall));
+      // Its roof: a triangle, halved down its fall line.
       const apex = [x, ground + top, z] as const;
       line(P(0, wall), apex);
       line(P(1, wall), apex);
+      line(P(0.5, wall), apex);
+
+      // Its inner faces, on the diagonals, where it stands over a lower
+      // neighbour: the band between the neighbour's roof and its own, with
+      // an X to each cube's height, from the shared corner to the core.
+      for (const other of shafts) {
+        const [ox, oz] = other.side;
+        if (sx * ox + sz * oz !== 0 || other.top >= top) continue;
+        const corner = [h * (sx + ox), h * (sz + oz)] as const;
+        // Across the diagonal, away from this shaft, towards the neighbour.
+        const turned = [-corner[1], corner[0]] as const;
+        const away = turned[0] * sx + turned[1] * sz > 0 ? -1 : 1;
+        const [[nx, nz]] = facingShore([
+          [turned[0] * away, turned[1] * away],
+        ]);
+        const length = Math.hypot(nx, nz);
+        const inner = lineOn([nx / length, nz / length]);
+        /** From the corner (u 0) to the core (u 1), up the band (k 0 to 1). */
+        const Q = (u: number, k: number) => {
+          const low = other.top - slope * (1 - u);
+          const high = top - slope * (1 - u);
+          return at(
+            corner[0] * (1 - u),
+            corner[1] * (1 - u),
+            low + (high - low) * k,
+          );
+        };
+        const rows = Math.max(1, Math.round((top - other.top) / S));
+        for (let j = 0; j < rows; j++) {
+          inner(Q(0, j / rows), Q(1, (j + 1) / rows));
+          inner(Q(1, j / rows), Q(0, (j + 1) / rows));
+          if (j < rows - 1) inner(Q(0, (j + 1) / rows), Q(1, (j + 1) / rows));
+        }
+        inner(Q(1, 0), Q(1, 1));
+      }
     }
     // The twin masts, on the last prism's peak.
     const tip = ground + H;
@@ -305,16 +352,17 @@ export function layoutHongKong() {
 
   // IFC 2 (407 m to its roof, 412 m to its crown's tips): a square plan
   // with its corners bevelled back and each face's middle stepped forward,
-  // narrowing as it rises in setbacks at its corners, to an open,
-  // sculptural crown: fins at its corners and mid-faces reaching up past
-  // the top floor, so the sky shows through.
+  // narrowing as it rises in setbacks at its corners, to its open crown: a
+  // ring of fins like teeth standing past the top floor, so the sky shows
+  // through, their tips curving down from each corner to the middle of
+  // each face and up again.
   {
     const H = 71.5;
     const S = 10;
     const { x, z } = inView(204, 11);
     const ground = footOf(x, z, S);
     /** A face's middle steps forward `step`; its corners bevel back `cut`. */
-    const plan = (size: number, cut: number, step = 0.35): Outline => {
+    const localPlan = (size: number, cut: number, step = 0.35): Outline => {
       const h = size / 2;
       const m = size * 0.2;
       const side: [number, number][] = [
@@ -334,8 +382,10 @@ export function layoutHongKong() {
             u * Math.sin(a) + v * Math.cos(a),
           ] as const;
         });
-      return facingShore([0, 1, 2, 3].flatMap(quarter));
+      return [0, 1, 2, 3].flatMap(quarter);
     };
+    const plan = (size: number, cut: number) =>
+      facingShore(localPlan(size, cut));
     /** Its setbacks: [height, size, bevel]. */
     const setbacks: [number, number, number][] = [
       [0, S, 1.2],
@@ -347,7 +397,7 @@ export function layoutHongKong() {
       [0.79, S * 0.88, 3],
       [0.87, S * 0.88, 3],
       [0.87, S * 0.82, 3.4],
-      [0.94, S * 0.82, 3.4],
+      [0.9, S * 0.82, 3.4],
     ];
     solids.push(
       loft(
@@ -357,24 +407,34 @@ export function layoutHongKong() {
         setbacks.map(([k, size, cut]) => ({ h: H * k, outline: plan(size, cut) })),
       ),
     );
-    // The crown's fins: four at the corners, the tallest, and four at the
-    // faces' middles, leaning a little in.
-    for (let i = 0; i < 8; i++) {
-      const a = (i * Math.PI) / 4 + Math.PI / 4;
-      const corner = i % 2 === 0;
-      const r = corner ? S * 0.33 : S * 0.43;
-      const [u, v] = [Math.cos(a) * r, Math.sin(a) * r];
+    // The crown's teeth, evenly round the top floor's edge: tallest at the
+    // corners, shortest mid-face, their tips tracing a curve between.
+    const crown = localPlan(S * 0.82, 3.4);
+    const edges = crown.map((p, i) => {
+      const q = crown[(i + 1) % crown.length];
+      return { p, q, length: Math.hypot(q[0] - p[0], q[1] - p[1]) };
+    });
+    const perimeter = edges.reduce((sum, e) => sum + e.length, 0);
+    const TEETH = 36;
+    for (let i = 0; i < TEETH; i++) {
+      let d = ((i + 0.5) / TEETH) * perimeter;
+      const edge = edges.find((e) => (d -= e.length) <= 0)!;
+      const t = 1 + d / edge.length;
+      const u = edge.p[0] + (edge.q[0] - edge.p[0]) * t;
+      const v = edge.p[1] + (edge.q[1] - edge.p[1]) * t;
+      const cornerward = Math.abs(Math.sin(2 * Math.atan2(v, u))) ** 1.6;
+      const [[px, pz]] = facingShore([[u, v]]);
       solids.push({
         shape: "frustum",
-        x: x + RIGHT[0] * u - AHEAD[0] * v,
-        y: ground + H * 0.9,
-        z: z + RIGHT[1] * u - AHEAD[1] * v,
-        rBottom: corner ? 0.75 : 0.5,
-        rTop: 0.1,
-        h: corner ? H * 0.1 : H * 0.075,
+        x: x + px,
+        y: ground + H * 0.9 - 0.3,
+        z: z + pz,
+        rBottom: 0.34,
+        rTop: 0.07,
+        h: 0.3 + H * (0.035 + 0.065 * cornerward),
         segments: 4,
         color: cyan,
-        wash: 0.4,
+        wash: 0.5,
       });
     }
     for (const [k, size, cut] of [
@@ -395,7 +455,7 @@ export function layoutHongKong() {
     }
     rings.push({
       x,
-      y: ground + H * 0.94 + 0.15,
+      y: ground + H * 0.9 + 0.15,
       z,
       r: 0,
       h: 0.32,
@@ -517,10 +577,10 @@ export function layoutHongKong() {
   // The towers round the landmarks: the Island's waterfront and a row
   // behind, each [dist, across, height, width, depth, dark glass].
   const plan = [
-    [150, 2, 12, 8, 6, false],
+    [150, 5, 12, 8, 6, false],
     [152, 14, 14, 7, 6, true],
     [154, 25, 17, 8, 7, false],
-    [156, -12, 13, 8, 7, false],
+    [158, -14, 13, 8, 7, false],
     [162, -23, 18, 8, 7, false],
     [214, -16, 40, 9, 8, true],
     [222, -28, 34, 8, 8, false],
