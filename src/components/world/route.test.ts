@@ -9,6 +9,8 @@ import {
   createRoute,
   OUTPOST,
   outpostPose,
+  PLAY_FRAME,
+  playView,
   ROUTE_STOPS,
   SITES,
   skylineView,
@@ -272,6 +274,83 @@ describe("the court pose", () => {
           corner(1, 1),
         ]) {
           expect(clearView(p, point.clone().setY(floor + 1))).toBe(true);
+        }
+      });
+
+      it("stands upright, not rolled", () => {
+        const right = new Vector3(1, 0, 0).applyQuaternion(pose.quaternion);
+        expect(Math.abs(right.y)).toBeLessThan(1e-9);
+      });
+    });
+  }
+});
+
+describe("the Rally game's view of the court, /play's", () => {
+  const { buildings, darkBuildings, masts, landmarks, skyline } =
+    layoutStructures();
+  const towers = [
+    ...buildings,
+    ...darkBuildings,
+    ...masts,
+    ...landmarks.parts,
+    ...skyline.bounds,
+  ];
+  const { court } = landmarks;
+  /** A point on the court, in the game's feet from where the net crosses its centre line. */
+  const feet = (x: number, y: number, z: number) =>
+    new Vector3(
+      court.x + x * court.scale,
+      court.level + y * court.scale,
+      court.z + z * court.scale,
+    );
+  /** The player's baseline, nearer home. */
+  const baseline = feet(0, 0, 22);
+
+  const shapes = {
+    "ultrawide": 2.4,
+    "desktop": 1.6,
+    "tablet, landscape": 1.33,
+    "square": 1,
+    "tablet, portrait": 0.75,
+    "phone": 0.46,
+    "narrow phone": 0.4,
+  };
+
+  for (const [name, aspect] of Object.entries(shapes)) {
+    describe(name, () => {
+      const { pose, fovY } = playView(aspect, court);
+      const p = pose.position;
+
+      it("stands raised behind the player's baseline, on the court's centre line, looking down the court", () => {
+        expect(p.z).toBeGreaterThan(baseline.z);
+        expect(p.x).toBeCloseTo(court.x);
+        expect(p.y - court.level).toBeGreaterThan(10);
+        const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
+        expect(forward.x).toBeCloseTo(0);
+        expect(forward.z).toBeLessThan(-0.5);
+        expect(forward.y).toBeLessThan(0);
+      });
+
+      it("clears the ground by 2 and every tower, Landmark part and the skyline by 3", () => {
+        expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(2);
+        const met = towers.find((tower) => near(p, tower, 3));
+        expect(met, "a tower within 3").toBeUndefined();
+      });
+
+      it("holds the whole court and the ball's height over the far baseline in frame, as the game's camera did", () => {
+        expect(fovY).toBeGreaterThanOrEqual(PLAY_FRAME.fovY);
+        expect(fovY).toBeLessThanOrEqual(PLAY_FRAME.fovMax);
+        for (const [x, y, z] of PLAY_FRAME.points) {
+          const at = onScreen(pose, feet(x, y, z), aspect, fovY);
+          expect(at.z, "in front of the camera").toBeLessThan(1);
+          expect(Math.abs(at.x)).toBeLessThanOrEqual(PLAY_FRAME.edge + 1e-9);
+          expect(Math.abs(at.y)).toBeLessThanOrEqual(PLAY_FRAME.edge + 1e-9);
+        }
+      });
+
+      it("sees the whole court and the ball over it, with nothing of the terrain in the way", () => {
+        for (const [x, y, z] of PLAY_FRAME.points) {
+          expect(clearView(p, feet(x, Math.max(y, 1), z))).toBe(true);
         }
       });
 

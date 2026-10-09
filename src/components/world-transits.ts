@@ -2,7 +2,7 @@
 // front: the Transit's maths ship with the world, which the director asks.
 import { REDUCED_MOTION } from "./reduced-motion";
 import { worldHost, type WorldHost } from "./world-host";
-import { placeOf, transitBetween, type Place } from "./world-places";
+import { transitBetween, viewOf, type PlaceView } from "./world-places";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
 
 /** What the Transits need of the world host. */
@@ -12,8 +12,9 @@ type TransitHost = Pick<
 >;
 
 /**
- * Transits between Places (home, the Juice Bros Case study's court, the
- * Resume page's Skyline): the camera flying from one to another. A
+ * Transits between Places (home, the court of the Juice Bros Case study and
+ * /play, the Resume page's Skyline), and between the court's two views: the
+ * camera flying from one to another. A
  * navigation between two of them hands the camera to the Camera
  * director's Transit the moment it starts (the click, or Back and Forward):
  * the camera flies from wherever it is to the destination page's pose, while
@@ -31,23 +32,25 @@ export function createWorldTransits(host: TransitHost) {
   let underway = false;
   let frame = 0;
   let holding: ReturnType<typeof setTimeout> | undefined;
+  /** Who waits for the camera to land (see `landed`). */
+  const waiting = new Set<() => void>();
 
   const reduced = () => window.matchMedia(REDUCED_MOTION).matches;
 
-  /** The place of the page the router last committed to, if it has one. */
-  function committed(): Place | null {
+  /** The view of the page the router last committed to, if it has one. */
+  function committed(): PlaceView | null {
     const intent = host.intent();
     return intent === "none" ? null : intent;
   }
 
-  function mark(name: string, to: Place | null) {
+  function mark(name: string, to: PlaceView | null) {
     const root = document.querySelector("[data-world-root]");
     if (to) root?.setAttribute(name, to);
     else root?.removeAttribute(name);
   }
 
   /** Holds `to`'s copy back, for the cap at most. */
-  function hold(to: Place) {
+  function hold(to: PlaceView) {
     clearTimeout(holding);
     mark("data-arriving", to);
     holding = setTimeout(release, TRANSIT_MAX_SECONDS * 1000);
@@ -65,6 +68,8 @@ export function createWorldTransits(host: TransitHost) {
     cancelAnimationFrame(frame);
     if (!underway) return;
     underway = false;
+    for (const resolve of waiting) resolve();
+    waiting.clear();
     director.arrive();
     host.holdWeather(false);
     // A page that commits late lands the camera in the very view transition
@@ -112,7 +117,7 @@ export function createWorldTransits(host: TransitHost) {
      */
     navigate(url: string) {
       const flying = director.flying();
-      const to = flying ? placeOf(url) : transitBetween(committed(), url);
+      const to = flying ? viewOf(url) : transitBetween(committed(), url);
       // On to where the camera is already flying (an anchor there, say).
       if (flying && to === flying) return true;
       if (
@@ -132,6 +137,18 @@ export function createWorldTransits(host: TransitHost) {
       hold(to);
       frame = requestAnimationFrame(tick);
       return true;
+    },
+
+    /**
+     * Resolves once no Transit is under way: at once, or as the camera lands
+     * (or the Transit is called off). A page's heavy work waits on it, so
+     * the flight doesn't stutter.
+     */
+    landed() {
+      return new Promise<void>((resolve) => {
+        if (underway) waiting.add(resolve);
+        else resolve();
+      });
     },
 
     /** Lands any Transit under way and stops listening for good. */

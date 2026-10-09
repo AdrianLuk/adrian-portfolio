@@ -3,7 +3,7 @@
 import { createCameraDirector } from "./camera-director";
 import { scrolledStop } from "./home-panels";
 import { REDUCED_MOTION } from "./reduced-motion";
-import type { Place } from "./world-places";
+import type { PlaceView } from "./world-places";
 import type { Measurement, World, WorldView } from "./world/scene";
 import type { Weather } from "./world/weather";
 
@@ -19,11 +19,12 @@ export type WorldState = "pending" | "drawn" | "unavailable";
 /**
  * What the page on screen wants from the world: home the hero (the opening,
  * the settled view, the scroll route), the Juice Bros Case study the court
- * and the Resume page the Skyline (each with the camera still, in Toronto's
- * weather), any other page nothing (its still backdrop stands in, and the
- * world is parked, drawing nothing).
+ * from courtside, /play the court from behind the player's baseline (the
+ * Rally game's view), and the Resume page the Skyline (each with the camera
+ * still, in Toronto's weather), any other page nothing (its still backdrop
+ * stands in, and the world is parked, drawing nothing).
  */
-export type WorldIntent = Place | "none";
+export type WorldIntent = PlaceView | "none";
 
 /**
  * A page's claim on the world: the view it wants, and its weather. The hero
@@ -35,7 +36,7 @@ export type WorldClaim =
       weather: Weather;
       measure: (canvas: HTMLCanvasElement) => Measurement;
     }
-  | { kind: "court" | "skyline"; weather: Weather };
+  | { kind: "court" | "play" | "skyline"; weather: Weather };
 
 function viewFor(
   claim: WorldClaim | null,

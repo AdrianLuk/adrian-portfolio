@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { createFlightPath, type Pose } from "./flight";
 import { CAMERA } from "./pose";
 import { SETTLED_RIG, type FlightRig } from "./rigs";
-import { courtPose, createRoute, SITES, skylinePose } from "./route";
+import {
+  courtPose,
+  createRoute,
+  playView,
+  SITES,
+  skylinePose,
+} from "./route";
 import { layoutStructures, type Box } from "./structures";
 import { harbourWater, onFloor, surfaceHeight, valleyCentre } from "./terrain";
 import {
@@ -12,6 +18,7 @@ import {
   TRANSIT_MAX_SECONDS,
   transit,
   transitPath,
+  transitWithin,
   type Transit,
 } from "./transit";
 
@@ -98,9 +105,11 @@ const towers = [
 ];
 
 /**
- * The relaxed rule for the last metres into a low pose (the court's, the
- * Skyline's): within LANDING_REACH world units of it, the camera need only
- * clear the ground by the pose's own margin, 2, not the route's 8.
+ * The relaxed rule for the last metres into a pose off the route (the
+ * court's, the Skyline's, /play's): within LANDING_REACH world units of it,
+ * the camera need only clear the ground by the pose's own margin, 2, not the
+ * route's 8, and may rise off the floor's edge as /play's view does, over
+ * the valley's wall beside the court.
  */
 const LANDING_REACH = 60;
 const LANDING_GROUND = 2;
@@ -119,7 +128,9 @@ function expectClear(poses: Pose[], ...landings: Pose[]) {
       : 8;
     // Over the harbour, above its water.
     expect(p.y - surfaceHeight(p.x, p.z)).toBeGreaterThan(low);
-    expect(onFloor(p.x, p.z), "over the valley's floor or the bay").toBe(true);
+    if (low === 8) {
+      expect(onFloor(p.x, p.z), "over the valley's floor or the bay").toBe(true);
+    }
     const met = towers.find((tower) => near(p, tower, 3));
     expect(met, `a tower near ${p.toArray().map(Math.round)}`).toBeUndefined();
   }
@@ -506,6 +517,98 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           expect(trip.duration).toBeGreaterThan(0);
           expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
         }
+      });
+    });
+
+    describe("to and from /play's view of the court", () => {
+      const court = courtPose(aspect);
+      const play = playView(aspect, landmarks.court).pose;
+
+      it("home and the Skyline fly to it along the route and land exactly on it, clear of everything, without a jump", () => {
+        for (const [departure, way] of [
+          [settled, "down"],
+          [skylineView, "down"],
+        ] as const) {
+          const trip = transitPath(route, departure, play);
+          expectSamePose(trip.poseAt(0), departure);
+          expectSamePose(trip.poseAt(1), play);
+          const poses = along(trip);
+          expectSmooth(poses, way);
+          expectClear(poses, play, skylineView);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+        }
+      });
+
+      it("flies back home or to the Skyline from it, clear of everything, without a jump", () => {
+        for (const to of [SETTLED_STOP, skylineView] as const) {
+          const trip = transitPath(route, play, to);
+          expectSamePose(trip.poseAt(0), play);
+          expectSamePose(trip.poseAt(1), to === SETTLED_STOP ? settled : to);
+          const poses = along(trip);
+          expectSmooth(poses, "up");
+          expectClear(poses, play, skylineView);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+        }
+      });
+
+      describe("between the court's two views", () => {
+        const trips = {
+          "courtside to /play": transitWithin(court, play),
+          "/play to courtside": transitWithin(play, court),
+        };
+
+        for (const [way, trip] of Object.entries(trips)) {
+          it(`${way}: leaves from one view and lands exactly on the other, moving round the court without taking the route`, () => {
+            const [from, to] = way.startsWith("courtside")
+              ? [court, play]
+              : [play, court];
+            expectSamePose(trip.poseAt(0), from);
+            expectSamePose(trip.poseAt(1), to);
+            const poses = along(trip);
+            for (let i = 1; i < poses.length; i++) {
+              const [a, b] = [poses[i - 1], poses[i]];
+              expect(a.position.distanceTo(b.position)).toBeLessThan(STEP_LIMIT);
+              expect(a.quaternion.angleTo(b.quaternion)).toBeLessThan(TURN_LIMIT);
+            }
+            // Never further from the court than the further of the two views.
+            const farthest = Math.max(
+              from.position.distanceTo(SITES[COURT_STOP - 1].position),
+              to.position.distanceTo(SITES[COURT_STOP - 1].position),
+            );
+            for (const { position: p } of poses) {
+              expect(
+                p.distanceTo(SITES[COURT_STOP - 1].position),
+              ).toBeLessThanOrEqual(farthest + 1e-6);
+            }
+          });
+
+          it(`${way}: clears the ground by 2 and every tower by 3, all the way`, () => {
+            expectClear(along(trip), court, play);
+          });
+
+          it(`${way}: takes a moment, well under the cap, turning at a medium-speed pan`, () => {
+            expect(trip.duration).toBeGreaterThan(0.8);
+            expect(trip.duration).toBeLessThan(TRANSIT_MAX_SECONDS);
+            const poses = along(trip);
+            const step = trip.duration / (poses.length - 1);
+            for (let i = 1; i < poses.length; i++) {
+              const degrees =
+                (poses[i].quaternion.angleTo(poses[i - 1].quaternion) * 180) /
+                Math.PI;
+              expect(degrees / step).toBeLessThan(PAN_LIMIT);
+            }
+          });
+        }
+
+        it("turns round mid-flight from exactly where the camera is", () => {
+          for (const t of [0.1, 0.5, 0.9]) {
+            const departure = trips["courtside to /play"].poseAt(t);
+            const back = transitWithin(departure, court);
+            expectSamePose(back.poseAt(0), departure);
+            expectSamePose(back.poseAt(1), court);
+            expectClear(along(back), court, play);
+          }
+        });
       });
     });
   });

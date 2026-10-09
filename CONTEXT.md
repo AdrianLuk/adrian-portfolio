@@ -41,11 +41,11 @@ The home page's fly-in on a first visit: the camera's flight down the canyon to 
 _Avoid_: Intro, fly-through
 
 **Place**:
-A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net) and the Skyline for the Resume page. A page without a Place, such as `/play` or the 404, shows a still of the world instead.
-_Avoid_: Scene, view, stop, destination
+A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/play` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net) and the Skyline for the Resume page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/play`. A page without a Place, such as the 404, shows a still of the world instead.
+_Avoid_: Scene, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/play`: the camera moves round the court.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
@@ -53,7 +53,7 @@ The one place that decides where the world's camera is and how the world is lit,
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:
-The short pickleball game on `/play`: singles against an AI, Dinkbot, on the Juice Bros court, rally scoring to 7, win by 2. Its own UI is the one place outside the opening credits and the closing bookend where the copy jokes.
+The short pickleball game on `/play`: singles against an AI, Dinkbot, played in the world, on the Juice Bros court, rally scoring to 7, win by 2. Its own UI is the one place outside the opening credits and the closing bookend where the copy jokes.
 _Avoid_: Mini-game, minigame, Pong
 
 **Role**:

@@ -1,7 +1,7 @@
 // No Three.js here: the director is made with the world host, before the
 // first paint. The paths the world hands it do the maths.
 import { LIT_SITES } from "./lit-sites";
-import type { Place } from "./world-places";
+import { placeOfView, type PlaceView } from "./world-places";
 import type { FlightPath, Pose } from "./world/flight";
 import { smoothstep } from "./world/noise";
 import {
@@ -25,15 +25,20 @@ export type CameraPaths = {
   /** The Skyline's pose, for the screen's shape: off the route, across the harbour. */
   skyline: Pose;
   /**
-   * The camera's vertical field of view, in degrees: the world's own, and
-   * the Skyline's for the screen's shape (wider on a narrow screen).
+   * The camera's vertical field of view, in degrees: the world's own, the
+   * Skyline's for the screen's shape (wider on a narrow screen), and /play's
+   * (the Rally game's framing of the court).
    */
-  fovY: { world: number; skyline: number };
+  fovY: { world: number; skyline: number; play: number };
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
+  /** /play's view of the court, for the screen's shape: raised behind the player's baseline. */
+  play: Pose;
   /** The court's stop on the route (Juice Bros' Lit site). */
   courtStop: number;
   transit(route: Route, departure: Departure, to: Arrival): Transit;
+  /** A Transit between two views of one Place: straight, off the route. */
+  within(departure: Pose, to: Pose): Transit;
 };
 
 /** How brightly the world's lights burn in a frame. */
@@ -58,6 +63,12 @@ export type CameraLights = {
 
 /** The Places with a look of their own (see CameraLights). */
 type Looks = Pick<CameraLights, "court" | "skyline">;
+
+/**
+ * How far each Place's look is in, and how far /play's view, whose field of
+ * view is its own: blended alike through a Transit (see `looks`).
+ */
+type Blend = Looks & { play: number };
 
 /**
  * Where the camera leans, toward the pointer: -1 to 1 each way from the
@@ -102,13 +113,18 @@ const SITE_LIGHT = { waiting: 0.35, lit: 0.9 };
 
 /** A Transit under way. */
 type Trip = {
-  to: Place;
+  to: PlaceView;
+  /**
+   * True between two views of one Place (the court's): the camera moves
+   * straight from one to the other, off the route.
+   */
+  within: boolean;
   /** Where it left from. */
   departure: Departure;
   /** The camera as it left, held there until the Transit is planned. */
   held: Pose;
   /** How far each Place's look was in as it left (see CameraLights). */
-  looks: Looks;
+  looks: Blend;
   /** The path, once its route (and its stop on it) is known. */
   transit: Transit | null;
   /** The route stop it lands at. */
@@ -145,7 +161,7 @@ export function createCameraDirector({
   homeStop: () => number;
 }) {
   let paths: CameraPaths | null = null;
-  let shown: Place | null = null;
+  let shown: PlaceView | null = null;
   let opening: FlightRig = { ...FLIGHT_START_RIG };
   let landed = false;
   /** True while the scroll route is reporting its stop. */
@@ -168,6 +184,7 @@ export function createCameraDirector({
   function viewPose(): Pose | null {
     if (shown === "skyline") return paths?.skyline ?? null;
     if (shown === "court") return paths?.court ?? null;
+    if (shown === "play") return paths?.play ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     return landed
@@ -188,18 +205,27 @@ export function createCameraDirector({
   }
 
   /**
-   * Plans the Transit once its route is known: at once to the court or the
-   * Skyline, whose poses need no page; home only once its page is in (and
-   * its own paths measured), where its scroll says.
+   * Plans the Transit once its route is known: at once to the court's views
+   * or the Skyline, whose poses need no page; home only once its page is in
+   * (and its own paths measured), where its scroll says. Between the
+   * court's two views it needs no route at all.
    */
   function plan(t: Trip, now: number) {
-    const route = paths?.route;
-    if (!paths || !route) return;
+    if (!paths) return;
+    const court = t.to === "play" ? paths.play : paths.court;
+    if (t.within && "pose" in t.departure) {
+      t.stop = paths.courtStop;
+      t.transit = paths.within(t.departure.pose, court);
+      t.start = now;
+      return;
+    }
+    const { route } = paths;
+    if (!route) return;
     if (t.to === "hero" && (shown !== "hero" || !homePaths())) return;
     let to: Arrival;
-    if (t.to === "court") {
+    if (t.to === "court" || t.to === "play") {
       t.stop = paths.courtStop;
-      to = paths.court;
+      to = court;
     } else if (t.to === "skyline") {
       to = paths.skyline;
     } else {
@@ -288,20 +314,24 @@ export function createCameraDirector({
 
   /**
    * How far each Place's look is in at `now`, 0 to 1: through a Transit,
-   * from where it was as the camera left to where the Place it flies to has
-   * it, eased along with the camera; otherwise full at its own Place and out
-   * elsewhere.
+   * from where it was as the camera left to where the view it flies to has
+   * it, eased along with the camera; otherwise full at its own Place (in
+   * either of the court's views) and out elsewhere. /play's view blends the
+   * same way, for its field of view.
    */
-  function looks(now: number): Looks {
-    const at = (place: keyof Looks) => {
-      if (!trip) return shown === place ? 1 : 0;
-      const from = trip.looks[place];
+  function looks(now: number): Blend {
+    /** Whether `view` is /play's view, or a view of the Place `key`. */
+    const is = (view: PlaceView | null, key: keyof Blend) =>
+      view !== null && (key === "play" ? view : placeOfView(view)) === key;
+    const at = (key: keyof Blend) => {
+      if (!trip) return is(shown, key) ? 1 : 0;
+      const from = trip.looks[key];
       if (!trip.transit) return from;
-      const to = trip.to === place ? 1 : 0;
+      const to = is(trip.to, key) ? 1 : 0;
       const f = smoothstep(0, 1, progress(trip as Planned, now));
       return from + (to - from) * f;
     };
-    return { court: at("court"), skyline: at("skyline") };
+    return { court: at("court"), skyline: at("skyline"), play: at("play") };
   }
 
   /**
@@ -310,7 +340,8 @@ export function createCameraDirector({
    * and only the Places' looks change.
    */
   function lights(now: number): CameraLights | null {
-    const look = looks(now);
+    const { court, skyline } = looks(now);
+    const look = { court, skyline };
     if (shown === "hero" && homePaths()) {
       const { beams, sweep, beacon } = opening;
       return {
@@ -335,9 +366,9 @@ export function createCameraDirector({
     layout(next: CameraPaths) {
       paths = next;
     },
-    /** The place the world shows now (null: none, parked). */
-    show(place: Place | null) {
-      shown = place;
+    /** The view the world shows now (null: none, parked). */
+    show(view: PlaceView | null) {
+      shown = view;
     },
 
     // From the Opening.
@@ -401,12 +432,21 @@ export function createCameraDirector({
     /**
      * Starts a Transit to `to`, or turns the one under way round, from
      * wherever the camera is. False if the camera has nowhere to leave from.
+     * From one view of a Place to another (or back, partway), the camera
+     * moves straight between them.
      */
-    fly(to: Place, now: number) {
+    fly(to: PlaceView, now: number) {
       const from = departure(now);
       if (!from) return false;
+      const place = placeOfView(to);
+      const within =
+        "pose" in from.departure &&
+        (trip
+          ? trip.within && placeOfView(trip.to) === place
+          : shown !== null && shown !== to && placeOfView(shown) === place);
       trip = {
         to,
+        within,
         ...from,
         looks: looks(now),
         transit: null,
@@ -420,7 +460,7 @@ export function createCameraDirector({
     /** Lands any Transit under way at once. */
     arrive: land,
     /** Where the Transit under way is flying; null once it has landed. */
-    flying: (): Place | null => trip?.to ?? null,
+    flying: (): PlaceView | null => trip?.to ?? null,
     /**
      * Whether a Transit under way is still waiting for the page it flies to:
      * the router hasn't committed it, so the world shows another (or none).
@@ -441,12 +481,15 @@ export function createCameraDirector({
       const pose = trip ? poseIn(trip, now) : viewPose();
       if (pose) last = pose;
       const fov = paths?.fovY;
+      const blend = looks(now);
       return {
         pose,
         lights: lights(now),
         lean: lean(),
         fovY: fov
-          ? fov.world + (fov.skyline - fov.world) * looks(now).skyline
+          ? fov.world +
+            (fov.skyline - fov.world) * blend.skyline +
+            (fov.play - fov.world) * blend.play
           : null,
       };
     },

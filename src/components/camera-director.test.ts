@@ -6,13 +6,14 @@ import {
   type CameraPaths,
 } from "./camera-director";
 import { createFlightTimeline } from "./flight-timeline";
-import type { Place } from "./world-places";
+import type { PlaceView } from "./world-places";
 import { createFlightPath, type Pose } from "./world/flight";
 import { nominalRoute } from "./world/nominal-route";
 import { CAMERA } from "./world/pose";
 import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
-import { courtPose, createRoute, skylinePose } from "./world/route";
-import { COURT_STOP, transit } from "./world/transit";
+import { layoutLandmarks } from "./world/landmarks";
+import { courtPose, createRoute, playView, skylinePose } from "./world/route";
+import { COURT_STOP, transit, transitWithin } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -25,6 +26,8 @@ const plateCentre = new Vector3(-18, 0, -CAMERA.plateDepth)
   .applyQuaternion(settled.quaternion)
   .add(settled.position);
 const aspect = 1.6;
+/** /play's view of the court, and its field of view. */
+const play = playView(aspect, layoutLandmarks().court);
 
 const FRAME = 16;
 
@@ -45,10 +48,12 @@ function setup() {
     opening,
     route,
     skyline: skylinePose(aspect),
-    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY },
+    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY, play: play.fovY },
     court: courtPose(aspect),
+    play: play.pose,
     courtStop: COURT_STOP,
     transit,
+    within: transitWithin,
   };
   const director = createCameraDirector({ homeStop: () => page.stop });
   director.layout(paths);
@@ -120,7 +125,7 @@ function expectSamePose(a: Pose, b: Pose) {
 /** Flies `to` from `now` until the director lands, the page arriving after `arrives` ms. */
 function flyTo(
   director: CameraDirector,
-  to: Place,
+  to: PlaceView,
   now: number,
   arrives = 300,
   script: (now: number) => void = () => {},
@@ -225,6 +230,130 @@ describe("the Camera director", () => {
       skyline: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
+  });
+
+  it("holds /play's pose at /play, the court's look full, in the game's field of view", () => {
+    const { director } = setup();
+    director.show("play");
+    const { pose, lights, lean, fovY } = director.frame(0);
+    expectSamePose(pose!, play.pose);
+    expect(lights).toEqual({
+      beams: 0,
+      sweep: 0,
+      sites: [0, 0, 0, 0],
+      court: 1,
+      skyline: 0,
+    });
+    expect(lean).toEqual({ x: 0, y: 0 });
+    expect(fovY).toBe(play.fovY);
+  });
+
+  describe("/play's view of the court", () => {
+    it("flies there from home along the route, landing on its pose, widening to the game's field of view, without a jump", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      const before = film(director, 0, 200);
+      const fovs: number[] = [];
+      const { poses, landedAt } = flyTo(director, "play", 216, 300, (now) =>
+        fovs.push(director.frame(now).fovY!),
+      );
+      expect(landedAt - 216).toBeLessThan(TRANSIT_MAX_SECONDS * 1000 + 100);
+      const after = film(director, landedAt, 200);
+      expectNoJump([...before, ...poses, ...after]);
+      expectSamePose(after.at(-1)!, play.pose);
+      expect(fovs[0]).toBeCloseTo(CAMERA.fovY);
+      expect(director.frame(landedAt).fovY).toBe(play.fovY);
+      for (let i = 1; i < fovs.length; i++) {
+        expect(Math.abs(fovs[i] - fovs[i - 1])).toBeLessThan(1.5);
+      }
+    });
+
+    it("flies home from it along the route, the court's look blending out", () => {
+      const { director, route } = setup();
+      director.show("play");
+      const before = film(director, 0, 100);
+      const looks: number[] = [];
+      const { poses, landedAt } = flyTo(director, "hero", 116, 300, (now) => {
+        if (now >= 416) director.openingLands();
+        looks.push(director.frame(now).lights!.court);
+      });
+      expectNoJump([...before, ...poses]);
+      expectSamePose(director.frame(landedAt).pose!, route.poseAt(0));
+      expect(looks[0]).toBeCloseTo(1);
+      expect(director.frame(landedAt).lights!.court).toBe(0);
+    });
+
+    it("moves between the court's two views straight round the court, either way, its look full throughout, without a jump", () => {
+      for (const [from, to] of [
+        ["court", "play"],
+        ["play", "court"],
+      ] as const) {
+        const { director, paths } = setup();
+        director.show(from);
+        const before = film(director, 0, 100);
+        const looks: number[] = [];
+        const { poses, landedAt } = flyTo(director, to, 116, 300, (now) =>
+          looks.push(director.frame(now).lights!.court),
+        );
+        expectNoJump([...before, ...poses]);
+        expectSamePose(director.frame(landedAt).pose!, paths[to]);
+        for (const look of looks) expect(look).toBe(1);
+        // Straight from one view to the other: never by the route.
+        const trip = transitWithin(paths[from], paths[to]);
+        expect(landedAt - 116).toBeGreaterThanOrEqual(trip.duration * 1000);
+        expect(landedAt - 116).toBeLessThan(trip.duration * 1000 + 100);
+        for (const pose of poses) {
+          const onLine = pose.position
+            .clone()
+            .sub(paths[from].position)
+            .cross(paths[to].position.clone().sub(paths[from].position))
+            .length();
+          expect(onLine).toBeLessThan(1e-3 * paths[from].position.distanceTo(paths[to].position) ** 2 + 1e-6);
+        }
+      }
+    });
+
+    it("blends the field of view between the court's two views, never jumping", () => {
+      const { director } = setup();
+      director.show("court");
+      const fovs: number[] = [];
+      const { landedAt } = flyTo(director, "play", 0, 300, (now) =>
+        fovs.push(director.frame(now).fovY!),
+      );
+      expect(fovs[0]).toBeCloseTo(CAMERA.fovY);
+      expect(director.frame(landedAt).fovY).toBe(play.fovY);
+      for (let i = 1; i < fovs.length; i++) {
+        expect(Math.abs(fovs[i] - fovs[i - 1])).toBeLessThan(1.5);
+      }
+    });
+
+    it("turns round mid-move, back to courtside, from exactly where the camera is", () => {
+      const { director, paths } = setup();
+      director.show("court");
+      expect(director.fly("play", 0)).toBe(true);
+      const out = film(director, 0, 400, (now) => {
+        if (now >= 200) director.show("play");
+      });
+      const turning = director.frame(400).pose!;
+      const { poses, landedAt } = flyTo(director, "court", 400, 100);
+      expectSamePose(poses[0], turning);
+      expectNoJump([...out, ...poses]);
+      expectSamePose(director.frame(landedAt).pose!, paths.court);
+    });
+
+    it("flies on to /play by the route when the camera is still on its way down to the court", () => {
+      const { director, paths } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.fly("court", 0);
+      const out = film(director, 0, 600, (now) => {
+        if (now >= 300) director.show("court");
+      });
+      const { poses, landedAt } = flyTo(director, "play", 616, 100);
+      expectNoJump([...out, ...poses]);
+      expectSamePose(director.frame(landedAt).pose!, paths.play);
+    });
   });
 
   describe("never jumps at a handoff", () => {
@@ -369,7 +498,7 @@ describe("the Camera director", () => {
       const setup_ = setup();
       setup_.director.layout({
         ...setup_.paths,
-        fovY: { world: CAMERA.fovY, skyline: 55 },
+        fovY: { world: CAMERA.fovY, skyline: 55, play: play.fovY },
       });
       return setup_;
     }

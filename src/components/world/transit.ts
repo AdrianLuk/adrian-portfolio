@@ -355,6 +355,42 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   };
 }
 
+/**
+ * A transit between two views of one Place (the court's: courtside, the
+ * Juice Bros Case study's, and behind the player's baseline, /play's): the
+ * camera moves straight from one to the other round the court, turning as
+ * it goes, without taking the route, at the route's pace; a big turn slows
+ * it to a medium-speed pan.
+ */
+export function transitWithin(departure: Pose, to: Pose) {
+  const distance = Math.max(
+    departure.position.distanceTo(to.position),
+    TURN_REACH * departure.quaternion.angleTo(to.quaternion),
+  );
+
+  /** The camera a fraction `f` (0 to 1) of the way along the distance. */
+  function along(f: number): Pose {
+    if (f <= 0) return copyOf(departure);
+    if (f >= 1) return copyOf(to);
+    return {
+      position: departure.position.clone().lerp(to.position, f),
+      quaternion: departure.quaternion.clone().slerp(to.quaternion, f),
+    };
+  }
+
+  return {
+    duration: durationFor(distance),
+    distance,
+    along,
+    poseAt(t: number): Pose {
+      return t <= 0 ? copyOf(departure) : along(ease(Math.min(1, t)));
+    },
+    departureAt(t: number): Departure {
+      return { pose: this.poseAt(t) };
+    },
+  };
+}
+
 export type Transit = Pick<
   ReturnType<typeof transitPath>,
   "duration" | "poseAt" | "departureAt"

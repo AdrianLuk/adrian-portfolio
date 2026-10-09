@@ -1,6 +1,7 @@
 import {
   InstancedMesh,
   FogExp2,
+  Group,
   Line,
   Material,
   Mesh,
@@ -30,12 +31,12 @@ import { nominalRoute } from "./nominal-route";
 import {
   courtPose,
   createRoute,
+  playView,
   SITES,
-  skylinePose,
   skylineView,
   type Route,
 } from "./route";
-import { COURT_STOP, transit } from "./transit";
+import { COURT_STOP, transit, transitWithin } from "./transit";
 import {
   drawsInSoftware,
   holdsFrame,
@@ -81,7 +82,9 @@ export type ViewOptions = {
  * What the world shows. hero: the home page's, the name plate posed on the
  * headline that `measure` finds, the camera on the opening flight and then
  * the scroll route. court: the Juice Bros Case study's, the camera still and
- * low behind the court's near baseline (Lit site 3). skyline: the Resume
+ * low behind the court's near baseline (Lit site 3). play: /play's, the
+ * court again, the camera raised behind the player's baseline as the Rally
+ * game frames it, the game played on it. skyline: the Resume
  * page's, the camera still and low down the valley from downtown, looking
  * back up at Toronto's skyline. Away from the hero, the plate and the lit
  * sites are out of sight.
@@ -89,6 +92,7 @@ export type ViewOptions = {
 export type WorldView =
   | { kind: "hero"; measure: () => Measurement }
   | { kind: "court" }
+  | { kind: "play" }
   | { kind: "skyline" };
 
 /**
@@ -109,6 +113,39 @@ type NamePlate = ReturnType<typeof createNamePlate>;
 
 /** Where a credit card stands on the canvas, in canvas pixels. */
 export type CreditPlacement = { x: number; y: number; scale: number };
+
+/**
+ * What the Rally game puts on the world's court (see ../rally/court-game):
+ * its objects, in the court's feet from where the net crosses its centre
+ * line, the player's half nearer home.
+ */
+export type CourtGuest = {
+  group: Group;
+  /** The canvas's height has changed: for its glows' sizes. */
+  setViewportHeight(height: number): void;
+};
+
+/** The world's court, for the Rally game to play on. */
+export type CourtStage = {
+  /** The world's own clock and pixel ratio, which every glow reads. */
+  shared: SharedUniforms;
+  /** World units to the foot. */
+  scale: number;
+  /**
+   * Puts `guest` on the court once its shaders have compiled (off the main
+   * thread where the browser allows): the court's own rally ball steps off
+   * while it's there.
+   */
+  host(guest: CourtGuest): Promise<void>;
+  /** Takes the guest off the court: the rally ball comes back. */
+  release(guest: CourtGuest): void;
+  /**
+   * The guest has moved: draws it now if the world isn't drawing frame by
+   * frame on its own (under reduced motion, or holding its frame), else on
+   * its next frame.
+   */
+  draw(): void;
+};
 
 /** A view of the world on a canvas. */
 export type View = {
@@ -144,6 +181,8 @@ export type World = View & {
   setView(view: WorldView | null): void;
   /** Changes the weather in place: the ground, the pools and what falls. */
   setWeather(weather: Weather): void;
+  /** The court, for the Rally game to play on. */
+  court: CourtStage;
 };
 
 /**
@@ -326,6 +365,18 @@ export async function createWorld(
    */
   let look = courtLook(0);
   let skyline = skylineLook(0);
+  /**
+   * The Rally game's objects, while it's on the court, under a group that
+   * stands them there in feet.
+   */
+  let guest: CourtGuest | null = null;
+  const courtGroup = new Group();
+  courtGroup.position.set(
+    structures.court.x,
+    structures.court.level,
+    structures.court.z,
+  );
+  courtGroup.scale.setScalar(structures.court.scale);
   const pools = createGroundPools(structures.pools.length + 3, poolIntensity());
   function poolIntensity() {
     return wet() ? WET_POOLS.intensity : POOL_INTENSITY;
@@ -342,6 +393,7 @@ export async function createWorld(
     ...sites.map((s) => s.points),
     ...createMist(shared),
     plate.group,
+    courtGroup,
   );
 
   let motes: ReturnType<typeof createMotes> | null = null;
@@ -433,8 +485,9 @@ export async function createWorld(
 
   /**
    * Lights the court as its look says: the floodlights up, the fog toward
-   * violet, the rally ball in (only while the world moves: under reduced
-   * motion the court is one still frame, with no ball), and what falls out.
+   * violet, the rally ball in (only while the world moves, and the Rally
+   * game isn't on the court: under reduced motion the court is one still
+   * frame, with no ball), and what falls out.
    * Likewise the Skyline's: the CN Tower's wash and the fog toward magenta.
    */
   function showLook() {
@@ -442,7 +495,7 @@ export async function createWorld(
     tintFog(look.fog, skyline.fog);
     fog.color.copy(fogColor);
     magentaWash.value = skyline.wash;
-    rally.visible = motion && look.ball > 0;
+    rally.visible = motion && look.ball > 0 && !guest;
     if (rally.visible) {
       const at = rallyBall(structures.court, shared.uTime.value);
       rally.position.set(at.x, at.y, at.z);
@@ -487,6 +540,7 @@ export async function createWorld(
       ...sites,
       motes,
       falling,
+      guest,
     ])
       glow?.setViewportHeight(height);
 
@@ -526,11 +580,24 @@ export async function createWorld(
 
     const home = view.kind === "hero";
     const skyline = skylineView(camera.aspect);
+    const play = playView(camera.aspect, structures.court);
     // The view's own field of view; the plate is measured in the world's.
-    setFov(view.kind === "skyline" ? skyline.fovY : CAMERA.fovY);
+    setFov(
+      view.kind === "skyline"
+        ? skyline.fovY
+        : view.kind === "play"
+          ? play.fovY
+          : CAMERA.fovY,
+    );
     posed = home
       ? placePlate(plate, words, width, height)
-      : placeStill(view.kind === "court" ? courtPose : skylinePose);
+      : placeStill(
+          view.kind === "court"
+            ? courtPose(camera.aspect)
+            : view.kind === "play"
+              ? play.pose
+              : skyline.pose,
+        );
     if (!posed) return;
     // The director takes the paths this layout measured, and the Transit
     // maths. Home's paths come only from home's own layout; away from it, the
@@ -539,10 +606,12 @@ export async function createWorld(
       opening: home ? path : null,
       route: home ? route : nominalRoute(camera.aspect),
       skyline: skyline.pose,
-      fovY: { world: CAMERA.fovY, skyline: skyline.fovY },
+      fovY: { world: CAMERA.fovY, skyline: skyline.fovY, play: play.fovY },
       court: courtPose(camera.aspect),
+      play: play.pose,
       courtStop: COURT_STOP,
       transit,
+      within: transitWithin,
     });
     // The motes rise round where the camera stands.
     const { x, z } = camera.position;
@@ -568,9 +637,9 @@ export async function createWorld(
     pools.set(wet() ? wetPools(lit) : lit);
   }
 
-  /** A still view's pose (the court's, the Skyline's), for the screen's shape. */
-  function placeStill(poseFor: (aspect: number) => Pose) {
-    placeCamera(poseFor(camera.aspect));
+  /** A still view's pose (the court's, /play's, the Skyline's). */
+  function placeStill(pose: Pose) {
+    placeCamera(pose);
     setPools(structures.pools);
     return true;
   }
@@ -638,7 +707,7 @@ export async function createWorld(
   const holds = () =>
     holdsFrame({
       software,
-      atStillPlace: view?.kind === "court" || view?.kind === "skyline",
+      atStillPlace: view !== null && view.kind !== "hero",
       flying: options.director.flying() !== null,
       landed,
       awaitingPage: options.director.awaitingPage(),
@@ -816,7 +885,31 @@ export async function createWorld(
     };
   }
 
+  const court: CourtStage = {
+    shared,
+    scale: structures.court.scale,
+    async host(next) {
+      await renderer.compileAsync(next.group, camera, scene);
+      guest = next;
+      next.setViewportHeight(canvasSize.height);
+      courtGroup.add(next.group);
+      showLook();
+      court.draw();
+    },
+    release(leaving) {
+      if (guest !== leaving) return;
+      courtGroup.remove(leaving.group);
+      guest = null;
+      showLook();
+      court.draw();
+    },
+    draw() {
+      if (!running || holds()) render();
+    },
+  };
+
   return {
+    court,
     layout,
     placeCredit,
     placeSite,
