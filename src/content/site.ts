@@ -4,6 +4,8 @@
  * Key numbers must also appear in ./verified-numbers.ts.
  */
 
+import type { AchievementId } from "@/components/achievements";
+
 export type KeyNumber = { value: string; label: string };
 
 export type CaseStudySlug = "juice-bros";
@@ -739,6 +741,27 @@ export const profiles = contact.channels.filter(
 /** The line at the foot of every page. */
 export const footer = {
   source: { label: "Source on GitHub", href: contact.built.source.href },
+} as const;
+
+/** The Achievements: the footer's counter, its list and the toasts. */
+export const achievements = {
+  label: "Achievements",
+  /** The counter's "2 of 6". */
+  of: "of",
+  /** Joins the names in a toast of two: "Dinkbot down and First Blood". */
+  and: "and",
+  names: {
+    "first-blood": "First Blood",
+    "back-to-base": "Back to base",
+    encore: "Encore!",
+    "full-rotation": "Full rotation",
+    "back-to-back-to-back": "Back-to-back-to-back",
+    "dinkbot-down": "Dinkbot down",
+  } satisfies Record<AchievementId, string>,
+  unearned: "???",
+  unearnedLabel: "Not earned yet",
+  toast: { one: "Achievement earned", many: "Achievements earned" },
+  close: "Close",
 } as const;
 
 export const notFound = {
