@@ -19,6 +19,7 @@ import {
   rallyBall,
   type RallyCourt,
 } from "./court-look";
+import { createBackdrop } from "./backdrop";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
@@ -378,6 +379,8 @@ export async function createWorld(
    */
   let guest: CourtGuest | null = null;
   const courtGroup = new Group();
+  /** The world drawn once, for the game's frames in software (see ./backdrop). */
+  const backdrop = createBackdrop(renderer);
   courtGroup.position.set(
     structures.court.x,
     structures.court.level,
@@ -516,7 +519,19 @@ export async function createWorld(
     pose();
     plate.sweep(shared.uTime.value);
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
-    renderer.render(scene, camera);
+    // In software, with the Rally game on the court and the camera landed,
+    // only the game (and the veils' light over it) draws each frame.
+    if (software && guest && options.director.flying() === null) {
+      backdrop.draw(
+        scene,
+        camera,
+        [courtGroup, structures.veils],
+        [shared.uTime.value, look.floodlights, look.fog, skyline.fog].join(),
+      );
+    } else {
+      backdrop.invalidate();
+      renderer.render(scene, camera);
+    }
     landed = options.director.flying() === null;
     if (firstFrame) {
       firstFrame = false;
@@ -526,6 +541,8 @@ export async function createWorld(
 
   function layout() {
     if (!view) return;
+    // The weather, the pools or the screen may change: the world, afresh.
+    backdrop.invalidate();
     const { width, height, words } =
       view.kind === "hero"
         ? view.measure()
@@ -792,6 +809,7 @@ export async function createWorld(
       }
     });
     environment?.dispose();
+    backdrop.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
   }
@@ -923,6 +941,7 @@ export async function createWorld(
     placeSite,
     setMotion(next) {
       motion = next;
+      backdrop.invalidate();
       showFalling();
       if (!motion) {
         shared.uTime.value = STILL_TIME;
