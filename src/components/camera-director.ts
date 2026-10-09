@@ -41,6 +41,16 @@ export type CameraPaths = {
   within(departure: Pose, to: Pose): Transit;
 };
 
+/**
+ * The scroll routes the director can run, each by its route in the world's
+ * paths: home's alone, until the About page's hobby route joins it.
+ */
+const SCROLL_ROUTES = {
+  home: (p: CameraPaths) => p.route,
+};
+
+export type ScrollRouteName = keyof typeof SCROLL_ROUTES;
+
 /** How brightly the world's lights burn in a frame. */
 export type CameraLights = {
   /** The name plate's arrival: its beams' brightness, and their sweep's offset. */
@@ -166,6 +176,8 @@ export function createCameraDirector({
   let landed = false;
   /** True while the scroll route is reporting its stop. */
   let scrolling = false;
+  /** The scroll route running, or that last ran. */
+  let running: ScrollRouteName = "home";
   let routeStop = 0;
   const lit = LIT_SITES.map(() => 0);
   let trip: Trip | null = null;
@@ -187,9 +199,8 @@ export function createCameraDirector({
     if (shown === "play") return paths?.play ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
-    return landed
-      ? home.route.poseAt(routeStop)
-      : home.opening.poseAt(opening);
+    if (!landed) return home.opening.poseAt(opening);
+    return (paths && SCROLL_ROUTES[running](paths))?.poseAt(routeStop) ?? null;
   }
 
   /** How far through its Transit `t` is at `now`, 0 to 1. */
@@ -393,15 +404,24 @@ export function createCameraDirector({
 
     // From the scroll route.
 
-    /** The stop home's scroll puts the camera at, and how lit each site is. */
-    scrolled(stop: number, sites: readonly number[]) {
+    /**
+     * The stop the scroll puts the camera at on the scroll route running
+     * (home's unless told otherwise), and how lit each site is.
+     */
+    scrolled(
+      stop: number,
+      sites: readonly number[],
+      route: ScrollRouteName = "home",
+    ) {
       scrolling = true;
+      running = route;
       routeStop = stop;
       lit.forEach((_, i) => (lit[i] = sites[i] ?? 0));
     },
     /** The scroll route has stopped: back to the settled view, the sites dark. */
     scrollStopped() {
       scrolling = false;
+      running = "home";
       routeStop = 0;
       lit.fill(0);
     },

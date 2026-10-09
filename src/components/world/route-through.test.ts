@@ -28,8 +28,12 @@ describe("a scroll route through any stop poses", () => {
   });
 
   it("holds at its first and last stops beyond either end", () => {
-    expect(route.poseAt(-1).position.distanceTo(stops[0].position)).toBeLessThan(1e-6);
-    expect(route.poseAt(9).position.distanceTo(stops[2].position)).toBeLessThan(1e-6);
+    expect(
+      route.poseAt(-1).position.distanceTo(stops[0].position),
+    ).toBeLessThan(1e-6);
+    expect(route.poseAt(9).position.distanceTo(stops[2].position)).toBeLessThan(
+      1e-6,
+    );
   });
 
   it("flies down the valley between stops", () => {
