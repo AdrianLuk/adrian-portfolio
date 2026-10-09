@@ -683,7 +683,7 @@ export const contact = {
       },
       {
         id: "kpop",
-        text: "I go to K-pop concerts regularly. The encore is past the end of this page.",
+        text: "I go to K-pop concerts regularly. Keep going past the end of this page to see some of the ones I've been to.",
         links: [],
       },
     ],
