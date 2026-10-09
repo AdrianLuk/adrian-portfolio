@@ -12,6 +12,7 @@ import {
 import { arrivesAtPlay, overPlace } from "@/app/styles";
 import type { rally } from "@/content/site";
 import { afterFirstPaint } from "./after-first-paint";
+import { earnAchievement } from "./achievements";
 import { REDUCED_MOTION } from "./reduced-motion";
 import { useWorldState } from "./use-world-state";
 import { worldHost, type WorldState } from "./world-host";
@@ -180,6 +181,9 @@ export function RallyGame({
       viewRef.current?.draw(game);
 
       for (const event of game.events) {
+        if (event.type === "over" && event.winner === "player") {
+          earnAchievement("dinkbot-down");
+        }
         if (event.type === "point") {
           const won = event.winner === "player";
           const line = `${won ? copy.point.won : copy.point.lost}: ${copy.point.reasons[event.reason]}.`;
