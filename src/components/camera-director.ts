@@ -43,7 +43,7 @@ export type CameraPaths = {
 
 /**
  * The scroll routes the director can run, each by its route in the world's
- * paths: home's alone, until the About page's hobby route joins it.
+ * paths: home's alone, until the About page's Hobby route joins it.
  */
 const SCROLL_ROUTES = {
   home: (p: CameraPaths) => p.route,
@@ -200,7 +200,7 @@ export function createCameraDirector({
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     if (!landed) return home.opening.poseAt(opening);
-    return (paths && SCROLL_ROUTES[running](paths))?.poseAt(routeStop) ?? null;
+    return SCROLL_ROUTES[running](paths!)?.poseAt(routeStop) ?? null;
   }
 
   /** How far through its Transit `t` is at `now`, 0 to 1. */

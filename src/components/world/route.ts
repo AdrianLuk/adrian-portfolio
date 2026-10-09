@@ -395,7 +395,8 @@ export function createRoute(
     return stopPose(aim, s.side * siteScreenX(aspect), aspect);
   });
   // On a wide screen, to the right, clear of the contact copy on the left.
-  return routeThrough([settled, ...sites, hongKongPose(aspect)], climb);
+  const hongKong = hongKongPose(aspect);
+  return routeThrough([settled, ...sites, hongKong], climb);
 }
 
 /**
