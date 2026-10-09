@@ -25,7 +25,7 @@ The light structure at a Lit site that shows its Project: Control D's shielded g
 _Avoid_: Model, building, monument
 
 **Hong Kong**:
-The city at the far end of the home page's world, where the scroll route ends: home's closing view, behind the dedication and the bookend, seen across Victoria Harbour. It is no page's Place.
+The city at the far end of the home page's world, where the scroll route ends: home's closing view, behind the bookend, seen across Victoria Harbour. It is no page's Place.
 _Avoid_: Outpost, HK, skyline (the Skyline is Toronto's Place)
 
 **Victoria Harbour**:

@@ -252,11 +252,10 @@ export default async function Home() {
         </div>
         {/* The closing view: the page's last screen, where the camera reaches
           the route's last stop, Hong Kong whole in its upper half and
-          Victoria Harbour across its lower. Clear of copy but the dedication
-          and the bookend, over the water, with no panel behind them. */}
+          Victoria Harbour across its lower. Clear of copy but the bookend,
+          over the water, with no panel behind it. */}
         <div className="flex min-h-svh flex-col justify-end [text-shadow:0_1px_14px_var(--color-night)]">
-          <p className="max-w-xl text-lg text-ink/90">{contact.dedication}</p>
-          <p className="mt-4 font-display text-2xl font-bold [font-stretch:120%]">
+          <p className="font-display text-2xl font-bold [font-stretch:120%]">
             {contact.bookend}
           </p>
         </div>

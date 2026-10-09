@@ -323,27 +323,11 @@ test.describe("the closing view", () => {
     test.describe(`at ${viewport.width} by ${viewport.height}`, () => {
       test.use({ viewport });
 
-      test("ends the Contact section with the dedication, then the bookend, the last word", async ({
+      test("ends the Contact section with the bookend, the last word", async ({
         page,
       }) => {
         await page.goto("/");
         const section = page.locator("#contact");
-        await expect(
-          section.getByText(contact.dedication, { exact: true }),
-        ).toHaveCount(1);
-        // In the page's order: the source link, the dedication, the bookend.
-        const order = await section.evaluate(
-          (root, texts) => {
-            const all = [...root.querySelectorAll("*")];
-            const at = (text: string) =>
-              all.findIndex((el) => el.textContent?.trim() === text);
-            return texts.map(at);
-          },
-          [contact.built.source.label, contact.dedication, contact.bookend],
-        );
-        expect(order.every((i) => i >= 0)).toBe(true);
-        expect(order[0]).toBeLessThan(order[1]);
-        expect(order[1]).toBeLessThan(order[2]);
         // Nothing in the section follows the bookend.
         const last = await section.evaluate((root) => {
           let el: Element = root;
@@ -353,7 +337,7 @@ test.describe("the closing view", () => {
         expect(last).toBe(contact.bookend);
       });
 
-      test("is the page's last screen, clear of copy but the dedication and the bookend over its lower half", async ({
+      test("is the page's last screen, clear of copy but the bookend over its lower half", async ({
         page,
       }) => {
         await page.goto("/");
@@ -361,13 +345,10 @@ test.describe("the closing view", () => {
           window.scrollTo(0, document.documentElement.scrollHeight),
         );
         const section = page.locator("#contact");
-        const dedication = section.getByText(contact.dedication, { exact: true });
         const bookend = section.getByText(contact.bookend, { exact: true });
-        for (const line of [dedication, bookend]) {
-          await expect(line).toBeInViewport({ ratio: 1 });
-          const box = (await line.boundingBox())!;
-          expect(box.y).toBeGreaterThan(viewport.height / 2);
-        }
+        await expect(bookend).toBeInViewport({ ratio: 1 });
+        const box = (await bookend.boundingBox())!;
+        expect(box.y).toBeGreaterThan(viewport.height / 2);
         // The panels above it are scrolled away.
         await expect(
           section.getByRole("link", { name: contact.built.source.label }),

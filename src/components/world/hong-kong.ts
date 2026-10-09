@@ -225,31 +225,32 @@ export function layoutHongKong() {
 
   // The Bank of China Tower (315 m to its roof, 367 m to its masts' tips):
   // a 52 m square in plan, cut by its diagonals into four triangular shafts
-  // that end one by one (at the 25th, 38th and 51st floors, the last at the
-  // 70th), each in a sloping glass roof rising to the core, until a single
-  // triangular prism remains, its twin masts on top. Its X-braced lattice
-  // in lines of light on every face it shows, to the top: an X to each 52 m
-  // cube up its outer faces, more up the inner faces each shaft bares above
-  // the ones that end below it, and its sloping roofs' triangles.
+  // that end a module apart (about the 28th, 41st, 55th and 70th floors),
+  // each in a sloping glass roof rising one module to the core, until a
+  // single triangular prism remains, its twin masts on top. One even grid
+  // of lines of light over every face it shows, up to the top: a module is
+  // a fifth of its height, an X to each up its outer faces, and the inner
+  // faces each shaft bares above the lower ones cut into like triangles.
   {
     const H = 64;
     const body = 54.7;
-    /** The 52 m square's side. */
+    /** The 52 m square's side, and the grid's module, a fifth of its height. */
     const S = 9;
+    const M = body / 5;
     const { x, z } = inView(180, -5);
     const ground = footOf(x, z, S * 1.4);
     const h = S / 2;
-    /** Each shaft by the side it faces (local), and the top of its roof. */
-    // Turned so the shaft facing the harbour is one of the tall ones: its
-    // lattice climbs the front, the lower two step down either side.
+    /**
+     * Each shaft by the side it faces (local), and the module its roof
+     * starts at. Turned so a tall shaft faces the harbour: its lattice
+     * climbs the front, the lower two step down either side.
+     */
     const shafts = [
-      { side: [-1, 0], top: (body * 25) / 70 },
-      { side: [1, 0], top: (body * 38) / 70 },
-      { side: [0, 1], top: (body * 51) / 70 },
-      { side: [0, -1], top: body },
+      { side: [-1, 0], wall: 1 },
+      { side: [1, 0], wall: 2 },
+      { side: [0, 1], wall: 3 },
+      { side: [0, -1], wall: 4 },
     ] as const;
-    /** How far each roof rises from the face to the core. */
-    const slope = h * 1.3;
     /** A point on the tower: (u, v) in plan off its axis, y over its foot. */
     const at = (u: number, v: number, y: number) => {
       const [[px, pz]] = facingShore([[u, v]]);
@@ -262,7 +263,13 @@ export function layoutHongKong() {
         to: readonly [number, number, number],
       ) =>
         strokes.push({ from, to, width: 0.3, facing: normal, color: cyan });
-    for (const { side, top } of shafts) {
+    /** A unit normal in the world, for a direction in plan. */
+    const facingOf = (u: number, v: number) => {
+      const [[nx, nz]] = facingShore([[u, v]]);
+      const length = Math.hypot(nx, nz);
+      return [nx / length, nz / length] as const;
+    };
+    for (const { side, wall } of shafts) {
       const [sx, sz] = side;
       // The shaft's outer side, corner to corner, and the core.
       const a = [sx * h - sz * h, sz * h + sx * h] as const;
@@ -276,68 +283,46 @@ export function layoutHongKong() {
       solids.push(
         loft(x, z, ground, [
           { h: 0, outline: tri },
-          { h: top - slope, outline: tri },
-          { h: top, outline: core },
+          { h: wall * M, outline: tri },
+          { h: (wall + 1) * M, outline: core },
         ]),
       );
-      // The lattice on its outer face: an X to each cube, from the ground
-      // to the foot of its roof, and the roof's edges.
-      const [[ax, az], [bx, bz]] = [tri[2], tri[1]];
-      const facing = facingShore([[sx, sz]])[0];
-      const n = Math.hypot(facing[0], facing[1]);
-      const normal = [facing[0] / n, facing[1] / n] as const;
-      const wall = top - slope;
-      const blocks = Math.max(1, Math.round(wall / S));
+      // Its outer face: an X to each module, up to its roof, and the roof's
+      // edges up to the core.
+      const outer = lineOn(facingOf(sx, sz));
       const P = (u: number, y: number) =>
-        [x + ax + (bx - ax) * u, ground + y, z + az + (bz - az) * u] as const;
-      const line = lineOn(normal);
-      for (let k = 0; k < blocks; k++) {
-        const y0 = (wall * k) / blocks;
-        const y1 = (wall * (k + 1)) / blocks;
-        line(P(0, y0), P(1, y1));
-        line(P(1, y0), P(0, y1));
-        line(P(0, y1), P(1, y1));
+        at(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, y);
+      for (let k = 0; k < wall; k++) {
+        outer(P(0, k * M), P(1, (k + 1) * M));
+        outer(P(1, k * M), P(0, (k + 1) * M));
+        outer(P(0, (k + 1) * M), P(1, (k + 1) * M));
       }
-      line(P(0, 0), P(0, wall));
-      line(P(1, 0), P(1, wall));
-      // Its roof: a triangle, halved down its fall line.
-      const apex = [x, ground + top, z] as const;
-      line(P(0, wall), apex);
-      line(P(1, wall), apex);
-      line(P(0.5, wall), apex);
+      outer(P(0, 0), P(0, wall * M));
+      outer(P(1, 0), P(1, wall * M));
+      const apex = at(0, 0, (wall + 1) * M);
+      outer(P(0, wall * M), apex);
+      outer(P(1, wall * M), apex);
 
       // Its inner faces, on the diagonals, where it stands over a lower
-      // neighbour: the band between the neighbour's roof and its own, with
-      // an X to each cube's height, from the shared corner to the core.
+      // neighbour: from the neighbour's roof up to its own, each module a
+      // band running up from the shared corner to the core at the roofs'
+      // slope, cut level across into two like triangles.
       for (const other of shafts) {
         const [ox, oz] = other.side;
-        if (sx * ox + sz * oz !== 0 || other.top >= top) continue;
+        if (sx * ox + sz * oz !== 0 || other.wall >= wall) continue;
         const corner = [h * (sx + ox), h * (sz + oz)] as const;
         // Across the diagonal, away from this shaft, towards the neighbour.
         const turned = [-corner[1], corner[0]] as const;
         const away = turned[0] * sx + turned[1] * sz > 0 ? -1 : 1;
-        const [[nx, nz]] = facingShore([
-          [turned[0] * away, turned[1] * away],
-        ]);
-        const length = Math.hypot(nx, nz);
-        const inner = lineOn([nx / length, nz / length]);
-        /** From the corner (u 0) to the core (u 1), up the band (k 0 to 1). */
-        const Q = (u: number, k: number) => {
-          const low = other.top - slope * (1 - u);
-          const high = top - slope * (1 - u);
-          return at(
-            corner[0] * (1 - u),
-            corner[1] * (1 - u),
-            low + (high - low) * k,
-          );
-        };
-        const rows = Math.max(1, Math.round((top - other.top) / S));
-        for (let j = 0; j < rows; j++) {
-          inner(Q(0, j / rows), Q(1, (j + 1) / rows));
-          inner(Q(1, j / rows), Q(0, (j + 1) / rows));
-          if (j < rows - 1) inner(Q(0, (j + 1) / rows), Q(1, (j + 1) / rows));
+        const inner = lineOn(facingOf(turned[0] * away, turned[1] * away));
+        /** At the corner (u 0) or the core (u 1), `y` up the corner's line. */
+        const Q = (u: number, y: number) =>
+          at(corner[0] * (1 - u), corner[1] * (1 - u), y + u * M);
+        for (let k = other.wall; k < wall; k++) {
+          inner(Q(0, (k + 1) * M), Q(1, k * M));
+          inner(Q(0, (k + 1) * M), Q(1, (k + 1) * M));
         }
-        inner(Q(1, 0), Q(1, 1));
+        inner(Q(1, other.wall * M), Q(1, wall * M));
       }
     }
     // The twin masts, on the last prism's peak.
@@ -353,9 +338,8 @@ export function layoutHongKong() {
   // IFC 2 (407 m to its roof, 412 m to its crown's tips): a square plan
   // with its corners bevelled back and each face's middle stepped forward,
   // narrowing as it rises in setbacks at its corners, to its open crown: a
-  // ring of fins like teeth standing past the top floor, so the sky shows
-  // through, their tips curving down from each corner to the middle of
-  // each face and up again.
+  // ring of blades standing past the top floor, curving in as they rise so
+  // their tips close in near the top, the sky showing between them.
   {
     const H = 71.5;
     const S = 10;
@@ -407,35 +391,46 @@ export function layoutHongKong() {
         setbacks.map(([k, size, cut]) => ({ h: H * k, outline: plan(size, cut) })),
       ),
     );
-    // The crown's teeth, evenly round the top floor's edge: tallest at the
-    // corners, shortest mid-face, their tips tracing a curve between.
+    // The crown's fins, evenly round the top floor's edge: each a blade
+    // rising off the edge and curving in over the roof, the corners' the
+    // tallest, so their tips close in on one another near the top.
     const crown = localPlan(S * 0.82, 3.4);
     const edges = crown.map((p, i) => {
       const q = crown[(i + 1) % crown.length];
       return { p, q, length: Math.hypot(q[0] - p[0], q[1] - p[1]) };
     });
     const perimeter = edges.reduce((sum, e) => sum + e.length, 0);
-    const TEETH = 36;
-    for (let i = 0; i < TEETH; i++) {
-      let d = ((i + 0.5) / TEETH) * perimeter;
+    const FINS = 16;
+    const RISE = 6;
+    for (let i = 0; i < FINS; i++) {
+      let d = ((i + 0.5) / FINS) * perimeter;
       const edge = edges.find((e) => (d -= e.length) <= 0)!;
       const t = 1 + d / edge.length;
       const u = edge.p[0] + (edge.q[0] - edge.p[0]) * t;
       const v = edge.p[1] + (edge.q[1] - edge.p[1]) * t;
+      const out = Math.hypot(u, v);
+      const [du, dv] = [u / out, v / out];
       const cornerward = Math.abs(Math.sin(2 * Math.atan2(v, u))) ** 1.6;
-      const [[px, pz]] = facingShore([[u, v]]);
-      solids.push({
-        shape: "frustum",
-        x: x + px,
-        y: ground + H * 0.9 - 0.3,
-        z: z + pz,
-        rBottom: 0.34,
-        rTop: 0.07,
-        h: 0.3 + H * (0.035 + 0.065 * cornerward),
-        segments: 4,
-        color: cyan,
-        wash: 0.5,
+      const rise = H * (0.07 + 0.03 * cornerward);
+      // Up the blade, its section: thin across, narrowing to its tip, and
+      // drawn in towards the axis, slowly at first, then sharply.
+      const sections = Array.from({ length: RISE + 1 }, (_, k) => {
+        const f = k / RISE;
+        const r = out * (1 - 0.82 * f ** 2);
+        const half = 0.26 * (1 - f) + 0.05;
+        const thin = 0.16;
+        const [cu, cv] = [du * r, dv * r];
+        const outline: Outline = facingShore([
+          [cu + du * thin - dv * half, cv + dv * thin + du * half],
+          [cu - du * thin - dv * half, cv - dv * thin + du * half],
+          [cu - du * thin + dv * half, cv - dv * thin - du * half],
+          [cu + du * thin + dv * half, cv + dv * thin - du * half],
+        ]);
+        return { h: H * 0.9 - 0.3 + rise * f, outline };
       });
+      solids.push(
+        loft(x, z, ground, sections, { windows: false, wash: 0.55 }),
+      );
     }
     for (const [k, size, cut] of [
       [0.56, S, 1.2],
