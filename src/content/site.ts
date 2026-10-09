@@ -665,7 +665,7 @@ export const contact = {
     lines: [
       {
         id: "pickleball",
-        text: "Pickleball is my main hobby.",
+        text: "Pickleball has been my main hobby since 2023.",
         links: [
           rallyLink,
           { label: "Juice Bros case study", href: "/work/juice-bros" },

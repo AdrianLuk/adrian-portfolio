@@ -239,9 +239,9 @@ export default async function Home() {
             {contact.offClock.lines.map((line) => (
               <li key={line.id}>
                 {line.text}
-                {line.links?.map((link) => (
+                {line.links?.map((link, i) => (
                   <Fragment key={link.href}>
-                    {" "}
+                    {i > 0 ? " · " : " "}
                     <Link href={link.href} className={textLink}>
                       {link.label}
                     </Link>
