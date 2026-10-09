@@ -90,7 +90,7 @@ Take every claim from the resume or the verified experience copy. Don't embellis
 The only personal facts the site may use about Adrian (given by Adrian, 2026-10-09). Ask before adding any other.
 
 - **Baseball:** played competitively for 15 years (ages 7 to 18, then 27 to 31), up to AAA rep ball, also AA. Teams: North York Blues, Scarborough Stingers, Markham Mariners, North Toronto A's. Positions: pitcher, second base, shortstop, center field.
-- **Pickleball:** Adrian's main hobby. Never put a date or duration on it.
+- **Pickleball:** Adrian's main hobby, played since June 19, 2023. On the site, say "since 2023"; never a duration ("three years"), which goes stale.
 - **Gaming:** League of Legends, and especially Overwatch.
 - **K-pop concerts** (group, year): aespa 2025 and 2026; EVERGLOW 2026; IVE 2026; Stray Kids 2025; BLACKPINK 2025; BABYMONSTER 2025; TWICE 2026; BTS 2026; XG 2026.
 - **Roots:** born and raised in Canada; parents and family from Hong Kong.
