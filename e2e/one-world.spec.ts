@@ -6,9 +6,11 @@ import {
   nav,
   notFound,
   person,
+  rally,
+  rallyLink,
   resume,
 } from "../src/content/site";
-import type { Place } from "../src/components/world-places";
+import type { PlaceView } from "../src/components/world-places";
 import { TRANSIT_MAX_SECONDS } from "../src/components/world/rigs";
 import {
   countDraws,
@@ -427,7 +429,7 @@ const heldCopy = (page: Page, heading: string) =>
 async function flown(
   transit: Awaited<ReturnType<typeof watchTransit>>,
   page: Page,
-  to: Place,
+  to: PlaceView,
 ) {
   await expect.poll(async () => (await transit()).seen).toContain(to);
   await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/, {
@@ -1006,6 +1008,288 @@ const tagCanvas = (canvas: ReturnType<Page["locator"]>) =>
   });
 const canvasTag = (canvas: ReturnType<Page["locator"]>) =>
   canvas.evaluate((c) => (c as unknown as { __tag?: string }).__tag ?? null);
+
+/** The Rally game's root: it carries the game's phase, and data-world, the court as the game sees it. */
+const gameRoot = (page: Page) => page.locator("[data-phase]");
+
+/** The world's own wrapper, round its canvas (the game's root carries data-world too). */
+const worldOf = (page: Page) => page.locator("[data-world]:has(> canvas)");
+
+/** /play's Start, in the game's panel. */
+const startButton = (page: Page) =>
+  page.getByRole("button", { name: rally.game.start.action });
+
+/**
+ * Records, from the first byte, when the camera last landed (the world's
+ * root losing data-transit) and when the Rally game's court was first
+ * drawn with the game on it (its root's data-world turning "drawn"), in ms.
+ */
+async function watchGame(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as {
+      __game: { landed: number | null; drawn: number | null };
+    };
+    w.__game = { landed: null, drawn: null };
+    new MutationObserver((records) => {
+      for (const r of records) {
+        const el = r.target as Element;
+        const value = el.getAttribute(r.attributeName!);
+        if (el.hasAttribute("data-world-root") && value === null) {
+          w.__game.landed = performance.now();
+        } else if (el.hasAttribute("data-phase") && value === "drawn") {
+          w.__game.drawn ??= performance.now();
+        }
+      }
+    }).observe(document, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-transit", "data-world"],
+    });
+  });
+  return () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __game: { landed: number | null; drawn: number | null };
+          }
+        ).__game,
+    );
+}
+
+/**
+ * Once /play is in under a Transit and its copy held: whether Start could
+ * take focus, and whether it shows. Null if the copy was never seen held.
+ */
+const heldGame = (page: Page) =>
+  page.evaluate(async (start) => {
+    const root = document.querySelector("[data-world-root]")!;
+    const until = performance.now() + 5000;
+    while (performance.now() < until) {
+      const button = Array.from(document.querySelectorAll("button")).find(
+        (b) => b.textContent === start,
+      );
+      if (button && root.getAttribute("data-arriving") === "play") {
+        // Disabled until the court is lit: enabled for the check alone.
+        const disabled = button.disabled;
+        button.disabled = false;
+        button.focus();
+        const focusable = document.activeElement === button;
+        button.disabled = disabled;
+        return {
+          focusable,
+          visible: button.checkVisibility({ visibilityProperty: true }),
+        };
+      }
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+    return null;
+  }, rally.game.start.action);
+
+test.describe("Transits to and from /play, the court seen from behind the player's baseline", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  test("the camera flies home → /play, its copy and the game arriving once it lands, and Back flies home", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    let game: Awaited<ReturnType<typeof watchGame>> = async () => ({
+      landed: null,
+      drawn: null,
+    });
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+        game = await watchGame(page);
+      },
+    });
+    await tagCanvas(heroRoot(page).locator("canvas"));
+
+    // From the Juice Bros Highlight's Rally game link: a Transit down the
+    // valley to the court, not a crossfade.
+    await page
+      .locator(`#${highlightAnchor("juice-bros")}`)
+      .getByRole("link", { name: rallyLink.label })
+      .click();
+    expect(await heldGame(page)).toEqual({ focusable: false, visible: false });
+    await expect(page).toHaveURL(/\/play$/);
+    await flown(transit, page, "play");
+    await expect(worldOf(page)).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+    await expect(page.locator("canvas")).toHaveCount(1);
+    await expect(page.locator('[data-backdrop="court"]')).toHaveCount(1);
+
+    // The game is built on the court only once the camera has landed.
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    const { landed, drawn } = await game();
+    expect(landed).not.toBeNull();
+    expect(drawn!).toBeGreaterThanOrEqual(landed!);
+    await expect(startButton(page)).toBeEnabled();
+    let seen = await transit();
+    expect(seen.seen.slice(0, 2)).toEqual(["play", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+
+    // Back: the flight home, landing settled.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await flown(transit, page, "hero");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    expect(await canvasTag(heroRoot(page).locator("canvas"))).toBe("the world");
+    seen = await transit();
+    expect(seen.seen).toEqual(["play", null, "hero", null]);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    for (const { ms, stall } of holds(seen)) {
+      expect(ms).toBeLessThanOrEqual(
+        TRANSIT_MAX_SECONDS * 1000 + stall + HOLD_GRACE,
+      );
+    }
+    await page.context().close();
+  });
+
+  test("the camera flies /play → Resume page, Back to /play, and on home", async ({
+    browser,
+  }, testInfo) => {
+    // A visit that starts at /play.
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const page = await context.newPage();
+    const transit = await watchTransit(page);
+    const transitions = await watchTransitions(page);
+    await page.goto("/play");
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await expect(worldOf(page).locator("canvas")).toHaveCSS("opacity", "1");
+    await tagCanvas(worldOf(page).locator("canvas"));
+
+    await resumeLink(page).click();
+    await expect(page).toHaveURL(/\/resume$/);
+    await flown(transit, page, "skyline");
+    await expect(
+      page.getByRole("heading", { level: 2, name: resume.heading }),
+    ).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/play$/);
+    await flown(transit, page, "play");
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+
+    await homeLink(page).click();
+    await expect(page).toHaveURL(/\/$/);
+    await flown(transit, page, "hero");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    expect(await canvasTag(heroRoot(page).locator("canvas"))).toBe("the world");
+
+    const seen = await transit();
+    expect(seen.seen).toEqual(["skyline", null, "play", null, "hero", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    await context.close();
+  });
+
+  test("the camera moves round the court between the Case study and /play, either way", async ({
+    browser,
+  }, testInfo) => {
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const page = await context.newPage();
+    const transit = await watchTransit(page);
+    const transitions = await watchTransitions(page);
+    const game = await watchGame(page);
+    await page.goto(caseStudyPath);
+    await expect(worldOf(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await expect(worldOf(page).locator("canvas")).toHaveCSS("opacity", "1");
+    await tagCanvas(worldOf(page).locator("canvas"));
+
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: rallyLink.label })
+      .click();
+    expect(await heldGame(page)).toEqual({ focusable: false, visible: false });
+    await expect(page).toHaveURL(/\/play$/);
+    await flown(transit, page, "play");
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    const { landed, drawn } = await game();
+    expect(drawn!).toBeGreaterThanOrEqual(landed!);
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+
+    await page
+      .getByRole("link", { name: rally.caseStudyLink.label })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
+    await flown(transit, page, "court");
+    await expect(
+      page.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+    ).toBeVisible();
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+
+    const seen = await transit();
+    expect(seen.seen).toEqual(["play", null, "court", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    await context.close();
+  });
+
+  test("under reduced motion, home → /play swaps at once to the court: nothing flies, nothing is held, and the game starts slow", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      reducedMotion: "reduce",
+      until: "reduced",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    await page
+      .locator(`#${highlightAnchor("juice-bros")}`)
+      .getByRole("link", { name: rallyLink.label })
+      .click();
+    await expect(page).toHaveURL(/\/play$/);
+    await expect(
+      page.getByRole("heading", { level: 2, name: rally.heading }),
+    ).toBeVisible();
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await expect(gameRoot(page)).toHaveAttribute("data-slow", "true");
+    await expect(page.locator("canvas")).toHaveCount(1);
+
+    const seen = await transit();
+    expect(seen.seen).toEqual([]);
+    expect(seen.arriving).toEqual([]);
+    for (const durations of await transitions()) {
+      expect(durations.filter((d) => d > 0)).toEqual([]);
+    }
+    await page.context().close();
+  });
+});
 
 test.describe("one world across home and the Resume page", () => {
   test.describe.configure({ timeout: 60_000 });

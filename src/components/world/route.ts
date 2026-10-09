@@ -1,5 +1,6 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
+import type { RallyCourt } from "./court-look";
 import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE, HONG_KONG_SHORE } from "./hong-kong";
 import { CAMERA } from "./pose";
@@ -178,6 +179,97 @@ export function courtPose(aspect: number): Pose {
     position,
     quaternion: new Quaternion().setFromRotationMatrix(look).multiply(tilt),
   };
+}
+
+/**
+ * Where the camera stands at the court for the Rally game, in the court's
+ * feet from where its net crosses its centre line: as the game's own camera
+ * stood, raised behind the player's baseline on the centre line, aiming
+ * down the court; on a screen taller than it is wide, higher and further
+ * back.
+ */
+const PLAY_VIEW = {
+  landscape: { height: 19, back: 41, aim: -3 },
+  portrait: { height: 30, back: 46, aim: -2 },
+};
+
+/**
+ * What the Rally game's frame holds, in the court's feet: both baselines
+ * with room round them, and the ball's height over the far one, each within
+ * `edge` of the frame's middle (in normalised device coordinates). The
+ * field of view widens to hold them, from `fovY` up to `fovMax` (vertical,
+ * in degrees); past that, the camera backs off along its line of sight
+ * instead, `backOff` of its distance at a time.
+ */
+export const PLAY_FRAME = {
+  points: [
+    [-13, 0, 27],
+    [13, 0, 27],
+    [-11, 0, -23],
+    [11, 0, -23],
+    [0, 9, -23],
+  ],
+  edge: 0.94,
+  fovY: 24,
+  fovMax: 60,
+  backOff: 0.05,
+} as const;
+
+/** Where `point` lands across and up the frame of a camera at `pose`, in NDC. */
+function ndc(pose: Pose, point: Vector3, fovY: number, aspect: number) {
+  const local = point
+    .clone()
+    .sub(pose.position)
+    .applyQuaternion(pose.quaternion.clone().invert());
+  const tanY = Math.tan(((fovY / 2) * Math.PI) / 180);
+  const depth = -local.z;
+  return {
+    x: local.x / (depth * tanY * aspect),
+    y: local.y / (depth * tanY),
+    depth,
+  };
+}
+
+/**
+ * The Rally game's view of the court on /play, for a screen of this shape:
+ * a still camera raised behind the player's baseline, looking down the
+ * court (its length runs down the valley, the player's half nearer home),
+ * framed as the game's own camera framed it: the narrowest field of view
+ * that holds the whole court and the ball over it (see PLAY_FRAME), the
+ * camera backing off where that would be too wide. It doesn't depend on the
+ * layout, so it needs no route to find, and it stands off the route.
+ */
+export function playView(
+  aspect: number,
+  court: RallyCourt,
+): { pose: Pose; fovY: number } {
+  const view = aspect < 1 ? PLAY_VIEW.portrait : PLAY_VIEW.landscape;
+  const { scale } = court;
+  /** A point in the court's feet, in the world. */
+  const at = (x: number, y: number, z: number) =>
+    new Vector3(court.x + x * scale, court.level + y * scale, court.z + z * scale);
+  const aim = at(0, 0, view.aim);
+  const from = at(0, view.height, view.back);
+  const frame = PLAY_FRAME.points.map(([x, y, z]) => at(x, y, z));
+  for (let back = 1; ; back += PLAY_FRAME.backOff) {
+    const position = aim.clone().lerp(from, back);
+    const look = new Matrix4().lookAt(position, aim, UP);
+    const pose = {
+      position,
+      quaternion: new Quaternion().setFromRotationMatrix(look),
+    };
+    for (let fovY = PLAY_FRAME.fovY; fovY <= PLAY_FRAME.fovMax; fovY++) {
+      const fits = frame.every((point) => {
+        const { x, y, depth } = ndc(pose, point, fovY, aspect);
+        return (
+          depth > 0 &&
+          Math.abs(x) <= PLAY_FRAME.edge &&
+          Math.abs(y) <= PLAY_FRAME.edge
+        );
+      });
+      if (fits) return { pose, fovY };
+    }
+  }
 }
 
 /** The tip of the CN Tower's antenna, which the Skyline's camera looks up to. */

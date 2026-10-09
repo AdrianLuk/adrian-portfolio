@@ -6,8 +6,9 @@ import { createWorldTransits } from "./world-transits";
 import { createFlightPath, type Pose } from "./world/flight";
 import { CAMERA } from "./world/pose";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
-import { courtPose, createRoute, skylinePose } from "./world/route";
-import { COURT_STOP, transit } from "./world/transit";
+import { layoutLandmarks } from "./world/landmarks";
+import { courtPose, createRoute, playView, skylinePose } from "./world/route";
+import { COURT_STOP, transit, transitWithin } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -33,10 +34,12 @@ function standInHost() {
     opening: createFlightPath(settled, plateCentre),
     route: createRoute(settled, plateCentre, aspect),
     skyline: skylinePose(aspect),
-    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY },
+    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY, play: CAMERA.fovY },
     court: courtPose(aspect),
+    play: playView(aspect, layoutLandmarks().court).pose,
     courtStop: COURT_STOP,
     transit,
+    within: transitWithin,
   });
   director.show("hero");
   director.openingLands();
@@ -116,6 +119,72 @@ describe("transits between Places", () => {
     disposers.push(transits.dispose);
     return transits;
   }
+
+  it("flies home → /play, marking the world for /play's view of the court and holding its copy", () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
+    expect(transits.navigate("/play")).toBe(true);
+    expect(root.attributes.get("data-transit")).toBe("play");
+    expect(root.attributes.get("data-arriving")).toBe("play");
+    world.intent = "play";
+    director.show("play");
+    vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 + 200);
+    expect(director.flying()).toBeNull();
+    expect(root.attributes.has("data-transit")).toBe(false);
+    expect(root.attributes.has("data-arriving")).toBe(false);
+  });
+
+  it("flies between the court's two views, the Case study and /play, either way", () => {
+    const { host, world, director } = standInHost();
+    world.intent = "court";
+    director.show("court");
+    const transits = start(host);
+    expect(transits.navigate("/play")).toBe(true);
+    expect(director.flying()).toBe("play");
+    world.intent = "play";
+    director.show("play");
+    vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 + 200);
+    expect(director.flying()).toBeNull();
+    expect(transits.navigate("/work/juice-bros")).toBe(true);
+    expect(director.flying()).toBe("court");
+    expect(transits.navigate("/play?weather=snow")).toBe(true);
+    expect(director.flying()).toBe("play");
+  });
+
+  describe("landed", () => {
+    it("resolves at once with no Transit under way", async () => {
+      const { host } = standInHost();
+      const transits = start(host);
+      await expect(transits.landed()).resolves.toBeUndefined();
+    });
+
+    it("resolves only once the camera lands", async () => {
+      const { host, world, director } = standInHost();
+      const transits = start(host);
+      transits.navigate("/play");
+      let landed = false;
+      void transits.landed().then(() => (landed = true));
+      world.intent = "play";
+      director.show("play");
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+      expect(landed).toBe(false);
+      vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000);
+      await Promise.resolve();
+      expect(director.flying()).toBeNull();
+      expect(landed).toBe(true);
+    });
+
+    it("resolves when a Transit is called off, as by a lost GPU context", async () => {
+      const { host, world } = standInHost();
+      const transits = start(host);
+      transits.navigate("/play");
+      const landed = transits.landed();
+      world.state = "pending";
+      for (const listener of world.listeners) listener();
+      await expect(landed).resolves.toBeUndefined();
+    });
+  });
 
   it("holds the Resume page's copy back for the cap at most, though the camera has yet to land", () => {
     const { host, world } = standInHost();

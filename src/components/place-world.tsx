@@ -11,9 +11,11 @@ export type StillClaim = Exclude<WorldClaim, { kind: "hero" }>;
 
 /**
  * A Place's world on a page whose camera holds still there, held fixed
- * behind the page: the court for the Juice Bros Case study, the Skyline for
- * the Resume page, each in Toronto's weather, though only what lies on the
- * ground (nothing falls there). `children` is the page's still of the world:
+ * behind the page: the court for the Juice Bros Case study (from courtside)
+ * and /play (from behind the player's baseline, the Rally game played on
+ * it), the Skyline for the Resume page, each in Toronto's weather, though
+ * only what lies on the ground (nothing falls there). `children` is the
+ * page's still of the world:
  * the first paint, and what stays without WebGL or while the GPU context is
  * lost.
  *

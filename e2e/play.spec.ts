@@ -6,7 +6,8 @@ import {
   type Page,
 } from "@playwright/test";
 import { highlightAnchor, hrefFor, rally, rallyLink } from "../src/content/site";
-import { heroRoot, SCENE_TIMEOUT } from "./hero";
+import { heroRoot, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { placeIn } from "./place";
 
 const { game: copy } = rally;
 
@@ -148,6 +149,168 @@ test("holding Space on the court, or the Dink pad, holds a dink until it's let g
   await expect(pad).toHaveAttribute("data-held", "false");
 });
 
+test("is played on the world's own court: the page's one canvas", async ({
+  page,
+}) => {
+  await openPlay(page);
+  await expect(page.locator("canvas")).toHaveCount(1);
+  // The world's, standing over the court's still that painted first.
+  const world = page.locator("[data-world]:has(> canvas)");
+  await expect(world).toHaveAttribute("data-world", "drawn");
+  await expect(page.locator('[data-backdrop="court"]')).toHaveCount(1);
+  expect(
+    await world
+      .locator("canvas")
+      .evaluate((c: HTMLCanvasElement) => !!(c.getContext("webgl2") ?? c.getContext("webgl"))),
+  ).toBe(true);
+});
+
+test("?weather=snow lies on the ground at the court on /play too, and nothing falls", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  // The page's copy, all of it the game's.
+  const at = { path: "/play", copy: "[data-phase] > *" };
+  const clear = await placeIn(browser, testInfo, { ...at, weather: "clear" });
+  const snow = await placeIn(browser, testInfo, { ...at, weather: "snow" });
+  expect(clear.perFrame).toBeGreaterThan(0);
+  expect(snow.perFrame).toBe(clear.perFrame);
+  expect(snow.ground).toBeGreaterThan(clear.ground + 2);
+});
+
+test("without WebGL the court's still stays, and the game says it can't run here", async ({
+  page,
+}) => {
+  await withoutWorld(page);
+  await page.goto("/play");
+  await expect(gameRoot(page)).toHaveAttribute("data-world", "unavailable");
+  await expect(page.locator('[data-backdrop="court"] img')).toBeVisible();
+  await expect(page.getByText(copy.unavailable)).toBeVisible();
+  await expect(page.getByRole("button", { name: copy.start.action })).toHaveCount(0);
+});
+
+test("a lost GPU context holds the game on the court's still, and a restored one draws it again", async ({
+  page,
+}) => {
+  await openPlay(page);
+  /** Loses or restores the world's context, as a GPU reset would. */
+  const context = (action: "loseContext" | "restoreContext") =>
+    page.locator("canvas").evaluate((canvas: HTMLCanvasElement, action) => {
+      const w = window as unknown as { __lose?: WEBGL_lose_context | null };
+      const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+      w.__lose ??= gl?.getExtension("WEBGL_lose_context");
+      w.__lose?.[action]();
+    }, action);
+  await context("loseContext");
+  await expect(gameRoot(page)).toHaveAttribute("data-world", "pending");
+  await expect(page.getByRole("button", { name: copy.start.action })).toBeDisabled();
+  await expect(page.locator('[data-backdrop="court"] img')).toBeVisible();
+  await context("restoreContext");
+  await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+    timeout: SCENE_TIMEOUT,
+  });
+  await expect(page.getByRole("button", { name: copy.start.action })).toBeEnabled();
+});
+
+for (const [width, viewport] of Object.entries({
+  phone: { width: 390, height: 844 },
+  desktop: { width: 1280, height: 720 },
+})) {
+  test(`at ${width} width, the copy stands over the court before Start, steps aside in play, the court filling the screen, and returns at a pause`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await openPlay(page);
+    const heading = page.getByRole("heading", { level: 2, name: rally.heading });
+    const caseStudy = page.getByRole("link", { name: rally.caseStudyLink.label });
+    const nav = page.getByRole("navigation", { name: "Main" });
+    const footer = page.getByRole("contentinfo");
+    const pauseButton = page.getByRole("button", { name: copy.pause });
+    const score = page.locator("dl", { hasText: copy.score.player });
+    const pad = page.locator("[data-dink-pad]");
+
+    // Before Start: the copy over the live court, nothing of play's own.
+    for (const shown of [heading, caseStudy, nav, footer]) await expect(shown).toBeVisible();
+    await expect(page.getByRole("switch", { name: copy.slowMode.label })).toBeVisible();
+    for (const hidden of [pauseButton, score, pad]) await expect(hidden).toBeHidden();
+
+    // In play: the court fills the screen, with only the score, Pause and
+    // the Dink pad over it, the score and Pause in the top corners and the
+    // pad at the foot.
+    await page.getByRole("button", { name: copy.start.action }).click();
+    await expect(court(page)).toBeFocused();
+    for (const gone of [heading, caseStudy, nav, footer]) await expect(gone).toBeHidden();
+    for (const shown of [pauseButton, score, pad]) await expect(shown).toBeVisible();
+    expect(await court(page).boundingBox()).toEqual({
+      x: 0,
+      y: 0,
+      ...viewport,
+    });
+    const [scoreBox, pauseBox, padBox] = await Promise.all(
+      [score, pauseButton, pad].map(async (l) => (await l.boundingBox())!),
+    );
+    expect(scoreBox.y).toBeLessThan(40);
+    expect(scoreBox.x).toBeLessThan(40);
+    expect(pauseBox.y).toBeLessThan(40);
+    expect(pauseBox.x + pauseBox.width).toBeGreaterThan(viewport.width - 40);
+    expect(padBox.y + padBox.height).toBeGreaterThan(viewport.height - 40);
+
+    // Paused: the copy and the Case study link return over the court.
+    await page.keyboard.press("Escape");
+    await expect(gameRoot(page)).toHaveAttribute("data-paused", "true");
+    for (const shown of [heading, caseStudy, nav, footer]) await expect(shown).toBeVisible();
+    await expect(page.getByRole("heading", { name: copy.paused.title })).toBeVisible();
+    await expect(pad).toBeHidden();
+    // Clicks reach the copy again, through the court.
+    await caseStudy.hover({ trial: true });
+  });
+}
+
+test("keeps its frame rate mid-game, the world drawing the game on its court", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 960, height: 600 });
+  await openPlay(page);
+  await page.getByRole("button", { name: copy.start.action }).click();
+  await page.keyboard.press("Space");
+  await expect(gameRoot(page)).toHaveAttribute("data-phase", /rally|point|serving/);
+  const deltas = await page.evaluate(
+    () =>
+      new Promise<number[]>((resolve) => {
+        const out: number[] = [];
+        let last = performance.now();
+        const until = last + 3000;
+        const frame = (now: number) => {
+          out.push(now - last);
+          last = now;
+          if (now < until) requestAnimationFrame(frame);
+          else resolve(out);
+        };
+        requestAnimationFrame((now) => {
+          last = now;
+          requestAnimationFrame(frame);
+        });
+      }),
+  );
+  const sorted = [...deltas].sort((a, b) => a - b);
+  const at = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+  const summary = { frames: deltas.length, median: at(0.5), p95: at(0.95), longest: sorted.at(-1)! };
+  testInfo.annotations.push({ type: "frame times (ms)", description: JSON.stringify(summary) });
+  console.log("frame times mid-game (ms)", summary);
+  // The Player tools scene's budget with the world live behind it (see
+  // court.spec.ts): at 60fps with a GPU, and with CI's software renderer
+  // still a frame every 100ms at the 95th percentile, 250ms at worst.
+  expect(summary.frames).toBeGreaterThan(10);
+  expect(summary.p95).toBeLessThanOrEqual(100);
+  expect(summary.longest).toBeLessThanOrEqual(250);
+});
+
+test("has no axe violations before Start, with motion allowed", async ({ page }) => {
+  await openPlay(page);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
 test("has no axe violations mid-game, playing and paused", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await openPlay(page);
@@ -181,7 +344,8 @@ test.describe("under reduced motion", () => {
     await expect(slow).toBeChecked();
     await expect(gameRoot(page)).toHaveAttribute("data-slow", "true");
 
-    const box = page.locator("canvas").locator("..");
+    // The world's canvas, the page's only one: the court the game is played on.
+    const box = page.locator("canvas");
     const first = await box.screenshot();
     await page.waitForTimeout(1500);
     const second = await box.screenshot();
