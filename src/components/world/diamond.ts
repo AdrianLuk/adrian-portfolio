@@ -5,7 +5,7 @@ import type { Box, Ring } from "./skyline";
 /**
  * The Diamond, a baseball diamond built from light, as boxes (unit tested
  * without WebGL); its own module, as the court's is, for the Home Run
- * Derby to lay out its field on.
+ * Derby to lay out the Diamond on.
  */
 
 /**
@@ -30,8 +30,14 @@ const BASE = 1.1;
 /** How far the plinth reaches below the field, to meet uneven ground. */
 const PLINTH_DEPTH = 6;
 
+/** The plinth's footprint: the foul lines' square and a lip round it. */
+export function diamondFootprint(scale: number) {
+  const span = (DIAMOND.foulLine + 2 * DIAMOND.lip) * scale;
+  return { w: span, d: span };
+}
+
 export type DiamondOptions = {
-  /** Home plate. */
+  /** The plinth's centre; home plate is its corner nearest home, a lip in. */
   x: number;
   z: number;
   /** The height of the field. */
@@ -48,10 +54,13 @@ export type DiamondOptions = {
  * infield in faint light, the lines and bases in bright light, the mound a
  * ring of light, and the foul poles standing at the lines' ends.
  */
-export function layoutDiamond({ x, z, level, scale, color }: DiamondOptions) {
+export function layoutDiamond(options: DiamondOptions) {
+  const { level, scale, color } = options;
   const B = DIAMOND.base * scale;
   const F = DIAMOND.foulLine * scale;
-  const lip = DIAMOND.lip * scale;
+  // Home plate.
+  const x = options.x + F / 2;
+  const z = options.z + F / 2;
   const chalk = color.clone().lerp(palette.ink, 0.35);
   const flat = (
     cx: number,
@@ -63,12 +72,11 @@ export function layoutDiamond({ x, z, level, scale, color }: DiamondOptions) {
   ): Box => ({ x: cx, y: level + y, z: cz, w, h: 0.04, d, color: c });
 
   const plinth: Box = {
-    x: x - F / 2,
+    x: options.x,
     y: level - PLINTH_DEPTH / 2,
-    z: z - F / 2,
-    w: F + 2 * lip,
+    z: options.z,
+    ...diamondFootprint(scale),
     h: PLINTH_DEPTH,
-    d: F + 2 * lip,
     // Unlit: its top is the field's ground, not a light.
     color: new Color(0, 0, 0),
   };
@@ -119,5 +127,5 @@ export function layoutDiamond({ x, z, level, scale, color }: DiamondOptions) {
     color,
   }));
 
-  return { plinth, surfaces, lines, bases, mound, poles, top: level };
+  return { plinth, surfaces, lines, bases, mound, poles, level };
 }

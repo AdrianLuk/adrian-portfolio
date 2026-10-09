@@ -19,8 +19,11 @@ import { transitPath, transitWithin } from "./transit";
 
 const scale = 0.2;
 const home = { x: -30, z: -860 };
+/** The plinth's centre, half the foul lines' square from home plate. */
+const half = (DIAMOND.foulLine * scale) / 2;
 const diamond = layoutDiamond({
-  ...home,
+  x: home.x - half,
+  z: home.z - half,
   level: 1,
   scale,
   color: palette.cyan,
@@ -76,7 +79,7 @@ describe("the baseball diamond", () => {
 
   it("stands its foul poles tall, over the field", () => {
     for (const pole of diamond.poles) {
-      expect(pole.y + pole.h / 2 - diamond.top).toBeCloseTo(
+      expect(pole.y + pole.h / 2 - diamond.level).toBeCloseTo(
         DIAMOND.poleHeight * scale,
       );
       expect(pole.w).toBeLessThan(1);
@@ -94,14 +97,14 @@ describe("the baseball diamond", () => {
 
   it("lies on a level plinth above the ground under it", () => {
     for (const b of [...diamond.lines, ...diamond.surfaces, ...diamond.bases]) {
-      expect(b.y - b.h / 2).toBeGreaterThanOrEqual(diamond.top - 1e-6);
+      expect(b.y - b.h / 2).toBeGreaterThanOrEqual(diamond.level - 1e-6);
     }
-    expect(diamond.plinth.y + diamond.plinth.h / 2).toBeCloseTo(diamond.top);
+    expect(diamond.plinth.y + diamond.plinth.h / 2).toBeCloseTo(diamond.level);
   });
 });
 
 const { buildings, masts, landmarks, skyline, hongKong } = layoutStructures();
-const field = landmarks.diamond;
+const diamondBox = landmarks.diamond;
 
 /** The landmark at the Lit site for `highlight`. */
 const landmarkOf = (highlight: string) =>
@@ -111,20 +114,27 @@ describe("the Diamond in the world", () => {
   it("stands in the valley between Juice Bros' court and BT Cup's stadium bowl", () => {
     const court = landmarkOf("juice-bros");
     const bowl = landmarkOf("bt-cup");
-    expect(field.z + field.d / 2).toBeLessThan(court.z - court.d / 2);
-    expect(field.z - field.d / 2).toBeGreaterThan(bowl.z + bowl.d / 2);
+    expect(diamondBox.z + diamondBox.d / 2).toBeLessThan(court.z - court.d / 2);
+    expect(diamondBox.z - diamondBox.d / 2).toBeGreaterThan(
+      bowl.z + bowl.d / 2,
+    );
   });
 
   it("is set back off the route's line and its runway lights (14 either side), toward the wall, on ground level enough for its plinth", () => {
     for (const u of [-1, 1]) {
       for (const v of [-1, 1]) {
-        const x = field.x + (u * field.w) / 2;
-        const z = field.z + (v * field.d) / 2;
+        const x = diamondBox.x + (u * diamondBox.w) / 2;
+        const z = diamondBox.z + (v * diamondBox.d) / 2;
         expect(valleyCentre(z) - x).toBeGreaterThan(16);
         expect(waterAt(x, z)).toBe(0);
       }
     }
-    const { low, high } = groundUnder(field.x, field.z, field.w, field.d);
+    const { low, high } = groundUnder(
+      diamondBox.x,
+      diamondBox.z,
+      diamondBox.w,
+      diamondBox.d,
+    );
     expect(high - low).toBeLessThan(3);
   });
 
@@ -139,7 +149,7 @@ describe("the Diamond in the world", () => {
       ...skyline.bounds,
       ...hongKong.bounds,
     ]) {
-      expect(overlaps(field, other)).toBe(false);
+      expect(overlaps(diamondBox, other)).toBe(false);
     }
   });
 });
@@ -176,7 +186,7 @@ describe("the camera, past the Diamond", () => {
       it("keeps 3 clear of it all along home's scroll route", () => {
         for (let s = 0; s <= ROUTE_STOPS - 1; s += 0.01) {
           const { position } = route.poseAt(s);
-          expect(near(position, field, 3), `at stop ${s.toFixed(2)}`).toBe(
+          expect(near(position, diamondBox, 3), `at stop ${s.toFixed(2)}`).toBe(
             false,
           );
         }
@@ -198,11 +208,11 @@ describe("the camera, past the Diamond", () => {
           ),
         ];
         for (const { position } of places) {
-          expect(near(position, field, 3)).toBe(false);
+          expect(near(position, diamondBox, 3)).toBe(false);
         }
         for (const trip of transits) {
           for (let t = 0; t <= 1; t += 1 / 200) {
-            expect(near(trip.poseAt(t).position, field, 3)).toBe(false);
+            expect(near(trip.poseAt(t).position, diamondBox, 3)).toBe(false);
           }
         }
       });
@@ -210,8 +220,12 @@ describe("the camera, past the Diamond", () => {
   }
 });
 
-/** The middle of the Diamond's field, on the ground. */
-const middle = new Vector3(field.x, valleyHeight(field.x, field.z), field.z);
+/** The Diamond's middle, on the ground. */
+const middle = new Vector3(
+  diamondBox.x,
+  valleyHeight(diamondBox.x, diamondBox.z),
+  diamondBox.z,
+);
 
 /**
  * Where the Diamond's middle lands on the screen of a camera at `pose`, in

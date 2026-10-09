@@ -16,7 +16,7 @@ import type { HighlightId } from "@/content/site";
 import { courtFootprint, layoutCourt } from "./court";
 import type { RallyCourt } from "./court-look";
 import { COURT } from "./court-size";
-import { DIAMOND, layoutDiamond } from "./diamond";
+import { DIAMOND, diamondFootprint, layoutDiamond } from "./diamond";
 import type { Glow } from "./glow-points";
 import { fogChunk, fogUniforms, palette } from "./palette";
 import { SITES, type Site } from "./route";
@@ -64,11 +64,11 @@ const NEON: Record<string, [number, number, number, number][]> = (() => {
 })();
 
 /**
- * Where the Diamond's field stands: midway between Juice Bros' court and BT
- * Cup's bowl, set back left of the valley's centre line, in the bowl's plaza
- * (no tower stands there), so the route glimpses it but never frames it.
+ * Where the Diamond stands: midway between Juice Bros' court and BT Cup's
+ * bowl, its centre set back left of the valley's centre line, in the bowl's
+ * plaza (no tower stands there), so the route glimpses it but never frames it.
  */
-const DIAMOND_AT = { z: -870, off: -37, scale: 0.2 };
+const DIAMOND_AT = { z: -870, fromCentreLine: -37, scale: 0.2 };
 
 /** A ball of light: Juice Bros' pickleball, the site's light. */
 export type Ball = { x: number; y: number; z: number; r: number; color: Color };
@@ -149,7 +149,7 @@ export function layoutLandmarks(): Landmarks {
   for (const site of SITES) {
     out.bounds.push(build[site.highlight](site, palette[site.light]));
   }
-  const field = diamond();
+  const diamondBounds = diamond();
   out.parts.push(
     ...out.bodies,
     ...out.rooms,
@@ -186,7 +186,7 @@ export function layoutLandmarks(): Landmarks {
     })),
   );
   if (!rally) throw new Error("No court among the Lit sites");
-  return { ...out, court: rally, diamond: field };
+  return { ...out, court: rally, diamond: diamondBounds };
 
   /**
    * Control D: a shield, a dome of hex cells of light, over a gate, a ring
@@ -505,32 +505,27 @@ export function layoutLandmarks(): Landmarks {
    * plate nearest home, with a light atop each foul pole.
    */
   function diamond() {
-    const F = DIAMOND.foulLine * DIAMOND_AT.scale;
-    const span = F + 2 * DIAMOND.lip * DIAMOND_AT.scale;
-    const x = valleyCentre(DIAMOND_AT.z) + DIAMOND_AT.off;
-    const { low, high } = groundUnder(x, DIAMOND_AT.z, span, span);
-    const d = layoutDiamond({
-      x: x + F / 2,
-      z: DIAMOND_AT.z + F / 2,
-      level: high + 0.3,
-      scale: DIAMOND_AT.scale,
-      color: palette.cyan,
-    });
+    const { scale, z } = DIAMOND_AT;
+    const x = valleyCentre(z) + DIAMOND_AT.fromCentreLine;
+    const foot = diamondFootprint(scale);
+    const { low, high } = groundUnder(x, z, foot.w, foot.d);
+    const level = high + 0.3;
+    const d = layoutDiamond({ x, z, level, scale, color: palette.cyan });
     out.bodies.push(d.plinth);
     out.bands.push(...d.surfaces, ...d.lines, ...d.bases, ...d.poles);
     out.rings.push(d.mound);
+    const top = level + DIAMOND.poleHeight * scale;
     for (const [i, pole] of d.poles.entries()) {
       out.glows.push({
         x: pole.x,
-        y: pole.y + pole.h / 2 + 0.4,
+        y: top + 0.4,
         z: pole.z,
         color: palette.ink,
         size: 2.4,
         seed: i / 2,
       });
     }
-    const top = d.poles[0].y + d.poles[0].h / 2;
-    return standing(x, DIAMOND_AT.z, low - 2, top, span, span, palette.cyan);
+    return standing(x, z, low - 2, top, foot.w, foot.d, palette.cyan);
   }
 
   /**
