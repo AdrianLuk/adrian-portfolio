@@ -33,6 +33,7 @@ function standInHost() {
     opening: createFlightPath(settled, plateCentre),
     route: createRoute(settled, plateCentre, aspect),
     skyline: skylinePose(aspect),
+    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY },
     court: courtPose(aspect),
     courtStop: COURT_STOP,
     transit,

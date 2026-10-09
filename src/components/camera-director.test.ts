@@ -45,6 +45,7 @@ function setup() {
     opening,
     route,
     skyline: skylinePose(aspect),
+    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY },
     court: courtPose(aspect),
     courtStop: COURT_STOP,
     transit,
@@ -140,7 +141,7 @@ function flyTo(
 describe("the Camera director", () => {
   it("draws nothing until it knows the place and its paths", () => {
     const director = createCameraDirector({ homeStop: () => 0 });
-    const nothing = { pose: null, lights: null, lean: { x: 0, y: 0 } };
+    const nothing = { pose: null, lights: null, lean: { x: 0, y: 0 }, fovY: null };
     expect(director.frame(0)).toEqual(nothing);
     director.show("hero");
     expect(director.frame(16)).toEqual(nothing);
@@ -361,6 +362,59 @@ describe("the Camera director", () => {
       expect(step * (to - from)).toBeGreaterThanOrEqual(0);
     }
   }
+
+  describe("the field of view", () => {
+    /** A director whose Skyline zooms out, as on a phone. */
+    function zoomed() {
+      const setup_ = setup();
+      setup_.director.layout({
+        ...setup_.paths,
+        fovY: { world: CAMERA.fovY, skyline: 55 },
+      });
+      return setup_;
+    }
+
+    it("is the world's own at home and the court, and the Skyline's there", () => {
+      const { director } = zoomed();
+      director.show("hero");
+      director.openingLands();
+      expect(director.frame(0).fovY).toBe(CAMERA.fovY);
+      director.show("court");
+      expect(director.frame(0).fovY).toBe(CAMERA.fovY);
+      director.show("skyline");
+      expect(director.frame(0).fovY).toBe(55);
+    });
+
+    it("widens through a Transit to the Skyline and narrows through one leaving it, never jumping", () => {
+      for (const [from, to, start, end] of [
+        ["hero", "skyline", CAMERA.fovY, 55],
+        ["skyline", "court", 55, CAMERA.fovY],
+      ] as const) {
+        const { director } = zoomed();
+        director.show(from);
+        director.openingLands();
+        director.fly(to, 0);
+        const fovs: number[] = [];
+        for (let now = 0; now <= 3000; now += FRAME) {
+          if (now >= 300) director.show(to);
+          director.advance(now);
+          fovs.push(director.frame(now).fovY!);
+        }
+        expect(director.flying()).toBeNull();
+        expect(fovs[0]).toBeCloseTo(start);
+        expect(fovs.at(-1)).toBe(end);
+        for (let i = 1; i < fovs.length; i++) {
+          expect(Math.abs(fovs[i] - fovs[i - 1])).toBeLessThan(1.5);
+        }
+      }
+    });
+
+    it("leaves the camera's field of view as it is before the paths are in", () => {
+      const director = createCameraDirector({ homeStop: () => 0 });
+      director.show("skyline");
+      expect(director.frame(0).fovY).toBeNull();
+    });
+  });
 
   describe("the Skyline's look", () => {
     it("blends in through a Transit to the Skyline, full as the camera lands", () => {

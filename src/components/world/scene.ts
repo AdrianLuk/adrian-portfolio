@@ -32,6 +32,7 @@ import {
   createRoute,
   SITES,
   skylinePose,
+  skylineView,
   type Route,
 } from "./route";
 import { COURT_STOP, transit } from "./transit";
@@ -388,6 +389,13 @@ export async function createWorld(
     if (Math.abs(lean.y - toward.y) < 1e-4) lean.y = toward.y;
   }
 
+  /** Sets the camera's vertical field of view (null leaves it as it is). */
+  function setFov(fovY: number | null) {
+    if (fovY === null || Math.abs(camera.fov - fovY) < 1e-6) return;
+    camera.fov = fovY;
+    camera.updateProjectionMatrix();
+  }
+
   function placeCamera({ position, quaternion }: Pose) {
     camera.position.copy(position);
     camera.quaternion.copy(quaternion);
@@ -401,8 +409,9 @@ export async function createWorld(
    */
   function pose() {
     const now = performance.now();
-    const { pose, lights, lean: toward } = options.director.frame(now);
+    const { pose, lights, lean: toward, fovY } = options.director.frame(now);
     easeLean(toward, now);
+    setFov(fovY);
     if (pose) {
       placeCamera(pose);
       // Turned from the pose afresh each frame, so the lean never builds up.
@@ -516,6 +525,9 @@ export async function createWorld(
     showFalling();
 
     const home = view.kind === "hero";
+    const skyline = skylineView(camera.aspect);
+    // The view's own field of view; the plate is measured in the world's.
+    setFov(view.kind === "skyline" ? skyline.fovY : CAMERA.fovY);
     posed = home
       ? placePlate(plate, words, width, height)
       : placeStill(view.kind === "court" ? courtPose : skylinePose);
@@ -526,7 +538,8 @@ export async function createWorld(
     options.director.layout({
       opening: home ? path : null,
       route: home ? route : nominalRoute(camera.aspect),
-      skyline: skylinePose(camera.aspect),
+      skyline: skyline.pose,
+      fovY: { world: CAMERA.fovY, skyline: skyline.fovY },
       court: courtPose(camera.aspect),
       courtStop: COURT_STOP,
       transit,

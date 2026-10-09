@@ -2,7 +2,13 @@ import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
-import { CN_TOWER, CN_TOWER_HEIGHT } from "./skyline";
+import {
+  CN_TOWER,
+  CN_TOWER_HEIGHT,
+  ROGERS_CENTRE,
+  ROGERS_CENTRE_RADIUS,
+  ROGERS_CENTRE_STRAIGHT,
+} from "./skyline";
 import {
   bayWidth,
   corridorHalfWidth,
@@ -174,34 +180,79 @@ const SKYLINE_VIEW = {
 };
 
 /**
- * The Skyline's pose, for a screen of this shape: a still camera low on the
+ * On a narrow screen, where the frame holds both the Rogers Centre and the
+ * CN Tower: how far across the screen each reaches (in normalised device
+ * coordinates, either side of its middle), and how far the tower's widest
+ * part, its main pod, reaches from its axis.
+ */
+const NARROW_FIT = { edge: 0.85, towerReach: 9 };
+
+/** The way (a turn about the vertical, from looking along -z) from `from` to `to`. */
+const headingTo = (from: Vector3, to: { x: number; z: number }) =>
+  Math.atan2(-(to.x - from.x), -(to.z - from.z));
+
+/**
+ * The Skyline's view, for a screen of this shape: a still camera low on the
  * harbour's far shore, looking across the water at Toronto's skyline, as
  * from the Islands: the Rogers Centre's dome, the CN Tower, the financial
- * core running on to the right. The tower stands right of the copy (as the
- * Outpost does on home: about 0.45 across on a wide screen, 0.2 on a narrow
- * one), its tip in the frame, so the camera looks up a little, and the water
- * fills the foot of the frame. It doesn't depend on the layout, so it needs
- * no route to find, and it stands off the route (the Transit eases onto it
- * as it lands).
+ * core running on to the right. On a wide screen the tower stands right of
+ * the copy (as the Outpost does on home, about 0.45 across), with the
+ * world's own field of view. On a narrow one the camera zooms out (`fovY`,
+ * in degrees) and turns so the Rogers Centre and the CN Tower both stand in
+ * the frame. Either way the tower's tip is in the frame, so the camera
+ * looks up a little, and the water fills the foot of the frame. It doesn't
+ * depend on the layout, so it needs no route to find, and it stands off the
+ * route (the Transit eases onto it as it lands).
  */
-export function skylinePose(aspect: number): Pose {
+export function skylineView(aspect: number): { pose: Pose; fovY: number } {
   const { z, inset, height, tipY } = SKYLINE_VIEW;
   const x = valleyCentre(z) - corridorHalfWidth(z) - bayWidth(z) + inset;
   const position = new Vector3(x, valleyHeight(x, z) + height, z);
   const level = CN_TOWER_TOP.clone().setY(position.y);
-  const quaternion = framing(position, level, siteScreenX(aspect), aspect);
-  const tanY = Math.tan(((CAMERA.fovY / 2) * Math.PI) / 180);
+  let fovY: number = CAMERA.fovY;
+  let quaternion: Quaternion;
+  if (aspect >= 1) {
+    quaternion = framing(position, level, siteScreenX(aspect), aspect);
+  } else {
+    // From the dome's far side to the tower's pod, centred and fitted.
+    const toDome = Math.hypot(
+      ROGERS_CENTRE.x - position.x,
+      ROGERS_CENTRE.z - position.z,
+    );
+    const left =
+      headingTo(position, ROGERS_CENTRE) +
+      Math.asin((ROGERS_CENTRE_RADIUS + ROGERS_CENTRE_STRAIGHT) / toDome);
+    const right =
+      headingTo(position, CN_TOWER) -
+      Math.asin(NARROW_FIT.towerReach / position.distanceTo(level));
+    const half = (left - right) / 2;
+    const tanX = Math.tan(half) / NARROW_FIT.edge;
+    fovY = Math.max(
+      CAMERA.fovY,
+      (2 * Math.atan(tanX / aspect) * 180) / Math.PI,
+    );
+    quaternion = new Quaternion().setFromAxisAngle(UP, (left + right) / 2);
+  }
+  const tanY = Math.tan(((fovY / 2) * Math.PI) / 180);
   // Tilting the view up moves what it sees down the screen.
   const rise = Math.atan(
     (CN_TOWER_TOP.y - position.y) / position.distanceTo(level),
   );
   const tilt = rise - Math.atan((aspect >= 1 ? tipY.wide : tipY.narrow) * tanY);
   return {
-    position,
-    quaternion: quaternion.multiply(
-      new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), tilt),
-    ),
+    pose: {
+      position,
+      quaternion: quaternion.multiply(
+        new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), tilt),
+      ),
+    },
+    fovY,
   };
+}
+
+/** The Skyline's pose, for a screen of this shape (see `skylineView`). */
+export function skylinePose(aspect: number): Pose {
+  return skylineView(aspect).pose;
 }
 
 /** Builds the route for one layout (the settled pose and the screen's shape). */

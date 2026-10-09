@@ -202,6 +202,15 @@ function onWall(offset: number, z: number) {
 /** The CN Tower's foot: where it stands, and the ground there. */
 export const CN_TOWER = onWall(44, -560);
 
+/**
+ * The Rogers Centre: its centre and the ground there, the radius of its
+ * drum's round ends, and half the straight between them, so it reaches
+ * ROGERS_CENTRE_RADIUS + ROGERS_CENTRE_STRAIGHT from its centre at most.
+ */
+export const ROGERS_CENTRE = onWall(40, -603);
+export const ROGERS_CENTRE_RADIUS = 19;
+export const ROGERS_CENTRE_STRAIGHT = 4;
+
 export function layoutSkyline() {
   const solids: Solid[] = [];
   const rings: Ring[] = [];
@@ -354,10 +363,10 @@ export function layoutSkyline() {
   // vaults between, each standing a little proud of the next so their seams
   // show as arcs. Its long axis runs north-south, so from the Islands, as
   // from the hero, it's seen end on.
-  const dome = onWall(40, -603);
-  const R = 19;
+  const dome = ROGERS_CENTRE;
+  const R = ROGERS_CENTRE_RADIUS;
   /** Half the straight between the drum's round ends. */
-  const A = 4;
+  const A = ROGERS_CENTRE_STRAIGHT;
   const DRUM = 7.5;
   const ROOF = 9.5;
   const along = Math.atan2(-dome.z, -dome.x);

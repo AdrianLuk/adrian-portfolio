@@ -11,7 +11,7 @@ import {
   outpostPose,
   ROUTE_STOPS,
   SITES,
-  skylinePose,
+  skylineView,
 } from "./route";
 import { layoutStructures, type Box } from "./structures";
 import {
@@ -39,8 +39,13 @@ function settledLayout(height: number, plateX: number, centreHeight: number) {
 }
 
 /** Where `point` lands on screen for a camera at `pose`, in NDC. */
-function onScreen(pose: Pose, point: Vector3, aspect: number) {
-  const camera = new PerspectiveCamera(CAMERA.fovY, aspect, 0.5, 2600);
+function onScreen(
+  pose: Pose,
+  point: Vector3,
+  aspect: number,
+  fovY: number = CAMERA.fovY,
+) {
+  const camera = new PerspectiveCamera(fovY, aspect, 0.5, 2600);
   camera.position.copy(pose.position);
   camera.quaternion.copy(pose.quaternion);
   camera.updateMatrixWorld();
@@ -305,8 +310,10 @@ describe("the Skyline pose", () => {
 
   for (const [name, aspect] of Object.entries(shapes)) {
     describe(name, () => {
-      const pose = skylinePose(aspect);
+      const { pose, fovY } = skylineView(aspect);
       const p = pose.position;
+      /** Where `point` lands on the Skyline's screen, at its field of view. */
+      const see = (point: Vector3) => onScreen(pose, point, aspect, fovY);
       const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
 
       it("stands low on the harbour's far shore, across the water from downtown, looking at it", () => {
@@ -335,30 +342,58 @@ describe("the Skyline pose", () => {
         // Halfway to the tower, on the water's surface.
         const mid = p.clone().lerp(new Vector3(x, 0, z), 0.5).setY(HARBOUR.level);
         expect(harbourWater(mid.x, mid.z)).toBe(1);
-        const water = onScreen(pose, mid, aspect);
+        const water = see(mid);
         expect(water.y).toBeGreaterThan(-1);
-        expect(water.y).toBeLessThan(-0.5);
-        const shoreline = onScreen(pose, new Vector3(x, HARBOUR.level, z), aspect);
-        expect(shoreline.y).toBeLessThan(-0.2);
+        // The lower quarter on a wide screen; zoomed out on a narrow one, the
+        // lower half.
+        expect(water.y).toBeLessThan(aspect >= 1 ? -0.5 : 0);
+        const shoreline = see(new Vector3(x, HARBOUR.level, z));
+        expect(shoreline.y).toBeLessThan(aspect >= 1 ? -0.2 : 0);
       });
 
-      it("frames the CN Tower right of the copy on a wide screen, nearer the middle on a narrow one", () => {
-        const top = onScreen(pose, CN_TOWER_TOP, aspect);
-        const shaft = onScreen(pose, new Vector3(x, (foot + pod) / 2, z), aspect);
+      it("frames the CN Tower right of the copy on a wide screen, in the world's own field of view", () => {
+        if (aspect < 1) return;
+        expect(fovY).toBe(CAMERA.fovY);
+        const top = see(CN_TOWER_TOP);
+        const shaft = see(new Vector3(x, (foot + pod) / 2, z));
         expect(top.z, "in front of the camera").toBeLessThan(1);
         for (const point of [top, shaft]) {
-          if (aspect >= 1) {
-            // The clear right-hand third.
-            expect(point.x).toBeGreaterThan(1 / 3);
-            expect(point.x).toBeLessThan(0.7);
-          } else {
-            expect(Math.abs(point.x)).toBeLessThan(0.4);
-          }
+          // The clear right-hand third.
+          expect(point.x).toBeGreaterThan(1 / 3);
+          expect(point.x).toBeLessThan(0.7);
         }
       });
 
+      it("stands the Rogers Centre and the CN Tower both in the frame across the water on a narrow screen, zooming out as it must", () => {
+        if (aspect >= 1) return;
+        expect(fovY).toBeGreaterThanOrEqual(CAMERA.fovY);
+        // Not a fisheye.
+        expect(fovY).toBeLessThan(70);
+        const { rogersCentre: dome } = skyline;
+        const reach = dome.r + 4;
+        // The dome, its ends and its rim, and the tower's pod and tip.
+        for (const point of [
+          new Vector3(dome.x, dome.foot + 7, dome.z),
+          new Vector3(dome.x - reach, dome.foot + 7, dome.z),
+          new Vector3(dome.x + reach, dome.foot + 7, dome.z),
+          new Vector3(dome.x, dome.foot + 7, dome.z - reach),
+          new Vector3(dome.x, dome.foot + 7, dome.z + reach),
+          new Vector3(x, pod, z),
+          CN_TOWER_TOP,
+        ]) {
+          const at = see(point);
+          expect(at.z, "in front of the camera").toBeLessThan(1);
+          expect(Math.abs(at.x)).toBeLessThan(0.95);
+          expect(Math.abs(at.y)).toBeLessThan(0.95);
+        }
+        // The dome left of the tower, as from the Islands.
+        expect(see(new Vector3(dome.x, dome.foot, dome.z)).x).toBeLessThan(
+          see(new Vector3(x, foot, z)).x,
+        );
+      });
+
       it("keeps the tower's tip in the frame: on a narrow screen, above the Resume page's title", () => {
-        const top = onScreen(pose, CN_TOWER_TOP, aspect);
+        const top = see(CN_TOWER_TOP);
         expect(top.y).toBeLessThan(0.9);
         expect(top.y).toBeGreaterThan(aspect >= 1 ? 0.5 : 0.75);
       });

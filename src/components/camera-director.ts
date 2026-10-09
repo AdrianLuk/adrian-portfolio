@@ -22,8 +22,13 @@ export type CameraPaths = {
   /** The Opening's path and the scroll route; null until home's headline is measured. */
   opening: FlightPath | null;
   route: Route | null;
-  /** The Skyline's pose, for the screen's shape: off the route, down the valley from downtown. */
+  /** The Skyline's pose, for the screen's shape: off the route, across the harbour. */
   skyline: Pose;
+  /**
+   * The camera's vertical field of view, in degrees: the world's own, and
+   * the Skyline's for the screen's shape (wider on a narrow screen).
+   */
+  fovY: { world: number; skyline: number };
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
   /** The court's stop on the route (Juice Bros' Lit site). */
@@ -62,13 +67,16 @@ type Looks = Pick<CameraLights, "court" | "skyline">;
 export type CameraLean = { x: number; y: number };
 
 /**
- * What the world draws in a frame: null leaves the camera, or the lights, as
- * they are. The lean turns the pose a little, toward the pointer.
+ * What the world draws in a frame: null leaves the camera, the lights, or
+ * its field of view, as they are. The lean turns the pose a little, toward
+ * the pointer. The field of view (vertical, in degrees) widens to the
+ * Skyline's as its look comes in, and back as it goes.
  */
 export type CameraFrame = {
   pose: Pose | null;
   lights: CameraLights | null;
   lean: CameraLean;
+  fovY: number | null;
 };
 
 const UPRIGHT: CameraLean = { x: 0, y: 0 };
@@ -432,7 +440,15 @@ export function createCameraDirector({
     frame(now: number): CameraFrame {
       const pose = trip ? poseIn(trip, now) : viewPose();
       if (pose) last = pose;
-      return { pose, lights: lights(now), lean: lean() };
+      const fov = paths?.fovY;
+      return {
+        pose,
+        lights: lights(now),
+        lean: lean(),
+        fovY: fov
+          ? fov.world + (fov.skyline - fov.world) * looks(now).skyline
+          : null,
+      };
     },
   };
 }
