@@ -4,7 +4,8 @@ import { Analytics } from "@vercel/analytics/next";
 import { Anybody, Hanken_Grotesk } from "next/font/google";
 import { ViewTransition } from "react";
 import { CROSSFADE_TRANSITION_TYPE } from "@/components/world-places";
-import { footer, nav, person, shareCards } from "@/content/site";
+import { AchievementCounter } from "@/components/achievement-counter";
+import { achievements, footer, nav, person, shareCards } from "@/content/site";
 import { shareMetadata } from "./share";
 import { glowsLit } from "./styles";
 import "./globals.css";
@@ -85,7 +86,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             className="underline decoration-ink/40 underline-offset-4 hover:text-cyan hover:decoration-cyan"
           >
             {footer.source.label}
-          </a>
+          </a>{" "}
+          · <AchievementCounter copy={achievements} />
         </footer>
         <Analytics />
       </body>
