@@ -719,7 +719,7 @@ export const notFound = {
 export const rally = {
   metaTitle: "Rally on the Juice Bros court | Adrian Luk",
   metaDescription:
-    "A short pickleball game on the Juice Bros court, against a bot: rally scoring, first to 7, win by 2.",
+    "A short pickleball game on the Juice Bros court, against a bot: rally scoring, first to 11, win by 2.",
   eyebrow: "Rally game",
   heading: "Juice Bros court",
   hint: {
@@ -735,7 +735,7 @@ export const rally = {
       "This browser can't draw the court (WebGL is off or unsupported), so the game can't run here.",
     start: {
       title: "Ready when you are",
-      line: "First to 7, win by 2. Dinkbot dinks. So can you.",
+      line: "First to 11, win by 2. Dinkbot dinks. So can you.",
       action: "Start",
     },
     slowMode: {
