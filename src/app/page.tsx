@@ -230,6 +230,27 @@ export default async function Home() {
             </ul>
           </div>
         </div>
+        <div className={`mt-12 ${contactPanel}`}>
+          <PanelCorners className="border-cyan md:hidden" />
+          <h3 className="font-display text-xl font-bold [font-stretch:115%]">
+            {contact.offClock.heading}
+          </h3>
+          <ul className="mt-4 space-y-3 text-lg text-ink/90">
+            {contact.offClock.lines.map((line) => (
+              <li key={line.id}>
+                {line.text}
+                {line.links?.map((link) => (
+                  <Fragment key={link.href}>
+                    {" "}
+                    <Link href={link.href} className={textLink}>
+                      {link.label}
+                    </Link>
+                  </Fragment>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </div>
         {/* The site as its own evidence, each fact one the source bears out. */}
         <div className={`mt-12 ${contactPanel}`}>
           <PanelCorners className="border-cyan md:hidden" />

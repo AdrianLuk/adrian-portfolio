@@ -659,6 +659,35 @@ export const contact = {
       (width) => `/contact/adrian-luk-${width}.webp`,
     ),
   },
+  /** Four plain lines about Adrian outside work, after the channels. */
+  offClock: {
+    heading: "Off the clock",
+    lines: [
+      {
+        id: "pickleball",
+        text: "Pickleball is my main hobby.",
+        links: [
+          rallyLink,
+          { label: "Juice Bros case study", href: "/work/juice-bros" },
+        ],
+      },
+      {
+        id: "baseball",
+        text: "Played competitively for 15 years: pitcher, middle infield and center field.",
+        links: [],
+      },
+      {
+        id: "gaming",
+        text: "Overwatch and League of Legends. Some habits stick: try recalling.",
+        links: [],
+      },
+      {
+        id: "kpop",
+        text: "I go to K-pop concerts regularly. The encore is past the end of this page.",
+        links: [],
+      },
+    ],
+  },
   /**
    * How the site itself is built: each fact one the public repo bears out,
    * so a visitor can check it there.
@@ -685,6 +714,14 @@ export const contact = {
   resume: { label: string; href: string };
   channels: readonly ContactChannel[];
   portrait: { alt: string; stills: readonly Still[] };
+  offClock: {
+    heading: string;
+    lines: readonly {
+      id: string;
+      text: string;
+      links?: readonly { label: string; href: string }[];
+    }[];
+  };
   built: {
     heading: string;
     lead: string;

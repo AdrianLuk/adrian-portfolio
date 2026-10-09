@@ -250,6 +250,33 @@ test("the Contact section has a lead, the resume link, the contact channels and 
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });
 
+test("the Off the clock block has its four lines and the pickleball links", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const section = page.locator("#contact");
+  await expect(
+    section.getByRole("heading", { level: 3, name: contact.offClock.heading }),
+  ).toBeVisible();
+  for (const line of contact.offClock.lines) {
+    await expect(
+      section.getByRole("listitem").filter({ hasText: line.text }),
+    ).toBeVisible();
+  }
+  const pickleball = contact.offClock.lines[0];
+  for (const link of pickleball.links ?? []) {
+    await expect(
+      section.getByRole("link", { name: link.label }),
+    ).toHaveAttribute("href", link.href);
+  }
+  // Ahead of the built block, which keeps its place before the bookend.
+  const [offBox, builtBox] = await Promise.all([
+    section.getByRole("heading", { level: 3, name: contact.offClock.heading }).boundingBox(),
+    section.getByRole("heading", { level: 3, name: contact.built.heading }).boundingBox(),
+  ]);
+  expect(offBox!.y).toBeLessThan(builtBox!.y);
+});
+
 test.describe("Adrian's portrait in the Contact section", () => {
   const { portrait } = contact;
 
