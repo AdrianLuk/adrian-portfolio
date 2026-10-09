@@ -139,16 +139,16 @@ describe("which renderers draw in software", () => {
   });
 });
 
-describe("when the court holds its last frame", () => {
+describe("when a still Place holds its last frame", () => {
   const landed = {
     software: true,
-    atCourt: true,
+    atStillPlace: true,
     flying: false,
     landed: true,
     awaitingPage: false,
   };
 
-  it("holds on a software renderer once a frame of the camera landed at the court is drawn", () => {
+  it("holds on a software renderer once a frame of the camera landed at the court or the Skyline is drawn", () => {
     expect(holdsFrame(landed)).toBe(true);
   });
 
@@ -156,8 +156,8 @@ describe("when the court holds its last frame", () => {
     expect(holdsFrame({ ...landed, software: false })).toBe(false);
   });
 
-  it("holds only at the court: home and the Outpost draw on", () => {
-    expect(holdsFrame({ ...landed, atCourt: false })).toBe(false);
+  it("holds only at a still Place: home draws on", () => {
+    expect(holdsFrame({ ...landed, atStillPlace: false })).toBe(false);
   });
 
   it("never holds a camera in flight, nor before a landed frame is drawn", () => {
@@ -169,7 +169,7 @@ describe("when the court holds its last frame", () => {
 describe("when a Transit holds the world's frame for its page", () => {
   const waiting = {
     software: true,
-    atCourt: false,
+    atStillPlace: false,
     flying: true,
     landed: false,
     awaitingPage: true,
@@ -177,7 +177,7 @@ describe("when a Transit holds the world's frame for its page", () => {
 
   it("holds on a software renderer until the page it flies to is in, wherever it flies", () => {
     expect(holdsFrame(waiting)).toBe(true);
-    expect(holdsFrame({ ...waiting, atCourt: true })).toBe(true);
+    expect(holdsFrame({ ...waiting, atStillPlace: true })).toBe(true);
   });
 
   it("flies on once the page is in, and never holds on a real GPU", () => {

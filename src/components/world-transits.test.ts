@@ -6,8 +6,8 @@ import { createWorldTransits } from "./world-transits";
 import { createFlightPath, type Pose } from "./world/flight";
 import { CAMERA } from "./world/pose";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
-import { courtPose, createRoute, outpostPose } from "./world/route";
-import { COURT_STOP, OUTPOST_STOP, transit } from "./world/transit";
+import { courtPose, createRoute, skylinePose } from "./world/route";
+import { COURT_STOP, transit } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -32,8 +32,8 @@ function standInHost() {
   director.layout({
     opening: createFlightPath(settled, plateCentre),
     route: createRoute(settled, plateCentre, aspect),
-    outpost: outpostPose(aspect),
-    outpostStop: OUTPOST_STOP,
+    skyline: skylinePose(aspect),
+    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY },
     court: courtPose(aspect),
     courtStop: COURT_STOP,
     transit,
@@ -121,16 +121,16 @@ describe("transits between Places", () => {
     const { host, world } = standInHost();
     const transits = start(host);
     expect(transits.navigate("/resume")).toBe(true);
-    expect(root.attributes.get("data-transit")).toBe("outpost");
-    expect(root.attributes.get("data-arriving")).toBe("outpost");
+    expect(root.attributes.get("data-transit")).toBe("skyline");
+    expect(root.attributes.get("data-arriving")).toBe("skyline");
     expect(world.weatherHeld).toBe(true);
 
     // The page is slow to arrive: the camera waits on it, the copy doesn't.
     vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 - 50);
-    expect(root.attributes.get("data-arriving")).toBe("outpost");
+    expect(root.attributes.get("data-arriving")).toBe("skyline");
     vi.advanceTimersByTime(100);
     expect(root.attributes.has("data-arriving")).toBe(false);
-    expect(root.attributes.get("data-transit")).toBe("outpost");
+    expect(root.attributes.get("data-transit")).toBe("skyline");
   });
 
   it("flies to the Case study's court, holding its copy back for the cap at most", () => {
@@ -161,16 +161,16 @@ describe("transits between Places", () => {
     expect(transits.navigate("/work/juice-bros#approach")).toBe(false);
     expect(root.attributes.size).toBe(0);
     expect(transits.navigate("/resume")).toBe(true);
-    expect(root.attributes.get("data-transit")).toBe("outpost");
-    expect(root.attributes.get("data-arriving")).toBe("outpost");
+    expect(root.attributes.get("data-transit")).toBe("skyline");
+    expect(root.attributes.get("data-arriving")).toBe("skyline");
   });
 
   it("clears its marks and lets the weather go once the director lands", () => {
     const { host, world, director } = standInHost();
     const transits = start(host);
     transits.navigate("/resume");
-    world.intent = "outpost";
-    director.show("outpost");
+    world.intent = "skyline";
+    director.show("skyline");
     vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 + 100);
     expect(director.flying()).toBeNull();
     expect(root.attributes.size).toBe(0);
@@ -212,7 +212,7 @@ describe("transits between Places", () => {
     expect(root.attributes.has("data-transit")).toBe(false);
     // Still on home, the next click on the Resume page flies again.
     expect(transits.navigate("/resume")).toBe(true);
-    expect(root.attributes.get("data-transit")).toBe("outpost");
+    expect(root.attributes.get("data-transit")).toBe("skyline");
     // And an anchor on home (the page it is on) doesn't.
     vi.advanceTimersByTime(10_000);
     expect(transits.navigate("/#work")).toBe(false);

@@ -11,8 +11,8 @@ import { createFlightPath, type Pose } from "./world/flight";
 import { nominalRoute } from "./world/nominal-route";
 import { CAMERA } from "./world/pose";
 import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
-import { courtPose, createRoute, outpostPose } from "./world/route";
-import { COURT_STOP, OUTPOST_STOP, transit } from "./world/transit";
+import { courtPose, createRoute, skylinePose } from "./world/route";
+import { COURT_STOP, transit } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
 const settled: Pose = {
@@ -44,8 +44,8 @@ function setup() {
   const paths: CameraPaths = {
     opening,
     route,
-    outpost: outpostPose(aspect),
-    outpostStop: OUTPOST_STOP,
+    skyline: skylinePose(aspect),
+    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY },
     court: courtPose(aspect),
     courtStop: COURT_STOP,
     transit,
@@ -141,7 +141,7 @@ function flyTo(
 describe("the Camera director", () => {
   it("draws nothing until it knows the place and its paths", () => {
     const director = createCameraDirector({ homeStop: () => 0 });
-    const nothing = { pose: null, lights: null, lean: { x: 0, y: 0 } };
+    const nothing = { pose: null, lights: null, lean: { x: 0, y: 0 }, fovY: null };
     expect(director.frame(0)).toEqual(nothing);
     director.show("hero");
     expect(director.frame(16)).toEqual(nothing);
@@ -163,6 +163,7 @@ describe("the Camera director", () => {
       sweep: 0,
       sites: [1, 0.35, 0.35, 0.35],
       court: 0,
+      skyline: 0,
     });
   });
 
@@ -197,12 +198,18 @@ describe("the Camera director", () => {
     expect(director.awaitingPage()).toBe(false);
   });
 
-  it("holds the Outpost's pose at the Outpost, the sites dark, with no court look", () => {
+  it("holds the Skyline's pose at the Skyline, its look full, the sites dark, with no court look", () => {
     const { director } = setup();
-    director.show("outpost");
+    director.show("skyline");
     const { pose, lights } = director.frame(0);
-    expectSamePose(pose!, outpostPose(aspect));
-    expect(lights).toEqual({ beams: 0, sweep: 0, sites: [0, 0, 0, 0], court: 0 });
+    expectSamePose(pose!, skylinePose(aspect));
+    expect(lights).toEqual({
+      beams: 0,
+      sweep: 0,
+      sites: [0, 0, 0, 0],
+      court: 0,
+      skyline: 1,
+    });
   });
 
   it("holds the court's pose at the court, its look full, the sites dark", () => {
@@ -215,6 +222,7 @@ describe("the Camera director", () => {
       sweep: 0,
       sites: [0, 0, 0, 0],
       court: 1,
+      skyline: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
   });
@@ -234,16 +242,16 @@ describe("the Camera director", () => {
       expectNoJump(poses);
     });
 
-    it("from the scroll route to a Transit down to the Outpost", () => {
+    it("from the scroll route to a Transit down to the Skyline", () => {
       const { director, paths } = setup();
       director.show("hero");
       director.openingLands();
       director.scrolled(1.5, [1, 1, 0, 0]);
       const before = film(director, 0, 200);
-      const { poses } = flyTo(director, "outpost", 216);
+      const { poses } = flyTo(director, "skyline", 216);
       const after = film(director, 216 + poses.length * FRAME, 200);
       expectNoJump([...before, ...poses, ...after]);
-      expectSamePose(after.at(-1)!, paths.outpost);
+      expectSamePose(after.at(-1)!, paths.skyline);
     });
 
     it("from the scroll route to a Transit down to the court, landing on its pose", () => {
@@ -265,7 +273,7 @@ describe("the Camera director", () => {
       const timeline = openingTimeline(director);
       const before = film(director, 0, 3000, (now) => timeline.at(now / 1000));
       const live = opening.poseAt(timeline.rig);
-      const { poses } = flyTo(director, "outpost", 3016);
+      const { poses } = flyTo(director, "skyline", 3016);
       expectSamePose(poses[0], live);
       expect(poses[0].position.distanceTo(settled.position)).toBeGreaterThan(50);
       expectNoJump([...before, ...poses]);
@@ -273,7 +281,7 @@ describe("the Camera director", () => {
 
     it("from a Transit home to the scroll route, though the scroll route starts late", () => {
       const { director, route, page } = setup();
-      director.show("outpost");
+      director.show("skyline");
       const before = film(director, 0, 100);
       page.stop = 2.3;
       // Home arrives, rejoining the live world: the Opening never replays.
@@ -294,7 +302,7 @@ describe("the Camera director", () => {
 
     it("from a Transit home to a scroll route already reporting, chasing a scroll that moved", () => {
       const { director, page, route } = setup();
-      director.show("outpost");
+      director.show("skyline");
       page.stop = 1;
       let scroll = 1;
       const { poses } = flyTo(director, "hero", 0, 300, (now) => {
@@ -316,7 +324,7 @@ describe("the Camera director", () => {
       const { director } = setup();
       director.show("hero");
       director.openingLands();
-      expect(director.fly("outpost", 0)).toBe(true);
+      expect(director.fly("skyline", 0)).toBe(true);
       const out = film(director, 0, 500);
       const turning = director.frame(500).pose!;
       // The Resume page never arrived; home is still the page on screen.
@@ -327,34 +335,149 @@ describe("the Camera director", () => {
     });
   });
 
-  describe("the court's look", () => {
-    /** The court's look in each frame of `ms` filmed from `from`. */
-    function filmLook(
-      director: CameraDirector,
-      from: number,
-      ms: number,
-      script: (now: number) => void = () => {},
-    ) {
-      const looks: number[] = [];
-      for (let now = from; now <= from + ms; now += FRAME) {
-        script(now);
+  /** A Place's look in each frame of `ms` filmed from `from`. */
+  function filmLook(
+    director: CameraDirector,
+    from: number,
+    ms: number,
+    script: (now: number) => void = () => {},
+    place: "court" | "skyline" = "court",
+  ) {
+    const looks: number[] = [];
+    for (let now = from; now <= from + ms; now += FRAME) {
+      script(now);
+      director.advance(now);
+      looks.push(director.frame(now).lights![place]);
+    }
+    return looks;
+  }
+
+  /** Fails if the look jumps between frames, or ever runs the wrong way. */
+  function expectBlend(looks: number[], from: number, to: number) {
+    expect(looks[0]).toBeCloseTo(from);
+    expect(looks.at(-1)).toBe(to);
+    for (let i = 1; i < looks.length; i++) {
+      const step = looks[i] - looks[i - 1];
+      expect(Math.abs(step)).toBeLessThan(0.08);
+      expect(step * (to - from)).toBeGreaterThanOrEqual(0);
+    }
+  }
+
+  describe("the field of view", () => {
+    /** A director whose Skyline zooms out, as on a phone. */
+    function zoomed() {
+      const setup_ = setup();
+      setup_.director.layout({
+        ...setup_.paths,
+        fovY: { world: CAMERA.fovY, skyline: 55 },
+      });
+      return setup_;
+    }
+
+    it("is the world's own at home and the court, and the Skyline's there", () => {
+      const { director } = zoomed();
+      director.show("hero");
+      director.openingLands();
+      expect(director.frame(0).fovY).toBe(CAMERA.fovY);
+      director.show("court");
+      expect(director.frame(0).fovY).toBe(CAMERA.fovY);
+      director.show("skyline");
+      expect(director.frame(0).fovY).toBe(55);
+    });
+
+    it("widens through a Transit to the Skyline and narrows through one leaving it, never jumping", () => {
+      for (const [from, to, start, end] of [
+        ["hero", "skyline", CAMERA.fovY, 55],
+        ["skyline", "court", 55, CAMERA.fovY],
+      ] as const) {
+        const { director } = zoomed();
+        director.show(from);
+        director.openingLands();
+        director.fly(to, 0);
+        const fovs: number[] = [];
+        for (let now = 0; now <= 3000; now += FRAME) {
+          if (now >= 300) director.show(to);
+          director.advance(now);
+          fovs.push(director.frame(now).fovY!);
+        }
+        expect(director.flying()).toBeNull();
+        expect(fovs[0]).toBeCloseTo(start);
+        expect(fovs.at(-1)).toBe(end);
+        for (let i = 1; i < fovs.length; i++) {
+          expect(Math.abs(fovs[i] - fovs[i - 1])).toBeLessThan(1.5);
+        }
+      }
+    });
+
+    it("leaves the camera's field of view as it is before the paths are in", () => {
+      const director = createCameraDirector({ homeStop: () => 0 });
+      director.show("skyline");
+      expect(director.frame(0).fovY).toBeNull();
+    });
+  });
+
+  describe("the Skyline's look", () => {
+    it("blends in through a Transit to the Skyline, full as the camera lands", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.fly("skyline", 0);
+      const looks = filmLook(
+        director,
+        0,
+        3000,
+        (now) => {
+          if (now >= 300) director.show("skyline");
+        },
+        "skyline",
+      );
+      expect(director.flying()).toBeNull();
+      expectBlend(looks, 0, 1);
+      expect(looks[40]).toBeGreaterThan(0.05);
+      expect(looks[40]).toBeLessThan(0.95);
+    });
+
+    it("blends out through a Transit leaving the Skyline, for home or the court", () => {
+      for (const to of ["hero", "court"] as const) {
+        const { director } = setup();
+        director.show("skyline");
+        director.fly(to, 0);
+        const looks = filmLook(
+          director,
+          0,
+          3000,
+          (now) => {
+            if (now < 300) return;
+            director.show(to);
+            director.openingLands();
+          },
+          "skyline",
+        );
+        expect(director.flying()).toBeNull();
+        expectBlend(looks, 1, 0);
+      }
+    });
+
+    it("hands over to the court's look between the two Places, one in as the other goes out", () => {
+      const { director } = setup();
+      director.show("skyline");
+      director.fly("court", 0);
+      const frames: { court: number; skyline: number }[] = [];
+      for (let now = 0; now <= 3000; now += FRAME) {
+        if (now >= 300) director.show("court");
         director.advance(now);
-        looks.push(director.frame(now).lights!.court);
+        const { court, skyline } = director.frame(now).lights!;
+        frames.push({ court, skyline });
       }
-      return looks;
-    }
-
-    /** Fails if the look jumps between frames, or ever runs the wrong way. */
-    function expectBlend(looks: number[], from: number, to: number) {
-      expect(looks[0]).toBeCloseTo(from);
-      expect(looks.at(-1)).toBe(to);
-      for (let i = 1; i < looks.length; i++) {
-        const step = looks[i] - looks[i - 1];
-        expect(Math.abs(step)).toBeLessThan(0.08);
-        expect(step * (to - from)).toBeGreaterThanOrEqual(0);
+      expect(frames[0]).toEqual({ court: 0, skyline: 1 });
+      expect(frames.at(-1)).toEqual({ court: 1, skyline: 0 });
+      for (const { court, skyline } of frames) {
+        expect(court + skyline).toBeCloseTo(1);
       }
-    }
+    });
+  });
 
+  describe("the court's look", () => {
     it("blends in through a Transit to the court, full as the camera lands", () => {
       const { director } = setup();
       director.show("hero");
@@ -370,8 +493,8 @@ describe("the Camera director", () => {
       expect(looks[40]).toBeLessThan(0.95);
     });
 
-    it("blends out through a Transit leaving the court, for home or the Outpost", () => {
-      for (const to of ["hero", "outpost"] as const) {
+    it("blends out through a Transit leaving the court, for home or the Skyline", () => {
+      for (const to of ["hero", "skyline"] as const) {
         const { director } = setup();
         director.show("court");
         director.fly(to, 0);
@@ -388,7 +511,7 @@ describe("the Camera director", () => {
     it("turns round with the camera when Back calls a Transit off mid-flight", () => {
       const { director } = setup();
       director.show("court");
-      director.fly("outpost", 0);
+      director.fly("skyline", 0);
       const out = filmLook(director, 0, 600);
       expect(out.at(-1)).toBeLessThan(0.9);
       // The Resume page never arrived: back to the court.
@@ -403,30 +526,30 @@ describe("the Camera director", () => {
       const { director } = setup();
       director.show("hero");
       director.openingLands();
-      director.fly("outpost", 0);
+      director.fly("skyline", 0);
       const looks = filmLook(director, 0, 3000, (now) => {
-        if (now >= 300) director.show("outpost");
+        if (now >= 300) director.show("skyline");
       });
       expect(looks.every((look) => look === 0)).toBe(true);
     });
   });
 
-  it("lands on the Outpost once the Resume page is in and the camera is there", () => {
+  it("lands on the Skyline once the Resume page is in and the camera is there", () => {
     const { director } = setup();
     director.show("hero");
     director.openingLands();
-    director.fly("outpost", 0);
+    director.fly("skyline", 0);
     director.advance(TRANSIT_MAX_SECONDS * 1000 + 100);
-    // The page is still on its way: the camera waits at the Outpost for it.
-    expect(director.flying()).toBe("outpost");
-    director.show("outpost");
+    // The page is still on its way: the camera waits at the Skyline for it.
+    expect(director.flying()).toBe("skyline");
+    director.show("skyline");
     director.advance(TRANSIT_MAX_SECONDS * 1000 + 116);
     expect(director.flying()).toBeNull();
-    expectSamePose(director.frame(TRANSIT_MAX_SECONDS * 1000 + 132).pose!, outpostPose(aspect));
+    expectSamePose(director.frame(TRANSIT_MAX_SECONDS * 1000 + 132).pose!, skylinePose(aspect));
   });
 
   describe("on a visit that never showed home", () => {
-    /** A director holding a court or Outpost layout's paths: no Opening, the nominal route. */
+    /** A director holding a court or Skyline layout's paths: no Opening, the nominal route. */
     function away() {
       const home = setup();
       const director = createCameraDirector({ homeStop: () => home.page.stop });
@@ -434,10 +557,10 @@ describe("the Camera director", () => {
       return { ...home, director };
     }
 
-    it("flies between the court and the Outpost at once, either way, without a jump", () => {
+    it("flies between the court and the Skyline at once, either way, without a jump", () => {
       for (const [from, to] of [
-        ["court", "outpost"],
-        ["outpost", "court"],
+        ["court", "skyline"],
+        ["skyline", "court"],
       ] as const) {
         const { director, paths } = away();
         director.show(from);
@@ -490,16 +613,16 @@ describe("the Camera director", () => {
     const { director } = setup();
     director.show("hero");
     director.openingLands();
-    director.fly("outpost", 0);
+    director.fly("skyline", 0);
     director.advance(6000);
-    expect(director.flying()).toBe("outpost");
+    expect(director.flying()).toBe("skyline");
     director.advance(6600);
     expect(director.flying()).toBeNull();
   });
 
   it("flies home to where the page is, though its scroll route is still easing there, and lands without a second leg", () => {
     const { director, page, route } = setup();
-    director.show("outpost");
+    director.show("skyline");
     director.fly("hero", 0);
     // Home arrives, and its scroll route starts before the Transit is
     // planned, and before Back has restored the page's scroll.
@@ -511,7 +634,7 @@ describe("the Camera director", () => {
     // Planned now, to the page's stop, while the route still eases from 0.
     director.advance(16);
     expect(director.stop()).toBeCloseTo(1.5);
-    const duration = transit(route, { pose: outpostPose(aspect) }, 1.5).duration;
+    const duration = transit(route, { pose: skylinePose(aspect) }, 1.5).duration;
     const end = 16 + duration * 1000;
     const poses = film(director, 32, end - 32 + 300, (now) =>
       director.scrolled(Math.min(1.5, (now / 300) * 1.5), [1, 1, 0, 0]),
@@ -523,7 +646,7 @@ describe("the Camera director", () => {
 
   it("never plans a Transit from a frame drawn as home claims the world, before Back restores its scroll", () => {
     const { director, page } = setup();
-    director.show("outpost");
+    director.show("skyline");
     director.fly("hero", 0);
     director.show("hero");
     // The world draws as the page commits: the page is still at its top.
@@ -540,7 +663,7 @@ describe("the Camera director", () => {
     director.openingLands();
     page.stop = 1.5;
     director.scrolled(0.5, [1, 0, 0, 0]);
-    director.show("outpost");
+    director.show("skyline");
     director.fly("hero", 0);
     director.show("hero");
     director.advance(0);
@@ -555,7 +678,7 @@ describe("the Camera director", () => {
 
   it("lands at once when told to, home holding the stop it was flying to", () => {
     const { director, route, page } = setup();
-    director.show("outpost");
+    director.show("skyline");
     page.stop = 1.2;
     director.fly("hero", 0);
     director.show("hero");
@@ -594,14 +717,14 @@ describe("the Camera director", () => {
       expect(director.frame(0).lean).toEqual(upright);
     });
 
-    it("stays upright through a Transit, and at the Outpost", () => {
+    it("stays upright through a Transit, and at the Skyline", () => {
       const { director } = setup();
       director.show("hero");
       director.openingLands();
       director.pointerAt({ x: 1, y: 1 });
-      director.fly("outpost", 0);
+      director.fly("skyline", 0);
       expect(director.frame(16).lean).toEqual(upright);
-      director.show("outpost");
+      director.show("skyline");
       director.arrive();
       expect(director.frame(32).lean).toEqual(upright);
     });
@@ -621,7 +744,7 @@ describe("the Camera director", () => {
 
   it("has nowhere to fly from before any place has been drawn", () => {
     const director = createCameraDirector({ homeStop: () => 0 });
-    expect(director.fly("outpost", 0)).toBe(false);
+    expect(director.fly("skyline", 0)).toBe(false);
     expect(director.flying()).toBeNull();
   });
 });

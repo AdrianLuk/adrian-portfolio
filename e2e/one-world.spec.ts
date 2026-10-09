@@ -31,11 +31,29 @@ const caseStudyPath = routes[1].path;
 
 /**
  * The routes that stand on the quieter backdrop of the valley, and a heading
- * on each (the Resume page's first paint, under the outpost's world).
+ * on each.
  */
 const backdropRoutes = [
-  { name: "Resume page", path: "/resume", heading: resume.heading },
   { name: "404", path: routes[3].path, heading: notFound.heading },
+];
+
+/**
+ * The pages whose Places have stills of their own, their first paint under
+ * the live world: the court's, the Skyline's.
+ */
+const placeStills = [
+  {
+    name: "Case study",
+    place: "court",
+    path: caseStudyPath,
+    heading: caseStudies[0].title,
+  },
+  {
+    name: "Resume page",
+    place: "skyline",
+    path: "/resume",
+    heading: resume.heading,
+  },
 ];
 
 const metaContent = (html: string, key: string) =>
@@ -125,34 +143,36 @@ test.describe("the night backdrop", () => {
     });
   }
 
-  test("the Case study stands on the court's still instead: never dimmed, no motes", async ({
-    page,
-  }) => {
-    // The still alone, as the page first paints it.
-    await withoutWorld(page);
-    await page.goto(caseStudyPath);
-    await page.locator("[data-backdrop] img").evaluate(
-      (img: HTMLImageElement) => img.decode(),
-    );
-    expect(await backdropState(page, caseStudies[0].title)).toEqual({
-      name: "court",
-      hidden: "true",
-      fixed: "fixed",
-      covers: true,
-      loaded: true,
-      behind: true,
-      over: 0,
-      motes: 0,
-      drifting: 0,
+  for (const { name, place, path, heading } of placeStills) {
+    test(`the ${name} stands on the ${place}'s still instead: never dimmed, no motes`, async ({
+      page,
+    }) => {
+      // The still alone, as the page first paints it.
+      await withoutWorld(page);
+      await page.goto(path);
+      await page.locator("[data-backdrop] img").evaluate(
+        (img: HTMLImageElement) => img.decode(),
+      );
+      expect(await backdropState(page, heading)).toEqual({
+        name: place,
+        hidden: "true",
+        fixed: "fixed",
+        covers: true,
+        loaded: true,
+        behind: true,
+        over: 0,
+        motes: 0,
+        drifting: 0,
+      });
     });
-  });
+  }
 
   test("under reduced motion it is the still alone: no motes, nothing animates", async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("/resume");
-    expect(await backdropState(page, resume.heading)).toMatchObject({
+    await page.goto(backdropRoutes[0].path);
+    expect(await backdropState(page, backdropRoutes[0].heading)).toMatchObject({
       covers: true,
       behind: true,
       motes: 0,
@@ -445,12 +465,12 @@ test.describe("Transits between Places", () => {
     await page.keyboard.press("Enter");
     expect(await heldCopy(page, resume.heading)).toEqual({ focusable: false, visible: false });
     await expect(page).toHaveURL(/\/resume$/);
-    await flown(transit, page, "outpost");
+    await flown(transit, page, "skyline");
     // Focus stays where the router leaves it, as without a transit.
     await expect(resumeLink(page)).toBeFocused();
-    const outpost = page.locator("[data-world]");
-    await expect(outpost).toHaveAttribute("data-world", "drawn");
-    expect(await canvasTag(outpost.locator("canvas"))).toBe("the world");
+    const skyline = page.locator("[data-world]");
+    await expect(skyline).toHaveAttribute("data-world", "drawn");
+    expect(await canvasTag(skyline.locator("canvas"))).toBe("the world");
     const heading = page.getByRole("heading", { level: 2, name: resume.heading });
     await expect(heading).toBeVisible();
     await expect
@@ -489,13 +509,13 @@ test.describe("Transits between Places", () => {
     await expect(page).toHaveURL(/\/resume$/);
     await expect
       .poll(async () => (await transit()).seen.slice(before))
-      .toContain("outpost");
+      .toContain("skyline");
     await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/, {
       timeout: SCENE_TIMEOUT,
     });
 
     // Home, then the Resume page again before the camera gets there: the
-    // newer navigation wins, and the camera lands at the Outpost.
+    // newer navigation wins, and the camera lands at the Skyline.
     // (In the page, so a busy machine can't let the first flight land.)
     const midFlight = await page.evaluate(
       async ([home, resume]) => {
@@ -520,7 +540,7 @@ test.describe("Transits between Places", () => {
     await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/, {
       timeout: SCENE_TIMEOUT,
     });
-    await expect(outpost).toHaveAttribute("data-world", "drawn");
+    await expect(skyline).toHaveAttribute("data-world", "drawn");
     seen = await transit();
     expect(seen.seen.at(-1)).toBeNull();
     expect(seen.bare).toBe(0);
@@ -537,7 +557,7 @@ test.describe("Transits between Places", () => {
     await page.context().close();
   });
 
-  test("Resume clicked during the opening flies from where the opening has got to, and lands at the Outpost", async ({
+  test("Resume clicked during the opening flies from where the opening has got to, and lands at the Skyline", async ({
     browser,
   }, testInfo) => {
     const context = await browser.newContext({
@@ -595,9 +615,9 @@ test.describe("Transits between Places", () => {
         { timeout: SCENE_TIMEOUT },
       )
       .then((handle) => handle.jsonValue());
-    expect(flying).toEqual({ state: "flight", transit: "outpost" });
+    expect(flying).toEqual({ state: "flight", transit: "skyline" });
     await expect(page).toHaveURL(/\/resume$/);
-    await flown(transit, page, "outpost");
+    await flown(transit, page, "skyline");
     await expect(page.locator("[data-world]")).toHaveAttribute(
       "data-world",
       "drawn",
@@ -651,7 +671,7 @@ test.describe("Transits between Places", () => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await resumeLink(page).click();
     await expect(page).toHaveURL(/\/resume$/);
-    await flown(transit, page, "outpost");
+    await flown(transit, page, "skyline");
     await page.context().close();
   });
 
@@ -737,11 +757,11 @@ test.describe("Transits between Places", () => {
         .loseContext();
       return transit;
     }, nav[1].label);
-    expect(flying).toBe("outpost");
+    expect(flying).toBe("skyline");
     await expect(page).toHaveURL(/\/resume$/);
     await expect(worldRoot(page)).not.toHaveAttribute("data-transit", /.*/);
-    const outpost = page.locator("[data-world]");
-    await expect(outpost).toHaveAttribute("data-world", "pending");
+    const skyline = page.locator("[data-world]");
+    await expect(skyline).toHaveAttribute("data-world", "pending");
     await expect(page.locator("[data-backdrop] img")).toBeVisible();
     await expect(
       page.getByRole("heading", { level: 2, name: resume.heading }),
@@ -857,7 +877,7 @@ test.describe("Transits between Places", () => {
     await plain.close();
   });
 
-  test("the camera flies Case study → Resume page on down the valley, and Back to the court", async ({
+  test("the camera flies Case study → Resume page, turning round to the Skyline, and Back to the court", async ({
     browser,
   }, testInfo) => {
     // A visit that starts at the Case study: home is never laid out.
@@ -884,7 +904,7 @@ test.describe("Transits between Places", () => {
       visible: false,
     });
     await expect(page).toHaveURL(/\/resume$/);
-    await flown(transit, page, "outpost");
+    await flown(transit, page, "skyline");
     // Focus stays where the router leaves it, as without a transit.
     await expect(resumeLink(page)).toBeFocused();
     await expect(world).toHaveAttribute("data-world", "drawn");
@@ -899,7 +919,7 @@ test.describe("Transits between Places", () => {
     ).toBeVisible();
 
     const seen = await transit();
-    expect(seen.seen).toEqual(["outpost", null, "court", null]);
+    expect(seen.seen).toEqual(["skyline", null, "court", null]);
     expect(seen.bare).toBe(0);
     expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
     expect(holds(seen)).toHaveLength(2);
@@ -1010,11 +1030,11 @@ test.describe("one world across home and the Resume page", () => {
 
     await resumeLink(page).click();
     await expect(page).toHaveURL(/\/resume$/);
-    const outpost = page.locator("[data-world]");
+    const skyline = page.locator("[data-world]");
     // Already drawn: the world was live when the page arrived.
-    await expect(outpost).toHaveAttribute("data-world", "drawn");
-    await expect(outpost.locator("canvas")).toHaveCSS("position", "fixed");
-    expect(await canvasTag(outpost.locator("canvas"))).toBe("the world");
+    await expect(skyline).toHaveAttribute("data-world", "drawn");
+    await expect(skyline.locator("canvas")).toHaveCSS("position", "fixed");
+    expect(await canvasTag(skyline.locator("canvas"))).toBe("the world");
     await expect(page.locator("[data-backdrop]")).toHaveCount(1);
 
     await page.evaluate(() => {
@@ -1044,11 +1064,11 @@ test.describe("one world across home and the Resume page", () => {
     await watchHero(page);
     const world = await watchWorld(page);
     await page.goto("/resume");
-    const outpost = page.locator("[data-world]");
-    await expect(outpost).toHaveAttribute("data-world", "drawn", {
+    const skyline = page.locator("[data-world]");
+    await expect(skyline).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
     });
-    await tagCanvas(outpost.locator("canvas"));
+    await tagCanvas(skyline.locator("canvas"));
 
     await homeLink(page).click();
     await expect(page).toHaveURL(/\/$/);

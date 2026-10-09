@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PanelCorners } from "@/components/highlight-panel";
 import { PlaceWorld } from "@/components/place-world";
-import { WorldBackdrop } from "@/components/world-backdrop";
+import { SkylineStill } from "@/components/skyline-still";
 import {
   displayUrl,
   resume,
@@ -12,7 +12,7 @@ import {
 import { shareMetadata } from "../share";
 import { jsonLdScript, resumeJsonLd } from "../structured-data";
 import {
-  arrivesAtOutpost,
+  arrivesAtSkyline,
   entryTitle,
   metaLine,
   overPlace,
@@ -21,6 +21,11 @@ import {
   sectionLabel,
   textLink,
 } from "../styles";
+import { torontoWeather } from "../toronto-weather";
+
+// Rebuilt at most hourly, for the Skyline's weather (WEATHER_REVALIDATE):
+// segment config must be a literal.
+export const revalidate = 3600;
 
 export const metadata: Metadata = shareMetadata(shareCards.resume);
 
@@ -34,16 +39,17 @@ function Bullets({ items }: { items: readonly string[] }) {
   );
 }
 
-export default function ResumePage() {
+export default async function ResumePage() {
   return (
     // Its own stacking context, for the world and its backdrop at the back of
-    // it: the Outpost, live, over the still that paints first.
+    // it: the Skyline, live (in Toronto's weather), over the still that
+    // paints first.
     <div className="relative isolate mx-auto max-w-6xl px-4 py-16 sm:px-6">
-      <PlaceWorld claim={{ kind: "outpost" }}>
-        <WorldBackdrop />
+      <PlaceWorld claim={{ kind: "skyline", weather: await torontoWeather() }}>
+        <SkylineStill />
       </PlaceWorld>
       <header
-        className={`flex max-w-3xl flex-col items-start gap-4 ${overPlace.outpost} ${arrivesAtOutpost}`}
+        className={`flex max-w-3xl flex-col items-start gap-4 ${overPlace.skyline} ${arrivesAtSkyline}`}
       >
         <PanelCorners className="border-cyan" />
         <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
@@ -62,7 +68,7 @@ export default function ResumePage() {
 
       <section
         aria-labelledby="experience-heading"
-        className={`mt-16 max-w-3xl ${arrivesAtOutpost}`}
+        className={`mt-16 max-w-3xl ${arrivesAtSkyline}`}
       >
         <h3 id="experience-heading" className={sectionLabel}>
           {resume.rolesHeading}
@@ -72,7 +78,7 @@ export default function ResumePage() {
             <li
               key={role.id}
               id={role.id}
-              className={`scroll-mt-24 ${overPlace.outpost}`}
+              className={`scroll-mt-24 ${overPlace.skyline}`}
             >
               <PanelCorners className="border-cyan" />
               {/* On the timeline, level with the title. */}
@@ -95,7 +101,7 @@ export default function ResumePage() {
 
       <section
         aria-labelledby="side-projects-heading"
-        className={`mt-20 max-w-3xl ${arrivesAtOutpost}`}
+        className={`mt-20 max-w-3xl ${arrivesAtSkyline}`}
       >
         <h3 id="side-projects-heading" className={sectionLabel}>
           {resume.sideProjectsHeading}

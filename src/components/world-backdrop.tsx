@@ -1,12 +1,17 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
   courtStills,
+  skylineStills,
   srcSet,
   valleyStills,
   type StillName,
 } from "@/content/site";
 
-const STILLS = { valley: valleyStills, court: courtStills } as const;
+const STILLS = {
+  valley: valleyStills,
+  court: courtStills,
+  skyline: skylineStills,
+} as const;
 
 /** A small seeded generator (mulberry32), so every render scatters the same. */
 function seeded(seed: number) {

@@ -6,7 +6,12 @@ import { FOG_DENSITY } from "./palette";
 import { CAMERA, settledYaw } from "./pose";
 import { createRoute, ROUTE_STOPS, SITES } from "./route";
 import { HERO_SIGHT, layoutStructures, type Box } from "./structures";
-import { corridorHalfWidth, valleyCentre, valleyHeight } from "./terrain";
+import {
+  corridorHalfWidth,
+  harbourWater,
+  valleyCentre,
+  valleyHeight,
+} from "./terrain";
 
 /** Settled poses like the real layouts' (as in flight.test.ts). */
 function settledLayout(
@@ -118,6 +123,26 @@ describe("the city", () => {
       ...skyline.darkTowers,
     ]) {
       expect(b.h).toBeLessThan(height);
+    }
+  });
+
+  it("makes way for the harbour: nothing stands in its water", () => {
+    const wet = (b: Box) =>
+      [-1, 0, 1].some((u) =>
+        [-1, 0, 1].some(
+          (v) => harbourWater(b.x + (u * b.w) / 2, b.z + (v * b.d) / 2) > 0,
+        ),
+      );
+    for (const b of [
+      ...buildings,
+      ...darkBuildings,
+      ...masts,
+      ...landmarks.bounds,
+      ...skyline.bounds,
+    ]) {
+      expect(wet(b), `a tower at ${Math.round(b.x)}, ${Math.round(b.z)}`).toBe(
+        false,
+      );
     }
   });
 

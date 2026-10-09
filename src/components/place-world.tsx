@@ -11,11 +11,11 @@ export type StillClaim = Exclude<WorldClaim, { kind: "hero" }>;
 
 /**
  * A Place's world on a page whose camera holds still there, held fixed
- * behind the page: the court for the Juice Bros Case study (in Toronto's
- * weather, though only what lies on the ground: nothing falls at the court),
- * the Outpost for the Resume page (the sky clear). `children` is the page's
- * still of the world: the first paint, and what stays without WebGL or while
- * the GPU context is lost.
+ * behind the page: the court for the Juice Bros Case study, the Skyline for
+ * the Resume page, each in Toronto's weather, though only what lies on the
+ * ground (nothing falls there). `children` is the page's still of the world:
+ * the first paint, and what stays without WebGL or while the GPU context is
+ * lost.
  *
  * On a direct load the Three.js scene loads after the first paint and fades
  * in over the still once its first frame has rendered; arriving from another
@@ -33,8 +33,8 @@ export function PlaceWorld({
   children: ReactNode;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // The claim the page arrived with (its weather, at the court): the world
-  // takes it once the page claims it.
+  // The claim the page arrived with (its weather): the world takes it once
+  // the page claims it.
   const claimRef = useRef(claim);
   const host = worldHost();
   const state = useWorldState();
@@ -49,9 +49,7 @@ export function PlaceWorld({
     const canvas = host.attach(
       pageCanvas,
       // ?weather=snow|rain|clear previews a condition.
-      arrived.kind === "court"
-        ? { ...arrived, weather: previewWeather(arrived.weather) }
-        : arrived,
+      { ...arrived, weather: previewWeather(arrived.weather) },
     );
 
     const resize = new ResizeObserver(() => host.world()?.layout());

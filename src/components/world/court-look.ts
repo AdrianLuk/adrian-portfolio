@@ -1,5 +1,4 @@
 import { smoothstep } from "./noise";
-import { fogColor, palette } from "./palette";
 
 /**
  * The court's look, as pure maths (unit tested without WebGL): what changes
@@ -87,13 +86,4 @@ export function courtLook(blend: number) {
     ball: smoothstep(0.5, 1, blend),
     falling: 1 - smoothstep(0, 0.9, blend),
   };
-}
-
-/**
- * Tints the world's shared fog (every shader's and the scene's) toward the
- * court's violet by `amount`, from the night's own; the palette's fog, which
- * the sky's horizon and the hills also take, stays as it is.
- */
-export function tintFog(amount: number) {
-  fogColor.copy(palette.fog).lerp(palette.violet, amount);
 }

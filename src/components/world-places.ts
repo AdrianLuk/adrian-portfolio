@@ -12,9 +12,9 @@ import type { CaseStudySlug } from "@/content/site";
  * A page's place in the world: home stands at the hero (the opening, the
  * settled view over the name plate, the scroll route), the Juice Bros Case
  * study at its court (Lit site 3's Landmark), the Resume page at the
- * Outpost.
+ * Skyline (face to face with Toronto's skyline).
  */
-export type Place = "hero" | "court" | "outpost";
+export type Place = "hero" | "court" | "skyline";
 
 /**
  * The Case study whose Place is the court: Juice Bros', whose Landmark it
@@ -42,7 +42,7 @@ export function placeOf(url: string): Place | null {
   const page = pageOf(url);
   if (page === "/") return "hero";
   if (page === COURT_PAGE) return "court";
-  if (page === "/resume") return "outpost";
+  if (page === "/resume") return "skyline";
   return null;
 }
 

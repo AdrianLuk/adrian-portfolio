@@ -19,9 +19,9 @@ export type WorldState = "pending" | "drawn" | "unavailable";
 /**
  * What the page on screen wants from the world: home the hero (the opening,
  * the settled view, the scroll route), the Juice Bros Case study the court
- * (the camera still, in Toronto's weather), the Resume page the Outpost (the
- * camera still, the sky clear), any other page nothing (its still backdrop
- * stands in, and the world is parked, drawing nothing).
+ * and the Resume page the Skyline (each with the camera still, in Toronto's
+ * weather), any other page nothing (its still backdrop stands in, and the
+ * world is parked, drawing nothing).
  */
 export type WorldIntent = Place | "none";
 
@@ -35,8 +35,7 @@ export type WorldClaim =
       weather: Weather;
       measure: (canvas: HTMLCanvasElement) => Measurement;
     }
-  | { kind: "court"; weather: Weather }
-  | { kind: "outpost" };
+  | { kind: "court" | "skyline"; weather: Weather };
 
 function viewFor(
   claim: WorldClaim | null,
@@ -49,12 +48,9 @@ function viewFor(
   return { kind: claim.kind };
 }
 
-/**
- * Home and the court stand in Toronto's weather; the Outpost stands clear:
- * the Resume page has no weather of its own.
- */
+/** Every Place stands in Toronto's weather; with no claim, the sky is clear. */
 const weatherFor = (claim: WorldClaim | null): Weather =>
-  claim?.kind === "hero" || claim?.kind === "court" ? claim.weather : "clear";
+  claim?.weather ?? "clear";
 
 /**
  * The one world, across every route: one canvas and one compiled scene,
@@ -205,8 +201,8 @@ export function createWorldHost() {
 
     /**
      * Holds the weather as it is while the camera flies, however the pages
-     * change under it; released, the world takes the page's own (clear at
-     * the Outpost, Toronto's at home and at the court), as the camera lands.
+     * change under it; released, the world takes the page's own (Toronto's,
+     * which may have changed since the page left), as the camera lands.
      */
     holdWeather(hold: boolean) {
       weatherHeld = hold;

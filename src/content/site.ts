@@ -816,7 +816,7 @@ export const shareCards = {
  * phones and tablets, each in the shape of the screen it is shot at. A
  * still's name is also its `data-backdrop` on the page.
  */
-export type StillName = "valley" | "court";
+export type StillName = "valley" | "court" | "skyline";
 
 function worldStills(name: StillName) {
   return {
@@ -842,6 +842,12 @@ export const valleyStills = worldStills("valley");
  * WebGL).
  */
 export const courtStills = worldStills("court");
+
+/**
+ * The Resume page's first paint, likewise: the world as the camera holds it
+ * at the Skyline.
+ */
+export const skylineStills = worldStills("skyline");
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */
 export function highlightAnchor(id: HighlightId): string {

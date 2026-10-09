@@ -12,7 +12,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
-import { courtLook, RALLY_BALL, rallyBall, tintFog } from "./court-look";
+import { courtLook, RALLY_BALL, rallyBall } from "./court-look";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
@@ -22,7 +22,7 @@ import { createNamePlate, type PlacedWord } from "./name-plate";
 import { createPrecipitation } from "./precipitation";
 import { nameGlyphs } from "./name-glyphs";
 import { createBalls } from "./landmarks";
-import { FOG_DENSITY, fogColor, palette } from "./palette";
+import { FOG_DENSITY, fogColor, palette, tintFog } from "./palette";
 import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
 import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
 import type { CameraDirector, CameraLean } from "../camera-director";
@@ -30,11 +30,12 @@ import { nominalRoute } from "./nominal-route";
 import {
   courtPose,
   createRoute,
-  outpostPose,
   SITES,
+  skylinePose,
+  skylineView,
   type Route,
 } from "./route";
-import { COURT_STOP, OUTPOST_STOP, transit } from "./transit";
+import { COURT_STOP, transit } from "./transit";
 import {
   drawsInSoftware,
   holdsFrame,
@@ -47,6 +48,8 @@ import {
 import { seededRandom } from "./noise";
 import type { SharedUniforms } from "./shared";
 import { createSky } from "./sky";
+import { magentaWash } from "./skyline";
+import { skylineLook } from "./skyline-look";
 import { createStructures } from "./structures";
 import { createTerrain, setTerrainWeather } from "./terrain-mesh";
 import { valleyHeight } from "./terrain";
@@ -78,14 +81,15 @@ export type ViewOptions = {
  * What the world shows. hero: the home page's, the name plate posed on the
  * headline that `measure` finds, the camera on the opening flight and then
  * the scroll route. court: the Juice Bros Case study's, the camera still and
- * low behind the court's near baseline (Lit site 3). outpost: the Resume
- * page's, the camera still at the route's last stop. Away from the hero, the
- * plate and the lit sites are out of sight.
+ * low behind the court's near baseline (Lit site 3). skyline: the Resume
+ * page's, the camera still and low down the valley from downtown, looking
+ * back up at Toronto's skyline. Away from the hero, the plate and the lit
+ * sites are out of sight.
  */
 export type WorldView =
   | { kind: "hero"; measure: () => Measurement }
   | { kind: "court" }
-  | { kind: "outpost" };
+  | { kind: "skyline" };
 
 /**
  * The world: one scene, which any of its views can show, so changing view
@@ -316,8 +320,12 @@ export async function createWorld(
     { x: 0, y: 0, z: 0, r: RALLY_BALL.radius, color: palette.violet },
   ]);
   rally.visible = false;
-  /** The court's look, as the director last blended it (see ./court-look). */
+  /**
+   * The court's look and the Skyline's, as the director last blended them
+   * (see ./court-look, ./skyline-look).
+   */
   let look = courtLook(0);
+  let skyline = skylineLook(0);
   const pools = createGroundPools(structures.pools.length + 3, poolIntensity());
   function poolIntensity() {
     return wet() ? WET_POOLS.intensity : POOL_INTENSITY;
@@ -381,6 +389,13 @@ export async function createWorld(
     if (Math.abs(lean.y - toward.y) < 1e-4) lean.y = toward.y;
   }
 
+  /** Sets the camera's vertical field of view (null leaves it as it is). */
+  function setFov(fovY: number | null) {
+    if (fovY === null || Math.abs(camera.fov - fovY) < 1e-6) return;
+    camera.fov = fovY;
+    camera.updateProjectionMatrix();
+  }
+
   function placeCamera({ position, quaternion }: Pose) {
     camera.position.copy(position);
     camera.quaternion.copy(quaternion);
@@ -394,8 +409,9 @@ export async function createWorld(
    */
   function pose() {
     const now = performance.now();
-    const { pose, lights, lean: toward } = options.director.frame(now);
+    const { pose, lights, lean: toward, fovY } = options.director.frame(now);
     easeLean(toward, now);
+    setFov(fovY);
     if (pose) {
       placeCamera(pose);
       // Turned from the pose afresh each frame, so the lean never builds up.
@@ -411,6 +427,7 @@ export async function createWorld(
       site.setIntensity(BEACON_INTENSITY * lights.sites[i]),
     );
     look = courtLook(lights.court);
+    skyline = skylineLook(lights.skyline);
     showLook();
   }
 
@@ -418,11 +435,13 @@ export async function createWorld(
    * Lights the court as its look says: the floodlights up, the fog toward
    * violet, the rally ball in (only while the world moves: under reduced
    * motion the court is one still frame, with no ball), and what falls out.
+   * Likewise the Skyline's: the CN Tower's wash and the fog toward magenta.
    */
   function showLook() {
     floodlights.setIntensity(look.floodlights);
-    tintFog(look.fog);
+    tintFog(look.fog, skyline.fog);
     fog.color.copy(fogColor);
+    magentaWash.value = skyline.wash;
     rally.visible = motion && look.ball > 0;
     if (rally.visible) {
       const at = rallyBall(structures.court, shared.uTime.value);
@@ -506,18 +525,21 @@ export async function createWorld(
     showFalling();
 
     const home = view.kind === "hero";
+    const skyline = skylineView(camera.aspect);
+    // The view's own field of view; the plate is measured in the world's.
+    setFov(view.kind === "skyline" ? skyline.fovY : CAMERA.fovY);
     posed = home
       ? placePlate(plate, words, width, height)
-      : placeStill(view.kind === "court" ? courtPose : outpostPose);
+      : placeStill(view.kind === "court" ? courtPose : skylinePose);
     if (!posed) return;
     // The director takes the paths this layout measured, and the Transit
     // maths. Home's paths come only from home's own layout; away from it, the
-    // nominal route flies the court and the Outpost (see ./nominal-route).
+    // nominal route flies the court and the Skyline (see ./nominal-route).
     options.director.layout({
       opening: home ? path : null,
       route: home ? route : nominalRoute(camera.aspect),
-      outpost: outpostPose(camera.aspect),
-      outpostStop: OUTPOST_STOP,
+      skyline: skyline.pose,
+      fovY: { world: CAMERA.fovY, skyline: skyline.fovY },
       court: courtPose(camera.aspect),
       courtStop: COURT_STOP,
       transit,
@@ -531,13 +553,14 @@ export async function createWorld(
   }
 
   /**
-   * Nothing falls under reduced motion, or in the clear, or at the court
-   * (it fades out as the court's look comes in): the ground shows it.
+   * Nothing falls under reduced motion, or in the clear, or at the court or
+   * the Skyline (it fades out as their looks come in): the ground shows it.
    */
   function showFalling() {
     if (!falling) return;
-    falling.setFade(look.falling);
-    falling.object.visible = motion && weather !== "clear" && look.falling > 0;
+    const fade = Math.min(look.falling, skyline.falling);
+    falling.setFade(fade);
+    falling.object.visible = motion && weather !== "clear" && fade > 0;
   }
 
   /** Lays the light pools on the floor, stretched on a wet one. */
@@ -545,7 +568,7 @@ export async function createWorld(
     pools.set(wet() ? wetPools(lit) : lit);
   }
 
-  /** A still view's pose (the court's, the Outpost's), for the screen's shape. */
+  /** A still view's pose (the court's, the Skyline's), for the screen's shape. */
   function placeStill(poseFor: (aspect: number) => Pose) {
     placeCamera(poseFor(camera.aspect));
     setPools(structures.pools);
@@ -615,7 +638,7 @@ export async function createWorld(
   const holds = () =>
     holdsFrame({
       software,
-      atCourt: view?.kind === "court",
+      atStillPlace: view?.kind === "court" || view?.kind === "skyline",
       flying: options.director.flying() !== null,
       landed,
       awaitingPage: options.director.awaitingPage(),

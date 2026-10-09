@@ -48,7 +48,7 @@ describe("the world host", () => {
   it("follows the reduced-motion preference once built, until disposed", async () => {
     const host = createWorldHost();
     const canvas = {} as HTMLCanvasElement;
-    host.attach(canvas, { kind: "outpost" });
+    host.attach(canvas, { kind: "skyline", weather: "clear" });
     expect(await host.start()).toBe(scene.world);
 
     media.matches = true;
@@ -64,7 +64,7 @@ describe("the world host", () => {
     expect(host.intent()).toBe("none");
   });
 
-  it("shows the court in the Case study's own weather, the Outpost in the clear", async () => {
+  it("shows the court and the Skyline each in the weather its page brings", async () => {
     const host = createWorldHost();
     const canvas = {} as HTMLCanvasElement;
     host.attach(canvas, { kind: "court", weather: "snow" });
@@ -76,8 +76,10 @@ describe("the world host", () => {
     expect(host.intent()).toBe("court");
 
     // On to the Resume page, and back to the Case study in the rain.
-    host.attach(canvas, { kind: "outpost" });
-    expect(scene.world.setWeather).toHaveBeenLastCalledWith("clear");
+    host.attach(canvas, { kind: "skyline", weather: "snow" });
+    expect(scene.world.setWeather).toHaveBeenLastCalledWith("snow");
+    expect(scene.world.setView).toHaveBeenLastCalledWith({ kind: "skyline" });
+    expect(host.intent()).toBe("skyline");
     host.attach(canvas, { kind: "court", weather: "rain" });
     expect(scene.world.setWeather).toHaveBeenLastCalledWith("rain");
     expect(scene.world.setView).toHaveBeenLastCalledWith({ kind: "court" });
@@ -86,7 +88,7 @@ describe("the world host", () => {
 
   it("disposes a world that finishes building after the host is gone", async () => {
     const host = createWorldHost();
-    host.attach({} as HTMLCanvasElement, { kind: "outpost" });
+    host.attach({} as HTMLCanvasElement, { kind: "skyline", weather: "clear" });
     const building = host.start();
     host.dispose();
     expect(await building).toBeNull();
