@@ -136,7 +136,7 @@ const WIN_BY = 2;
  */
 export const AI_REACTION_MS = 260;
 export const AI_MAX_SPEED = 13;
-export const AI_ERROR_RATE = 0.12;
+export const AI_ERROR_RATE = 0.08;
 export const AI_ANGLE = [0.2, 1] as const;
 export const AI_DEPTH = [10, 19] as const;
 /**
