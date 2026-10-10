@@ -90,6 +90,20 @@ export function diamondFootprint(scale: number) {
   return { w: span, d: span };
 }
 
+/**
+ * The Diamond's field, for the Home Run Derby to play on: home plate's
+ * point, the field's height, world units to the foot, and which side of the
+ * valley it stands (its line out to centre field runs down the valley and
+ * away from the centre line, 45° off each).
+ */
+export type DiamondField = {
+  x: number;
+  z: number;
+  level: number;
+  scale: number;
+  side: 1 | -1;
+};
+
 export type DiamondOptions = {
   /** The plinth's centre; home plate is its corner nearest home's end and the route's line, a lip in. */
   x: number;
@@ -384,6 +398,7 @@ export function layoutDiamond(options: DiamondOptions) {
   return {
     plinth,
     home: { x: hx, z: hz },
+    field: { x: hx, z: hz, level, scale, side } satisfies DiamondField,
     bounds,
     stands: { bodies, lamps, lights, bleachers, benchRows },
     surfaces,
