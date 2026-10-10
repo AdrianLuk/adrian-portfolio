@@ -16,6 +16,7 @@ const routes = [
   { name: "Juice Bros case study", path: "/work/juice-bros" },
   { name: "Resume page", path: "/resume" },
   { name: "Rally game", path: "/play" },
+  { name: "Home Run Derby", path: "/play/derby" },
   { name: "404", path: missingPath },
 ];
 
