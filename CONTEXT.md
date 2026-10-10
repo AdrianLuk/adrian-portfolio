@@ -89,15 +89,15 @@ The Home Run Derby's pitcher, an AI, as Dinkbot is the Rally game's opponent. It
 _Avoid_: Pitcher (unqualified), Knucklebot
 
 **Diamond**:
-The baseball diamond built from light in the valley between the court and the stadium bowl: the Home Run Derby's Place and a stop on the Hobby route. Home's scroll route glimpses it but never frames it. It is not a Lit site.
+The baseball stadium built from light, a diamond with a deck of seats in its outfield from pole to pole and light towers behind, home plate nearest the route, in the valley past the stadium bowl, right of the light path (the bowl stands left), well inland of Victoria Harbour: the Home Run Derby's Place and a stop on the Hobby route. Home's scroll route turns to frame it between the bowl and the closing view, with no panel; it may show down the valley behind the court and bowl stops, never over their Landmarks. It is not a Lit site.
 _Avoid_: Ballpark, field
 
 **Hobby route**:
-The About page's scroll route: the camera moves from the court (pickleball) to the Diamond (baseball) to the Arena (K-pop) as each section's panel enters. It runs on the same route engine as home's.
+The About page's scroll route: the camera moves from the court (pickleball) to the Diamond (baseball) to the Arena (K-pop) as each section's panel enters, forward down the valley without doubling back. It runs on the same route engine as home's.
 _Avoid_: About route, second route
 
 **Arena**:
-The concert arena built from light in the valley past the Diamond: an oval whose roof is only ribs of light, with a stage, its truss and screens at one end. Its floor holds the lightstick crowd. The Encore's frame and the Hobby route's last stop, seen from inside, behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
+The concert arena built from light in the valley past the Diamond, inland of Victoria Harbour: an oval whose roof is only ribs of light, with a stage, its truss and screens at one end. Its floor holds the lightstick crowd. The Encore's frame and the Hobby route's last stop, seen from inside, behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
 _Avoid_: Stadium, stadium bowl (BT Cup's Landmark), venue, concert hall
 
 **About page**:

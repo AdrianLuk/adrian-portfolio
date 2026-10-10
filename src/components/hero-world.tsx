@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { afterFirstPaint } from "./after-first-paint";
 import type { ScrollRoute } from "./scroll-route";
 // Plain data only: Three.js and GSAP load after the first paint.
 import { sitePanels } from "./home-panels";
@@ -254,15 +255,12 @@ export function HeroWorld({
     const unsubscribeMotion = subscribeToMotion(onPreference);
     onPreference();
 
-    // A frame callback runs just before the next paint; the task it queues
-    // runs after it. Both the flight's timeline and the world load from there,
-    // so neither library holds up the first paint.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const frame = requestAnimationFrame(() => {
-      timer = setTimeout(() => {
-        opening.fly(stage);
-        start();
-      }, 0);
+    // Both the flight's timeline and the world load once the first paint is
+    // in, so neither library holds it up. Not just after the next frame: on a
+    // software renderer the paint lands tens of ms after it.
+    const cancelStart = afterFirstPaint(() => {
+      opening.fly(stage);
+      start();
     });
 
     return () => {
@@ -271,8 +269,7 @@ export function HeroWorld({
       unfollow();
       stopRoute();
       stopPointer();
-      cancelAnimationFrame(frame);
-      clearTimeout(timer);
+      cancelStart();
       resize.disconnect();
       root.removeEventListener("click", onClick);
       unsubscribeMotion();
