@@ -165,12 +165,9 @@ export function arenaPose(): Pose {
     arena.z + ARENA_VIEW.back,
   );
   const screen = arena.stage.screens[0];
-  const look = new Matrix4().lookAt(
-    position,
-    new Vector3(screen.x, screen.y, screen.z),
-    UP,
-  );
-  return { position, quaternion: new Quaternion().setFromRotationMatrix(look) };
+  const at = new Vector3(screen.x, screen.y, screen.z);
+  // Centred, so the screen's shape doesn't matter.
+  return { position, quaternion: framing(position, at, 0, 1) };
 }
 
 /**

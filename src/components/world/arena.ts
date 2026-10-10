@@ -195,12 +195,12 @@ export function layoutArena({ x, z, level }: ArenaOptions) {
       s.deck + screen.lift + screen.h,
       palette.magenta,
     ),
-    ...[-1, 1].map((u) =>
+    ...[-1, 1].map((sign) =>
       block(
         side.at - PANEL / 2,
         side.at + PANEL / 2,
-        u * side.x - side.w / 2,
-        u * side.x + side.w / 2,
+        sign * side.x - side.w / 2,
+        sign * side.x + side.w / 2,
         s.deck + side.lift,
         s.deck + side.lift + side.h,
         palette.magenta,
