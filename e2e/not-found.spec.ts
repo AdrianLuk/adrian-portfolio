@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { HOLD_MS } from "../src/components/recall-hold";
 import { achievements, notFound } from "../src/content/site";
 
 const missing = "/this-page-does-not-exist";
@@ -108,6 +109,167 @@ test("arriving as the fifth showing earns Full rotation too", async ({ page }) =
   await expect(heading(page, 4)).toBeVisible();
   await expect(page.getByRole("status")).toContainText(achievements.names["full-rotation"]);
   await expect(counter(page, 2)).toBeVisible();
+});
+
+test("the content is centred, the home link first, and both are filled buttons at least 44px high", async ({
+  page,
+}) => {
+  await page.goto(missing);
+  await expect(heading(page, 0)).toBeVisible();
+  const box = async (locator: ReturnType<typeof home>) => (await locator.boundingBox())!;
+  const middle = (b: { x: number; width: number }) => b.x + b.width / 2;
+  const screen = await page.evaluate(() => document.documentElement.clientWidth / 2);
+  const [title, homeBox, anotherBox] = [
+    await box(heading(page, 0)),
+    await box(home(page)),
+    await box(another(page)),
+  ];
+  expect(Math.abs(middle(title) - screen)).toBeLessThan(3);
+  // The pair together: side by side on a wide screen, one above the other on a phone.
+  const left = Math.min(homeBox.x, anotherBox.x);
+  const right = Math.max(homeBox.x + homeBox.width, anotherBox.x + anotherBox.width);
+  expect(Math.abs((left + right) / 2 - screen)).toBeLessThan(3);
+  expect(homeBox.x < anotherBox.x || homeBox.y < anotherBox.y).toBe(true);
+  for (const button of [home(page), another(page)]) {
+    expect((await box(button)).height).toBeGreaterThanOrEqual(44);
+    await expect(button).toHaveCSS("background-color", "rgb(61, 242, 230)");
+    await expect(button).toHaveCSS("color", "rgb(11, 16, 38)");
+  }
+});
+
+/** Opens the 404 on League of Legends' variant, whose line and Recall button can be held. */
+const openOnLeague = async (page: Page) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("not-found-variants", JSON.stringify({ shown: 2, seen: [0, 1] })),
+  );
+  await page.goto(missing);
+  await expect(heading(page, 2)).toBeVisible();
+  return page.getByRole("button", { name: notFound.recall.label, exact: true });
+};
+const line = (page: Page) => page.getByText(variants[2].line, { exact: true });
+const ring = (page: Page) => page.getByRole("progressbar", { name: notFound.recall.label });
+/** How far the lit arc has swept, 0 to 1. */
+const swept = (page: Page) =>
+  page
+    .locator("[data-recall-fill]")
+    .evaluate((el) => 1 - parseFloat(getComputedStyle(el).strokeDashoffset) / 100);
+
+test.describe("holding Recall", () => {
+  test("only that variant has the button, with its hint", async ({ page }) => {
+    await page.goto(missing);
+    await expect(heading(page, 0)).toBeVisible();
+    await expect(page.getByRole("button", { name: notFound.recall.label })).toHaveCount(0);
+    const recall = await openOnLeague(page);
+    await expect(recall).toHaveAccessibleDescription(notFound.recall.hint);
+    await expect(ring(page)).toHaveAttribute("aria-valuenow", "0");
+  });
+
+  test("a mouse held on the button for the whole time goes home; the ring sweeps and glows, with motes", async ({
+    page,
+  }) => {
+    const recall = await openOnLeague(page);
+    expect(await swept(page)).toBe(0);
+    await recall.hover();
+    await page.mouse.down();
+    await expect(announced(page)).toHaveText(notFound.recall.start);
+    await page.waitForTimeout(HOLD_MS / 2);
+    const half = await swept(page);
+    expect(half).toBeGreaterThan(0.1);
+    expect(half).toBeLessThan(0.9);
+    await expect(page.locator(".recall-ring")).toHaveCSS("animation-name", "recall-glow");
+    expect(await page.locator(".recall-mote:visible").count()).toBeGreaterThan(0);
+    // The value is told in steps, not every frame.
+    expect(Number(await ring(page).getAttribute("aria-valuenow"))).toBeGreaterThan(0);
+    await expect(page).toHaveURL("/", { timeout: HOLD_MS + 8000 });
+    await page.mouse.up();
+  });
+
+  test("holding the line itself does the same", async ({ page }) => {
+    await openOnLeague(page);
+    await line(page).hover();
+    await page.mouse.down();
+    await expect(announced(page)).toHaveText(notFound.recall.start);
+    await expect(page).toHaveURL("/", { timeout: HOLD_MS + 10_000 });
+    await page.mouse.up();
+  });
+
+  test("letting go early cancels it, drains the ring and leaves the visitor on the 404", async ({
+    page,
+  }) => {
+    const recall = await openOnLeague(page);
+    await recall.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(1000);
+    expect(await swept(page)).toBeGreaterThan(0);
+    await page.mouse.up();
+    await expect(announced(page)).toHaveText(notFound.recall.cancel);
+    await expect.poll(() => swept(page)).toBe(0);
+    await expect(ring(page)).toHaveAttribute("aria-valuenow", "0");
+    await page.waitForTimeout(HOLD_MS);
+    await expect(page).toHaveURL(missing);
+    await expect(heading(page, 2)).toBeVisible();
+  });
+
+  test("Space held on the button goes home, and let go early cancels", async ({ page }) => {
+    const recall = await openOnLeague(page);
+    await recall.focus();
+    await page.keyboard.down("Space");
+    await page.waitForTimeout(500);
+    await page.keyboard.up("Space");
+    await expect(announced(page)).toHaveText(notFound.recall.cancel);
+    await page.keyboard.down("Enter");
+    await expect(page).toHaveURL("/", { timeout: HOLD_MS + 10_000 });
+    await page.keyboard.up("Enter");
+  });
+
+  test("a touch held on it goes home", async ({ page }) => {
+    const recall = await openOnLeague(page);
+    await recall.dispatchEvent("pointerdown", { pointerType: "touch", button: 0, isPrimary: true });
+    await expect(announced(page)).toHaveText(notFound.recall.start);
+    await expect(page).toHaveURL("/", { timeout: HOLD_MS + 10_000 });
+  });
+
+  test("earns no achievement", async ({ page }) => {
+    const recall = await openOnLeague(page);
+    await recall.hover();
+    await page.mouse.down();
+    await expect(page).toHaveURL("/", { timeout: HOLD_MS + 10_000 });
+    await page.mouse.up();
+    await expect(counter(page, 0)).toBeVisible();
+  });
+
+  test("the home link stays where it is on every variant, Recall button or not", async ({
+    page,
+  }) => {
+    const recall = await openOnLeague(page);
+    await expect(recall).toBeVisible();
+    const where = await home(page).boundingBox();
+    for (const i of [3, 4, 0]) {
+      await another(page).click();
+      await expect(heading(page, i)).toBeVisible();
+      expect(await home(page).boundingBox()).toEqual(where);
+    }
+  });
+
+  test.describe("under reduced motion", () => {
+    test.use({ reducedMotion: "reduce" });
+
+    test("the ring still sweeps as it is held, with no glow pulse and no motes, and it goes home", async ({
+      page,
+    }) => {
+      const recall = await openOnLeague(page);
+      await recall.hover();
+      await page.mouse.down();
+      await page.waitForTimeout(HOLD_MS / 2);
+      const half = await swept(page);
+      expect(half).toBeGreaterThan(0.1);
+      expect(half).toBeLessThan(0.9);
+      await expect(page.locator(".recall-ring")).toHaveCSS("animation-name", "none");
+      expect(await page.locator(".recall-mote:visible").count()).toBe(0);
+      await expect(page).toHaveURL("/", { timeout: HOLD_MS + 8000 });
+      await page.mouse.up();
+    });
+  });
 });
 
 test.describe("under reduced motion", () => {

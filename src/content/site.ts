@@ -773,7 +773,13 @@ export const notFound = {
   variants: [
     { theme: "Baseball", heading: "Foul ball", line: "That one landed out of play." },
     { theme: "Overwatch", heading: "Heroes never die", line: "This page did." },
-    { theme: "League of Legends", heading: "Page slain", line: "Recall to base:" },
+    {
+      theme: "League of Legends",
+      heading: "Page slain",
+      line: "Recall to base:",
+      // Its line, and a Recall button after it, can be held to recall home (src/components/recall-hold.ts).
+      recall: true,
+    },
     {
       theme: "K-pop",
       heading: "On hiatus",
@@ -786,6 +792,14 @@ export const notFound = {
     },
   ],
   next: "I've got another excuse",
+  // Draft lines for Adrian to approve: the Recall button, and what a screen reader hears.
+  recall: {
+    label: "Recall",
+    hint: "Press and hold to recall.",
+    start: "Recalling…",
+    cancel: "Recall cancelled.",
+    done: "Back to base.",
+  },
   homeLink: "Back to the home page",
 } as const;
 
