@@ -280,9 +280,9 @@ export function createCameraDirector({
 
   /**
    * Plans the Transit once its route is known: at once to the court's views,
-   * the Skyline or the Derby's view, whose poses need no page; home only once its page is in
-   * (and its own paths measured), where its scroll says. Between the
-   * court's two views it needs no route at all.
+   * the Skyline or the Derby's view, whose poses need no page; home only
+   * once its page is in (and its own paths measured), where its scroll says.
+   * Between the court's two views it needs no route at all.
    */
   function plan(t: Trip, now: number) {
     if (!paths) return;

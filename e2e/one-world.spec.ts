@@ -1108,8 +1108,9 @@ async function watchGame(page: Page) {
 
 /**
  * Watches, from before the navigation, for a game's Start (/rally's unless
- * told otherwise) to arrive under a Transit to its view: the moment it is in the page (in the mutation's own microtask,
- * before anything paints), whether its copy is held, and if so whether Start
+ * told otherwise) to arrive under a Transit to its view: the moment it is in
+ * the page (in the mutation's own microtask, before anything paints),
+ * whether its copy is held, and if so whether Start
  * could take focus and whether it shows. Returns a reader: undefined until
  * Start arrives; "late" if it arrived after the hold had already ended (a
  * page slower than TRANSIT_MAX_SECONDS, whose copy is never held).

@@ -273,14 +273,23 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   let landRoute = reach(landing.length());
   // The route's glance turns at a scroll's pace, far too quick at a
   // Transit's: one landing in its leg (the Derby's view, beside the Diamond)
-  // leaves the route at the leg's first stop, and one leaving from it joins
-  // the route there, so the camera pans once, never through the glance.
+  // leaves the route where it enters the leg, and one leaving from it joins
+  // the route where it leaves the leg, so the camera pans once, never
+  // through the glance.
   const glance = route.glanceAfter;
   if (glance !== null) {
-    const legStart = lookup(samples, "stop", glance, "length");
+    const ends = [glance, glance + 1].map((stop) =>
+      lookup(samples, "stop", stop, "length"),
+    );
+    // Down the valley, the camera enters the leg at its first stop.
+    const [entry, exit] = way > 0 ? ends : ends.reverse();
     const inLeg = (stop: number) => stop > glance && stop < glance + 1;
-    if (inLeg(toStop)) landRoute = Math.max(landRoute, toLength - legStart);
-    if (inLeg(fromStop)) joinRoute = Math.max(joinRoute, fromLength - legStart);
+    if (inLeg(toStop)) {
+      landRoute = Math.max(landRoute, Math.abs(toLength - entry));
+    }
+    if (inLeg(fromStop)) {
+      joinRoute = Math.max(joinRoute, Math.abs(exit - fromLength));
+    }
   }
   if (joinRoute + landRoute > routeLength) {
     const fit = routeLength / (joinRoute + landRoute);

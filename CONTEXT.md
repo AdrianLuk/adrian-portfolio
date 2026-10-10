@@ -53,7 +53,7 @@ The camera flying through the world between two Places, in place of a crossfade,
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
-The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court and the Skyline. It never lets the camera jump.
+The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court, the Diamond and the Skyline. It never lets the camera jump.
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:

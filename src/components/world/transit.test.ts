@@ -8,6 +8,7 @@ import {
   createRoute,
   derbyView,
   playView,
+  ROUTE_STOPS,
   SITES,
   skylinePose,
 } from "./route";
@@ -698,6 +699,26 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
         });
       }
+
+      it("flies between the Derby and home's scroll anywhere past the stadium bowl (Off the clock, the route's end), either way, clear of everything, without a jump", () => {
+        const end = ROUTE_STOPS - 1;
+        for (const stop of [end - 1, end - 0.6, end - 0.3, end]) {
+          const scrolled = route.poseAt(stop);
+          for (const trip of [
+            transitPath(route, scrolled, derby),
+            transitPath(route, derby, stop),
+          ]) {
+            const [from, to] = [trip.poseAt(0), trip.poseAt(1)];
+            const poses = along(trip);
+            expectSmooth(poses, wayBetween(from, to));
+            expectClearOfDiamond(poses, derby, scrolled);
+            expectMediumPan(trip);
+            expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+          }
+          expectSamePose(transitPath(route, scrolled, derby).poseAt(1), derby);
+          expectSamePose(transitPath(route, derby, stop).poseAt(1), scrolled);
+        }
+      });
 
       it("leaves for the Derby while the opening still plays, finishing it first, without a jump", () => {
         const opening = createFlightPath(settled, plateCentre);

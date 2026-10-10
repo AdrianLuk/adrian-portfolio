@@ -14,10 +14,9 @@ type TransitHost = Pick<
 /**
  * Transits between Places (home, the court of the Juice Bros Case study and
  * /rally, the Resume page's Skyline, the Derby's Diamond), and between the
- * court's two views: the
- * camera flying from one to another. A
- * navigation between two of them hands the camera to the Camera
- * director's Transit the moment it starts (the click, or Back and Forward):
+ * court's two views: the camera flying from one to another. A navigation
+ * between two of them hands the camera to the Camera director's Transit the
+ * moment it starts (the click, or Back and Forward):
  * the camera flies from wherever it is to the destination page's pose, while
  * the page itself arrives under it at once. While the camera flies, the
  * world's root carries `data-transit` (the destination). For
