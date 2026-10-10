@@ -279,8 +279,8 @@ export function createCameraDirector({
   }
 
   /**
-   * Plans the Transit once its route is known: at once to the court's views
-   * or the Skyline, whose poses need no page; home only once its page is in
+   * Plans the Transit once its route is known: at once to the court's views,
+   * the Skyline or the Derby's view, whose poses need no page; home only once its page is in
    * (and its own paths measured), where its scroll says. Between the
    * court's two views it needs no route at all.
    */
@@ -300,8 +300,8 @@ export function createCameraDirector({
     if (t.to === "court" || t.to === "play") {
       t.stop = paths.courtStop;
       to = court;
-    } else if (t.to === "skyline") {
-      to = paths.skyline;
+    } else if (t.to === "skyline" || t.to === "derby") {
+      to = paths[t.to];
     } else {
       // Where the page is, not where its scroll route has eased to so far.
       t.stop = homeStop();

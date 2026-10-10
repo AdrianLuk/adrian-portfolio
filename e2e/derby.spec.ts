@@ -13,7 +13,7 @@ import {
   hrefFor,
   rallyLink,
 } from "../src/content/site";
-import { heroRoot, openHome, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { heroRoot, SCENE_TIMEOUT, withoutWorld } from "./hero";
 import { placeIn } from "./place";
 
 const { game: copy } = derby;
@@ -213,20 +213,6 @@ test("without WebGL the Diamond's still stays, and the game says it can't run he
   await expect(page.locator('[data-backdrop="diamond"] img')).toBeVisible();
   await expect(page.getByText(copy.unavailable)).toBeVisible();
   await expect(page.getByRole("button", { name: copy.start.action })).toHaveCount(0);
-});
-
-test("crossfades in from home's Off the clock link, flying nowhere: no Transit to the Diamond yet", async ({
-  browser,
-}, testInfo) => {
-  test.setTimeout(90_000);
-  // Settled first: in software (CI), the opening would still be flying.
-  const page = await openHome(browser, testInfo, { skip: true, until: "settled" });
-  await page.locator("#contact").getByRole("link", { name: derbyLink.label }).click();
-  await expect(page).toHaveURL(/\/derby$/, { timeout: SCENE_TIMEOUT });
-  await expect(page.locator("[data-world-root]")).not.toHaveAttribute("data-transit", /.+/);
-  await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
-    timeout: SCENE_TIMEOUT,
-  });
 });
 
 test.describe("under reduced motion", () => {

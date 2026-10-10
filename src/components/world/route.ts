@@ -649,6 +649,11 @@ export function routeThrough(
           : views[k].clone().slerp(views[k + 1], ease(f));
       return { position, quaternion };
     },
+    /**
+     * The stop whose leg holds the route's glance, if it has one: its turns
+     * suit a scroll's pace, not a Transit's (see transitPath).
+     */
+    glanceAfter: glance?.after ?? null,
   };
 
   /** Where the camera stands `f` through the leg leaving stop `k`. */

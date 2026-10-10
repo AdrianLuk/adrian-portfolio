@@ -70,25 +70,19 @@ export function placeOf(url: string): Place | null {
   return view && placeOfView(view);
 }
 
-/**
- * `view`, if the camera flies to and from it: every view but the Derby's,
- * which crossfades until its Transit to the Diamond lands (#102).
- */
-const flyable = (view: PlaceView | null) => (view === "derby" ? null : view);
-
 /** The view a Transit under way may turn to for `url`, if any. */
-export const transitTo = (url: string) => flyable(viewOf(url));
+export const transitTo = viewOf;
 
 /**
  * Where a navigation from the view `from` to `to` (a path or a URL) flies
  * the camera: between any two views, either way (the court's two
  * included), and nowhere else. Moving within a page never flies, nor does
- * any page with no place in the world, nor (for now) the Derby's.
+ * any page with no place in the world.
  */
 export function transitBetween(
   from: PlaceView | null,
   to: string,
 ): PlaceView | null {
   const arriving = transitTo(to);
-  return flyable(from) && arriving && from !== arriving ? arriving : null;
+  return from && arriving && from !== arriving ? arriving : null;
 }

@@ -6,6 +6,7 @@ import { SETTLED_RIG, type FlightRig } from "./rigs";
 import {
   courtPose,
   createRoute,
+  derbyView,
   playView,
   SITES,
   skylinePose,
@@ -94,7 +95,7 @@ function near(p: Vector3, b: Box, margin: number) {
   );
 }
 
-const { buildings, masts, landmarks, skyline } = layoutStructures();
+const { buildings, masts, landmarks, skyline, hongKong } = layoutStructures();
 const towers = [
   ...buildings,
   ...masts,
@@ -607,6 +608,123 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
             expectClear(along(back), court, play);
           }
         });
+      });
+    });
+    describe("to and from the Derby's view of the Diamond", () => {
+      const derby = derbyView(aspect, landmarks.field).pose;
+      const court = courtPose(aspect);
+      const play = playView(aspect, landmarks.court).pose;
+      const { diamond, field } = landmarks;
+      /** Inside the Diamond's stadium, in plan. */
+      const atDiamond = (b: Box) =>
+        Math.abs(b.x - diamond.x) <= diamond.w / 2 &&
+        Math.abs(b.z - diamond.z) <= diamond.d / 2;
+      // As the Derby's own view is proven clear (route.test.ts): the
+      // Diamond's parts count where they stand up off the field, and Hong
+      // Kong's towers count too.
+      const obstacles = [
+        ...buildings,
+        ...masts,
+        ...skyline.bounds,
+        ...hongKong.bounds,
+        ...landmarks.parts.filter(
+          (b) => !atDiamond(b) || (b.w > 0 && b.y + b.h / 2 > field.level + 1),
+        ),
+      ];
+      /**
+       * As `expectClear`, against the obstacles round the Diamond. The
+       * Diamond is drawn to its field's feet, so within LANDING_REACH of the
+       * Derby's view the camera need only clear its field by 6 feet, as the
+       * view itself does (route.test.ts).
+       */
+      function expectClearOfDiamond(poses: Pose[], ...landings: Pose[]) {
+        for (const { position: p } of poses) {
+          const clearance = p.y - surfaceHeight(p.x, p.z);
+          if (p.distanceTo(derby.position) < LANDING_REACH) {
+            expect(p.y - Math.max(field.level, surfaceHeight(p.x, p.z))).toBeGreaterThan(
+              6 * field.scale,
+            );
+          } else {
+            const low = landings.some(
+              (landing) => p.distanceTo(landing.position) < LANDING_REACH,
+            );
+            expect(clearance).toBeGreaterThan(low ? LANDING_GROUND : 8);
+          }
+          const met = obstacles.find((b) => near(p, b, 3));
+          expect(met, `an obstacle near ${p.toArray().map(Math.round)}`).toBeUndefined();
+        }
+      }
+      /** Within the pan's reach of the Diamond, never faster than a medium-speed pan. */
+      function expectMediumPan(trip: Transit) {
+        const poses = along(trip);
+        const step = trip.duration / (poses.length - 1);
+        for (let i = 1; i < poses.length; i++) {
+          if (poses[i].position.distanceTo(derby.position) > 200) continue;
+          const degrees =
+            (poses[i].quaternion.angleTo(poses[i - 1].quaternion) * 180) /
+            Math.PI;
+          expect(degrees / step).toBeLessThan(PAN_LIMIT);
+        }
+      }
+      const elsewhere = {
+        home: settled,
+        "the court": court,
+        "/rally": play,
+        "the Skyline": skylineView,
+      };
+
+      for (const [from, departure] of Object.entries(elsewhere)) {
+        it(`${from} to the Derby: lands exactly on its view, along the valley, clear of everything, without a jump, under the cap`, () => {
+          const trip = transitPath(route, departure, derby);
+          expectSamePose(trip.poseAt(0), departure);
+          expectSamePose(trip.poseAt(1), derby);
+          const poses = along(trip);
+          expectSmooth(poses, wayBetween(departure, derby));
+          expectClearOfDiamond(poses, derby, departure);
+          expectMediumPan(trip);
+          expect(trip.duration).toBeGreaterThan(0);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+        });
+
+        it(`the Derby to ${from}: leaves from its view and lands exactly, clear of everything, without a jump, under the cap`, () => {
+          const to = departure === settled ? SETTLED_STOP : departure;
+          const trip = transitPath(route, derby, to);
+          expectSamePose(trip.poseAt(0), derby);
+          expectSamePose(trip.poseAt(1), departure);
+          const poses = along(trip);
+          expectSmooth(poses, wayBetween(derby, departure));
+          expectClearOfDiamond(poses, derby, departure);
+          expectMediumPan(trip);
+          expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+        });
+      }
+
+      it("leaves for the Derby while the opening still plays, finishing it first, without a jump", () => {
+        const opening = createFlightPath(settled, plateCentre);
+        const trip = transit(
+          route,
+          { opening, travel: 0.5, settle: 0 },
+          derby,
+        );
+        expectSamePose(trip.poseAt(1), derby);
+        const poses = along(trip);
+        for (let i = 1; i < poses.length; i++) {
+          expect(poses[i - 1].position.distanceTo(poses[i].position)).toBeLessThan(STEP_LIMIT);
+        }
+        expect(trip.duration).toBeLessThanOrEqual(TRANSIT_MAX_SECONDS);
+      });
+
+      it("turns round mid-flight, either way, from exactly where the camera is", () => {
+        const out = transitPath(route, settled, derby);
+        for (const t of [0.2, 0.5, 0.8]) {
+          const departure = out.poseAt(t);
+          const back = transitPath(route, departure, SETTLED_STOP);
+          expectSamePose(back.poseAt(0), departure);
+          expectClearOfDiamond(along(back), derby);
+          const on = transitPath(route, back.poseAt(0.5), derby);
+          expectSamePose(on.poseAt(1), derby);
+          expectClearOfDiamond(along(on), derby);
+        }
       });
     });
   });

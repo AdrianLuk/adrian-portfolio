@@ -49,7 +49,7 @@ A page's spot in the one world, with its own look, that the camera flies to: hom
 _Avoid_: Scene, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court. Not yet to or from the Diamond: the Derby crossfades until its Transit is built.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court, the Skyline or the Diamond (sweeping off the route across the Harbour, panning to face downtown; or leaving it at the stadium bowl, past which home's route glances at the Diamond, to come down behind home plate), between any two of them, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
