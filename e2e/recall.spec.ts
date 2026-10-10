@@ -2,8 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { achievements, nav, person, rally, recall } from "../src/content/site";
 import { SCENE_TIMEOUT, withoutWorld } from "./hero";
 
-/** How long a Recall channels. */
-const CHANNEL_MS = 3000;
+const CHANNEL_MS = recall.channelMs;
 
 const nameLink = (page: Page) =>
   page.getByRole("banner").getByRole("link", { name: person.name, exact: true });
@@ -106,10 +105,7 @@ test.describe("holding B", () => {
   test("does nothing with a modifier, on key repeat, or typing in a field", async ({ page }) => {
     await withoutWorld(page);
     await page.goto("/resume");
-    // Hydrated: a channel starts, and is let go.
-    await holdB(page);
-    await page.keyboard.up("b");
-    await expect(announcer(page)).toHaveText(recall.cancelled);
+    await hydrated(page);
 
     const ignored = async (press: () => Promise<unknown>) => {
       await press();
@@ -161,11 +157,29 @@ test.describe("holding B", () => {
     await withoutWorld(page);
     await page.goto("/#contact");
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+    const entries = await page.evaluate(() => history.length);
     await holdB(page);
     await expect(announcer(page)).toHaveText(recall.done, { timeout: CHANNEL_MS + 2000 });
     await page.keyboard.up("b");
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-    await expect(page).toHaveURL(/\/(#contact)?$/);
+    // The hash is dropped, in place: Back still leaves the site.
+    await expect(page).toHaveURL(/\/$/);
+    expect(await page.evaluate(() => history.length)).toBe(entries);
+  });
+
+  test("a press on the name doesn't cancel it", async ({ page }) => {
+    await withoutWorld(page);
+    await page.goto("/resume");
+    await holdB(page);
+    // Pressed, then slid off the name before it's a hold: no click.
+    const box = (await nameLink(page).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height + 100);
+    await page.mouse.up();
+    await expect(page).toHaveURL(/\/$/, { timeout: CHANNEL_MS + 3000 });
+    await page.keyboard.up("b");
+    await expect(announcer(page)).toHaveText(recall.done);
   });
 });
 
@@ -177,6 +191,28 @@ test.describe("holding the name with the mouse", () => {
     await nameLink(page).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(announcer(page)).toBeEmpty();
+  });
+
+  test("a slow click still goes home, with no Recall", async ({ page }) => {
+    await page.goto("/resume");
+    await hydrated(page);
+    const box = (await nameLink(page).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(350);
+    await page.mouse.up();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(announcer(page)).toHaveText(recall.cancelled);
+  });
+
+  test("tapping B doesn't cancel a hold on the name", async ({ page }) => {
+    await page.goto("/resume");
+    await hydrated(page);
+    await holdMouse(page);
+    await page.keyboard.press("b");
+    await expect(page).toHaveURL(/\/$/, { timeout: CHANNEL_MS + 3000 });
+    await page.mouse.up();
+    await expect(announcer(page)).toHaveText(recall.done);
   });
 
   test("held, channels and goes home; let go early, stays put", async ({ page }) => {
@@ -229,6 +265,20 @@ test.describe("holding the name on touch", () => {
     await expect(announcer(page)).toHaveText(recall.done);
   });
 
+  test("a second finger doesn't start a hold of its own", async ({ page }) => {
+    await page.goto("/resume");
+    await hydrated(page);
+    const cdp = await page.context().newCDPSession(page);
+    const box = (await nameLink(page).boundingBox())!;
+    const finger = (id: number) => ({ id, x: box.x + box.width / 2 + id, y: box.y + box.height / 2 });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(0)] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(0), finger(1)] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await page.waitForTimeout(1000);
+    await expect(announcer(page)).toHaveText(recall.cancelled);
+    await expect(ring(page)).toBeHidden();
+  });
+
   test("a tap still goes home", async ({ page }) => {
     await page.goto("/resume");
     await nameLink(page).tap();
@@ -276,10 +326,9 @@ test.describe("under reduced motion", () => {
     await page.goto("/#contact");
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
     // Read in the page, the moment the Recall completes.
-    const atDone = page.evaluate(
-      (done) =>
+    const atDone = announcer(page).evaluate(
+      (live, done) =>
         new Promise<number>((resolve) => {
-          const live = document.querySelector('header [aria-live="polite"]')!;
           new MutationObserver(() => {
             if (live.textContent === done) resolve(window.scrollY);
           }).observe(live, { subtree: true, childList: true, characterData: true });

@@ -7,11 +7,11 @@ import type { recall } from "@/content/site";
 import { earnAchievement } from "./achievements";
 import { prefersReducedMotion } from "./reduced-motion";
 
-/** How long a Recall channels, in ms. */
-const CHANNEL_MS = 3000;
-
 /** A press on the name shorter than this is an ordinary click, in ms. */
-const TAP_MS = 300;
+const TAP_MS = 500;
+
+/** What started a channel: only it can let go of it. */
+type Trigger = "key" | "pointer";
 
 /**
  * Whether a keydown starts a Recall: `B` alone, not a key repeat, not typed
@@ -32,76 +32,88 @@ function startsRecall(event: KeyboardEvent) {
 
 /**
  * The header's name, home's link, and the Recall: holding `B`, or holding
- * the name (touch or mouse), fills a ring round it over CHANNEL_MS, then
- * takes the visitor home (a Transit from a Place, as any navigation home is;
- * on home, back to the top). Letting go early cancels it, and a cancelled
- * press doesn't navigate; a press shorter than TAP_MS is an ordinary click.
+ * the name (touch or mouse), fills a ring round it over `copy.channelMs`,
+ * then takes the visitor home (a Transit from a Place, as any navigation home
+ * is; on home, back to the top, dropping any hash). Letting go of the trigger
+ * that started it cancels it early, and a cancelled press doesn't navigate; a
+ * press shorter than TAP_MS is an ordinary click.
  * Each step is announced politely. The ring fills under reduced motion too:
  * only its glow pulse is motion.
  */
 export function RecallName({ name, copy }: { name: string; copy: typeof recall }) {
   const router = useRouter();
   const [channeling, setChanneling] = useState(false);
-  const [said, setSaid] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   /** The channel under way: its timer. */
-  const channel = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const channelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** What started the channel under way. */
+  const channelTrigger = useRef<Trigger | null>(null);
   /** A press on the name: its tap timer, until it's let go. */
-  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** True once a press outlasts a tap: its click doesn't navigate. */
   const held = useRef(false);
 
   function complete() {
-    channel.current = null;
+    channelTimer.current = null;
+    channelTrigger.current = null;
     setChanneling(false);
-    setSaid(copy.done);
+    setAnnouncement(copy.done);
     earnAchievement("back-to-base");
     if (window.location.pathname === "/") {
+      // In place: Back still goes where it did.
+      window.history.replaceState(null, "", "/");
       window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "instant" : "smooth" });
     } else {
       router.push("/");
     }
   }
 
-  function start() {
-    if (channel.current) return;
-    channel.current = setTimeout(complete, CHANNEL_MS);
+  function start(trigger: Trigger) {
+    if (channelTimer.current) return;
+    channelTimer.current = setTimeout(complete, copy.channelMs);
+    channelTrigger.current = trigger;
     setChanneling(true);
-    setSaid(copy.started);
+    setAnnouncement(copy.started);
   }
 
-  function cancel() {
-    if (!channel.current) return;
-    clearTimeout(channel.current);
-    channel.current = null;
+  /** Cancels the channel under way, if `trigger` (or, without one, anything) started it. */
+  function cancel(trigger?: Trigger) {
+    if (!channelTimer.current || (trigger && trigger !== channelTrigger.current)) return;
+    clearTimeout(channelTimer.current);
+    channelTimer.current = null;
+    channelTrigger.current = null;
     setChanneling(false);
-    setSaid(copy.cancelled);
+    setAnnouncement(copy.cancelled);
   }
 
-  const onWindow = useEffectEvent((event: Event) => {
-    if (event.type === "blur") return cancel();
-    const { key } = event as KeyboardEvent;
-    if (event.type === "keyup") {
-      if (key?.toLowerCase() === "b") cancel();
-    } else if (startsRecall(event as KeyboardEvent)) {
-      start();
-    }
+  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (startsRecall(event)) start("key");
   });
+  const onKeyUp = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key?.toLowerCase() === "b") cancel("key");
+  });
+  // B's keyup never comes once the window loses focus.
+  const onBlur = useEffectEvent(() => cancel());
 
   useEffect(() => {
-    // B's keyup never comes once the window loses focus.
-    const types = ["keydown", "keyup", "blur"];
-    const listener = (event: Event) => onWindow(event);
-    for (const type of types) window.addEventListener(type, listener);
+    const down = (event: KeyboardEvent) => onKeyDown(event);
+    const up = (event: KeyboardEvent) => onKeyUp(event);
+    const blur = () => onBlur();
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
     return () => {
-      for (const type of types) window.removeEventListener(type, listener);
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
     };
   }, []);
 
   function release() {
-    if (!press.current) return;
-    clearTimeout(press.current);
-    press.current = null;
-    cancel();
+    if (!pressTimer.current) return;
+    clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+    cancel("pointer");
   }
 
   return (
@@ -112,18 +124,19 @@ export function RecallName({ name, copy }: { name: string; copy: typeof recall }
           // The iPhone's link preview would steal the hold: here only.
           className="relative select-none [-webkit-touch-callout:none]"
           onPointerDown={(event) => {
-            if (event.button !== 0) return;
+            // One press at a time: a second finger or button doesn't start its own.
+            if (event.button !== 0 || !event.isPrimary || pressTimer.current) return;
             held.current = false;
-            press.current = setTimeout(() => {
+            pressTimer.current = setTimeout(() => {
               held.current = true;
-              start();
+              start("pointer");
             }, TAP_MS);
           }}
           onPointerUp={release}
           onPointerCancel={release}
           onPointerLeave={release}
           // A long press opens the menu on Android, a mouse's right button anywhere.
-          onContextMenu={(event) => press.current && event.preventDefault()}
+          onContextMenu={(event) => pressTimer.current && event.preventDefault()}
           onClick={(event: MouseEvent) => {
             // Keyboard activation (detail 0) is always a click.
             if (held.current && event.detail) event.preventDefault();
@@ -147,7 +160,7 @@ export function RecallName({ name, copy }: { name: string; copy: typeof recall }
                 strokeWidth="2"
                 pathLength={1}
                 strokeDasharray={1}
-                style={{ animation: `recall-fill ${CHANNEL_MS}ms linear forwards` }}
+                style={{ animation: `recall-fill ${copy.channelMs}ms linear forwards` }}
               />
             </svg>
           )}
@@ -155,7 +168,7 @@ export function RecallName({ name, copy }: { name: string; copy: typeof recall }
       </h1>
       {/* Outside the heading, so it's never part of its name. */}
       <p aria-live="polite" className="sr-only">
-        {said}
+        {announcement}
       </p>
     </>
   );

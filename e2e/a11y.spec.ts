@@ -30,7 +30,7 @@ for (const route of routes) {
   });
 }
 
-test("a Recall channelling has no axe violations", async ({ page }) => {
+test("a Recall channeling has no axe violations", async ({ page }) => {
   await page.goto("/resume");
   // Held until the page has hydrated and the ring is up.
   const ring = page.locator("[data-recall-ring]");

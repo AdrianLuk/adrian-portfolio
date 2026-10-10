@@ -764,8 +764,12 @@ export const achievements = {
   close: "Close",
 } as const;
 
-/** The Recall's announcements, to a screen reader: as it starts, if it's cancelled, and as it completes. */
+/**
+ * The Recall: how long it channels, in ms, and its announcements to a screen
+ * reader: as it starts, if it's cancelled, and as it completes.
+ */
 export const recall = {
+  channelMs: 3000,
   started: "Recalling home. Keep holding.",
   cancelled: "Recall cancelled.",
   done: "Recalled home.",
