@@ -16,9 +16,9 @@ import { ADRIAN, adrianTextures, createMii, ROBOT } from "../mii";
 import { REDUCED_MOTION } from "../reduced-motion";
 import { DIAMOND, MOUND_FEET } from "../world/diamond";
 import { palette } from "../world/palette";
-import type { DiamondStage } from "../world/scene";
+import type { DiamondStage, FieldShot } from "../world/scene";
 import { WINDUP, type Game } from "./rules";
-import { ballAt, BALL_RADIUS, batAt, BAT_PROFILE, HANDS, type Point } from "./swing";
+import { ballAt, BALL_RADIUS, batAt, BAT_PROFILE, HANDS, RELEASE } from "./swing";
 
 /**
  * The Home Run Derby drawn into the world, on the Diamond's field itself, in
@@ -33,8 +33,8 @@ import { ballAt, BALL_RADIUS, batAt, BAT_PROFILE, HANDS, type Point } from "./sw
  */
 
 export type DerbyView = {
-  /** Draws the game as it stands now. */
-  draw(game: Game): void;
+  /** Draws the game as it stands now: from the Derby's view, or from `shot` (the Play of the Game's camera). */
+  draw(game: Game, shot?: FieldShot | null): void;
   /** Takes the game off the field, and frees its GPU memory. */
   dispose(): void;
 };
@@ -126,8 +126,6 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
   const curvebot = createMii({ color: palette.magenta, build: ROBOT, robot: true });
   curvebot.group.position.set(0, MOUND_FEET, -DIAMOND.mound);
   curvebot.group.rotation.y = Math.PI;
-  /** Where a pitch leaves Curvebot's hand: its right arm, over the top. */
-  const release: Point = { x: -0.7, y: MOUND_FEET + 3.9, z: -DIAMOND.mound + 0.6 };
 
   const ball = createBaseball();
   const shadow = new Mesh(
@@ -170,12 +168,13 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
     return game.paused ? 0 : dt;
   }
 
-  function draw(game: Game) {
+  function draw(game: Game, shot: FieldShot | null = null) {
     const dt = moveFigures(game);
+    stage.film(shot);
     last = game;
-    const { turn, lift } = batAt(game, release);
+    const { turn, lift } = batAt(game, RELEASE);
     pivot.rotation.set(0, turn, lift);
-    const at = ballAt(game, release);
+    const at = ballAt(game, RELEASE);
     ball.visible = shadow.visible = at !== null;
     if (at) {
       ball.position.set(at.x, at.y, at.z);
@@ -190,6 +189,7 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
   const guest = { group, setViewportHeight() {} };
 
   function dispose() {
+    stage.film(null);
     stage.release(guest);
     batter.dispose();
     curvebot.dispose();

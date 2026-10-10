@@ -217,6 +217,8 @@ export function createCameraDirector({
   let encore = { reached: false, from: 0, at: 0 };
   /** When the lightsticks start filling the Arena's floor; null until it's reached. */
   let fillFrom: number | null = null;
+  /** The Play of the Game's camera, while the Derby replays it; null otherwise. */
+  let shot: Pose | null = null;
   /** The way into the Arena from the route's stop it last left from. */
   let wayIn: { from: number; paths: CameraPaths; path: { poseAt(t: number): Pose } } | null = null;
 
@@ -257,7 +259,7 @@ export function createCameraDirector({
     if (shown === "skyline") return paths?.skyline ?? null;
     if (shown === "court") return paths?.court ?? null;
     if (shown === "play") return paths?.play ?? null;
-    if (shown === "derby") return paths?.derby ?? null;
+    if (shown === "derby") return shot ?? paths?.derby ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     if (!landed) return home.opening.poseAt(opening);
@@ -548,6 +550,16 @@ export function createCameraDirector({
         x: Math.min(1, Math.max(-1, at.x)),
         y: Math.min(1, Math.max(-1, at.y)),
       };
+    },
+
+    // From the Derby.
+
+    /**
+     * The Play of the Game's camera, frame by frame (null: back to the
+     * Derby's view). Only at the Diamond; it cuts as a broadcast replay does.
+     */
+    film(pose: Pose | null) {
+      shot = pose;
     },
 
     // From navigation.

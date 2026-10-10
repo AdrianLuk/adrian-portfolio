@@ -998,6 +998,12 @@ export const derby = {
       ],
       action: "Play again",
     },
+    /** After a game with a home run: the longest, again, its distance under the banner. */
+    play: {
+      title: "Play of the Game",
+      again: "Watch again",
+      done: "Done",
+    },
     score: { homeRuns: "Home runs" },
   },
 } as const;

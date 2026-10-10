@@ -1,4 +1,4 @@
-import { DIAMOND } from "../world/diamond";
+import { DIAMOND, MOUND_FEET } from "../world/diamond";
 import { PITCH_TIME, WINDOW, type Game, type Hit } from "./rules";
 
 /**
@@ -22,6 +22,8 @@ export type Bat = { turn: number; lift: number };
 
 /** The middle of home plate, at a pitch's height as it crosses (knees to chest). */
 export const PLATE: Point = { x: 0, y: 2.5, z: -0.71 };
+/** Where a pitch leaves Curvebot's hand: its right arm, over the top. */
+export const RELEASE: Point = { x: -0.7, y: MOUND_FEET + 3.9, z: -DIAMOND.mound + 0.6 };
 /** Where a pitch nobody hit ends up: in the catcher's mitt, behind the plate. */
 const MITT: Point = { x: 0, y: 2.2, z: 3 };
 /** How far a curveball breaks, across the plate, at its widest. */
@@ -69,7 +71,7 @@ function along({ turn, lift }: Bat): Point {
 }
 
 const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
-const between = (a: Point, b: Point, f: number): Point => ({
+export const between = (a: Point, b: Point, f: number): Point => ({
   x: lerp(a.x, b.x, f),
   y: lerp(a.y, b.y, f),
   z: lerp(a.z, b.z, f),

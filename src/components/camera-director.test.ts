@@ -281,6 +281,20 @@ describe("the Camera director", () => {
     expect(fovY).toBe(derby.fovY);
   });
 
+  it("films the Play of the Game from the Derby's own shot, at the Diamond only, back to the Derby's pose after", () => {
+    const { director } = setup();
+    const shot = { position: new Vector3(1, 2, 3), quaternion: new Quaternion() };
+    director.show("derby");
+    director.film(shot);
+    expectSamePose(director.frame(0).pose!, shot);
+    expect(director.frame(0).fovY).toBe(derby.fovY);
+    director.show("play");
+    expectSamePose(director.frame(0).pose!, play.pose);
+    director.show("derby");
+    director.film(null);
+    expectSamePose(director.frame(0).pose!, derby.pose);
+  });
+
   it("holds /rally's pose at /rally, the court's look full, in the game's field of view", () => {
     const { director } = setup();
     director.show("play");
