@@ -13,7 +13,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { HighlightId } from "@/content/site";
-import { worldArena } from "./arena";
+import { layoutArena } from "./arena";
 import { courtFootprint, layoutCourt } from "./court";
 import type { RallyCourt } from "./court-look";
 import { COURT } from "./court-size";
@@ -559,20 +559,23 @@ export function layoutLandmarks(): Landmarks {
   }
 
   /**
-   * The Arena: a concert arena in the world's light, ribs over an oval, a
-   * stage at its far end, the truss's lamps lit.
+   * The Arena: a horseshoe of lit seats under a canopy, its stage toward Hong
+   * Kong, standing out over the shore on lit braces (./arena).
    */
   function arena() {
-    const a = worldArena();
-    const { stage, bounds } = a;
-    out.bodies.push(stage.deck);
-    out.bands.push(stage.edge, ...stage.truss, ...stage.screens);
+    const a = layoutArena();
     out.solids.push(...a.solids);
-    out.rings.push(...a.wall);
-    out.strokes.push(...a.ribs.flat());
-    for (const [i, lamp] of stage.lights.entries()) {
-      out.glows.push({ ...lamp, color: palette.ink, size: 2.2, seed: i / 4 });
+    out.rings.push(...a.rings);
+    out.strokes.push(...a.strokes);
+    out.bodies.push(...a.posts);
+    out.glows.push(...a.seats);
+    for (const [i, lamp] of a.stage.lamps.entries()) {
+      out.glows.push({ ...lamp, color: palette.ink, size: 2.2, seed: i / 8 });
     }
+    for (const [i, lamp] of a.braceLights.entries()) {
+      out.glows.push({ ...lamp, color: palette.cyan, size: 2.6, seed: 0.5 + i / 16 });
+    }
+    const { bounds } = a;
     const w = bounds.x1 - bounds.x0;
     const d = bounds.z1 - bounds.z0;
     const cx = (bounds.x0 + bounds.x1) / 2;

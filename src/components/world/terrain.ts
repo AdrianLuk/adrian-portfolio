@@ -179,9 +179,73 @@ function peakRise(x: number, z: number, off: number) {
   return rise * line;
 }
 
+/**
+ * Where the Arena stands (./arena), seated in the valley's right wall beside
+ * Victoria Harbour: its middle `fromCentreLine` right of the valley's line
+ * at depth `z`, its floor at height `level`, its long axis aimed at Hong
+ * Kong's middle, and its footprint an oval `wide` across and `long` down
+ * that axis, either side of its middle (the horseshoe's outer tiers).
+ */
+export const ARENA_SITE = {
+  z: -1137,
+  fromCentreLine: 87.5,
+  level: 20,
+  wide: 47.3,
+  long: 63.9,
+} as const;
+
+/** The Arena's middle, and its axis: the way to Hong Kong's middle (./hong-kong), as a unit vector. */
+const ARENA_FRAME = (() => {
+  const x = valleyCentre(ARENA_SITE.z) + ARENA_SITE.fromCentreLine;
+  const toX = valleyCentre(-1230) - x;
+  const toZ = -1230 - ARENA_SITE.z;
+  const length = Math.hypot(toX, toZ);
+  return { x, z: ARENA_SITE.z, ax: toX / length, az: toZ / length };
+})();
+export const arenaFrame = () => ARENA_FRAME;
+
+/**
+ * How far out (x, z) lies from the Arena's middle, 1 on its footprint's edge
+ * (`out`), and how far along its axis, -1 at its open end toward Hong Kong
+ * and 1 at its closed curve (`along`).
+ */
+export function arenaReach(x: number, z: number) {
+  const { x: cx, z: cz, ax, az } = arenaFrame();
+  const toward = (x - cx) * ax + (z - cz) * az;
+  const across = -(x - cx) * az + (z - cz) * ax;
+  const along = -toward / ARENA_SITE.long;
+  return { out: Math.hypot(across / ARENA_SITE.wide, along), along };
+}
+
+/**
+ * The ground as the Arena leaves it, given the ground before: its seat cut
+ * level just under its floor inside its footprint; and from its middle to
+ * past its open end, under the overhang and out toward Hong Kong, the slope
+ * cleared down to near the shore's level, so its braces stand clear, the
+ * wall taking over again well clear of it. Nothing it doesn't reach moves.
+ */
+export function arenaGround(x: number, z: number, ground: number) {
+  const { out, along } = arenaReach(x, z);
+  if (out > 2.6) return ground;
+  let h = ground;
+  const front = smoothstep(0.5, -0.05, along);
+  // Never below the floor's usual dips: the harbour's water stands lower than those.
+  const cap = 4 - 3 * smoothstep(0.4, 1.2, out) + 80 * smoothstep(1.6, 2.6, out);
+  if (front > 0 && h > cap) h += (cap - h) * front;
+  const { level } = ARENA_SITE;
+  if (h <= level) return h;
+  const cut = level - 0.5;
+  return cut + (h - cut) * smoothstep(1, 1.05, out);
+}
+
 /** Terrain height at (x, z). The floor sits near 0; ridges climb to ~60. */
 export function valleyHeight(x: number, z: number) {
   return terrainHeight(x, z, true);
+}
+
+/** Terrain height at (x, z) before the Arena's seat was cut: what it moved, for its tests. */
+export function heightBeforeArena(x: number, z: number) {
+  return terrainHeight(x, z, true, false);
 }
 
 /** The lowest and highest ground under a w by d footprint centred on (x, z). */
@@ -230,7 +294,12 @@ export function heightShortOfHongKong(x: number, z: number) {
   return terrainHeight(x, z, false);
 }
 
-function terrainHeight(x: number, z: number, hongKong: boolean) {
+function terrainHeight(
+  x: number,
+  z: number,
+  hongKong: boolean,
+  arena = hongKong,
+) {
   const off = x - valleyCentre(z);
   const dx = Math.abs(off);
   const at = harbourAt(z);
@@ -250,8 +319,8 @@ function terrainHeight(x: number, z: number, hongKong: boolean) {
   // Far ranges keep climbing past the valley's walls.
   const ranges = 0.18 * Math.max(0, dx - w - 70);
   const walls = wallRise * wallRise * ridges + ranges;
-  const ground =
-    floor + (hongKong ? Math.max(walls, peakRise(x, z, off)) : walls);
+  const raw = floor + (hongKong ? Math.max(walls, peakRise(x, z, off)) : walls);
+  const ground = arena ? arenaGround(x, z, raw) : raw;
 
   // A harbour's basin, under its water.
   const water = harbour ? harbourWater(x, z, harbour) : 0;

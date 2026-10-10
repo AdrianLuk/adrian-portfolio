@@ -1,12 +1,23 @@
 import { PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { ARENA, layoutArena, worldArena } from "./arena";
+import {
+  ARENA,
+  inTiers,
+  layoutArena,
+  STAGE,
+  STRETCH,
+  tierEdge,
+  tierTop,
+  TIERS_SPAN,
+  UNDERSIDE,
+} from "./arena";
 import type { Pose } from "./flight";
+import { HONG_KONG_CENTRE } from "./hong-kong";
 import { nominalRoute } from "./nominal-route";
 import { FOG_DENSITY } from "./palette";
 import { CAMERA } from "./pose";
 import {
-  arenaPose,
+  arenaView,
   arenaWayIn,
   courtPose,
   hongKongPose,
@@ -17,148 +28,26 @@ import {
 } from "./route";
 import type { Box } from "./skyline";
 import { layoutStructures } from "./structures";
-import { surfaceHeight, valleyCentre, valleyHeight, waterAt } from "./terrain";
+import {
+  ARENA_SITE,
+  heightBeforeArena,
+  surfaceHeight,
+  valleyCentre,
+  valleyHeight,
+  waterAt,
+} from "./terrain";
 import { transitPath, transitWithin } from "./transit";
 
-const centre = { x: 100, z: -1100, level: 2 };
-const arena = layoutArena(centre);
-const top = (b: Box) => b.y + b.h / 2;
-
-/** How far out (x, z) lies from the Arena's middle, 1 on its oval. */
-const ovalAt = (x: number, z: number) =>
-  Math.hypot((x - centre.x) / ARENA.wide, (z - centre.z) / ARENA.long);
-
-describe("the Arena", () => {
-  it("is an oval, longer down the valley than across, ringed by a low wall of light", () => {
-    expect(ARENA.long).toBeGreaterThan(1.5 * ARENA.wide);
-    expect(arena.wall.length).toBeGreaterThanOrEqual(2);
-    for (const ring of arena.wall) {
-      expect(ring.outline!.length).toBeGreaterThan(24);
-      for (const [x, z] of ring.outline!) {
-        expect(ovalAt(ring.x + x, ring.z + z)).toBeCloseTo(1, 1);
-      }
-      expect(ring.y + ring.h / 2).toBeLessThanOrEqual(centre.level + ARENA.wall + 1e-6);
-    }
-  });
-
-  it("roofs it with ribs of light only: arches across it, each spanning wall to wall over the floor, no panels and no hex cells", () => {
-    expect(arena.ribs.length).toBeGreaterThanOrEqual(6);
-    for (const rib of arena.ribs) {
-      // Every stroke lies across the Arena, in one upright plane.
-      const z = rib[0].from[2];
-      for (const s of rib) {
-        expect(s.facing).toEqual([0, 1]);
-        expect(s.from[2]).toBeCloseTo(z);
-        expect(s.to[2]).toBeCloseTo(z);
-      }
-      // From the wall's top on one side, over the middle, to the other.
-      const [start, end] = [rib[0].from, rib.at(-1)!.to];
-      expect(ovalAt(start[0], z)).toBeCloseTo(1, 2);
-      expect(ovalAt(end[0], z)).toBeCloseTo(1, 2);
-      expect(Math.sign(start[0] - centre.x)).toBe(-Math.sign(end[0] - centre.x));
-      expect(start[1]).toBeCloseTo(centre.level + ARENA.wall);
-      const crown = Math.max(...rib.map((s) => s.from[1]));
-      expect(crown).toBeGreaterThan(centre.level + ARENA.wall + 2);
-    }
-    // Nothing solid over the floor: the only solid is the floor itself.
-    for (const s of arena.solids) {
-      expect(s.y + s.h).toBeLessThanOrEqual(centre.level + 0.1);
-    }
-  });
-
-  it("raises a stage at its far end, down the valley: a deck, a lit truss and screens, past the last rib", () => {
-    const { deck, truss, screens } = arena.stage;
-    // In the far quarter of the oval, and inside it.
-    for (const b of [deck, ...truss, ...screens]) {
-      expect(b.z).toBeLessThan(centre.z - ARENA.long / 2);
-      for (const u of [-1, 1]) {
-        for (const v of [-1, 1]) {
-          expect(ovalAt(b.x + (u * b.w) / 2, b.z + (v * b.d) / 2)).toBeLessThan(1);
-        }
-      }
-      expect(b.y - b.h / 2).toBeGreaterThanOrEqual(centre.level - 1e-6);
-    }
-    expect(truss.length).toBeGreaterThanOrEqual(4);
-    expect(screens.length).toBeGreaterThanOrEqual(1);
-    // The truss stands over the deck, the screens face up the valley above it.
-    expect(Math.max(...truss.map(top))).toBeGreaterThan(top(deck) + 3);
-    for (const s of screens) {
-      expect(s.w).toBeGreaterThan(s.d * 5);
-      expect(s.y - s.h / 2).toBeGreaterThan(top(deck));
-    }
-    // Open to the sky over the stage: every rib stands short of its deck.
-    for (const rib of arena.ribs) {
-      expect(rib[0].from[2]).toBeGreaterThan(deck.z + deck.d / 2 + 1);
-    }
-  });
-
-  it("lays its floor level on a plinth, its bounds taking in the whole of it", () => {
-    const { floor, bounds } = arena;
-    expect(floor.y + floor.h).toBeCloseTo(centre.level);
-    expect(bounds.x1 - bounds.x0).toBeCloseTo(2 * ARENA.wide, 0);
-    expect(bounds.z1 - bounds.z0).toBeCloseTo(2 * ARENA.long, 0);
-    const crown = Math.max(...arena.ribs.flat().map((s) => s.from[1]));
-    expect(bounds.top).toBeGreaterThanOrEqual(crown);
-  });
-});
-
+const arena = layoutArena();
+const { level } = arena;
 const { buildings, masts, landmarks, skyline, hongKong } = layoutStructures();
 const arenaBox = landmarks.arena;
-const built = worldArena();
 
-describe("the Arena in the world", () => {
-  it("stands past the Diamond, down the valley, across the valley from BT Cup's bowl and well away from it", () => {
-    const { diamond } = landmarks;
-    expect(arenaBox.z + arenaBox.d / 2).toBeLessThan(diamond.z - diamond.d / 2);
-    const bowl = landmarks.bounds[SITES.findIndex((s) => s.highlight === "bt-cup")];
-    const side = (b: Box) => Math.sign(b.x - valleyCentre(b.z));
-    expect(side(arenaBox)).toBe(-side(bowl));
-    expect(Math.hypot(arenaBox.x - bowl.x, arenaBox.z - bowl.z)).toBeGreaterThan(100);
-  });
-
-  it("stands inland of Victoria Harbour, 4 or more clear of its water, on ground level enough for its plinth", () => {
-    const { x0, x1, z0, z1 } = built.bounds;
-    for (let z = z0 - 4; z <= z1 + 4; z += 0.5) {
-      for (let x = x0 - 4; x <= x1 + 4; x += 0.5) {
-        expect(waterAt(x, z), `at ${x}, ${z}`).toBe(0);
-      }
-    }
-    // Over the whole oval, its rim and in.
-    const heights: number[] = [];
-    for (let r = 0; r <= 1; r += 0.1) {
-      for (let t = 0; t < 2 * Math.PI; t += 0.1) {
-        const x = arenaBox.x + r * ARENA.wide * Math.cos(t);
-        const z = arenaBox.z + r * ARENA.long * Math.sin(t);
-        heights.push(valleyHeight(x, z));
-      }
-    }
-    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(4);
-    expect(built.level).toBeGreaterThan(Math.max(...heights));
-  });
-
-  it("keeps clear of every tower, Landmark, the Diamond, the skyline and Hong Kong", () => {
-    const overlaps = (a: Box, b: Box) =>
-      Math.abs(a.x - b.x) < (a.w + b.w) / 2 &&
-      Math.abs(a.z - b.z) < (a.d + b.d) / 2;
-    for (const other of [
-      ...buildings,
-      ...masts,
-      ...landmarks.bounds,
-      landmarks.diamond,
-      ...skyline.bounds,
-      ...hongKong.bounds,
-    ]) {
-      expect(overlaps(arenaBox, other)).toBe(false);
-    }
-  });
-
-  it("is built into the world's light: its ribs among the landmarks' strokes, its stage among their parts", () => {
-    expect(landmarks.strokes).toEqual(expect.arrayContaining(built.ribs.flat()));
-    expect(landmarks.parts).toEqual(
-      expect.arrayContaining([built.stage.deck, ...built.stage.truss, ...built.stage.screens]),
-    );
-  });
-});
+/** A point in the Arena's frame: across (lx), along its axis (lz), its radius on the oval and its angle. */
+function framed(x: number, z: number) {
+  const [lx, lz] = arena.toLocal(x, z);
+  return { lx, lz, r: Math.hypot(lx, lz / STRETCH), a: Math.atan2(lx, lz / STRETCH) };
+}
 
 /** Every screen shape the court's poses are tested for, phone first. */
 const shapes = {
@@ -171,8 +60,178 @@ const shapes = {
   ultrawide: 2.4,
 };
 
+describe("the Arena", () => {
+  it("is a horseshoe longer down its axis than across: tiers round its closed curve, the open end left to the stage", () => {
+    expect(STRETCH).toBeGreaterThan(1.2);
+    const span = TIERS_SPAN.to - TIERS_SPAN.from;
+    expect(span).toBeLessThan(2 * Math.PI - 1);
+    expect(inTiers(0)).toBe(true);
+    expect(inTiers(Math.PI)).toBe(false);
+    // Every tier's every corner in the span, from the floor's edge out to the footprint's.
+    for (const tier of arena.tiers) {
+      for (const [lx, lz] of tier.sections![0].outline) {
+        const r = Math.hypot(lx, lz / STRETCH);
+        expect(r).toBeGreaterThanOrEqual(ARENA.floor - 1e-6);
+        expect(r).toBeLessThanOrEqual(ARENA_SITE.wide + 1e-6);
+        expect(inTiers(Math.atan2(lx, lz / STRETCH))).toBe(true);
+      }
+    }
+    // Stepping up row by row, a stadium's worth of them.
+    expect(ARENA.tiers).toBeGreaterThanOrEqual(10);
+    for (let i = 1; i < ARENA.tiers; i++) {
+      expect(tierTop(i)).toBeGreaterThan(tierTop(i - 1));
+      expect(tierEdge(i)).toBeGreaterThan(tierEdge(i - 1));
+    }
+    expect(arena.seats.length).toBeGreaterThan(500);
+  });
+
+  it("closes the open end with a stage facing up the axis: a deck, an LED wall on the axis, a truss over it, a runway out to a B-stage", () => {
+    const { deck, runway, screen, truss, front } = arena.stage;
+    // The deck across the open end, on the floor's end of the axis.
+    expect(front).toBeLessThan(0);
+    expect(front).toBeGreaterThan(-ARENA.floor * STRETCH);
+    expect(deck.sections![1].h).toBeCloseTo(STAGE.deck);
+    // The LED wall's middle on the axis, behind the deck's front, facing up the axis.
+    const mid = [(screen.from[0] + screen.to[0]) / 2, (screen.from[2] + screen.to[2]) / 2];
+    const { lx, lz } = framed(mid[0], mid[1]);
+    expect(Math.abs(lx)).toBeLessThan(1e-6);
+    expect(lz).toBeLessThan(front);
+    const [fx, fz] = screen.facing;
+    const toCurve = arena.facing(0, 1);
+    expect(fx * toCurve[0] + fz * toCurve[1]).toBeCloseTo(1);
+    // The truss stands over the deck, higher than the wall's top.
+    expect(Math.max(...truss.map((s) => Math.max(s.from[1], s.to[1])))).toBeGreaterThan(
+      screen.from[1] + screen.width / 2,
+    );
+    // The runway runs from the deck's front out into the crowd, to the B-stage.
+    const run = runway.sections![0].outline.map(([, z]) => z);
+    expect(Math.min(...run)).toBeCloseTo(front);
+    const b = framed(arena.stage.bStage.x, arena.stage.bStage.z);
+    expect(b.lz).toBeGreaterThan(Math.max(...run));
+    expect(b.r).toBeLessThan(ARENA.floor);
+  });
+
+  it("covers its seats with a canopy, leaving the floor open to the sky", () => {
+    const { inner } = arena.canopyEdges;
+    expect(inner).toBeGreaterThan(ARENA.floor + 5);
+    for (const sheet of arena.canopy) {
+      expect(sheet.y).toBeGreaterThan(level + tierTop(ARENA.tiers - 1));
+      for (const [lx, lz] of sheet.sections![0].outline) {
+        expect(Math.hypot(lx, lz / STRETCH)).toBeGreaterThanOrEqual(inner - 1e-6);
+      }
+    }
+    expect(arena.posts).toHaveLength(13);
+  });
+
+  it("stands out over the shore on braces: each rising from the hillside or the ground below to the underside's rim", () => {
+    expect(arena.braces.length).toBeGreaterThanOrEqual(3);
+    for (const brace of arena.braces) {
+      const [foot, head] = brace.sections!;
+      const footGround = valleyHeight(brace.x, brace.z);
+      // Its foot sunk into the ground under it, its head at the underside.
+      expect(brace.y).toBeLessThanOrEqual(footGround);
+      expect(brace.y + head.h).toBeCloseTo(level - UNDERSIDE);
+      // The head out at the rim, standing well clear of the slope under it.
+      const [hx, hz] = head.outline
+        .reduce(([sx, sz], [x, z]) => [sx + x / 4, sz + z / 4], [0, 0])
+        .map((v, k) => v + (k === 0 ? brace.x : brace.z));
+      expect(valleyHeight(hx, hz)).toBeLessThan(level - UNDERSIDE - 4);
+      expect(foot.outline).toHaveLength(4);
+    }
+  });
+});
+
+describe("the Arena in the world", () => {
+  it("stands in the valley's right wall past the Diamond, beside Victoria Harbour, away from BT Cup's bowl", () => {
+    const { x, z } = arena;
+    expect(x - valleyCentre(z)).toBeGreaterThan(36);
+    const { diamond } = landmarks;
+    expect(z).toBeLessThan(diamond.z - diamond.d / 2);
+    // Within reach of the harbour's water: some of it within 30 of the footprint.
+    let near = Infinity;
+    for (let wz = z - 120; wz <= z + 120; wz += 2) {
+      for (let wx = x - 120; wx <= x + 120; wx += 2) {
+        if (waterAt(wx, wz) === 0) continue;
+        const { r } = framed(wx, wz);
+        near = Math.min(near, r - ARENA_SITE.wide);
+      }
+    }
+    expect(near).toBeLessThan(30);
+    const bowl = landmarks.bounds[SITES.findIndex((s) => s.highlight === "bt-cup")];
+    expect(Math.hypot(bowl.x - x, bowl.z - z)).toBeGreaterThan(150);
+  });
+
+  it("is aimed at Hong Kong: its axis, from the curve to the stage, points at the city's middle", () => {
+    const [toStageX, toStageZ] = arena.facing(0, -1);
+    const dx = HONG_KONG_CENTRE.x - arena.x;
+    const dz = HONG_KONG_CENTRE.z - arena.z;
+    const cos = (toStageX * dx + toStageZ * dz) / Math.hypot(dx, dz);
+    expect(cos).toBeCloseTo(1);
+  });
+
+  it("sits in its seat: the ground under its floor and tiers cut below the underside", () => {
+    for (let r = 0; r <= ARENA_SITE.wide; r += 2) {
+      for (let a = 0; a < 2 * Math.PI; a += 0.1) {
+        if (r > ARENA.floor && !inTiers(a)) continue;
+        const [x, z] = arena.toWorld(Math.sin(a) * r, Math.cos(a) * r * STRETCH);
+        expect(valleyHeight(x, z), `at ${r}, ${a}`).toBeLessThan(level);
+      }
+    }
+  });
+
+  it("clears the ground under its overhang and past its open end, so the braces stand clear", () => {
+    // Under the front half's rim, the ground falls well below the underside.
+    for (let a = Math.PI / 2 + 0.2; a < (3 * Math.PI) / 2 - 0.2; a += 0.1) {
+      const r = inTiers(a) ? ARENA_SITE.wide : ARENA.floor;
+      const [x, z] = arena.toWorld(Math.sin(a) * r, Math.cos(a) * r * STRETCH);
+      expect(valleyHeight(x, z), `at ${a}`).toBeLessThan(level - UNDERSIDE - 8);
+    }
+  });
+
+  it("moves no other ground: under every tower, Landmark and Hong Kong's buildings, the ground is as it was", () => {
+    const others = [
+      ...buildings,
+      ...masts,
+      ...landmarks.bounds,
+      landmarks.diamond,
+      ...skyline.bounds,
+      ...hongKong.bounds,
+    ];
+    for (const b of others) {
+      for (const u of [-0.5, 0, 0.5]) {
+        for (const v of [-0.5, 0, 0.5]) {
+          const x = b.x + u * b.w;
+          const z = b.z + v * b.d;
+          expect(valleyHeight(x, z)).toBe(heightBeforeArena(x, z));
+        }
+      }
+    }
+  });
+
+  it("keeps clear of every tower, Landmark, the Diamond, the skyline and Hong Kong", () => {
+    const overlaps = (a: Box, b: Box) =>
+      Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.z - b.z) < (a.d + b.d) / 2;
+    for (const other of [
+      ...buildings,
+      ...masts,
+      ...landmarks.bounds,
+      landmarks.diamond,
+      ...skyline.bounds,
+      ...hongKong.bounds,
+    ]) {
+      expect(overlaps(arenaBox, other)).toBe(false);
+    }
+  });
+
+  it("is built into the world's light: its tiers among the landmarks' solids, its stage among their strokes", () => {
+    expect(landmarks.solids).toEqual(expect.arrayContaining(arena.tiers));
+    expect(landmarks.strokes).toEqual(expect.arrayContaining(arena.strokes));
+    expect(landmarks.rings).toEqual(expect.arrayContaining(arena.rings));
+  });
+});
+
 /** True if `p` is within `margin` of the box. */
-function near(p: Pose["position"], b: Box, margin: number) {
+function near(p: Vector3, b: Box, margin: number) {
   return (
     Math.abs(p.x - b.x) < b.w / 2 + margin &&
     Math.abs(p.y - b.y) < b.h / 2 + margin &&
@@ -181,8 +240,8 @@ function near(p: Pose["position"], b: Box, margin: number) {
 }
 
 /** A camera at `pose`, for a screen of this shape. */
-function cameraAt(pose: Pose, aspect: number) {
-  const camera = new PerspectiveCamera(CAMERA.fovY, aspect, 0.5, 2600);
+function cameraAt(pose: Pose, aspect: number, fovY: number = CAMERA.fovY) {
+  const camera = new PerspectiveCamera(fovY, aspect, 0.5, 2600);
   camera.position.copy(pose.position);
   camera.quaternion.copy(pose.quaternion);
   camera.updateMatrixWorld();
@@ -190,57 +249,16 @@ function cameraAt(pose: Pose, aspect: number) {
 }
 
 /** Where `point` lands on the screen of a camera at `pose`, in NDC (z < 1 in front). */
-const project = (pose: Pose, aspect: number, point: Vector3) =>
-  point.clone().project(cameraAt(pose, aspect));
+const project = (pose: Pose, aspect: number, point: Vector3, fovY?: number) =>
+  point.clone().project(cameraAt(pose, aspect, fovY));
 
-/** The Arena's middle, halfway up its ribs. */
-const middle = new Vector3(
-  arenaBox.x,
-  (built.level + built.bounds.top) / 2,
-  arenaBox.z,
-);
-
-/** A box's corners. */
-const corners = (b: Box) =>
-  [-1, 1].flatMap((u) =>
-    [-1, 1].flatMap((v) =>
-      [-1, 1].map(
-        (w) => new Vector3(b.x + (u * b.w) / 2, b.y + (v * b.h) / 2, b.z + (w * b.d) / 2),
-      ),
-    ),
-  );
-
-/** Every point of the Arena's silhouette: its wall's rim, foot to top, its ribs and its stage. */
-const silhouette = [
-  ...built.wall[0].outline!.flatMap(([x, z]) =>
-    [built.level, built.level + ARENA.wall].map(
-      (y) => new Vector3(built.wall[0].x + x, y, built.wall[0].z + z),
-    ),
-  ),
-  ...built.ribs.flat().map((s) => new Vector3(...s.from)),
-  ...[built.stage.deck, ...built.stage.truss, ...built.stage.screens].flatMap(corners),
-];
-
-/** The screen rectangle (NDC) the points in front of the camera cover. */
-function spread(pose: Pose, aspect: number, points: Vector3[]) {
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const point of points) {
-    const p = project(pose, aspect, point);
-    if (p.z >= 1) continue;
-    xs.push(p.x);
-    ys.push(p.y);
-  }
-  return {
-    x0: Math.min(...xs),
-    x1: Math.max(...xs),
-    y0: Math.min(...ys),
-    y1: Math.max(...ys),
-  };
-}
-
-/** The top of the Arena's middle rib. */
-const crown = middle.clone().setY(built.bounds.top);
+/** The Arena's middle, halfway up its tiers. */
+const middle = new Vector3(arena.x, level + tierTop(ARENA.tiers - 1) / 2, arena.z);
+/** The top of its canopy over its curve's end. */
+const crown = (() => {
+  const [x, z] = arena.toWorld(0, ARENA_SITE.long);
+  return new Vector3(x, arena.bounds.top, z);
+})();
 
 /** True if the ground rises between `from` and `to`, hiding one from the other. */
 function hidden(from: Vector3, to: Vector3) {
@@ -249,6 +267,26 @@ function hidden(from: Vector3, to: Vector3) {
     if (valleyHeight(p.x, p.z) > p.y) return true;
   }
   return false;
+}
+
+/** Points round the Arena's silhouette: its rim, top and foot, its canopy's edge, the stage's truss. */
+const silhouette = [
+  ...Array.from({ length: 48 }, (_, i) => {
+    const a = TIERS_SPAN.from + ((TIERS_SPAN.to - TIERS_SPAN.from) * i) / 47;
+    const [x, z] = arena.toWorld(Math.sin(a) * ARENA_SITE.wide, Math.cos(a) * ARENA_SITE.wide * STRETCH);
+    return [new Vector3(x, level - UNDERSIDE, z), new Vector3(x, arena.bounds.top, z)];
+  }).flat(),
+  ...arena.stage.truss.flatMap((s) => [new Vector3(...s.from), new Vector3(...s.to)]),
+];
+
+/** The screen rectangle (NDC) the points in front of the camera cover. */
+function spread(pose: Pose, aspect: number, points: Vector3[]) {
+  const xs: number[] = [];
+  for (const point of points) {
+    const p = project(pose, aspect, point);
+    if (p.z < 1) xs.push(p.x);
+  }
+  return { x0: Math.min(...xs), x1: Math.max(...xs) };
 }
 
 describe("home's camera and the Arena", () => {
@@ -261,8 +299,7 @@ describe("home's camera and the Arena", () => {
 
       it("keeps 3 clear of it all along home's scroll route, at every Place and through every Transit", () => {
         for (let s = 0; s <= ROUTE_STOPS - 1; s += 0.01) {
-          const { position } = route.poseAt(s);
-          expect(near(position, arenaBox, 3), `at stop ${s.toFixed(2)}`).toBe(false);
+          expect(near(route.poseAt(s).position, arenaBox, 3), `at stop ${s.toFixed(2)}`).toBe(false);
         }
         const stops = Array.from({ length: ROUTE_STOPS }, (_, i) => i);
         const ends = [...stops, court, skyline];
@@ -285,12 +322,12 @@ describe("home's camera and the Arena", () => {
         }
       });
 
-      it("never frames it at a stop: out of frame, behind the valley's walls, or beyond the stop's site, a glimpse in the haze or across the frame from the site, behind its panel", () => {
+      it("never frames it at a stop: out of frame, behind the valley's walls, or beyond the stop's site, a glimpse in the haze or behind the stop's panel", () => {
         for (let stop = 0; stop < ROUTE_STOPS; stop++) {
           const pose = route.poseAt(stop);
           const { x, y, z } = project(pose, aspect, middle);
           const inFrame = z < 1 && Math.abs(x) < 1 && Math.abs(y) < 1;
-          if (!inFrame || hidden(pose.position, crown)) continue;
+          if (!inFrame || (hidden(pose.position, middle) && hidden(pose.position, crown))) continue;
           // The settled view and Hong Kong's frame nothing beside their own.
           const site = SITES[stop - 1];
           expect(site, `in view at stop ${stop}`).toBeDefined();
@@ -298,10 +335,17 @@ describe("home's camera and the Arena", () => {
           expect(distance).toBeGreaterThan(pose.position.distanceTo(site.position));
           const fog = 1 - Math.exp(-((distance * FOG_DENSITY) ** 2));
           if (fog >= 0.5) {
-            // Half lost in the haze: under a tenth of the frame across, or at its edge.
+            // Half lost in the haze: under a fifth of the frame across, at its
+            // edge, or (on a wide screen) all of it behind the stop's panel,
+            // which stands opposite the site, short of where the site is framed
+            // (0.45 across, ./route).
             const across = spread(pose, aspect, silhouette);
-            const glimpse = across.x1 - across.x0 < 0.2 || Math.abs(x) >= 0.45;
-            expect(glimpse, `at stop ${stop}`).toBe(true);
+            const reach = site.side > 0 ? across.x1 : -across.x0;
+            const glimpse =
+              across.x1 - across.x0 < 0.4 ||
+              Math.abs(x) >= 0.45 ||
+              (aspect >= 1 && reach < 0.37);
+            expect(glimpse, `at stop ${stop}: ${JSON.stringify({ x, fog, across })}`).toBe(true);
           } else {
             // Clear of the haze: off the middle, on the panel's side (a
             // wide screen's panel stands opposite its site).
@@ -311,68 +355,97 @@ describe("home's camera and the Arena", () => {
         }
       });
 
-      it("leaves home's closing view to Hong Kong: not a corner of it in frame", () => {
+      it("leaves home's closing view to Hong Kong: none of it in frame", () => {
         const pose = route.poseAt(ROUTE_STOPS - 1);
-        const { x0, x1, z0, z1, top } = built.bounds;
-        for (const px of [x0, x1]) {
-          for (const pz of [z0, z1]) {
-            for (const py of [built.level, top]) {
-              const { x, y, z } = project(pose, aspect, new Vector3(px, py, pz));
-              expect(z < 1 && Math.abs(x) < 1 && Math.abs(y) < 1).toBe(false);
-            }
-          }
+        for (const point of silhouette) {
+          const { x, y, z } = project(pose, aspect, point);
+          expect(z < 1 && Math.abs(x) < 1 && Math.abs(y) < 1).toBe(false);
         }
       });
     });
   }
 });
 
-/** How far out (x, z) lies from the world's Arena's middle, 1 on its oval. */
-const inOval = (x: number, z: number) =>
-  Math.hypot((x - built.x) / ARENA.wide, (z - built.z) / ARENA.long);
-
-/** How far `p` is from the segment from `a` to `b`. */
-function fromSegment(p: Vector3, a: readonly number[], b: readonly number[]) {
-  const from = new Vector3(...a);
-  const along = new Vector3(...b).sub(from);
-  const t = Math.min(1, Math.max(0, p.clone().sub(from).dot(along) / along.lengthSq()));
-  return p.distanceTo(from.add(along.multiplyScalar(t)));
+/**
+ * How far `p` stands clear of the Arena's tiers, floor and canopy (negative
+ * if inside them), and whether it is over the Arena at all.
+ */
+function clearOfArena(p: Vector3) {
+  const { r, a } = framed(p.x, p.z);
+  const { inner, edge } = arena.canopyEdges;
+  let clear = Infinity;
+  if (r <= ARENA.floor) clear = p.y - level;
+  else if (r <= ARENA_SITE.wide && inTiers(a)) {
+    const i = Math.min(ARENA.tiers - 1, Math.floor((r - ARENA.floor) / ((ARENA_SITE.wide - 1 - ARENA.floor) / ARENA.tiers)));
+    clear = p.y - (level + tierTop(i));
+  }
+  if (r >= inner && r <= edge && inTiers(a)) {
+    const below = level + arena.canopyY - p.y;
+    const above = p.y - (level + arena.canopyY + 0.6);
+    clear = Math.min(clear, Math.max(below, above));
+  }
+  return clear;
 }
 
-/** How far `p` is from the nearest of the Arena's ribs. */
-const fromRibs = (p: Vector3) =>
-  Math.min(...built.ribs.flat().map((s) => fromSegment(p, s.from, s.to)));
+/** The stage's truss, deck and screens as one box in the Arena's frame: true if `p` is within `margin` of it. */
+function nearStage(p: Vector3, margin: number) {
+  const { lx, lz } = framed(p.x, p.z);
+  const { front } = arena.stage;
+  return (
+    Math.abs(lx) < STAGE.width / 2 + 0.3 + margin &&
+    lz > front - STAGE.depth - margin &&
+    lz < front + margin &&
+    p.y < level + STAGE.truss + 0.3 + margin
+  );
+}
 
-const stageParts = [built.stage.deck, built.stage.edge, ...built.stage.truss, ...built.stage.screens];
-
-describe("the Arena's inside pose", () => {
-  const pose = arenaPose();
-  const { position } = pose;
-
-  it("stands inside, behind the crowd's floor, raised over it", () => {
-    expect(inOval(position.x, position.z)).toBeLessThan(0.8);
-    expect(position.z).toBeGreaterThan(arenaBox.z);
-    expect(position.y - built.level).toBeGreaterThan(2.5);
-    expect(position.y - valleyHeight(position.x, position.z)).toBeGreaterThan(2.5);
-  });
-
-  it("keeps 3 clear of the ribs and the stage", () => {
-    expect(fromRibs(position)).toBeGreaterThan(3);
-    for (const b of stageParts) expect(near(position, b, 3)).toBe(false);
-  });
-
+describe("the Arena's inside view", () => {
   for (const [name, aspect] of Object.entries(shapes)) {
-    it(`faces the stage on a ${name}: its main screen in the middle, the whole stage in frame`, () => {
-      const main = built.stage.screens[0];
-      const { x, y } = project(pose, aspect, new Vector3(main.x, main.y, main.z));
-      expect(Math.abs(x)).toBeLessThan(0.05);
-      expect(Math.abs(y)).toBeLessThan(0.3);
-      for (const point of [built.stage.deck, ...built.stage.truss, ...built.stage.screens].flatMap(corners)) {
-        const p = project(pose, aspect, point);
+    describe(name, () => {
+      const { pose, fovY } = arenaView(aspect);
+      const { position } = pose;
+
+      it("stands up the back tiers behind the crowd, over the seats, under the open sky", () => {
+        const { r, a, lz } = framed(position.x, position.z);
+        expect(lz).toBeGreaterThan(ARENA.floor * STRETCH * 0.9);
+        expect(inTiers(a)).toBe(true);
+        expect(r).toBeLessThan(arena.canopyEdges.inner - 3);
+        expect(clearOfArena(position)).toBeGreaterThan(3);
+        expect(nearStage(position, 3)).toBe(false);
+        expect(position.y - valleyHeight(position.x, position.z)).toBeGreaterThan(3);
+      });
+
+      it("faces the stage, the LED wall in the middle and the whole stage in frame, with Hong Kong behind it", () => {
+        const { screen, truss, deck } = arena.stage;
+        const mid = new Vector3(
+          (screen.from[0] + screen.to[0]) / 2,
+          screen.from[1],
+          (screen.from[2] + screen.to[2]) / 2,
+        );
+        const at = project(pose, aspect, mid, fovY);
+        expect(Math.abs(at.x)).toBeLessThan(0.05);
+        expect(Math.abs(at.y)).toBeLessThan(0.3);
+        const corners = [
+          ...truss.flatMap((s) => [new Vector3(...s.from), new Vector3(...s.to)]),
+          ...deck.sections![0].outline.map(([lx, lz]) => {
+            const [x, z] = arena.toWorld(lx, lz);
+            return new Vector3(x, level, z);
+          }),
+        ];
+        for (const point of corners) {
+          const p = project(pose, aspect, point, fovY);
+          expect(p.z).toBeLessThan(1);
+          expect(Math.abs(p.x)).toBeLessThan(1);
+          expect(Math.abs(p.y)).toBeLessThan(1);
+        }
+        // Hong Kong's middle, its towers' height, in frame beyond the stage.
+        const city = new Vector3(HONG_KONG_CENTRE.x, 30, HONG_KONG_CENTRE.z);
+        const p = project(pose, aspect, city, fovY);
         expect(p.z).toBeLessThan(1);
-        expect(Math.abs(p.x)).toBeLessThan(1);
+        expect(Math.abs(p.x)).toBeLessThan(0.3);
         expect(Math.abs(p.y)).toBeLessThan(1);
-      }
+        expect(position.distanceTo(city)).toBeGreaterThan(position.distanceTo(mid));
+      });
     });
   }
 });
@@ -383,11 +456,11 @@ describe("the way into the Arena from home's route's end", () => {
       const way = arenaWayIn(aspect);
       const samples = Array.from({ length: 401 }, (_, i) => way.poseAt(i / 400));
 
-      it("leaves from the route's end, Hong Kong's view, and lands on the inside pose, without a jump", () => {
+      it("leaves from the route's end, Hong Kong's view, and lands on the inside view, without a jump", () => {
         const end = hongKongPose(aspect);
         expect(samples[0].position.distanceTo(end.position)).toBeCloseTo(0);
         expect(samples[0].quaternion.angleTo(end.quaternion)).toBeCloseTo(0);
-        const inside = arenaPose();
+        const inside = arenaView(aspect).pose;
         expect(samples.at(-1)!.position.distanceTo(inside.position)).toBeCloseTo(0);
         expect(samples.at(-1)!.quaternion.angleTo(inside.quaternion)).toBeCloseTo(0);
         for (let i = 1; i < samples.length; i++) {
@@ -396,21 +469,16 @@ describe("the way into the Arena from home's route's end", () => {
         }
       });
 
-      it("threads the ribs, a unit or more clear of every one, and comes in over the wall", () => {
-        for (const { position } of samples) {
-          expect(fromRibs(position)).toBeGreaterThan(1);
-          // Within 2 of the oval's wall, over its top.
-          const out = inOval(position.x, position.z);
-          if (out > 0.85 && out < 1.15) {
-            expect(position.y).toBeGreaterThan(built.level + ARENA.wall + 0.5);
-          }
+      it("keeps 2 clear of the tiers, the canopy and the stage, coming down into the open middle", () => {
+        for (const [i, { position }] of samples.entries()) {
+          expect(clearOfArena(position), `at ${i}`).toBeGreaterThan(2);
+          expect(nearStage(position, 2), `at ${i}`).toBe(false);
         }
       });
 
-      it("keeps 2 clear of the stage, the Diamond, every Landmark and tower, and the ground and water", () => {
+      it("keeps 2 clear of the Diamond, every Landmark and tower, and the ground and water", () => {
         for (const { position } of samples) {
-          // The stage is among the Landmarks' parts.
-          for (const b of [landmarks.diamond, ...landmarks.parts, ...buildings, ...masts]) {
+          for (const b of [landmarks.diamond, ...landmarks.parts, ...buildings, ...masts, ...hongKong.bounds]) {
             expect(near(position, b, 2)).toBe(false);
           }
           expect(position.y - surfaceHeight(position.x, position.z)).toBeGreaterThan(2);
