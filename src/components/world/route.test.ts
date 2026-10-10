@@ -1,5 +1,6 @@
 import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
+import { HOME_SCROLL_ROUTE } from "../lit-sites";
 import { courtFootprint } from "./court";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
@@ -9,9 +10,12 @@ import {
   createRoute,
   DERBY_FRAME,
   derbyView,
+  DIAMOND_MIDDLE,
+  DIAMOND_STOP,
   fieldPoint,
   HONG_KONG,
   hongKongPose,
+  PANEL_STOPS,
   PLAY_FRAME,
   playView,
   ROUTE_STOPS,
@@ -74,6 +78,11 @@ const layouts = {
 };
 
 describe("the scroll route", () => {
+  it("tells the panels which side each of their stops stands: each Lit site's, then the Diamond's, on the right", () => {
+    expect(HOME_SCROLL_ROUTE.sides).toEqual([...SITES.map((s) => s.side), 1]);
+    expect(PANEL_STOPS.map((s) => s.side)).toEqual(HOME_SCROLL_ROUTE.sides);
+  });
+
   for (const [name, { settled, plateCentre, aspect }] of Object.entries(
     layouts,
   )) {
@@ -105,6 +114,19 @@ describe("the scroll route", () => {
           }
           expect(clearView(pose.position, site.position)).toBe(true);
         });
+      });
+
+      it("stops for the Diamond after the last site, before Hong Kong: right of its panel on a wide screen, centred on a narrow one", () => {
+        expect(DIAMOND_STOP).toBe(SITES.length + 1);
+        expect(ROUTE_STOPS - 1).toBe(DIAMOND_STOP + 1);
+        const pose = route.poseAt(DIAMOND_STOP);
+        const { x, y, z } = onScreen(pose, DIAMOND_MIDDLE, aspect);
+        expect(z, "in front of the camera").toBeLessThan(1);
+        // At the Highlights' offset (0.45 across) on a wide screen.
+        if (aspect >= 1) expect(x).toBeCloseTo(0.45, 1);
+        else expect(Math.abs(x)).toBeLessThan(0.01);
+        expect(Math.abs(y)).toBeLessThan(0.6);
+        expect(clearView(pose.position, DIAMOND_MIDDLE)).toBe(true);
       });
 
       /** Poses every hundredth of a stop, the whole way. */

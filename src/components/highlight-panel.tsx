@@ -10,15 +10,45 @@ import { glowsLit, metaLine, textLink } from "@/app/styles";
 import { litSite, type LitSite } from "./lit-sites";
 import { Recording } from "./recording";
 
-/** The second link, a play button: in the court's violet, as ember is the page's primary action's alone. */
-const playButton = `inline-flex items-center gap-2 rounded-full border-2 border-violet/80 bg-night/60 px-5 py-2.5 font-display text-sm font-bold tracking-widest text-ink uppercase [font-stretch:90%] hover:border-violet hover:bg-violet/20 ${glowsLit}`;
+/**
+ * A play button, into a game: one shape in its Place's light, the court's
+ * violet for the Rally game and the Diamond's cyan for the Derby, as ember
+ * is the page's primary action's alone. Written out in full, so Tailwind
+ * finds the classes.
+ */
+const playShape = `inline-flex items-center gap-2 rounded-full border-2 bg-night/60 px-5 py-2.5 font-display text-sm font-bold tracking-widest text-ink uppercase [font-stretch:90%] ${glowsLit}`;
+const playButtons: Record<LitSite["light"], string> = {
+  cyan: `${playShape} border-cyan/80 hover:border-cyan hover:bg-cyan/20`,
+  violet: `${playShape} border-violet/80 hover:border-violet hover:bg-violet/20`,
+};
+
+/** A play button into a game, in `light`. Not prefetched: that would load the game's code on home. */
+export function PlayButton({
+  link,
+  light,
+}: {
+  link: { label: string; href: string };
+  light: LitSite["light"];
+}) {
+  return (
+    <Link href={link.href} prefetch={false} className={playButtons[light]}>
+      <svg aria-hidden="true" viewBox="0 0 10 12" className="size-3 fill-current">
+        <path d="M0 0 10 6 0 12z" />
+      </svg>
+      {link.label}
+    </Link>
+  );
+}
 
 /**
  * Each panel's accent is its Lit site's light, and glows brighter once the
  * scroll route has lit the site. Ember stays the primary action's alone.
  * Written out in full, so Tailwind finds the classes.
  */
-const accents: Record<LitSite["light"], { bracket: string; glow: string }> = {
+export const accents: Record<
+  LitSite["light"],
+  { bracket: string; glow: string }
+> = {
   cyan: {
     bracket: "border-cyan",
     glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
@@ -36,8 +66,15 @@ const accents: Record<LitSite["light"], { bracket: string; glow: string }> = {
  */
 export function panelLook(id: HighlightId) {
   const { light, side } = litSite(id);
-  return { ...accents[light], align: side < 0 ? "lg:ml-auto" : "" };
+  return { ...accents[light], light, align: side < 0 ? "lg:ml-auto" : "" };
 }
+
+/**
+ * A holographic panel on the scroll route: its glow eases up as the route
+ * lights it, and it tilts toward the pointer (pointer-motion.ts).
+ */
+export const holoPanel =
+  "relative max-w-3xl scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:[transition:box-shadow_700ms,transform_300ms_ease-out]";
 
 const corners = [
   "top-0 left-0 border-t-2 border-l-2",
@@ -81,7 +118,7 @@ export function HighlightPanel({
       id={id}
       aria-labelledby={`${id}-heading`}
       tabIndex={-1}
-      className={`relative scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:[transition:box-shadow_700ms,transform_300ms_ease-out] ${look.glow} max-w-3xl ${look.align} ${className}`}
+      className={`${holoPanel} ${look.glow} ${look.align} ${className}`}
     >
       <PanelCorners className={look.bracket} />
       <h3
@@ -132,17 +169,7 @@ export function HighlightPanel({
       )}
       {highlight.secondLink && (
         <p className="mt-4">
-          {/* Not prefetched: that would load the Rally game's code on home. */}
-          <Link
-            href={highlight.secondLink.href}
-            prefetch={false}
-            className={playButton}
-          >
-            <svg aria-hidden="true" viewBox="0 0 10 12" className="size-3 fill-current">
-              <path d="M0 0 10 6 0 12z" />
-            </svg>
-            {highlight.secondLink.label}
-          </Link>
+          <PlayButton link={highlight.secondLink} light={look.light} />
         </p>
       )}
     </section>

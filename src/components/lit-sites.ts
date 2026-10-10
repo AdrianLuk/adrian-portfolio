@@ -41,11 +41,12 @@ export const LIT_SITES: readonly LitSite[] = highlights.map(({ id }, i) => ({
 
 /**
  * Home's scroll route: its name, and which side each panel's stop stands,
- * in the panels' order.
+ * in the panels' order: each Lit site's, then the Diamond's, which stands
+ * right of the light path (./world/diamond).
  */
 export const HOME_SCROLL_ROUTE = {
   name: "home",
-  sides: LIT_SITES.map((s) => s.side),
+  sides: [...LIT_SITES.map((s) => s.side), 1],
 } as const;
 
 /** The Lit site that stands for a Highlight. */

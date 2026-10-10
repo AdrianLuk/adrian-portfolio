@@ -1002,6 +1002,19 @@ export const derby = {
   },
 } as const;
 
+/**
+ * The Diamond's panel on home, after the Highlights: the route's stop beside
+ * the park, and a way into the Derby. Its eyebrow and heading are the
+ * Derby's own.
+ */
+export const diamondPanel = {
+  id: "derby",
+  eyebrow: derby.eyebrow,
+  heading: derby.heading,
+  line: "Ten pitches from Curvebot. Your timing decides where each one goes.",
+  link: derbyLink,
+} as const;
+
 const settledFrameAlt =
   "Adrian Luk's name in lit 3D letters on a night valley floor, between glowing towers, with Toronto's skyline and the CN Tower behind.";
 

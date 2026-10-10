@@ -4,6 +4,7 @@ import {
   contact,
   credits,
   derbyLink,
+  diamondPanel,
   encore,
   footer,
   hero,
@@ -83,6 +84,27 @@ test.describe("before any script runs", () => {
     }
   });
 
+  test("the Diamond's panel stands between the Highlights and Contact: its eyebrow, heading, line and play button into the Derby", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const panel = page.getByRole("region", { name: diamondPanel.heading });
+    await expect(panel).toHaveAttribute("id", diamondPanel.id);
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText(
+      diamondPanel.heading,
+    );
+    await expect(panel).toContainText(diamondPanel.eyebrow);
+    await expect(panel).toContainText(diamondPanel.line);
+    const links = panel.getByRole("link");
+    await expect(links).toHaveCount(1);
+    await expect(links).toHaveText(derbyLink.label);
+    await expect(links).toHaveAttribute("href", derbyLink.href);
+    const order = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("#work, #derby, #contact"), (el) => el.id),
+    );
+    expect(order).toEqual(["work", diamondPanel.id, "contact"]);
+  });
+
   test("the opening credits, the Contact section and its resume link are in the markup", async ({
     page,
   }) => {
@@ -129,12 +151,14 @@ test.describe("a keyboard walk", () => {
       ...highlights.flatMap((h: Highlight) =>
         h.secondLink ? [hrefFor(h.link), h.secondLink.href] : [hrefFor(h.link)],
       ),
+      diamondPanel.link.href,
       contact.resume.href,
       ...contact.channels.map((c) => c.href),
     ];
 
-    // The Rally game's clip is a stop per built-in control, drawn by the
-    // browser (its ring with them), as the Case study's recordings are.
+    // The Rally game's and the Derby's clips are a stop per built-in control,
+    // drawn by the browser (its ring with them), as the Case study's
+    // recordings are.
     const stops: Stop[] = [];
     for (let i = 0; i < 80 && stops.length < expected.length; i++) {
       const stop = await tabTo(page);
