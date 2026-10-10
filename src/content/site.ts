@@ -764,9 +764,28 @@ export const achievements = {
   close: "Close",
 } as const;
 
+/**
+ * The 404's five themed variants, in the order a browser sees them (the
+ * rotation in src/components/not-found-rotation.ts). Each has a heading and a
+ * line; the home link is the same on all.
+ */
 export const notFound = {
-  heading: "Lost in the fog",
-  body: "Nothing out here but fog. This page doesn't exist, or it drifted off.",
+  variants: [
+    { theme: "Baseball", heading: "Foul ball", line: "That one landed out of play." },
+    { theme: "Overwatch", heading: "Heroes never die", line: "This page did." },
+    { theme: "League of Legends", heading: "Page slain", line: "Recall to base:" },
+    {
+      theme: "K-pop",
+      heading: "On hiatus",
+      line: "This page went on indefinite hiatus. No comeback announced.",
+    },
+    {
+      theme: "Pickleball",
+      heading: "Side out",
+      line: "Foot fault: this page stepped in the kitchen.",
+    },
+  ],
+  next: "I've got another excuse",
   homeLink: "Back to the home page",
 } as const;
 

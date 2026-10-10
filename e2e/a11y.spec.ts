@@ -47,11 +47,25 @@ test("Juice Bros case study has no axe violations with motion allowed", async ({
   expect(results.violations).toEqual([]);
 });
 
+test("404 has no axe violations on every variant", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(missingPath);
+  for (const [i, variant] of notFound.variants.entries()) {
+    // The first is the browser's first showing; the button takes the rest.
+    if (i) await page.getByRole("button", { name: notFound.next }).click();
+    await expect(
+      page.getByRole("heading", { name: variant.heading }),
+    ).toBeVisible();
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  }
+});
+
 test("404 answers with a 404 status and links home", async ({ page }) => {
   const response = await page.goto(missingPath);
   expect(response?.status()).toBe(404);
   await expect(
-    page.getByRole("heading", { name: notFound.heading }),
+    page.getByRole("heading", { name: notFound.variants[0].heading }),
   ).toBeVisible();
   await expect(
     page.getByRole("main").getByRole("link", { name: notFound.homeLink }),

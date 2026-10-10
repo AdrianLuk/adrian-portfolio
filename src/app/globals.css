@@ -183,3 +183,20 @@ body > :is(header, footer) {
     animation: none !important;
   }
 }
+
+/* The 404's backdrop leans toward a mouse or pen (src/components/not-found-variants.tsx
+   sets --px and --py, each -1 to 1): the still and its motes shift a little,
+   scaled up so no edge shows. Only a backdrop with data-parallax (the 404's)
+   does; under reduced motion nothing shifts or scales. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-parallax] > picture {
+    display: block;
+    height: 100%;
+  }
+
+  [data-parallax] > * {
+    scale: 1.06;
+    translate: calc(var(--px, 0) * 2%) calc(var(--py, 0) * 2%);
+    transition: translate 300ms ease-out;
+  }
+}
