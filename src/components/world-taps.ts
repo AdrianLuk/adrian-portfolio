@@ -1,9 +1,9 @@
-/** What a tap on never reaches the world through: controls, media and fields. */
-const SOLID =
+/** Elements a tap never reaches the world through: controls, media and fields. */
+const BLOCKS_TAP =
   "a, button, input, textarea, select, label, summary, [contenteditable], [role=button], img, video, svg, iframe, canvas";
 
 /** Whether a computed background colour lets the world show through. */
-const clear = (color: string) =>
+const seeThrough = (color: string) =>
   color === "transparent" || /[,/]\s*0\)$/.test(color);
 
 /** Whether (x, y) falls on one of `el`'s own lines of text. */
@@ -22,15 +22,20 @@ function onText(el: Element, x: number, y: number) {
 }
 
 /**
- * Whether a click or tap lands on bare world: not on a control, a field,
- * media, a line of copy, or anything with a background of its own (a panel,
- * the header), and not while a game is in play, where taps are its input.
- * A keyboard's click (detail 0) never does.
+ * Whether a tap or click (its pointerup: iOS sends no click for a tap on
+ * bare page) lands on bare world: the primary button, not on a control, a
+ * field, media, a line of copy, or anything with a background of its own (a
+ * panel, the header), and not while a game is in play, where taps are its
+ * input. A touch that scrolls ends in pointercancel, so never reaches here.
  */
-export function tapsBareWorld(event: MouseEvent) {
+export function tapsBareWorld(event: PointerEvent) {
   const target = event.target;
-  if (event.detail === 0 || !(target instanceof Element)) return false;
-  if (document.querySelector("[data-game-in-play]") || target.closest(SOLID)) {
+  if (event.button !== 0 || !event.isPrimary) return false;
+  if (!(target instanceof Element)) return false;
+  if (
+    document.querySelector("[data-game-in-play]") ||
+    target.closest(BLOCKS_TAP)
+  ) {
     return false;
   }
   for (
@@ -39,7 +44,7 @@ export function tapsBareWorld(event: MouseEvent) {
     el = el.parentElement
   ) {
     const { backgroundColor, backgroundImage } = getComputedStyle(el);
-    if (backgroundImage !== "none" || !clear(backgroundColor)) return false;
+    if (backgroundImage !== "none" || !seeThrough(backgroundColor)) return false;
   }
   return !onText(target, event.clientX, event.clientY);
 }

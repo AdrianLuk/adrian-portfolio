@@ -199,13 +199,14 @@ type Point = { x: number; y: number; z: number };
 
 /**
  * Where a line of sight from `from` along the unit `dir` first meets the
- * ground, within `far` units; null if it never does (it looks at the sky).
+ * ground (or a harbour's surface), within `far` units; null if it never does
+ * (it looks at the sky).
  * Marched in steps short of a facet, then narrowed down: far cheaper than
  * raycasting the terrain's triangles.
  */
 export function groundHit(from: Point, dir: Point, far = 1500) {
   const below = (t: number) =>
-    from.y + dir.y * t <= valleyHeight(from.x + dir.x * t, from.z + dir.z * t);
+    from.y + dir.y * t <= surfaceHeight(from.x + dir.x * t, from.z + dir.z * t);
   const STEP = 2;
   for (let t = STEP; t <= far; t += STEP) {
     if (!below(t)) continue;

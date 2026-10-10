@@ -17,7 +17,7 @@ export function createRipples() {
       taps = [...taps, { x, z, time }].slice(-RIPPLE.rings);
     },
     /** Every ring still lit at `time`, oldest first. */
-    at(time: number) {
+    at(time: number): Ring[] {
       taps = taps.filter((tap) => time - tap.time < RIPPLE.seconds);
       return taps.map(({ x, z, time: start }) => ({
         x,
@@ -27,6 +27,9 @@ export function createRipples() {
     },
   };
 }
+
+/** A ring spreading from (x, z) on the terrain. */
+export type Ring = { x: number; z: number; radius: number; strength: number };
 
 /** A ring `age` seconds after its tap: how far it has spread, how bright it is. */
 export function ringAt(age: number) {

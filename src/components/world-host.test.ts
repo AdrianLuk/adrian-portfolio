@@ -24,16 +24,16 @@ vi.mock("./world/scene", () => ({
 
 describe("the world host", () => {
   let media: { listeners: Set<() => void>; matches: boolean };
-  /** The document's click listeners: the world's taps. */
-  let clicks: Set<unknown>;
+  /** The document's pointerup listeners: the world's taps. */
+  let taps: Set<unknown>;
 
   beforeEach(() => {
     media = { listeners: new Set(), matches: false };
-    clicks = new Set();
+    taps = new Set();
     vi.stubGlobal("document", {
       fonts: { ready: Promise.resolve() },
-      addEventListener: (_: string, fn: unknown) => clicks.add(fn),
-      removeEventListener: (_: string, fn: unknown) => clicks.delete(fn),
+      addEventListener: (_: string, fn: unknown) => taps.add(fn),
+      removeEventListener: (_: string, fn: unknown) => taps.delete(fn),
     });
     vi.stubGlobal("window", {
       matchMedia: () => ({
@@ -57,7 +57,7 @@ describe("the world host", () => {
     const canvas = {} as HTMLCanvasElement;
     host.attach(canvas, { kind: "skyline", weather: "clear" });
     expect(await host.start()).toBe(scene.world);
-    expect(clicks.size).toBe(1);
+    expect(taps.size).toBe(1);
 
     media.matches = true;
     for (const listener of media.listeners) listener();
@@ -67,7 +67,7 @@ describe("the world host", () => {
     host.subscribe(onChange);
     host.dispose();
     expect(media.listeners.size).toBe(0);
-    expect(clicks.size).toBe(0);
+    expect(taps.size).toBe(0);
     expect(scene.world.dispose).toHaveBeenCalledOnce();
     expect(host.live()).toBe(false);
     expect(host.intent()).toBe("none");

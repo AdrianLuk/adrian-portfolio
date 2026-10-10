@@ -355,7 +355,7 @@ export async function createWorld(
   let { weather, view } = options;
   const wet = () => weather === "rain";
   const terrain = createTerrain(weather);
-  const ripples = createRipples();
+  let ripples = createRipples();
   await nextTask();
 
   // The plate is the hero object, built whatever the view, so showing the
@@ -927,16 +927,16 @@ export async function createWorld(
   }
 
   const raycaster = new Raycaster();
-  const tapped = new Vector2();
+  const ndc = new Vector2();
 
   function ripple(clientX: number, clientY: number) {
     if (!running || software || !posed) return;
     const box = canvas.getBoundingClientRect();
-    tapped.set(
+    ndc.set(
       ((clientX - box.left) / box.width) * 2 - 1,
       1 - ((clientY - box.top) / box.height) * 2,
     );
-    raycaster.setFromCamera(tapped, camera);
+    raycaster.setFromCamera(ndc, camera);
     const hit = groundHit(raycaster.ray.origin, raycaster.ray.direction);
     if (hit) ripples.start(hit.x, hit.z, shared.uTime.value);
   }
@@ -978,6 +978,8 @@ export async function createWorld(
       if (!motion) {
         shared.uTime.value = STILL_TIME;
         loopStart = null;
+        // The clock starts again: no ring stays lit, or waits to.
+        ripples = createRipples();
       }
       sync();
       if (!running) render();

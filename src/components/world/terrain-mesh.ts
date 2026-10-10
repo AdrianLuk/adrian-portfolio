@@ -1,6 +1,6 @@
 import { Mesh, PlaneGeometry, ShaderMaterial, Vector4 } from "three";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
-import { RIPPLE } from "./ripples";
+import { RIPPLE, type Ring } from "./ripples";
 import { valleyHeight, WORLD_BACK, WORLD_FRONT } from "./terrain";
 import type { Weather } from "./weather";
 
@@ -120,10 +120,7 @@ export function setTerrainWeather(terrain: Mesh, weather: Weather) {
 }
 
 /** Lights `rings` on the valley (see ./ripples), and leaves the rest unlit. */
-export function setTerrainRings(
-  terrain: Mesh,
-  rings: readonly { x: number; z: number; radius: number; strength: number }[],
-) {
+export function setTerrainRings(terrain: Mesh, rings: readonly Ring[]) {
   const slots: Vector4[] = (terrain.material as ShaderMaterial).uniforms.uRings
     .value;
   slots.forEach((slot, i) => {

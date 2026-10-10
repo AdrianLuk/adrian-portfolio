@@ -80,8 +80,8 @@ export function createWorldHost() {
   let building: Promise<World | null> | null = null;
   let state: WorldState = "pending";
   const listeners = new Set<() => void>();
-  /** Stops the world following the reduced-motion preference, and taps. */
-  let unfollow: (() => void) | null = null;
+  /** Stops the world following the reduced-motion preference and taps. */
+  let release: (() => void) | null = null;
   let disposed = false;
 
   function setState(next: WorldState) {
@@ -133,14 +133,14 @@ export function createWorldHost() {
       if (motion !== !reduced.matches) world.setMotion(!reduced.matches);
       const follow = () => world?.setMotion(!reduced.matches);
       reduced.addEventListener("change", follow);
-      // A tap on bare world ripples across it; the click itself goes on.
-      const onTap = (event: MouseEvent) => {
+      // A tap on bare world ripples across it; the tap itself goes on.
+      const onTap = (event: PointerEvent) => {
         if (tapsBareWorld(event)) world?.ripple(event.clientX, event.clientY);
       };
-      document.addEventListener("click", onTap);
-      unfollow = () => {
+      document.addEventListener("pointerup", onTap, { passive: true });
+      release = () => {
         reduced.removeEventListener("change", follow);
-        document.removeEventListener("click", onTap);
+        document.removeEventListener("pointerup", onTap);
       };
       return world;
     } catch {
@@ -225,8 +225,8 @@ export function createWorldHost() {
      */
     dispose() {
       disposed = true;
-      unfollow?.();
-      unfollow = null;
+      release?.();
+      release = null;
       world?.dispose();
       world = null;
       listeners.clear();
