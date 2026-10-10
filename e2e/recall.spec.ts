@@ -9,7 +9,23 @@ const nameLink = (page: Page) =>
 // By CSS: the header steps aside (hidden) while a game is in play.
 const announcer = (page: Page) => page.locator('header [aria-live="polite"]');
 const ring = (page: Page) => nameLink(page).locator("[data-recall-ring]");
-const toast = (page: Page) => page.getByRole("status");
+
+/**
+ * Keeps every toast the page shows, from the next navigation on: on a loaded
+ * runner a Transit can outlast the toast's 5s, so it may be gone by the time
+ * the test looks. Read them back with `toasts`.
+ */
+const recordToasts = (page: Page) =>
+  page.addInitScript(() => {
+    const w = window as unknown as { __toasts: string[] };
+    w.__toasts = [];
+    new MutationObserver(() => {
+      const text = document.querySelector('[role="status"]')?.textContent;
+      if (text) w.__toasts.push(text);
+    }).observe(document, { subtree: true, childList: true, characterData: true });
+  });
+const toasts = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __toasts: string[] }).__toasts.join("\n"));
 
 /**
  * Starts a channel with `press`, again after `release` until the page has
@@ -67,6 +83,7 @@ test.describe("holding B", () => {
         w.__transits.push(root?.getAttribute("data-transit") ?? null);
       }).observe(document, { subtree: true, attributes: true, attributeFilter: ["data-transit"] });
     });
+    await recordToasts(page);
     await page.goto("/resume");
     await expect(page.locator("[data-world]")).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
@@ -82,7 +99,7 @@ test.describe("holding B", () => {
     expect(
       await page.evaluate(() => (window as unknown as { __transits: string[] }).__transits),
     ).toContain("hero");
-    await expect(toast(page)).toContainText(achievements.names["back-to-base"]);
+    await expect.poll(() => toasts(page)).toContain(achievements.names["back-to-base"]);
     await expect(ring(page)).toBeHidden();
   });
 
@@ -216,6 +233,7 @@ test.describe("holding the name with the mouse", () => {
   });
 
   test("held, channels and goes home; let go early, stays put", async ({ page }) => {
+    await recordToasts(page);
     await page.goto("/resume");
     await hydrated(page);
     await holdMouse(page);
@@ -229,7 +247,7 @@ test.describe("holding the name with the mouse", () => {
     await expect(page).toHaveURL(/\/$/, { timeout: CHANNEL_MS + 3000 });
     await page.mouse.up();
     await expect(announcer(page)).toHaveText(recall.done);
-    await expect(toast(page)).toContainText(achievements.names["back-to-base"]);
+    await expect.poll(() => toasts(page)).toContain(achievements.names["back-to-base"]);
   });
 });
 
