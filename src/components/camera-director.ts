@@ -234,7 +234,7 @@ export function createCameraDirector({
     return Math.min(1, (now - fillFrom) / (ENCORE_FILL_SECONDS * 1000));
   }
 
-  /** The camera `e` of the way into the Arena, leaving from the route at its stop. */
+  /** The camera `e` (0 to 1) of the way into the Arena, from `base`, the route's pose at its stop. */
   function encorePose(base: Pose, e: number) {
     if (wayIn?.from !== routeStop || wayIn.paths !== paths) {
       wayIn = { from: routeStop, paths: paths!, path: paths!.encore(base) };
@@ -497,9 +497,12 @@ export function createCameraDirector({
       if (!scrolling || reached === encore.reached) return;
       const from = encoreAt(now);
       encore = { reached, from, at: now };
-      // The floor fills once the camera lands, unless it never quite left.
-      if (reached && from === 0) {
-        fillFrom = now + ENCORE_SECONDS * 1000;
+      // Leaving before the floor began to fill, it never filled at all.
+      if (!reached && fillFrom !== null && fillFrom > now) fillFrom = null;
+      // The floor fills once the camera lands, unless it is filled already
+      // and the camera never quite left.
+      if (reached && (from === 0 || fillFrom === null)) {
+        fillFrom = now + (1 - from) * ENCORE_SECONDS * 1000;
       }
     },
     /** One more song: the lightsticks fill the floor again, once the camera is in. */

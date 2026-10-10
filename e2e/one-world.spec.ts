@@ -194,7 +194,8 @@ test.describe("the night backdrop", () => {
   test("home has the world itself, not the backdrop", async ({ page }) => {
     await withoutWorld(page);
     await page.goto("/");
-    await expect(page.locator("[data-backdrop]")).toHaveCount(0);
+    // The Encore's still of the Arena, past the bookend, is its own.
+    await expect(page.locator('[data-backdrop]:not([data-backdrop="arena"])')).toHaveCount(0);
   });
 });
 
@@ -363,7 +364,10 @@ async function watchTransit(page: Page) {
       lastFrame = now;
       if (w.__transit.seen.length > 0) {
         w.__transit.frames++;
-        const backdrop = document.querySelector("[data-backdrop]");
+        // A page's backdrop: the Encore's still, at home's foot, is its own.
+        const backdrop = document.querySelector(
+          '[data-backdrop]:not([data-backdrop="arena"])',
+        );
         const canvas = document.querySelector<HTMLCanvasElement>(
           "[data-world] canvas",
         );

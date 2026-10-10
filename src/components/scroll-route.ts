@@ -9,7 +9,6 @@ import {
   stopAt,
   type PanelBox,
 } from "./route-anchors";
-import { routeEnd } from "./home-panels";
 import type { World } from "./world/scene";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -39,6 +38,7 @@ export function createScrollRoute({
   panels,
   route,
   locateSite,
+  end = (max) => max,
 }: {
   /** Told the stop the scroll puts the camera at, and how lit each site is. */
   director: Pick<
@@ -58,6 +58,12 @@ export function createScrollRoute({
    * pixels.
    */
   locateSite: () => World["placeSite"] | null;
+  /**
+   * The furthest the route runs, given how far the page scrolls: short of
+   * it on home, whose Encore lies past the route's end. Scrolling past the
+   * end reaches the Encore.
+   */
+  end?: (maxScroll: number) => number;
 }) {
   /** The scroll position the camera is at: the page's, smoothed by the scrub. */
   const scroll = { y: 0 };
@@ -70,10 +76,10 @@ export function createScrollRoute({
 
   function measure() {
     const max = ScrollTrigger.maxScroll(window);
-    const end = routeEnd(max);
-    const layout = pageLayout(panels, end);
+    const last = end(max);
+    const layout = pageLayout(panels, last);
     viewport = layout.viewport;
-    encoreFrom = end < max ? end + viewport / 2 : Infinity;
+    encoreFrom = last < max ? last + viewport / 2 : Infinity;
     boxes = [...layout.panels];
     anchors = routeAnchors(layout);
   }

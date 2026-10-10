@@ -653,7 +653,7 @@ export async function createWorld(
     const home = view.kind === "hero";
     const skyline = skylineView(camera.aspect);
     const play = playView(camera.aspect, structures.court);
-    const arena = arenaView(camera.aspect);
+    const inside = arenaView(camera.aspect);
     // The view's own field of view; the plate is measured in the world's.
     setFov(
       view.kind === "skyline"
@@ -683,7 +683,7 @@ export async function createWorld(
         world: CAMERA.fovY,
         skyline: skyline.fovY,
         play: play.fovY,
-        encore: arena.fovY,
+        encore: inside.fovY,
       },
       court: courtPose(camera.aspect),
       play: play.pose,

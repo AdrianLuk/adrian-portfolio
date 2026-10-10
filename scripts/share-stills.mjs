@@ -35,6 +35,10 @@ import {
   skylineStills,
   valleyStills,
 } from "../src/content/site.ts";
+import {
+  ENCORE_FILL_SECONDS,
+  ENCORE_SECONDS,
+} from "../src/components/world/rigs.ts";
 import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
@@ -174,8 +178,8 @@ async function drawArena(browser) {
     await page.evaluate(() =>
       window.scrollTo(0, document.documentElement.scrollHeight),
     );
-    // The way in, then the floor filling.
-    await page.waitForTimeout(10_000);
+    // The way in, then the floor filling, and a moment for the scroll's ease.
+    await page.waitForTimeout((ENCORE_SECONDS + ENCORE_FILL_SECONDS + 2) * 1000);
     await page.addStyleTag({ content: WORLD_ONLY });
     await page.waitForTimeout(300);
     await writeStills(await page.screenshot(), sizes);

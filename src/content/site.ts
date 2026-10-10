@@ -755,6 +755,13 @@ export const contact = {
  * colour where it has one (TWICE's apricot and neon magenta, per JYP), else
  * the world's palette. Text and colour only: no logos.
  */
+/** The world's palette, as the page's theme names it (src/app/globals.css). */
+const world = {
+  cyan: "var(--color-cyan)",
+  violet: "var(--color-violet)",
+  magenta: "var(--color-magenta)",
+} as const;
+
 export const encore = {
   id: "encore",
   heading: "Encore",
@@ -762,16 +769,16 @@ export const encore = {
   wallLabel: "Concert tickets",
   replay: "One more song",
   tickets: [
-    { group: "aespa", year: 2025, colors: ["#3DF2E6"] },
-    { group: "aespa", year: 2026, colors: ["#9B6CFF"] },
-    { group: "EVERGLOW", year: 2026, colors: ["#FF6FD8"] },
-    { group: "IVE", year: 2026, colors: ["#3DF2E6"] },
-    { group: "Stray Kids", year: 2025, colors: ["#9B6CFF"] },
+    { group: "aespa", year: 2025, colors: [world.cyan] },
+    { group: "aespa", year: 2026, colors: [world.violet] },
+    { group: "EVERGLOW", year: 2026, colors: [world.magenta] },
+    { group: "IVE", year: 2026, colors: [world.cyan] },
+    { group: "Stray Kids", year: 2025, colors: [world.violet] },
     { group: "BLACKPINK", year: 2025, colors: ["#F7A7BB"] },
     { group: "BABYMONSTER", year: 2025, colors: ["#E8132E"] },
     { group: "TWICE", year: 2026, colors: ["#FCC89B", "#FF5FA2"] },
     { group: "BTS", year: 2026, colors: ["#A15EE6"] },
-    { group: "XG", year: 2026, colors: ["#FF6FD8"] },
+    { group: "XG", year: 2026, colors: [world.magenta] },
   ],
 } as const satisfies {
   id: string;

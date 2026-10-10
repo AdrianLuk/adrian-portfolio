@@ -18,6 +18,16 @@ const still = (page: Page) => section(page).locator('[data-backdrop="arena"] img
 const reach = (page: Page) =>
   page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
 
+/** How the wall's last ticket lights: its animation and how long it waits its turn. */
+const lastLight = (page: Page) =>
+  wall(page)
+    .getByRole("listitem")
+    .last()
+    .evaluate((li) => {
+      const style = getComputedStyle(li);
+      return { name: style.animationName, delay: style.animationDelay };
+    });
+
 /** How many of the wall's tickets are lighting up on the clock now. */
 const lighting = (page: Page) =>
   page.evaluate(
@@ -62,7 +72,11 @@ test.describe("with motion allowed, the world live", () => {
     await expect(section(page)).toHaveAttribute("data-reached", "true");
     // The live world stands behind it: no still.
     await expect(still(page)).toBeHidden();
-    expect(await lighting(page)).toBe(encore.tickets.length);
+    // One after another: the last waits its turn behind the other nine.
+    expect(await lastLight(page)).toEqual({
+      name: "ticket-on",
+      delay: `${((encore.tickets.length - 1) * 150) / 1000}s`,
+    });
     const results = await new AxeBuilder({ page }).include(`#${encore.id}`).analyze();
     expect(results.violations).toEqual([]);
   });
@@ -71,7 +85,7 @@ test.describe("with motion allowed, the world live", () => {
     await expect.poll(() => lighting(page), { timeout: 10_000 }).toBe(0);
     await replay(page).focus();
     await page.keyboard.press("Enter");
-    expect(await lighting(page)).toBe(encore.tickets.length);
+    await expect.poll(() => lighting(page)).toBeGreaterThan(0);
     await expect(wall(page).getByRole("listitem")).toHaveCount(encore.tickets.length);
   });
 });
@@ -95,7 +109,7 @@ test('"One more song" replays it by touch, without WebGL, the wall over the Aren
   await expect(wall(page)).toBeVisible();
   await expect.poll(() => lighting(page), { timeout: 10_000 }).toBe(0);
   await replay(page).tap();
-  expect(await lighting(page)).toBe(encore.tickets.length);
+  await expect.poll(() => lighting(page)).toBeGreaterThan(0);
   await context.close();
 });
 
@@ -108,6 +122,7 @@ test("under reduced motion the tickets light at once, with nothing to replay, ov
   await expect(section(page)).toHaveAttribute("data-reached", "true");
   await expect(page.getByRole("status")).toContainText(achievements.names.encore);
   expect(await lighting(page)).toBe(0);
+  expect((await lastLight(page)).name).toBe("none");
   await expect(replay(page)).toBeHidden();
   await expect(still(page)).toBeVisible();
   const shadow = await wall(page)

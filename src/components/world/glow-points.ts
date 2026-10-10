@@ -67,7 +67,7 @@ export function createGlowPoints(
       uViewportHeight: { value: 800 },
       uDrift: { value: drift },
       uSway: { value: sway },
-      // Each point lights once the fill passes its seed: all of them by default.
+      // Each point lights once the fill passes its seed; none is gated by default.
       uFill: { value: 2 },
       uIntensity: { value: intensity },
       ...fogUniforms(),
@@ -102,7 +102,8 @@ export function createGlowPoints(
           p.x += swing * uSway;
           p.y += abs(swing) * uSway * 0.3;
         }
-        alpha *= smoothstep(aSeed - 0.03, aSeed + 0.03, uFill);
+        // Gated only while filling: other glows' seeds may run past 1.
+        if (uFill < 1.5) alpha *= smoothstep(aSeed - 0.03, aSeed + 0.03, uFill);
         vec4 world = modelMatrix * vec4(p, 1.0);
         vec4 mv = viewMatrix * world;
         gl_Position = projectionMatrix * mv;

@@ -979,6 +979,18 @@ describe("the Camera director", () => {
       expect(director.frame(full + 1000 + ENCORE_FILL_SECONDS * 1000).lights!.fill).toBe(1);
     });
 
+    it("fills the floor afresh after a way in that turned back before it landed", () => {
+      const { director } = atTheEnd();
+      director.encore(true, 0);
+      director.encore(false, SECONDS * 0.5);
+      // Back in from partway out (0.3 of the way), after the first landing would have been.
+      const back = SECONDS * 0.7;
+      director.encore(true, back);
+      const lands = back + SECONDS * 0.7;
+      expect(director.frame(lands).lights).toMatchObject({ encore: 1, fill: 0 });
+      expect(director.frame(lands + ENCORE_FILL_SECONDS * 1000).lights!.fill).toBe(1);
+    });
+
     it("plays the camera back out to the route's end from wherever it got to, the show going off, even as the scroll moves on", () => {
       const { director, route } = atTheEnd();
       director.encore(true, 0);
