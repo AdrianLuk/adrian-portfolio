@@ -4,6 +4,10 @@ import {
   isLive,
   overLine,
   PITCH_TIME,
+  playOfTheGame,
+  replayAt,
+  replayLength,
+  resultBeat,
   setPaused,
   setSlow,
   startGame,
@@ -177,6 +181,50 @@ describe("a home run", () => {
     }
     // Long enough to watch: the flight takes under 2 seconds of it.
     expect(homeRun).toBeGreaterThan(3);
+  });
+});
+
+describe("the Play of the Game", () => {
+  const ready = startGame(createGame());
+
+  it("is the longest home run, its pitch with it; the first of two as long", () => {
+    let game = ready;
+    for (const error of [0.02, 0.08, 0.01, -0.3, 0.01]) game = swingOff(game, error);
+    expect(game.plays.map((p) => p.hit.distance)).toEqual([420, 440, 440]);
+    expect(playOfTheGame(game)).toBe(game.plays[1]);
+  });
+
+  it("is nothing after a game with no home runs", () => {
+    let game = ready;
+    for (const error of [0.08, 0.14, -0.3]) game = swingOff(game, error);
+    expect(game.plays).toEqual([]);
+    expect(playOfTheGame(game)).toBeNull();
+    expect(playOfTheGame(runUntil(ready, over).game)).toBeNull();
+  });
+
+  it("plays it again from the windup's end: the pitch, the swing at its moment, and the ball's flight", () => {
+    let game = ready;
+    for (const error of [-0.3, 0.02]) game = swingOff(game, error);
+    const play = playOfTheGame(game)!;
+    expect(replayAt(play, 0).phase).toBe("windup");
+    const swing = replayLength(play) - resultBeat(replayAt(play, replayLength(play)));
+    const pitch = replayAt(play, swing - 0.01);
+    expect(pitch).toMatchObject({ phase: "pitch", pitch: play.pitch });
+    expect(pitch.clock).toBeCloseTo(play.hit.at - 0.01);
+    expect(replayAt(play, swing + 0.5)).toMatchObject({ phase: "result", hit: play.hit });
+    expect(replayAt(play, swing + 0.5).clock).toBeCloseTo(0.5);
+  });
+
+  it("raises the swing and the home run once, in the frame that crosses its moment", () => {
+    const play = playOfTheGame(swingOff(ready, 0))!;
+    const events: GameEvent[] = [];
+    for (let t = 0; t < replayLength(play); t += FRAME) {
+      events.push(...replayAt(play, t + FRAME, t).events);
+    }
+    expect(events).toEqual([
+      { type: "swing" },
+      { type: "outcome", outcome: "home-run", distance: 460 },
+    ]);
   });
 });
 

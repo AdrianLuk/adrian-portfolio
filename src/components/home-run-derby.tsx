@@ -29,6 +29,9 @@ import {
   isLive,
   overLine,
   PITCHES,
+  playOfTheGame,
+  replayAt,
+  replayLength,
   setPaused,
   setSlow,
   startGame,
@@ -37,6 +40,7 @@ import {
   type GameEvent,
   type Phase,
 } from "./derby/rules";
+import type * as Replay from "./derby/replay";
 import type { DerbyView } from "./derby/scene";
 
 type Copy = (typeof derby)["game"];
@@ -58,6 +62,8 @@ type Hud = {
   homeRuns: number;
   /** Curvebot's line on the last pitch, or the game's end. */
   call: string;
+  /** The Play of the Game's distance, in feet; null before any home run. */
+  longest: number | null;
 };
 
 const hudFor = (game: Game, call: string): Hud => ({
@@ -67,6 +73,7 @@ const hudFor = (game: Game, call: string): Hud => ({
   pitches: game.pitches,
   homeRuns: game.homeRuns,
   call,
+  longest: playOfTheGame(game)?.hit.distance ?? null,
 });
 
 /**
@@ -79,7 +86,10 @@ const hudFor = (game: Game, call: string): Hud => ({
  * aside in play, the field filling the screen with only the count and Pause
  * over it, and returns at a pause or the game's end. Space, or a tap
  * anywhere on the field, swings. Nothing moves before Start. Under reduced
- * motion slow mode starts on; anyone can switch it.
+ * motion slow mode starts on; anyone can switch it. After a game with a
+ * home run, the Play of the Game replays the longest from its own camera
+ * (a still of it under reduced motion), the field filling the screen under
+ * its banner until it ends or Done (or Esc); "Watch again" plays it again.
  */
 export function HomeRunDerby({
   copy,
@@ -100,7 +110,12 @@ export function HomeRunDerby({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
+  /** Where focus goes once the Play of the Game ends: "Watch again", if that played it. */
+  const returnRef = useRef<HTMLButtonElement | null>(null);
   const viewRef = useRef<DerbyView | null>(null);
+  /** The Play of the Game's camera, loaded with the scene (it reaches Three.js through the field's layout). */
+  const replayRef = useRef<typeof Replay | null>(null);
   const gameRef = useRef<Game>(createGame());
   const frameRef = useRef(0);
   /** When the visitor last swung (performance.now()'s ms), until the loop counts it. */
@@ -119,6 +134,8 @@ export function HomeRunDerby({
         ? "drawn"
         : "pending";
   const [announcement, setAnnouncement] = useState("");
+  /** Whether the Play of the Game is on screen. */
+  const [showing, setShowing] = useState(false);
   const [hud, setHud] = useState<Hud>(() => hudFor(createGame(), ""));
 
   /** Curvebot's line for an outcome: a home run's distance after it. */
@@ -133,6 +150,48 @@ export function HomeRunDerby({
   const draw = useCallback(() => {
     viewRef.current?.draw(gameRef.current);
   }, []);
+
+  /** Ends the Play of the Game: the camera back on the Derby's view, the game as it ended. */
+  const endPlay = useCallback(() => {
+    cancelAnimationFrame(frameRef.current);
+    setShowing(false);
+    draw();
+  }, [draw]);
+
+  /**
+   * The Play of the Game: the longest home run again, in slow motion, from
+   * its own camera; under reduced motion, one still of the bat on the ball.
+   * Announced after `lead` (the game's end, when it follows straight on).
+   */
+  const showPlay = useCallback((lead = "") => {
+    const play = playOfTheGame(gameRef.current);
+    const view = viewRef.current;
+    const replay = replayRef.current;
+    if (!play || !view || !replay) return;
+    const { REPLAY_SPEED, shotAt, stillAt } = replay;
+    cancelAnimationFrame(frameRef.current);
+    setShowing(true);
+    setAnnouncement(`${lead}${copy.play.title}. ${play.hit.distance} ${copy.feet}.`);
+    if (window.matchMedia(REDUCED_MOTION).matches) {
+      const still = stillAt(play);
+      // Its events from the start: the figures in their poses after the swing.
+      view.draw(replayAt(play, still, 0), shotAt(play, still));
+      return;
+    }
+    const length = replayLength(play);
+    let t = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, MAX_STEP) * REPLAY_SPEED;
+      last = now;
+      const next = Math.min(length, t + dt);
+      view.draw(replayAt(play, next, t), shotAt(play, next));
+      t = next;
+      if (t < length) frameRef.current = requestAnimationFrame(tick);
+      else endPlay();
+    };
+    frameRef.current = requestAnimationFrame(tick);
+  }, [copy, endPlay]);
 
   /** The game loop: one step a frame while the game runs, then a draw. */
   const loop = useCallback(() => {
@@ -169,6 +228,7 @@ export function HomeRunDerby({
           const line = overLine(event.homeRuns, copy.over);
           setAnnouncement(line);
           setHud(hudFor(game, line));
+          showPlay(`${line} `);
         }
       }
 
@@ -177,7 +237,7 @@ export function HomeRunDerby({
       }
     };
     frameRef.current = requestAnimationFrame(tick);
-  }, [copy, lineFor]);
+  }, [copy, lineFor, showPlay]);
 
   // Three.js is the page's heaviest code: it never holds up the first paint.
   useEffect(() => {
@@ -190,10 +250,12 @@ export function HomeRunDerby({
         setHud((s) => ({ ...s, slow: true }));
       }
       try {
-        const [{ createDerbyView }, live] = await Promise.all([
+        const [{ createDerbyView }, replay, live] = await Promise.all([
           import("./derby/scene"),
+          import("./derby/replay"),
           host.start(),
         ]);
+        replayRef.current = replay;
         // Built (their shaders compiled) only once any Transit has landed,
         // so it doesn't stutter. Without a world, the world's own state
         // says the game can't run.
@@ -257,10 +319,14 @@ export function HomeRunDerby({
     if (hud.paused) resumeRef.current?.focus();
   }, [hud.paused]);
   useEffect(() => {
-    if (hud.phase === "over") actionRef.current?.focus();
-  }, [hud.phase]);
+    if (showing) doneRef.current?.focus();
+    else if (hud.phase === "over") (returnRef.current ?? actionRef.current)?.focus();
+  }, [hud.phase, showing]);
 
   function begin() {
+    returnRef.current = null;
+    swingRef.current = null;
+    setShowing(false);
     const fresh = startGame(
       createGame({ seed: Date.now() % 100_000, slow: gameRef.current.slow }),
     );
@@ -283,6 +349,11 @@ export function HomeRunDerby({
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape" && showing) {
+      event.preventDefault();
+      endPlay();
+      return;
+    }
     if (event.key === "Escape" || event.key === "p" || event.key === "P") {
       const game = gameRef.current;
       if (!isLive(game.phase)) return;
@@ -302,6 +373,8 @@ export function HomeRunDerby({
   const playing = isLive(hud.phase);
   /** In play and not paused: the field fills the screen, and the copy steps aside. */
   const filled = playing && !hud.paused;
+  /** The copy steps aside for the field: in play, and under the Play of the Game. */
+  const aside = filled || showing;
   const lit = view === "drawn";
 
   return (
@@ -316,7 +389,8 @@ export function HomeRunDerby({
       // The Recall's B waits while a game is in play (src/components/recall.tsx).
       data-game-in-play={playing || undefined}
       // The site's header steps aside with the copy (see globals.css).
-      data-game-filled={filled || undefined}
+      data-game-filled={aside || undefined}
+      data-play-of-the-game={showing || undefined}
       onKeyDown={onKeyDown}
       onBlur={(event) => {
         // Focus left the game (for elsewhere on the page, or nowhere, as a
@@ -326,7 +400,7 @@ export function HomeRunDerby({
         }
       }}
     >
-      <StepsAside away={filled} arrives={arrivesAtDerby}>{intro}</StepsAside>
+      <StepsAside away={aside} arrives={arrivesAtDerby}>{intro}</StepsAside>
 
       {/* The count and Pause, pinned to the screen's top corners in play. */}
       <div
@@ -355,17 +429,17 @@ export function HomeRunDerby({
       </div>
 
       {/* The field, the whole screen: in play it takes Space and the tap;
-        otherwise every pointer passes through it. */}
+        otherwise (but under the Play of the Game) every pointer passes through it. */}
       <div
         ref={surfaceRef}
         role="application"
         aria-label={copy.label}
         aria-describedby={describedBy}
         tabIndex={playing ? 0 : -1}
-        className={`fixed inset-0 z-20 touch-none select-none focus-visible:outline-offset-[-6px] ${filled ? "" : "pointer-events-none"}`}
+        className={`fixed inset-0 z-20 touch-none select-none focus-visible:outline-offset-[-6px] ${aside ? "" : "pointer-events-none"}`}
         // On the press, not the lift: the swing's timing is the game.
         onPointerDown={(event) => {
-          if (event.isPrimary) swingRef.current = performance.now();
+          if (event.isPrimary && filled) swingRef.current = performance.now();
         }}
       />
       {filled && (
@@ -377,7 +451,25 @@ export function HomeRunDerby({
         </p>
       )}
 
-      <StepsAside away={filled} arrives={arrivesAtDerby}>
+      {showing && (
+        <>
+          <div
+            className={`pointer-events-none fixed inset-x-0 top-0 z-30 flex flex-col items-center gap-1 px-4 pt-[max(1.5rem,env(safe-area-inset-top))] text-center ${overField}`}
+          >
+            <p className={`${overlayTitle} text-cyan`}>{copy.play.title}</p>
+            <p className="font-display text-xl font-bold tabular-nums">
+              {hud.longest} {copy.feet}
+            </p>
+          </div>
+          <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <button ref={doneRef} type="button" className={gameButton} onClick={endPlay}>
+              {copy.play.done}
+            </button>
+          </div>
+        </>
+      )}
+
+      <StepsAside away={aside} arrives={arrivesAtDerby}>
         <div className={`${overPlace.diamond} flex flex-col items-center gap-5 text-center`}>
           {corners}
           {playing && hud.paused ? (
@@ -406,15 +498,30 @@ export function HomeRunDerby({
                 <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
               ) : (
                 <div className="flex flex-col items-center gap-2">
-                  <button
-                    ref={actionRef}
-                    type="button"
-                    className={gamePrimary}
-                    disabled={!lit}
-                    onClick={begin}
-                  >
-                    {hud.phase === "over" ? copy.over.action : copy.start.action}
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      ref={actionRef}
+                      type="button"
+                      className={gamePrimary}
+                      disabled={!lit}
+                      onClick={begin}
+                    >
+                      {hud.phase === "over" ? copy.over.action : copy.start.action}
+                    </button>
+                    {hud.phase === "over" && hud.longest !== null && (
+                      <button
+                        type="button"
+                        className={gameButton}
+                        disabled={!lit}
+                        onClick={(event) => {
+                          returnRef.current = event.currentTarget;
+                          showPlay();
+                        }}
+                      >
+                        {copy.play.again}
+                      </button>
+                    )}
+                  </div>
                   {/* Kept in the flow once the field is lit, so nothing shifts. */}
                   <p className={`text-sm text-ink/70 ${lit ? "invisible" : ""}`}>
                     {copy.loading}
@@ -426,7 +533,7 @@ export function HomeRunDerby({
         </div>
       </StepsAside>
 
-      <StepsAside away={filled} arrives={arrivesAtDerby}>{outro}</StepsAside>
+      <StepsAside away={aside} arrives={arrivesAtDerby}>{outro}</StepsAside>
 
       <p aria-live="polite" className="sr-only">
         {announcement}

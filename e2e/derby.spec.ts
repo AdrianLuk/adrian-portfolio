@@ -5,7 +5,15 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
-import { PITCHES } from "../src/components/derby/rules";
+import {
+  createGame,
+  PITCH_TIME,
+  PITCHES,
+  SLOW_SPEED,
+  startGame,
+  step,
+  WINDUP,
+} from "../src/components/derby/rules";
 import {
   contact,
   derby,
@@ -62,7 +70,11 @@ async function expectAxeClean(page: Page) {
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 }
 
-/** Swings once at every pitch, by `swing`, until the game is over. */
+/**
+ * Swings once at every pitch, by `swing`, until the game is over. Swung as
+ * the pitch leaves Curvebot's hand, far too early for a home run: the Play
+ * of the Game has its own tests.
+ */
 async function playOut(page: Page, swing: () => Promise<void>) {
   for (let pitch = 1; pitch <= PITCHES; pitch++) {
     await expect(gameRoot(page)).toHaveAttribute("data-pitches", String(pitch), {
@@ -136,7 +148,6 @@ test("is played by keyboard through to Play again: Space swings, Escape and P pa
 
   // A swing at every pitch, each outcome announced, to the game's end.
   await playOut(page, async () => {
-    await page.waitForTimeout(900);
     await page.keyboard.press("Space");
     await expect(announcer(page)).toHaveText(outcomeLine, { timeout: 5_000 });
   });
@@ -147,6 +158,10 @@ test("is played by keyboard through to Play again: Space swings, Escape and P pa
   await expect(announcer(page)).toHaveText(overLine);
   const again = page.getByRole("button", { name: copy.over.action });
   await expect(again).toBeFocused();
+  // No home run, so no Play of the Game.
+  await expect(gameRoot(page)).not.toHaveAttribute("data-play-of-the-game");
+  await expect(page.getByText(copy.play.title)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copy.play.again })).toHaveCount(0);
   await expectAxeClean(page);
 
   await page.keyboard.press("Enter");
@@ -162,10 +177,7 @@ test.describe("on a touch screen", () => {
     await openDerby(page);
     await page.getByRole("button", { name: copy.start.action }).tap();
     const { width, height } = page.viewportSize()!;
-    await playOut(page, async () => {
-      await page.waitForTimeout(900);
-      await page.touchscreen.tap(width / 2, height / 2);
-    });
+    await playOut(page, () => page.touchscreen.tap(width / 2, height / 2));
     await expect(page.getByText(overLine).first()).toBeVisible();
     await page.getByRole("button", { name: copy.over.action }).tap();
     await expect(gameRoot(page)).toHaveAttribute("data-phase", /windup|pitch/);
@@ -216,6 +228,94 @@ test("without WebGL the Diamond's still stays, and the game says it can't run he
   await expect(page.getByRole("button", { name: copy.start.action })).toHaveCount(0);
 });
 
+/**
+ * Starts a game and hits its first pitch for a home run, swung within 8ms of
+ * the pitch's arrival: the page's clock is held still from Start and stepped
+ * by the test, so the seed (from the time) and the swing's timing are known.
+ * Then the clock runs on, and the rest of the game is strikes.
+ */
+async function homeRunFirst(page: Page, { slow }: { slow: boolean }) {
+  const now = Date.now() + 60_000;
+  await page.clock.pauseAt(now);
+  // The first pitch, as the game seeded at that time throws it.
+  let game = startGame(createGame({ seed: now % 100_000 }));
+  while (game.phase !== "pitch") game = step(game, 1 / 60);
+  const speed = slow ? SLOW_SPEED : 1;
+  await page.getByRole("button", { name: copy.start.action }).focus();
+  await page.keyboard.press("Enter");
+  // The pitch is thrown at the first frame (16ms apart) past the windup.
+  const arrives = (WINDUP + PITCH_TIME[game.pitch]) * 1000 + 8;
+  await page.clock.runFor(Math.round(arrives / speed));
+  await page.keyboard.press("Space");
+  await page.clock.resume();
+  const homeRun = copy.outcomes["home-run"].replace(/[.]/g, "\\.");
+  await expect(announcer(page)).toHaveText(
+    new RegExp(`^${copy.pitch} 1\\. ${homeRun} \\d+ ${copy.feet}\\.$`),
+    { timeout: 10_000 },
+  );
+}
+
+/** The Play of the Game's banner. */
+const banner = (page: Page) => page.getByText(copy.play.title, { exact: true });
+
+test.describe("the Play of the Game", () => {
+  test.use({ hasTouch: true });
+
+  test("replays the longest home run after the game, under its banner, with Watch again by keyboard and touch", async ({
+    page,
+  }) => {
+    test.setTimeout(GAME_MS * 2);
+    await openDerby(page);
+    // Faked once the Diamond is drawn: installed before, it holds the world back.
+    await page.clock.install();
+    await homeRunFirst(page, { slow: false });
+    const distance = (await announcer(page).textContent())!.match(/(\d+) feet/)![1];
+
+    // At the game's end: the banner and the distance, the copy aside, Done focused.
+    await expect(gameRoot(page)).toHaveAttribute("data-play-of-the-game", "true", {
+      timeout: GAME_MS,
+    });
+    await expect(banner(page)).toBeVisible();
+    await expect(page.getByText(`${distance} ${copy.feet}`, { exact: true })).toBeVisible();
+    // Curvebot's line on the game first, then the Play of the Game.
+    const announced = (await announcer(page).textContent())!;
+    expect(announced.endsWith(` ${copy.play.title}. ${distance} ${copy.feet}.`)).toBe(true);
+    expect(announced.slice(0, -` ${copy.play.title}. ${distance} ${copy.feet}.`.length)).toMatch(overLine);
+    await expect(page.getByRole("button", { name: copy.play.done })).toBeFocused();
+    await expect(page.getByRole("heading", { level: 2, name: derby.heading })).toBeHidden();
+    // The camera moves.
+    const canvas = page.locator("canvas");
+    const first = await canvas.screenshot();
+    await page.waitForTimeout(500);
+    expect((await canvas.screenshot()).equals(first)).toBe(false);
+    await expectAxeClean(page);
+
+    // It ends by itself; then Play again, with Watch again beside it.
+    await expect(banner(page)).toBeHidden({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: copy.over.title })).toBeVisible();
+    await expect(page.getByRole("button", { name: copy.over.action })).toBeFocused();
+    const watch = page.getByRole("button", { name: copy.play.again });
+    await expect(watch).toBeVisible();
+    await expectAxeClean(page);
+
+    // Watch again by keyboard; Esc ends it, focus back on Watch again.
+    await page.keyboard.press("Tab");
+    await expect(watch).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(banner(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(banner(page)).toBeHidden();
+    await expect(watch).toBeFocused();
+
+    // And by touch; Done ends it.
+    await watch.tap();
+    await expect(banner(page)).toBeVisible();
+    await page.getByRole("button", { name: copy.play.done }).tap();
+    await expect(banner(page)).toBeHidden();
+    await expect(gameRoot(page)).toHaveAttribute("data-phase", "over");
+  });
+});
+
 test.describe("under reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
@@ -234,6 +334,36 @@ test.describe("under reduced motion", () => {
 
     await slow.uncheck();
     await expect(gameRoot(page)).toHaveAttribute("data-slow", "false");
+  });
+
+  test("shows a still of the Play of the Game and its distance, the camera still, until Done", async ({
+    page,
+  }) => {
+    test.setTimeout(GAME_MS * 2);
+    await openDerby(page);
+    // Faked once the Diamond is drawn: installed before, it holds the world back.
+    await page.clock.install();
+    // Full speed, for a shorter game.
+    await page.getByRole("switch", { name: copy.slowMode.label }).uncheck();
+    await homeRunFirst(page, { slow: false });
+    await expect(gameRoot(page)).toHaveAttribute("data-play-of-the-game", "true", {
+      timeout: GAME_MS,
+    });
+    await expect(banner(page)).toBeVisible();
+    await expect(page.getByText(new RegExp(`^\\d+ ${copy.feet}$`))).toBeVisible();
+
+    // Nothing moves, and it stays until Done.
+    const canvas = page.locator("canvas");
+    await page.waitForTimeout(600);
+    const first = await canvas.screenshot();
+    await page.waitForTimeout(1500);
+    expect((await canvas.screenshot()).equals(first)).toBe(true);
+    await expectAxeClean(page);
+    await page.waitForTimeout(8_000);
+    await expect(banner(page)).toBeVisible();
+    await page.getByRole("button", { name: copy.play.done }).click();
+    await expect(banner(page)).toBeHidden();
+    await expect(page.getByRole("button", { name: copy.play.again })).toBeVisible();
   });
 
   test("is played by keyboard, a swing still deciding the pitch", async ({ page }) => {

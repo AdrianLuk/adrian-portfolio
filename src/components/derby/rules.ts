@@ -44,6 +44,9 @@ export type Hit = {
   at: number;
 };
 
+/** A home run, as the Play of the Game shows it again: the pitch Curvebot threw, and where it went. */
+export type Play = { pitch: PitchKind; hit: Hit };
+
 export type GameEvent =
   | { type: "pitch"; kind: PitchKind; number: number }
   | { type: "swing" }
@@ -59,6 +62,8 @@ export type Game = {
   /** Pitches thrown so far, the one in flight included. */
   pitches: number;
   homeRuns: number;
+  /** Every home run so far, in order. */
+  plays: Play[];
   /** Home runs in a row, up to the last pitch. */
   streak: number;
   /** The pitch thrown now, or last. */
@@ -93,6 +98,9 @@ const KINDS = Object.keys(PITCH_TIME) as PitchKind[];
  */
 export const WINDOW = { homeRun: 0.05, flyOut: 0.1, foul: 0.16 } as const;
 
+/** Slow mode's speed, as a share of full speed. */
+export const SLOW_SPEED = 0.5;
+
 /** The windup before each pitch. */
 export const WINDUP = 1.1;
 /** The beat after a pitch; after a home run, longer: its flight lands, and its distance stands there to read. */
@@ -121,6 +129,7 @@ export function createGame({
     slow,
     pitches: 0,
     homeRuns: 0,
+    plays: [],
     streak: 0,
     pitch: "fastball",
     hit: null,
@@ -255,6 +264,7 @@ function decide(game: Game, hit: Hit): Game {
     clock: 0,
     hit,
     homeRuns: game.homeRuns + (homeRun ? 1 : 0),
+    plays: homeRun ? [...game.plays, { pitch: game.pitch, hit }] : game.plays,
     streak,
     events,
   };
@@ -263,7 +273,7 @@ function decide(game: Game, hit: Hit): Game {
 export function step(game: Game, dt: number, input: Input = {}): Game {
   game = { ...game, events: [] };
   if (game.paused || !isLive(game.phase)) return game;
-  const time = dt * (game.slow ? 0.5 : 1);
+  const time = dt * (game.slow ? SLOW_SPEED : 1);
   game = { ...game, clock: game.clock + time };
 
   if (game.phase === "windup" && game.clock >= WINDUP) {
@@ -294,4 +304,50 @@ export function step(game: Game, dt: number, input: Input = {}): Game {
     }
   }
   return game;
+}
+
+/** The longest home run (the first, of two as long), or null after a game with none. */
+export function playOfTheGame(game: Game): Play | null {
+  return game.plays.reduce<Play | null>(
+    (best, play) => (!best || play.hit.distance > best.hit.distance ? play : best),
+    null,
+  );
+}
+
+/** How much of the windup the Play of the Game shows before the pitch, in seconds of game time. */
+export const REPLAY_WINDUP = 0.6;
+
+/**
+ * How long the Play of the Game runs, in seconds of game time: the windup's
+ * end, the pitch, and the beat to watch it go.
+ */
+export const replayLength = (play: Play) => REPLAY_WINDUP + play.hit.at + HOME_RUN_RESULT;
+
+/**
+ * The Play of the Game `t` seconds of game time in, as the game stood then
+ * (in slow mode, so the figures move as slowly as it's played); its events
+ * are what happened since `from` seconds in.
+ */
+export function replayAt(play: Play, t: number, from = t): Game {
+  const swing = REPLAY_WINDUP + play.hit.at;
+  const events: GameEvent[] =
+    from < swing && t >= swing
+      ? [
+          { type: "swing" },
+          { type: "outcome", outcome: "home-run", distance: play.hit.distance },
+        ]
+      : [];
+  const game = { ...createGame({ slow: true }), pitch: play.pitch, events };
+  if (t < REPLAY_WINDUP) {
+    return { ...game, phase: "windup", clock: WINDUP - REPLAY_WINDUP + t };
+  }
+  if (t < swing) return { ...game, phase: "pitch", pitches: 1, clock: t - REPLAY_WINDUP };
+  return {
+    ...game,
+    phase: "result",
+    pitches: 1,
+    homeRuns: 1,
+    hit: play.hit,
+    clock: t - swing,
+  };
 }

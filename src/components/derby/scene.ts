@@ -11,6 +11,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  Quaternion,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
@@ -23,8 +24,9 @@ import { ADRIAN, adrianTextures, createMii, displayFont, ROBOT } from "../mii";
 import { REDUCED_MOTION } from "../reduced-motion";
 import { DIAMOND, MOUND_FEET } from "../world/diamond";
 import { palette } from "../world/palette";
-import { homeRunView } from "../world/route";
+import { derbyView, fieldPoint, homeRunView } from "../world/route";
 import type { DiamondStage } from "../world/scene";
+import type { Shot } from "./replay";
 import { resultBeat, WINDUP, type Game } from "./rules";
 import {
   ballAt,
@@ -34,6 +36,7 @@ import {
   BAT_PROFILE,
   HANDS,
   homeRunFlight,
+  RELEASE,
   type Point,
 } from "./swing";
 
@@ -50,8 +53,8 @@ import {
  */
 
 export type DerbyView = {
-  /** Draws the game as it stands now. */
-  draw(game: Game): void;
+  /** Draws the game as it stands now: from the Derby's view, or from `shot` (the Play of the Game's camera). */
+  draw(game: Game, shot?: Shot | null): void;
   /** Takes the game off the field, and frees its GPU memory. */
   dispose(): void;
 };
@@ -64,6 +67,8 @@ const MAX_STEP = 0.05;
 const THROW_LEAD = 0.15;
 /** Where Adrian stands: a stride back from his hands, square to the plate. */
 const STANCE = 1;
+/** Up, for aiming the Play of the Game's camera. */
+const UP = new Vector3(0, 1, 0);
 
 /**
  * A baseball's seam, on a sphere of `radius`: the curve a ball's two
@@ -309,8 +314,6 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
   const curvebot = createMii({ color: palette.magenta, build: ROBOT, robot: true });
   curvebot.group.position.set(0, MOUND_FEET, -DIAMOND.mound);
   curvebot.group.rotation.y = Math.PI;
-  /** Where a pitch leaves Curvebot's hand: its right arm, over the top. */
-  const release: Point = { x: -0.7, y: MOUND_FEET + 3.9, z: -DIAMOND.mound + 0.6 };
 
   const ball = createBaseball();
   const shadow = new Mesh(
@@ -341,7 +344,7 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
    * the beat ends they fade, and before the next pitch the camera cuts back.
    */
   function showHomeRun(game: Game) {
-    const flight = homeRunFlight(game, release);
+    const flight = homeRunFlight(game, RELEASE);
     const flying = flight !== null && flight.drawn > 0;
     if (!flying) {
       if (traced) stage.cut(null);
@@ -402,12 +405,36 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
     return game.paused ? 0 : dt;
   }
 
-  function draw(game: Game) {
+  /** Whether the last draw was from the Play of the Game's own camera. */
+  let filmed = false;
+
+  /**
+   * The Play of the Game's own camera (see ./replay), cut to as a home
+   * run's wide shot is, in the Derby's field of view; null cuts back,
+   * unless the wide shot has the camera by then.
+   */
+  function film(shot: Shot | null) {
+    if (shot) {
+      const { field, camera } = stage;
+      const at = ({ x, y, z }: Point) => fieldPoint(field, x, y, z);
+      const position = at(shot.position);
+      const look = new Matrix4().lookAt(position, at(shot.target), UP);
+      stage.cut({
+        pose: { position, quaternion: new Quaternion().setFromRotationMatrix(look) },
+        fovY: derbyView(camera.aspect, field).fovY,
+      });
+    } else if (filmed && !traced) {
+      stage.cut(null);
+    }
+    filmed = shot !== null;
+  }
+
+  function draw(game: Game, shot: Shot | null = null) {
     const dt = moveFigures(game);
     last = game;
-    const { turn, lift } = batAt(game, release);
+    const { turn, lift } = batAt(game, RELEASE);
     pivot.rotation.set(0, turn, lift);
-    const at = ballAt(game, release);
+    const at = ballAt(game, RELEASE);
     ball.visible = shadow.visible = at !== null;
     if (at) {
       ball.position.set(at.x, at.y, at.z);
@@ -416,6 +443,7 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
       shadow.scale.setScalar(Math.max(0.4, 1 - at.y / 60));
     }
     showHomeRun(game);
+    film(shot);
     stage.draw();
   }
 

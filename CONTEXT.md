@@ -53,7 +53,7 @@ The camera flying through the world between two Places, in place of a crossfade,
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
-The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court, the Diamond and the Skyline. It never lets the camera jump, with one deliberate exception: at the Diamond, a home run cuts to its wide shot and back, as a broadcast does.
+The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court, the Diamond and the Skyline. It never lets the camera jump, with one deliberate exception: at the Diamond, a home run cuts to its wide shot and back, and the Play of the Game to its own shot, as a broadcast does.
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:
@@ -83,6 +83,10 @@ _Avoid_: Outro, ending, concert
 **Home Run Derby**:
 The baseball game on its own page, `/derby`: the visitor bats against Curvebot for ten pitches at the Diamond, each swing's timing deciding a home run, fly-out, foul or strike. "The Derby" for short.
 _Avoid_: Baseball game, batting game, mini-game
+
+**Play of the Game**:
+After a Derby with a home run, the longest replayed in slow motion under its banner, from its own camera in front of the plate until the bat meets the ball, then the home run's wide shot, its tracer drawn along the flight. Under reduced motion, one still of the bat on the ball. "Watch again" replays it.
+_Avoid_: Highlight, instant replay
 
 **Curvebot**:
 The Home Run Derby's pitcher, an AI, as Dinkbot is the Rally game's opponent. It mixes pitches of different speeds and has a short line for each outcome.
