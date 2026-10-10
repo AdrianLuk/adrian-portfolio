@@ -57,7 +57,8 @@ const scrollState = (page: Page) =>
     terms: {
       snapping: Array.from(document.querySelectorAll("*"))
         .map((el) => getComputedStyle(el).scrollSnapType)
-        .filter((type) => type !== "none"),
+        // Empty on elements with no box, such as a video's <source>s.
+        .filter((type) => type && type !== "none"),
       behaviour: [document.documentElement, document.body].map(
         (el) => getComputedStyle(el).scrollBehavior,
       ),

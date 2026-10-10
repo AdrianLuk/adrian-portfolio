@@ -94,7 +94,7 @@ test.describe("before any script runs", () => {
   });
 });
 
-type Stop = { href: string | null; focusVisible: boolean };
+type Stop = { href: string | null; tag?: string; focusVisible: boolean };
 
 async function tabTo(page: Page): Promise<Stop> {
   await page.keyboard.press("Tab");
@@ -105,7 +105,11 @@ async function tabTo(page: Page): Promise<Stop> {
     const outline =
       style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0;
     const shadow = style.boxShadow !== "none";
-    return { href: el.getAttribute("href"), focusVisible: outline || shadow };
+    return {
+      href: el.getAttribute("href"),
+      tag: el.tagName.toLowerCase(),
+      focusVisible: outline || shadow,
+    };
   });
 }
 
@@ -127,8 +131,13 @@ test.describe("a keyboard walk", () => {
       ...contact.channels.map((c) => c.href),
     ];
 
+    // The Rally game's clip is a stop per built-in control, drawn by the
+    // browser (its ring with them), as the Case study's recordings are.
     const stops: Stop[] = [];
-    for (let i = 0; i < expected.length; i++) stops.push(await tabTo(page));
+    for (let i = 0; i < 80 && stops.length < expected.length; i++) {
+      const stop = await tabTo(page);
+      if (stop.tag !== "video") stops.push(stop);
+    }
 
     expect(stops.map((s) => s.href)).toEqual(expected);
     for (const stop of stops) {

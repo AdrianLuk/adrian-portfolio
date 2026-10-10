@@ -109,8 +109,10 @@ export type Highlight = {
   /** Two verified numbers; Juice Bros has none (no stable figures, and usage numbers are never claimed). */
   keyNumbers: readonly [] | readonly [KeyNumber, KeyNumber];
   link: HighlightLink;
-  /** A plain link under `link`. Only Juice Bros has one: its court's Rally game. */
+  /** A link under `link`, shown as a play button. Only Juice Bros has one: its court's Rally game. */
   secondLink?: { label: string; href: string };
+  /** A short silent clip above `secondLink`, showing where it goes. */
+  clip?: Recording;
 };
 
 export type Role = {
@@ -233,8 +235,20 @@ export const work = { heading: "Work" } as const;
 
 const mediaBase = "/case-studies/juice-bros";
 
-/** Into the Rally game, from the Juice Bros Highlight and Case study. Plain: the jokes stay inside the game. */
-export const rallyLink = { label: "Play a rally on the court", href: "/play" } as const;
+/** Into the Rally game, from the Juice Bros Highlight and Case study. Says it's a game; the jokes stay inside it. */
+export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/play" } as const;
+
+/** A rally in the Rally game, over its link in the Juice Bros Highlight. */
+export const rallyClip: Recording = {
+  label: "A rally in the Rally game: the player and Dinkbot trading shots across the floodlit court.",
+  poster: `${mediaBase}/rally-game-poster.webp`,
+  width: 720,
+  height: 540,
+  sources: [
+    { src: `${mediaBase}/rally-game.webm`, type: "video/webm" },
+    { src: `${mediaBase}/rally-game.mp4`, type: "video/mp4" },
+  ],
+};
 
 export const caseStudies = [
   {
@@ -500,6 +514,7 @@ export const highlights = [
     keyNumbers: [],
     link: { kind: "case-study", slug: "juice-bros" },
     secondLink: rallyLink,
+    clip: rallyClip,
   },
   {
     id: "bt-cup",

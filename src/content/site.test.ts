@@ -57,7 +57,7 @@ describe("Highlights", () => {
     const withSecond = highlights.filter((h) => "secondLink" in h);
     expect(withSecond.map((h) => h.id)).toEqual(["juice-bros"]);
     expect(withSecond[0].secondLink).toEqual({
-      label: "Play a rally on the court",
+      label: "Play pickleball against Dinkbot",
       href: "/play",
     });
   });
@@ -192,7 +192,7 @@ describe("Juice Bros Case study", () => {
 
   it("links to the Rally game on its court, with the Highlight's wording", () => {
     expect(study.links).toContainEqual({
-      label: "Play a rally on the court",
+      label: "Play pickleball against Dinkbot",
       href: "/play",
     });
   });
