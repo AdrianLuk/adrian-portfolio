@@ -319,14 +319,16 @@ const DERBY_VIEW = {
 };
 
 /**
- * What the Derby's frame holds, in the field's feet: home plate with the
- * batter's box round it, Curvebot standing on the mound, and centre field's
- * fence with room over it for a home run, each within `edge` of the frame's
- * middle, fitted as /play's frame is (see PLAY_FRAME).
+ * What the Derby's frame holds, in the field's feet: home plate (drawn
+ * far bigger than life) with the batter standing left of it, Curvebot on
+ * the mound, and centre field's fence with room over it for a home run,
+ * each within `edge` of the frame's middle, fitted as /play's frame is (see
+ * PLAY_FRAME).
  */
 export const DERBY_FRAME = {
   points: [
-    [-10, 0, 6],
+    [-20, 0, 6],
+    [-20, 16, -9],
     [10, 0, 6],
     [0, 10, -60.5],
     [0, 20, -225],

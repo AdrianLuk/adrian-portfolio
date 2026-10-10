@@ -276,6 +276,7 @@ describe("stills", () => {
 for (const [place, shots] of [
   ["court", site.courtStills],
   ["Skyline", site.skylineStills],
+  ["Diamond", site.diamondStills],
 ] as const) {
   describe(`The ${place} still`, () => {
     const name = place.toLowerCase();

@@ -37,11 +37,13 @@ export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";
  * The panel copy stands on over a live Place, so no line is lost to the
  * world's lights behind it: its glow in the Place's light (its corner
  * brackets too, by `PanelCorners`), or at the Skyline, whose magenta is the
- * world's alone, in the world's cyan. Written out in full, so Tailwind finds
- * the classes.
+ * world's alone, in the world's cyan, as at the Diamond, which burns it.
+ * Written out in full, so Tailwind finds the classes.
  */
 export const overPlace = {
   skyline:
+    "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8",
+  diamond:
     "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8",
   court:
     "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8",

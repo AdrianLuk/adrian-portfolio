@@ -13,6 +13,7 @@ describe("sitemap", () => {
       `${siteUrl}/resume`,
       ...caseStudies.map((study) => `${siteUrl}/work/${study.slug}`),
       `${siteUrl}/play`,
+      `${siteUrl}/play/derby`,
     ]);
   });
 });

@@ -67,7 +67,7 @@ const LINE = 0.35;
 const BASE = 1.1;
 
 /** How high the mound stands, in world units: far higher than life, to read as a hill. */
-const MOUND_RISE = 0.8;
+export const MOUND_RISE = 0.8;
 
 /** How high the fence stands, in world units. */
 const FENCE = 0.9;
@@ -94,7 +94,7 @@ export function diamondFootprint(scale: number) {
  * The Diamond's field, for the Home Run Derby to play on: home plate's
  * point, the field's height, world units to the foot, and which side of the
  * valley it stands (its line out to centre field runs down the valley and
- * away from the centre line, 45° off each).
+ * away from the centre line, 45Â° off each).
  */
 export type DiamondField = {
   x: number;
