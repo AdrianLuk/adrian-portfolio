@@ -104,6 +104,10 @@ _Avoid_: About route, second route
 The K-pop concert arena built from light, seated in the valley's right wall beside Victoria Harbour, past the Diamond: a horseshoe of tiers whose seats are lightsticks, a canopy over them, and a stage closing its open end, aimed at Hong Kong so the city stands behind the stage. Its back is cut into the wall; the rest stands out over the shore on lit braces, as Stark's house stands out over Malibu Point. Its floor holds the lightstick crowd. The Encore's frame and the Hobby route's last stop, seen from inside, up the back tiers behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
 _Avoid_: Stadium, stadium bowl (BT Cup's Landmark), venue, concert hall
 
+**Sky glow**:
+A stadium's light in the haze over the ridge, seen from far down the valley: floodlight white over the Diamond, violet over the Arena. From the hero they merge into one soft bloom behind Toronto's skyline, the only sign of the Hobby route's Places from there. Still, drawn on the sky, so the valley's walls and the towers hide all but what shows over them; it fades out as the camera nears, where the stadium's own lights take over. Neither Lit sites (whose light is the scroll's reward) nor the Encore (green) have one.
+_Avoid_: Beacon, beam, skyglow
+
 **About page**:
 The page (`/about`) about Adrian outside work, along the Hobby route: roots first ("Born and raised in Canada. My parents are from Hong Kong."), then pickleball, baseball, K-pop and the gaming line. Its Place is the Hobby route, starting at the court; Hong Kong is not on it.
 _Avoid_: Bio, About me, personal page
