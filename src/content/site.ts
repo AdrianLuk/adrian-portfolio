@@ -1026,6 +1026,7 @@ export const diamondPanel = {
   eyebrow: derby.eyebrow,
   heading: derby.heading,
   line: "Ten pitches from Curvebot. Your timing decides where each one goes.",
+  clip: derbyClip,
   link: derbyLink,
 } as const;
 

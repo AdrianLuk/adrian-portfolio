@@ -95,6 +95,11 @@ test.describe("before any script runs", () => {
     );
     await expect(panel).toContainText(diamondPanel.eyebrow);
     await expect(panel).toContainText(diamondPanel.line);
+    // The clip, holding on its poster and loading nothing until it plays.
+    const clip = panel.locator("video");
+    await expect(clip).toHaveAttribute("aria-label", diamondPanel.clip.label);
+    await expect(clip).toHaveAttribute("poster", diamondPanel.clip.poster);
+    await expect(clip).toHaveAttribute("preload", "none");
     const links = panel.getByRole("link");
     await expect(links).toHaveCount(1);
     await expect(links).toHaveText(derbyLink.label);

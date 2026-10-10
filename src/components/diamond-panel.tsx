@@ -1,5 +1,6 @@
 import { diamondPanel } from "@/content/site";
 import { accents, holoPanel, PanelCorners, PlayButton } from "./highlight-panel";
+import { Recording } from "./recording";
 
 const { bracket, glow } = accents.cyan;
 
@@ -11,7 +12,7 @@ const { bracket, glow } = accents.cyan;
  * the Diamond is no Lit site, so nothing in the world lights for it.
  */
 export function DiamondPanel() {
-  const { id, eyebrow, heading, line, link } = diamondPanel;
+  const { id, eyebrow, heading, line, clip, link } = diamondPanel;
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className={`${holoPanel} ${glow}`}>
       <PanelCorners className={bracket} />
@@ -25,6 +26,9 @@ export function DiamondPanel() {
         {heading}
       </h2>
       <p className="mt-4 leading-relaxed text-ink/90">{line}</p>
+      <div className="mt-6">
+        <Recording recording={clip} />
+      </div>
       <p className="mt-4">
         <PlayButton link={link} light="cyan" />
       </p>
