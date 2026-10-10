@@ -11,6 +11,13 @@ import { credits, hero } from "../src/content/site";
 export const SCENE_TIMEOUT = 20_000;
 
 /**
+ * Marks a frame-rate test: run on its own, after every other test (see
+ * playwright.config.ts), so CI's other worker drawing a world in software
+ * never eats into its frames.
+ */
+export const FRAME_RATE = { tag: "@frame-rate" };
+
+/**
  * How many animations run on the clock. The header's fade to glass moves only
  * with the scroll (a scroll timeline), so it never counts.
  */

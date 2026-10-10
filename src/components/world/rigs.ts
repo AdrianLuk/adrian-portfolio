@@ -58,3 +58,11 @@ export const TURN_EASE = { name: "power2.out", opening: 3 } as const;
  * copy never waits longer.
  */
 export const TRANSIT_MAX_SECONDS = 2.5;
+
+/**
+ * The Encore's timing, in seconds (plain data, for the Camera director): the
+ * way into the Arena, a slow eased move at a medium-speed pan, and the
+ * lightsticks filling its floor once the camera has landed.
+ */
+export const ENCORE_SECONDS = 4.5;
+export const ENCORE_FILL_SECONDS = 3;

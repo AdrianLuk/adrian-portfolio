@@ -10,13 +10,22 @@ import type { PlaceView } from "./world-places";
 import { createFlightPath, type Pose } from "./world/flight";
 import { nominalRoute } from "./world/nominal-route";
 import { CAMERA } from "./world/pose";
-import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
+import {
+  ENCORE_FILL_SECONDS,
+  ENCORE_SECONDS,
+  FLIGHT_START_RIG,
+  TRANSIT_MAX_SECONDS,
+} from "./world/rigs";
 import { layoutLandmarks } from "./world/landmarks";
 import {
+  arenaView,
+  arenaWayIn,
   courtPose,
   createRoute,
   derbyView,
+  hongKongPose,
   playView,
+  ROUTE_STOPS,
   skylinePose,
 } from "./world/route";
 import { COURT_STOP, transit, transitWithin } from "./world/transit";
@@ -61,6 +70,7 @@ function setup() {
       skyline: CAMERA.fovY,
       play: play.fovY,
       derby: derby.fovY,
+      encore: arenaView(aspect).fovY,
     },
     court: courtPose(aspect),
     play: play.pose,
@@ -68,6 +78,7 @@ function setup() {
     courtStop: COURT_STOP,
     transit,
     within: transitWithin,
+    encore: (from) => arenaWayIn(aspect, from),
   };
   const director = createCameraDirector({ homeStop: () => page.stop });
   director.layout(paths);
@@ -183,6 +194,8 @@ describe("the Camera director", () => {
       sites: [1, 0.35, 0.35, 0.35],
       court: 0,
       skyline: 0,
+      encore: 0,
+      fill: 0,
     });
   });
 
@@ -228,6 +241,8 @@ describe("the Camera director", () => {
       sites: [0, 0, 0, 0],
       court: 0,
       skyline: 1,
+      encore: 0,
+      fill: 0,
     });
   });
 
@@ -242,6 +257,8 @@ describe("the Camera director", () => {
       sites: [0, 0, 0, 0],
       court: 1,
       skyline: 0,
+      encore: 0,
+      fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
   });
@@ -257,6 +274,8 @@ describe("the Camera director", () => {
       sites: [0, 0, 0, 0],
       court: 0,
       skyline: 0,
+      encore: 0,
+      fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
     expect(fovY).toBe(derby.fovY);
@@ -273,6 +292,8 @@ describe("the Camera director", () => {
       sites: [0, 0, 0, 0],
       court: 1,
       skyline: 0,
+      encore: 0,
+      fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
     expect(fovY).toBe(play.fovY);
@@ -561,12 +582,7 @@ describe("the Camera director", () => {
       const setup_ = setup();
       setup_.director.layout({
         ...setup_.paths,
-        fovY: {
-          world: CAMERA.fovY,
-          skyline: 55,
-          play: play.fovY,
-          derby: derby.fovY,
-        },
+        fovY: { ...setup_.paths.fovY, skyline: 55 },
       });
       return setup_;
     }
@@ -936,6 +952,101 @@ describe("the Camera director", () => {
       director.show("court");
       director.arrive();
       expect(director.frame(32).lean).toEqual(upright);
+    });
+  });
+
+  describe("the Encore", () => {
+    const LAST = ROUTE_STOPS - 1;
+    const SECONDS = ENCORE_SECONDS * 1000;
+    const inside = arenaView(aspect);
+
+    /** Home landed, its scroll route at the route's end, Hong Kong's view. */
+    function atTheEnd() {
+      const setup_ = setup();
+      setup_.director.show("hero");
+      setup_.director.openingLands();
+      setup_.director.scrolled(LAST, [1, 1, 1, 1]);
+      return setup_;
+    }
+
+    it("takes the camera from the route's end into the Arena, landing on its inside view in its field of view, without a jump", () => {
+      const { director, paths } = atTheEnd();
+      // Widening, as on a phone.
+      director.layout({ ...paths, fovY: { ...paths.fovY, encore: 60 } });
+      expectSamePose(director.frame(0).pose!, hongKongPose(aspect));
+      director.encore(true, 0);
+      const poses = film(director, 0, SECONDS + 200);
+      expectNoJump(poses);
+      expectSamePose(poses.at(-1)!, inside.pose);
+      expect(director.frame(SECONDS + 200).fovY).toBeCloseTo(60);
+      expect(director.frame(SECONDS / 2).fovY).toBeCloseTo((CAMERA.fovY + 60) / 2);
+    });
+
+    it("switches the show on as the camera comes in, fills the floor once it lands, and fills it again for one more song", () => {
+      const { director } = atTheEnd();
+      expect(director.frame(0).lights).toMatchObject({ encore: 0, fill: 0 });
+      director.encore(true, 0);
+      const half = director.frame(SECONDS / 2).lights!;
+      expect(half.encore).toBeGreaterThan(0);
+      expect(half.encore).toBeLessThan(1);
+      expect(half.fill).toBe(0);
+      expect(director.frame(SECONDS).lights).toMatchObject({ encore: 1, fill: 0 });
+      const filling = director.frame(SECONDS + ENCORE_FILL_SECONDS * 500).lights!.fill;
+      expect(filling).toBeGreaterThan(0);
+      expect(filling).toBeLessThan(1);
+      const full = SECONDS + ENCORE_FILL_SECONDS * 1000;
+      expect(director.frame(full).lights!.fill).toBe(1);
+
+      director.replayEncore(full + 1000);
+      expect(director.frame(full + 1000).lights!.fill).toBe(0);
+      expect(director.frame(full + 1000 + ENCORE_FILL_SECONDS * 1000).lights!.fill).toBe(1);
+    });
+
+    it("fills the floor afresh after a way in that turned back before it landed", () => {
+      const { director } = atTheEnd();
+      director.encore(true, 0);
+      director.encore(false, SECONDS * 0.5);
+      // Back in from partway out (0.3 of the way), after the first landing would have been.
+      const back = SECONDS * 0.7;
+      director.encore(true, back);
+      const lands = back + SECONDS * 0.7;
+      expect(director.frame(lands).lights).toMatchObject({ encore: 1, fill: 0 });
+      expect(director.frame(lands + ENCORE_FILL_SECONDS * 1000).lights!.fill).toBe(1);
+    });
+
+    it("plays the camera back out to the route's end from wherever it got to, the show going off, even as the scroll moves on", () => {
+      const { director, route } = atTheEnd();
+      director.encore(true, 0);
+      film(director, 0, SECONDS * 0.6);
+      director.encore(false, SECONDS * 0.6);
+      const back = SECONDS * 0.6;
+      const poses = film(director, SECONDS * 0.6, back + 200, (now) => {
+        // The visitor scrolls on up meanwhile.
+        const t = Math.min(1, (now - SECONDS * 0.6) / back);
+        director.scrolled(LAST - 0.5 * t, [1, 1, 1, 1]);
+      });
+      expectNoJump(poses);
+      expectSamePose(poses.at(-1)!, route.poseAt(LAST - 0.5));
+      const after = director.frame(SECONDS * 1.2 + 200);
+      expect(after.lights).toMatchObject({ encore: 0 });
+      expect(after.fovY).toBe(CAMERA.fovY);
+    });
+
+    it("stays out of the Opening, and of a page whose scroll route isn't running (under reduced motion, say)", () => {
+      const { director, route } = setup();
+      director.show("hero");
+      director.encore(true, 0);
+      director.openingLands();
+      expectSamePose(director.frame(SECONDS * 2).pose!, route.poseAt(0));
+      expect(director.frame(SECONDS * 2).lights).toMatchObject({ encore: 0, fill: 0 });
+    });
+
+    it("is over once the scroll route stops: home comes back at the route, not in the Arena", () => {
+      const { director, route } = atTheEnd();
+      director.encore(true, 0);
+      director.scrollStopped();
+      director.scrolled(LAST, [1, 1, 1, 1]);
+      expectSamePose(director.frame(SECONDS * 2).pose!, route.poseAt(LAST));
     });
   });
 

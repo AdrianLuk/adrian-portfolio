@@ -194,7 +194,8 @@ test.describe("the night backdrop", () => {
   test("home has the world itself, not the backdrop", async ({ page }) => {
     await withoutWorld(page);
     await page.goto("/");
-    await expect(page.locator("[data-backdrop]")).toHaveCount(0);
+    // The Encore's still of the Arena, past the bookend, is its own.
+    await expect(page.locator('[data-backdrop]:not([data-backdrop="arena"])')).toHaveCount(0);
   });
 });
 
@@ -363,7 +364,10 @@ async function watchTransit(page: Page) {
       lastFrame = now;
       if (w.__transit.seen.length > 0) {
         w.__transit.frames++;
-        const backdrop = document.querySelector("[data-backdrop]");
+        // A page's backdrop: the Encore's still, at home's foot, is its own.
+        const backdrop = document.querySelector(
+          '[data-backdrop]:not([data-backdrop="arena"])',
+        );
         const canvas = document.querySelector<HTMLCanvasElement>(
           "[data-world] canvas",
         );
@@ -1101,33 +1105,55 @@ async function watchGame(page: Page) {
 }
 
 /**
- * Once /rally is in under a Transit and its copy held: whether Start could
- * take focus, and whether it shows. Null if the copy was never seen held.
+ * Watches, from before the navigation, for /rally's Start to arrive under a
+ * Transit: the moment it is in the page (in the mutation's own microtask,
+ * before anything paints), whether its copy is held, and if so whether Start
+ * could take focus and whether it shows. Returns a reader: undefined until
+ * Start arrives; "late" if it arrived after the hold had already ended (a
+ * page slower than TRANSIT_MAX_SECONDS, whose copy is never held).
  */
-const heldGame = (page: Page) =>
-  page.evaluate(async (start) => {
+async function watchHeldGame(page: Page) {
+  await page.evaluate((start) => {
+    const w = window as unknown as { __heldGame?: unknown };
+    w.__heldGame = undefined;
     const root = document.querySelector("[data-world-root]")!;
-    const until = performance.now() + 5000;
-    while (performance.now() < until) {
+    const observer = new MutationObserver(() => {
       const button = Array.from(document.querySelectorAll("button")).find(
         (b) => b.textContent === start,
       );
-      if (button && root.getAttribute("data-arriving") === "play") {
-        // Disabled until the court is lit: enabled for the check alone.
-        const disabled = button.disabled;
-        button.disabled = false;
-        button.focus();
-        const focusable = document.activeElement === button;
-        button.disabled = disabled;
-        return {
-          focusable,
-          visible: button.checkVisibility({ visibilityProperty: true }),
-        };
+      if (!button) return;
+      observer.disconnect();
+      if (root.getAttribute("data-arriving") !== "play") {
+        w.__heldGame = "late";
+        return;
       }
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-    }
-    return null;
+      // Disabled until the court is lit: enabled for the check alone.
+      const disabled = button.disabled;
+      button.disabled = false;
+      button.focus();
+      const focusable = document.activeElement === button;
+      button.disabled = disabled;
+      button.blur();
+      w.__heldGame = {
+        focusable,
+        visible: button.checkVisibility({ visibilityProperty: true }),
+      };
+    });
+    observer.observe(document.body, { subtree: true, childList: true });
   }, rally.game.start.action);
+  return async () => {
+    let held: unknown;
+    await expect
+      .poll(async () => {
+        held = await page.evaluate(
+          () => (window as unknown as { __heldGame?: unknown }).__heldGame,
+        );
+        return held !== undefined;
+      }, { timeout: SCENE_TIMEOUT })
+      .toBe(true);
+    return held;
+  };
+}
 
 test.describe("Transits to and from /rally, the court seen from behind the player's baseline", () => {
   test.describe.configure({ timeout: 90_000 });
@@ -1157,11 +1183,15 @@ test.describe("Transits to and from /rally, the court seen from behind the playe
 
     // From the Juice Bros Highlight's Rally game link: a Transit down the
     // valley to the court, not a crossfade.
+    const heldGame = await watchHeldGame(page);
     await page
       .locator(`#${highlightAnchor("juice-bros")}`)
       .getByRole("link", { name: rallyLink.label })
       .click();
-    expect(await heldGame(page)).toEqual({ focusable: false, visible: false });
+    const held = await heldGame();
+    // Held, out of sight and of focus's reach; or, on a page that took
+    // longer than the hold, never held at all.
+    if (held !== "late") expect(held).toEqual({ focusable: false, visible: false });
     await expect(page).toHaveURL(/\/rally$/);
     await flown(transit, page, "play");
     await expect(worldOf(page)).toHaveAttribute("data-world", "drawn");
@@ -1263,11 +1293,13 @@ test.describe("Transits to and from /rally, the court seen from behind the playe
     await expect(worldOf(page).locator("canvas")).toHaveCSS("opacity", "1");
     await tagCanvas(worldOf(page).locator("canvas"));
 
+    const heldGame = await watchHeldGame(page);
     await page
       .getByRole("main")
       .getByRole("link", { name: rallyLink.label })
       .click();
-    expect(await heldGame(page)).toEqual({ focusable: false, visible: false });
+    const held = await heldGame();
+    if (held !== "late") expect(held).toEqual({ focusable: false, visible: false });
     await expect(page).toHaveURL(/\/rally$/);
     await flown(transit, page, "play");
     await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {

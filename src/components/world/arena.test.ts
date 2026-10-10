@@ -15,6 +15,7 @@ import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE } from "./hong-kong";
 import { nominalRoute } from "./nominal-route";
 import { FOG_DENSITY } from "./palette";
+import { ENCORE_SECONDS } from "./rigs";
 import { CAMERA } from "./pose";
 import {
   arenaView,
@@ -123,6 +124,57 @@ describe("the Arena", () => {
     expect(arena.posts).toHaveLength(13);
   });
 
+  it("holds a lightstick crowd on its floor, clear of the stage, runway and B-stage, filling from the stage back", () => {
+    const { crowd, stage } = arena;
+    expect(crowd.length).toBeGreaterThan(300);
+    const b = framed(stage.bStage.x, stage.bStage.z);
+    for (const stick of crowd) {
+      const { lx, lz, r } = framed(stick.x, stick.z);
+      expect(r).toBeLessThan(ARENA.floor);
+      expect(stick.y - level).toBeGreaterThan(0.5);
+      expect(stick.y - level).toBeLessThan(2.5);
+      // Off the deck, the runway and the B-stage.
+      expect(lz).toBeGreaterThan(stage.front);
+      const onRunway = Math.abs(lx) < STAGE.runway.width / 2 + 0.5 && lz < stage.front + STAGE.runway.length;
+      expect(onRunway).toBe(false);
+      expect(Math.hypot(lx - b.lx, lz - b.lz)).toBeGreaterThan(STAGE.bStage.r + 0.5);
+      expect(stick.seed).toBeGreaterThanOrEqual(0);
+      expect(stick.seed).toBeLessThanOrEqual(1);
+    }
+    // The rows nearest the stage light first.
+    const order = (near: boolean) => {
+      const half = crowd.filter((s) => (framed(s.x, s.z).lz < 0) === near);
+      return half.reduce((sum, s) => sum + s.seed, 0) / half.length;
+    };
+    expect(order(true)).toBeLessThan(order(false) - 0.2);
+  });
+
+  it("raises light beams from the stage's truss into the night, over the canopy, aimed away from the crowd's view", () => {
+    const { beams, canopyY, stage } = arena;
+    expect(beams.length).toBeGreaterThanOrEqual(6);
+    for (const beam of beams) {
+      const { lx, lz } = framed(beam.from[0], beam.from[2]);
+      expect(Math.abs(lx)).toBeLessThanOrEqual(STAGE.width / 2);
+      expect(lz).toBeLessThanOrEqual(stage.front);
+      expect(lz).toBeGreaterThanOrEqual(stage.front - STAGE.depth);
+      expect(beam.from[1] - level).toBeCloseTo(STAGE.truss, 0);
+      expect(beam.top[1] - level).toBeGreaterThan(canopyY + 20);
+      // Leaning no more than about 40 degrees off upright, so none glares into the camera.
+      expect(beam.tilt).toBeLessThan(0.7);
+      // The top `length` up from the truss.
+      const rise = Math.hypot(...beam.top.map((v, k) => v - beam.from[k]));
+      expect(rise).toBeCloseTo(beam.length);
+    }
+  });
+
+  it("stands every lightstick and beam well away from BT Cup's bowl", () => {
+    const bowl = landmarks.bounds[SITES.findIndex((s) => s.highlight === "bt-cup")];
+    const points = [...arena.crowd, ...arena.beams.map(({ top: [x, y, z] }) => ({ x, y, z }))];
+    for (const { x, z } of points) {
+      expect(Math.hypot(bowl.x - x, bowl.z - z)).toBeGreaterThan(120);
+    }
+  });
+
   it("stands out over the shore on braces: each rising from the hillside or the ground below to the underside's rim", () => {
     expect(arena.braces.length).toBeGreaterThanOrEqual(3);
     for (const brace of arena.braces) {
@@ -167,6 +219,25 @@ describe("the Arena in the world", () => {
     const dz = HONG_KONG_CENTRE.z - arena.z;
     const cos = (toStageX * dx + toStageZ * dz) / Math.hypot(dx, dz);
     expect(cos).toBeCloseTo(1);
+  });
+
+  it("opens its side toward home's route, from the stage round to that side's middle, so the route sees in", () => {
+    // Home's route passes on its left (from inside, facing the stage): -lx.
+    for (let s = 4; s <= ROUTE_STOPS - 1; s += 0.25) {
+      const p = nominalRoute(1.6).poseAt(s).position;
+      expect(framed(p.x, p.z).lx, `at stop ${s}`).toBeLessThan(0);
+    }
+    // That side open from the stage to its middle; the other side's tiers
+    // run on to the stage's gap, as before.
+    const side = (3 * Math.PI) / 2;
+    for (let a = Math.PI; a <= side; a += 0.05) {
+      expect(inTiers(a), `at ${a.toFixed(2)}`).toBe(false);
+    }
+    for (let a = side; a >= Math.PI + ARENA.gap / 2 + 0.01; a -= 0.05) {
+      expect(inTiers(4 * Math.PI - a), `at ${(4 * Math.PI - a).toFixed(2)}`).toBe(true);
+    }
+    // Its back, cut into the hillside, still closes the curve.
+    expect(inTiers(2 * Math.PI)).toBe(true);
   });
 
   it("sits in its seat: the ground under its floor and tiers cut below the underside", () => {
@@ -467,6 +538,26 @@ describe("the way into the Arena from home's route's end", () => {
           expect(samples[i].position.distanceTo(samples[i - 1].position)).toBeLessThan(1);
           expect(samples[i].quaternion.angleTo(samples[i - 1].quaternion)).toBeLessThan(0.02);
         }
+      });
+
+      it("eases off and lands, turning at a medium-speed pan over the Encore's time", () => {
+        const step = ENCORE_SECONDS / (samples.length - 1);
+        let fastest = 0;
+        for (let i = 1; i < samples.length; i++) {
+          const degrees = (samples[i].quaternion.angleTo(samples[i - 1].quaternion) * 180) / Math.PI;
+          fastest = Math.max(fastest, degrees / step);
+        }
+        expect(fastest).toBeLessThan(150);
+        // Still at both ends, not dashing off or braking hard.
+        expect(samples[1].position.distanceTo(samples[0].position)).toBeLessThan(0.05);
+        expect(samples.at(-1)!.position.distanceTo(samples.at(-2)!.position)).toBeLessThan(0.05);
+      });
+
+      it("leaves from wherever the camera is: a pose up the route lands on the inside view all the same", () => {
+        const from = nominalRoute(aspect).poseAt(ROUTE_STOPS - 1.5);
+        const out = arenaWayIn(aspect, from);
+        expect(out.poseAt(0).position.distanceTo(from.position)).toBeCloseTo(0);
+        expect(out.poseAt(1).position.distanceTo(arenaView(aspect).pose.position)).toBeCloseTo(0);
       });
 
       it("keeps 2 clear of the tiers, the canopy and the stage, coming down into the open middle", () => {

@@ -37,7 +37,9 @@ jobs:
   # The browser tests, alongside the checks.
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The suite runs 11 to 14 minutes, so a retry or two on a slow runner
+    # would otherwise cancel it.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 

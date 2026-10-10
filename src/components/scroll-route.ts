@@ -38,9 +38,13 @@ export function createScrollRoute({
   panels,
   route,
   locateSite,
+  end = (max) => max,
 }: {
   /** Told the stop the scroll puts the camera at, and how lit each site is. */
-  director: Pick<CameraDirector, "scrolled" | "scrollStopped" | "stop">;
+  director: Pick<
+    CameraDirector,
+    "scrolled" | "scrollStopped" | "stop" | "encore"
+  >;
   /** The panels, one per stop after the first, in the route's order. */
   panels: readonly HTMLElement[];
   /**
@@ -54,17 +58,28 @@ export function createScrollRoute({
    * pixels.
    */
   locateSite: () => World["placeSite"] | null;
+  /**
+   * The furthest the route runs, given how far the page scrolls: short of
+   * it on home, whose Encore lies past the route's end. Scrolling past the
+   * end reaches the Encore.
+   */
+  end?: (maxScroll: number) => number;
 }) {
   /** The scroll position the camera is at: the page's, smoothed by the scrub. */
   const scroll = { y: 0 };
   let boxes: PanelBox[] = [];
   let anchors: number[] = [0];
   let viewport = 1;
+  /** The scroll at which the Encore is reached: its stretch's top past the screen's middle. */
+  let encoreFrom = Infinity;
   const shifts = panels.map(() => 0);
 
   function measure() {
-    const layout = pageLayout(panels, ScrollTrigger.maxScroll(window));
+    const max = ScrollTrigger.maxScroll(window);
+    const last = end(max);
+    const layout = pageLayout(panels, last);
     viewport = layout.viewport;
+    encoreFrom = last < max ? last + viewport / 2 : Infinity;
     boxes = [...layout.panels];
     anchors = routeAnchors(layout);
   }
@@ -109,6 +124,7 @@ export function createScrollRoute({
       return amount;
     });
     director.scrolled(stopAt(scroll.y, anchors), lit, route.name);
+    director.encore(scroll.y >= encoreFrom, performance.now());
     placePanels();
   }
 

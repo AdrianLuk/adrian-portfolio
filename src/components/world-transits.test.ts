@@ -8,6 +8,7 @@ import { CAMERA } from "./world/pose";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
 import { layoutLandmarks } from "./world/landmarks";
 import {
+  arenaWayIn,
   courtPose,
   createRoute,
   derbyView,
@@ -44,6 +45,7 @@ function standInHost() {
       world: CAMERA.fovY,
       skyline: CAMERA.fovY,
       play: CAMERA.fovY,
+      encore: CAMERA.fovY,
       derby: CAMERA.fovY,
     },
     court: courtPose(aspect),
@@ -52,6 +54,7 @@ function standInHost() {
     courtStop: COURT_STOP,
     transit,
     within: transitWithin,
+    encore: (from) => arenaWayIn(aspect, from),
   });
   director.show("hero");
   director.openingLands();

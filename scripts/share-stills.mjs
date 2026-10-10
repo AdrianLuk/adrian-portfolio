@@ -14,6 +14,9 @@
 //   the Skyline as the camera holds it there.
 // - public/world/diamond-*.webp: the Home Run Derby's first paint, likewise:
 //   the Diamond as the camera holds it behind home plate.
+// - public/world/arena-*.webp: the Encore's backdrop where the world isn't
+//   live behind it: home scrolled to the Encore, the camera landed in the
+//   Arena and its floor filled.
 //
 // Run against the production build, on a machine with a GPU:
 //
@@ -21,12 +24,14 @@
 //   node scripts/share-stills.mjs http://localhost:3300
 //
 // Re-run it whenever the world or the share cards change. Name sets to draw
-// only those: `--share`, `--valley`, `--court`, `--skyline`, `--diamond` (for example
+// only those: `--share`, `--valley`, `--court`, `--skyline`, `--diamond`,
+// `--arena` (for example
 // `node scripts/share-stills.mjs http://localhost:3300 --court`).
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
 import {
+  arenaStills,
   courtStills,
   diamondStills,
   credits,
@@ -34,11 +39,15 @@ import {
   skylineStills,
   valleyStills,
 } from "../src/content/site.ts";
+import {
+  ENCORE_FILL_SECONDS,
+  ENCORE_SECONDS,
+} from "../src/components/world/rigs.ts";
 import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
-const SETS = ["share", "valley", "court", "skyline", "diamond"];
+const SETS = ["share", "valley", "court", "skyline", "diamond", "arena"];
 const named = SETS.filter((set) => args.includes(`--${set}`));
 const unknown = args.filter(
   (a) => a.startsWith("--") && !SETS.includes(a.slice(2)),
@@ -75,7 +84,7 @@ async function writeStills(png, sizes) {
   }
 }
 
-async function openHome(browser, { viewport, motion }) {
+async function openHome(browser, { viewport, motion, query = "" }) {
   const context = await browser.newContext({
     viewport,
     deviceScaleFactor: 1.5,
@@ -83,7 +92,7 @@ async function openHome(browser, { viewport, motion }) {
   });
   const page = await context.newPage();
   if (motion) await page.addInitScript(skipOpening, credits.skip);
-  await page.goto(`${base}/`);
+  await page.goto(`${base}/${query}`);
   // The faces are "optional": one that misses first paint is never swapped
   // in, so load the page again with them cached.
   await page.evaluate(() => document.fonts.ready);
@@ -164,6 +173,26 @@ async function drawValley(browser) {
 }
 
 /**
+ * The Arena as the Encore shows it: home scrolled to its foot, the camera
+ * flown in and the lightsticks filled, the weather held clear.
+ */
+async function drawArena(browser) {
+  mkdirSync("public/world", { recursive: true });
+  for (const { viewport, sizes } of stillShots(arenaStills)) {
+    const page = await openHome(browser, { viewport, motion: true, query: "?weather=clear" });
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+    // The way in, then the floor filling, and a moment for the scroll's ease.
+    await page.waitForTimeout((ENCORE_SECONDS + ENCORE_FILL_SECONDS + 2) * 1000);
+    await page.addStyleTag({ content: WORLD_ONLY });
+    await page.waitForTimeout(300);
+    await writeStills(await page.screenshot(), sizes);
+    await page.context().close();
+  }
+}
+
+/**
  * A Place's still: its page's world on its first frame, with motion (so at
  * the court the rally ball is in, where the live world starts it) and the
  * weather held clear.
@@ -200,6 +229,7 @@ try {
     await drawPlace(browser, SKYLINE_PAGE, skylineStills);
   if (sets.has("diamond"))
     await drawPlace(browser, DIAMOND_PAGE, diamondStills);
+  if (sets.has("arena")) await drawArena(browser);
 } finally {
   await browser.close();
 }
