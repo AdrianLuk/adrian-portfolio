@@ -26,7 +26,7 @@ import { derby, derbyClip } from "../src/content/site.ts";
 import {
   createGame,
   PITCH_TIME,
-  RESULT,
+  resultBeat,
   startGame,
   step,
   WINDUP,
@@ -154,8 +154,8 @@ try {
         );
         swung = true;
         // The loop ends where it began: Curvebot about to wind up.
-        // The result stands RESULT seconds, then Curvebot winds up again.
-        end = swingAt + Math.round(RESULT * 1000);
+        // A home run's result stands its beat, then Curvebot winds up again.
+        end = swingAt + Math.round(resultBeat({ hit: { outcome: "home-run" } }) * 1000);
         posterFrame = Math.ceil((swingAt + POSTER_AFTER_SWING_MS) / FRAME_MS);
       }
     }

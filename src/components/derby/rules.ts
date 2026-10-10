@@ -93,9 +93,15 @@ const KINDS = Object.keys(PITCH_TIME) as PitchKind[];
  */
 export const WINDOW = { homeRun: 0.05, flyOut: 0.1, foul: 0.16 } as const;
 
-/** The windup before each pitch, and the beat after it. */
+/** The windup before each pitch. */
 export const WINDUP = 1.1;
-export const RESULT = 2.2;
+/** The beat after a pitch; after a home run, longer: its flight lands, and its distance stands there to read. */
+const RESULT = 2.2;
+const HOME_RUN_RESULT = 3.4;
+
+/** How long the beat after `game`'s last pitch lasts, in seconds of game time. */
+export const resultBeat = (game: Game) =>
+  game.hit?.outcome === "home-run" ? HOME_RUN_RESULT : RESULT;
 
 /** A small seeded generator (mulberry32): returns the next value and seed. */
 function random(seed: number): [number, number] {
@@ -276,7 +282,7 @@ export function step(game: Game, dt: number, input: Input = {}): Game {
         at: game.clock,
       });
     }
-  } else if (game.phase === "result" && game.clock >= RESULT) {
+  } else if (game.phase === "result" && game.clock >= resultBeat(game)) {
     if (game.pitches >= PITCHES) {
       game = {
         ...game,

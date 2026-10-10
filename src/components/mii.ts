@@ -200,11 +200,17 @@ export function stubbleTexture(color: Color) {
  * face, once it has loaded. Browser only.
  */
 export async function adrianTextures(color: Color) {
+  const font = await displayFont();
+  return { name: nameTexture("ADRIAN", font), hair: stubbleTexture(color) };
+}
+
+/** The site's display face, for drawing into a texture, once it has loaded. Browser only. */
+export async function displayFont() {
   const font =
     getComputedStyle(document.body).getPropertyValue("--font-display").trim() ||
     "sans-serif";
   await document.fonts.load(`800 150px ${font}`).catch(() => {});
-  return { name: nameTexture("ADRIAN", font), hair: stubbleTexture(color) };
+  return font;
 }
 
 /** A rounded rectangle from `bottom` up to `top`, `width` across, rounder at the top. */
