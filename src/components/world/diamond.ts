@@ -1,4 +1,5 @@
 import { Color } from "three";
+import { DIAMOND_SIDE } from "../lit-sites";
 import { palette } from "./palette";
 import type { Box, Outline, Ring, Solid } from "./skyline";
 import { valleyCentre } from "./terrain";
@@ -29,16 +30,20 @@ export const DIAMOND = {
 } as const;
 
 /**
- * Where the Diamond stands: past BT Cup's bowl, right of the valley's centre
- * line (the bowl stands left), its stadium 16 off the line at its nearest
- * (the runway's lights are 14 off) and over 10 short of Victoria Harbour's
- * water, `fromCentreLine` its plinth's centre's offset. The floor narrows
- * here, so it is drawn small: the most whose stadium keeps off the court on
- * the court stop's screen and fits a phone's frame when home's route turns
- * to frame it, between the bowl and the closing view. Its scale keeps that
- * footprint for a full-size park.
+ * Where the Diamond stands: past BT Cup's bowl, on `DIAMOND_SIDE` of the
+ * valley's centre line (right; the bowl stands left), its stadium 16 off the
+ * line at its nearest (the runway's lights are 14 off) and over 10 short of
+ * Victoria Harbour's water, `fromCentreLine` its plinth's centre's offset.
+ * The floor narrows here, so it is drawn small: the most whose stadium keeps
+ * off the court on the court stop's screen and fits a phone's frame at home's
+ * Diamond stop, between the bowl's stop and the closing view. Its scale
+ * keeps that footprint for a full-size park.
  */
-export const DIAMOND_AT = { z: -1033, fromCentreLine: 32, scale: 0.0402 };
+export const DIAMOND_AT = {
+  z: -1033,
+  fromCentreLine: 32 * DIAMOND_SIDE,
+  scale: 0.0402,
+};
 
 /**
  * The stadium round the diamond, in feet. Its seats stand in the outfield,

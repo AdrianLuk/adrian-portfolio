@@ -28,7 +28,8 @@ const EDGE = 16;
 /**
  * The scroll route: ScrollTrigger scrubs the camera along the route as the
  * page scrolls natively (nothing pinned, nothing snapped, scroll behaviour
- * untouched), each site lighting as its panel enters. The panels stay in the
+ * untouched), each panel lighting as it enters, and with it its Lit site, if
+ * it has one (the Diamond's panel has none). The panels stay in the
  * page's flow, so they read, tab and scroll as usual; each drifts a little
  * sideways with its site as the camera passes, and stands where the page put
  * it when the camera is at its stop.

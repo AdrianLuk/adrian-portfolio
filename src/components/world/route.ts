@@ -1,8 +1,8 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
-import { LIT_SITES, type LitSite } from "../lit-sites";
+import { DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
 import { ARENA, arenaAxes, STAGE, STRETCH } from "./arena";
 import type { RallyCourt } from "./court-look";
-import { DIAMOND_AT, diamondMiddle, type DiamondField } from "./diamond";
+import { diamondMiddle, type DiamondField } from "./diamond";
 import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE, HONG_KONG_SHORE } from "./hong-kong";
 import { CAMERA } from "./pose";
@@ -86,7 +86,7 @@ export const DIAMOND_STOP = SITES.length + 1;
  */
 export const PANEL_STOPS: readonly { position: Vector3; side: 1 | -1 }[] = [
   ...SITES,
-  { position: DIAMOND_MIDDLE, side: Math.sign(DIAMOND_AT.fromCentreLine) as 1 | -1 },
+  { position: DIAMOND_MIDDLE, side: DIAMOND_SIDE },
 ];
 
 /** Stops along the route: the settled view, each site, the Diamond, Hong Kong. */
@@ -590,13 +590,13 @@ const DIAMOND_VIEW = { lead: 90, height: CRUISE_HEIGHT };
 
 /**
  * The route's Diamond stop, for a screen of this shape: on the valley's
- * centre line short of the park, which stands right of the Diamond's panel
- * on a wide screen, as a site stands opposite its own, and centred and
- * whole on a narrow one.
+ * centre line short of the park, which stands on its own side, opposite the
+ * Diamond's panel, on a wide screen, as a site stands opposite its own, and
+ * centred and whole on a narrow one.
  */
 function diamondPose(aspect: number): Pose {
   const position = above(DIAMOND_MIDDLE.z + DIAMOND_VIEW.lead, DIAMOND_VIEW.height);
-  const ndcX = aspect >= 1 ? siteScreenX(aspect) : 0;
+  const ndcX = aspect >= 1 ? DIAMOND_SIDE * siteScreenX(aspect) : 0;
   return { position, quaternion: framing(position, DIAMOND_MIDDLE, ndcX, aspect) };
 }
 

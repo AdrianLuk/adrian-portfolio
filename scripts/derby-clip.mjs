@@ -17,7 +17,7 @@
 //
 // Re-run it whenever the Derby or the Diamond changes how it looks.
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { chromium } from "@playwright/test";
@@ -26,6 +26,7 @@ import { derby, derbyClip } from "../src/content/site.ts";
 import {
   createGame,
   PITCH_TIME,
+  RESULT,
   startGame,
   step,
   WINDUP,
@@ -47,26 +48,19 @@ const POSTER_AFTER_SWING_MS = 280;
 const LOOP_FADE = 0.4;
 const { width, height } = derbyClip;
 const SCENE_TIMEOUT = 60_000;
+/** Far longer than one pitch's clip runs: past it, the swing never came. */
+const MAX_FRAMES = 20 * FPS;
 
 /** The pitch Curvebot throws first in a game seeded `seed`. */
 const firstPitch = (seed) => step(startGame(createGame({ seed })), WINDUP).pitch;
-
-/**
- * How long a pitch's result stands, in ms, by the rules: from the swing to
- * Curvebot's next windup (the page doesn't show that moment).
- */
-function resultMs() {
-  let game = step(step(startGame(createGame()), WINDUP), 0.01, { swing: true });
-  let ms = 0;
-  for (; game.phase === "result"; ms++) game = step(game, 0.001);
-  return ms;
-}
 
 const out = (src) => path.join("public", src);
 const sourceOf = (type) => derbyClip.sources.find((s) => s.type === type).src;
 
 mkdirSync(path.dirname(out(derbyClip.poster)), { recursive: true });
+// Frames, poster and videos are made here; only a finished clip reaches public/.
 const frames = mkdtempSync(path.join(tmpdir(), "derby-clip-"));
+const made = (src) => path.join(frames, path.basename(src));
 const browser = await chromium.launch({
   // The GPU, where there is one.
   args: ["--enable-gpu", "--use-angle=default", "--ignore-gpu-blocklist"],
@@ -111,6 +105,7 @@ try {
     });
 
   let elapsed = 0;
+  let started = false;
   let pitchedAt = null;
   let swingAt = null;
   let swung = false;
@@ -121,7 +116,11 @@ try {
     elapsed = to;
   };
 
+  let count = 0;
   for (let k = 0; end === null || k * FRAME_MS < end; k++) {
+    if (k >= MAX_FRAMES) {
+      throw new Error(`No swing after ${MAX_FRAMES} frames (pitched at ${pitchedAt} ms)`);
+    }
     const target = k * FRAME_MS;
     while (elapsed < target) {
       let next = target;
@@ -134,7 +133,8 @@ try {
       if (swingAt !== null && !swung) next = Math.min(next, swingAt);
       await advance(next);
 
-      if (elapsed === READY_MS) {
+      if (!started && elapsed >= READY_MS) {
+        started = true;
         await page.evaluate((label) => {
           [...document.querySelectorAll("button")]
             .find((b) => b.textContent === label)
@@ -154,25 +154,25 @@ try {
         );
         swung = true;
         // The loop ends where it began: Curvebot about to wind up.
-        end = swingAt + resultMs();
+        // The result stands RESULT seconds, then Curvebot winds up again.
+        end = swingAt + Math.round(RESULT * 1000);
         posterFrame = Math.ceil((swingAt + POSTER_AFTER_SWING_MS) / FRAME_MS);
       }
     }
     const shot = await page.screenshot();
     const frame = sharp(shot).resize(width, height);
     await frame.clone().png().toFile(path.join(frames, `f${String(k).padStart(4, "0")}.png`));
+    count = k + 1;
     if (k === posterFrame) {
-      await frame.clone().webp({ quality: 80 }).toFile(out(derbyClip.poster));
-      console.log("wrote", out(derbyClip.poster));
       const { line } = await read();
       if (!line.startsWith(derby.game.outcomes["home-run"])) {
         throw new Error(`Not a home run: "${line}"`);
       }
+      await frame.clone().webp({ quality: 80 }).toFile(made(derbyClip.poster));
     }
   }
   await context.close();
 
-  const count = readdirSync(frames).length;
   const input = [
     "-y", "-v", "error",
     "-framerate", String(FPS), "-i", path.join(frames, "f%04d.png"),
@@ -180,12 +180,14 @@ try {
     "-filter_complex", `[0][1]xfade=transition=fade:duration=${LOOP_FADE}:offset=${count / FPS - LOOP_FADE},format=yuv420p`,
     "-an",
   ];
-  const encode = (type, codec) => {
-    execFileSync("ffmpeg", [...input, ...codec, out(sourceOf(type))]);
-    console.log("wrote", out(sourceOf(type)));
-  };
+  const encode = (type, codec) =>
+    execFileSync("ffmpeg", [...input, ...codec, made(sourceOf(type))]);
   encode("video/webm", ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32", "-row-mt", "1"]);
   encode("video/mp4", ["-c:v", "libx264", "-preset", "slow", "-crf", "22", "-movflags", "+faststart"]);
+  for (const src of [derbyClip.poster, ...derbyClip.sources.map((s) => s.src)]) {
+    copyFileSync(made(src), out(src));
+    console.log("wrote", out(src));
+  }
 } finally {
   await browser.close();
   rmSync(frames, { recursive: true, force: true });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { credits, highlightAnchor, highlights, person } from "../src/content/site";
+import { credits, diamondPanel, highlightAnchor, highlights, person } from "../src/content/site";
 import { countFrames, heroRoot, openHome, watched, timedAnimations } from "./hero";
 
 test("the H1 and the hero's root are in the initial HTML, before any script", async ({
@@ -34,8 +34,9 @@ test.describe("under prefers-reduced-motion, on a 2x screen 2560px wide", () => 
   });
   test.afterAll(() => page?.context().close());
 
-  const panel = (i: number) =>
-    page.locator(`#${highlightAnchor(highlights[i].id)}`);
+  /** The route's panels: the Highlights', then the Diamond's (as in route.spec). */
+  const panelIds = [...highlights.map((h) => highlightAnchor(h.id)), diamondPanel.id];
+  const panel = (i: number) => page.locator(`#${panelIds[i]}`);
 
   test("never flies: the credits stay as static captions, Skip among them", async () => {
     await expect(
@@ -63,7 +64,7 @@ test.describe("under prefers-reduced-motion, on a 2x screen 2560px wide", () => 
       "fixed",
     );
     const before = await frames();
-    for (let i = 0; i < highlights.length; i++) {
+    for (let i = 0; i < panelIds.length; i++) {
       const seen = await panel(i).evaluate((el) => {
         el.scrollIntoView({ block: "center" });
         const box = el.getBoundingClientRect();
