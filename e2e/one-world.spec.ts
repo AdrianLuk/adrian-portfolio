@@ -1057,7 +1057,7 @@ const gameRoot = (page: Page) => page.locator("[data-phase]");
 /** The world's own wrapper, round its canvas (the game's root carries data-world too). */
 const worldOf = (page: Page) => page.locator("[data-world]:has(> canvas)");
 
-/** /play's Start, in the game's panel. */
+/** /rally's Start, in the game's panel. */
 const startButton = (page: Page) =>
   page.getByRole("button", { name: rally.game.start.action });
 
@@ -1100,7 +1100,7 @@ async function watchGame(page: Page) {
 }
 
 /**
- * Once /play is in under a Transit and its copy held: whether Start could
+ * Once /rally is in under a Transit and its copy held: whether Start could
  * take focus, and whether it shows. Null if the copy was never seen held.
  */
 const heldGame = (page: Page) =>
@@ -1128,10 +1128,10 @@ const heldGame = (page: Page) =>
     return null;
   }, rally.game.start.action);
 
-test.describe("Transits to and from /play, the court seen from behind the player's baseline", () => {
+test.describe("Transits to and from /rally, the court seen from behind the player's baseline", () => {
   test.describe.configure({ timeout: 90_000 });
 
-  test("the camera flies home → /play, its copy and the game arriving once it lands, and Back flies home", async ({
+  test("the camera flies home → /rally, its copy and the game arriving once it lands, and Back flies home", async ({
     browser,
   }, testInfo) => {
     let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
@@ -1161,7 +1161,7 @@ test.describe("Transits to and from /play, the court seen from behind the player
       .getByRole("link", { name: rallyLink.label })
       .click();
     expect(await heldGame(page)).toEqual({ focusable: false, visible: false });
-    await expect(page).toHaveURL(/\/play$/);
+    await expect(page).toHaveURL(/\/rally$/);
     await flown(transit, page, "play");
     await expect(worldOf(page)).toHaveAttribute("data-world", "drawn");
     expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
@@ -1198,10 +1198,10 @@ test.describe("Transits to and from /play, the court seen from behind the player
     await page.context().close();
   });
 
-  test("the camera flies /play → Resume page, Back to /play, and on home", async ({
+  test("the camera flies /rally → Resume page, Back to /rally, and on home", async ({
     browser,
   }, testInfo) => {
-    // A visit that starts at /play.
+    // A visit that starts at /rally.
     const context = await browser.newContext({
       baseURL: testInfo.project.use.baseURL,
       viewport: { width: 960, height: 600 },
@@ -1209,7 +1209,7 @@ test.describe("Transits to and from /play, the court seen from behind the player
     const page = await context.newPage();
     const transit = await watchTransit(page);
     const transitions = await watchTransitions(page);
-    await page.goto("/play");
+    await page.goto("/rally");
     await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
     });
@@ -1224,7 +1224,7 @@ test.describe("Transits to and from /play, the court seen from behind the player
     ).toBeVisible();
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/play$/);
+    await expect(page).toHaveURL(/\/rally$/);
     await flown(transit, page, "play");
     expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
     await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
@@ -1244,7 +1244,7 @@ test.describe("Transits to and from /play, the court seen from behind the player
     await context.close();
   });
 
-  test("the camera moves round the court between the Case study and /play, either way", async ({
+  test("the camera moves round the court between the Case study and /rally, either way", async ({
     browser,
   }, testInfo) => {
     const context = await browser.newContext({
@@ -1267,7 +1267,7 @@ test.describe("Transits to and from /play, the court seen from behind the player
       .getByRole("link", { name: rallyLink.label })
       .click();
     expect(await heldGame(page)).toEqual({ focusable: false, visible: false });
-    await expect(page).toHaveURL(/\/play$/);
+    await expect(page).toHaveURL(/\/rally$/);
     await flown(transit, page, "play");
     await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
@@ -1293,7 +1293,7 @@ test.describe("Transits to and from /play, the court seen from behind the player
     await context.close();
   });
 
-  test("under reduced motion, home → /play swaps at once to the court: nothing flies, nothing is held, and the game starts slow", async ({
+  test("under reduced motion, home → /rally swaps at once to the court: nothing flies, nothing is held, and the game starts slow", async ({
     browser,
   }, testInfo) => {
     let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
@@ -1313,7 +1313,7 @@ test.describe("Transits to and from /play, the court seen from behind the player
       .locator(`#${highlightAnchor("juice-bros")}`)
       .getByRole("link", { name: rallyLink.label })
       .click();
-    await expect(page).toHaveURL(/\/play$/);
+    await expect(page).toHaveURL(/\/rally$/);
     await expect(
       page.getByRole("heading", { level: 2, name: rally.heading }),
     ).toBeVisible();

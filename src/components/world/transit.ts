@@ -357,7 +357,7 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
 
 /**
  * A transit between two views of one Place (the court's: courtside, the
- * Juice Bros Case study's, and behind the player's baseline, /play's): the
+ * Juice Bros Case study's, and behind the player's baseline, /rally's): the
  * camera moves straight from one to the other round the court, turning as
  * it goes, without taking the route, at the route's pace; a big turn slows
  * it to a medium-speed pan.

@@ -112,7 +112,7 @@ test("the Rally game's first paint comes before any of Three.js is asked for", a
   request,
 }) => {
   await page.setViewportSize({ width: 960, height: 600 });
-  await page.goto("/play");
+  await page.goto("/rally");
   // In by then: the court has drawn.
   await expect(page.locator("[data-world]").first()).toHaveAttribute(
     "data-world",
@@ -127,7 +127,7 @@ test("the Home Run Derby's first paint comes before any of Three.js is asked for
   request,
 }) => {
   await page.setViewportSize({ width: 960, height: 600 });
-  await page.goto("/play/derby");
+  await page.goto("/derby");
   // In by then: the Diamond has drawn.
   await expect(page.locator("[data-world]").first()).toHaveAttribute(
     "data-world",

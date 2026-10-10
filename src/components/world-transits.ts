@@ -13,7 +13,7 @@ type TransitHost = Pick<
 
 /**
  * Transits between Places (home, the court of the Juice Bros Case study and
- * /play, the Resume page's Skyline), and between the court's two views: the
+ * /rally, the Resume page's Skyline), and between the court's two views: the
  * camera flying from one to another. A
  * navigation between two of them hands the camera to the Camera
  * director's Transit the moment it starts (the click, or Back and Forward):

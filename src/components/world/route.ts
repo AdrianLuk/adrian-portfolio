@@ -234,7 +234,7 @@ function ndc(pose: Pose, point: Vector3, fovY: number, aspect: number) {
 }
 
 /**
- * The Rally game's view of the court on /play, for a screen of this shape:
+ * The Rally game's view of the court on /rally, for a screen of this shape:
  * a still camera raised behind the player's baseline, looking down the
  * court (its length runs down the valley, the player's half nearer home),
  * framed as the game's own camera framed it: the narrowest field of view
@@ -309,28 +309,29 @@ export function fieldPoint(field: DiamondField, x: number, y: number, z: number)
 
 /**
  * Where the camera stands at the Diamond for the Home Run Derby, in the
- * field's feet (see `fieldPoint`): raised behind home plate on the line out
- * to centre field, aiming out along it; on a screen taller than it is wide,
- * higher and further back.
+ * field's feet (see `fieldPoint`): at a batter's eye, behind the catcher on
+ * the line out to centre field, aiming out along it, so the life-size
+ * batter and bat read; on a screen taller than it is wide, a little higher
+ * and further back.
  */
 const DERBY_VIEW = {
-  landscape: { height: 32, back: 45, aim: -110 },
-  portrait: { height: 40, back: 55, aim: -100 },
+  landscape: { height: 9, back: 16, aim: -70 },
+  portrait: { height: 11, back: 20, aim: -60 },
 };
 
 /**
- * What the Derby's frame holds, in the field's feet: home plate (drawn
- * far bigger than life) with the batter standing left of it, Curvebot on
- * the mound, and centre field's fence with room over it for a home run,
- * each within `edge` of the frame's middle, fitted as /play's frame is (see
- * PLAY_FRAME).
+ * What the Derby's frame holds, in the field's feet: home plate with the
+ * batter in the box left of it, Curvebot standing on the mound (drawn far
+ * higher than life), and centre field's fence with room over it for a home
+ * run, each within `edge` of the frame's middle, fitted as /rally's frame
+ * is (see PLAY_FRAME).
  */
 export const DERBY_FRAME = {
   points: [
-    [-20, 0, 6],
-    [-20, 16, -9],
-    [10, 0, 6],
-    [0, 10, -60.5],
+    [-6, 0, 4],
+    [-6, 7, 0],
+    [6, 0, 4],
+    [0, 19, -60.5],
     [0, 20, -225],
   ],
   edge: 0.9,

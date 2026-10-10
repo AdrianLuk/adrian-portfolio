@@ -362,7 +362,7 @@ describe("the court pose", () => {
   }
 });
 
-describe("the Rally game's view of the court, /play's", () => {
+describe("the Rally game's view of the court, /rally's", () => {
   const { buildings, masts, landmarks, skyline } =
     layoutStructures();
   const towers = [
@@ -488,19 +488,21 @@ describe("the Home Run Derby's batter's view of the Diamond", () => {
       const { pose, fovY } = derbyView(aspect, field);
       const p = pose.position;
 
-      it("stands raised behind home plate, on the line out to centre field, looking out along it", () => {
+      it("stands at a batter's eye behind the catcher, on the line out to centre field, looking out along it", () => {
         const back = new Vector3().subVectors(p, home).setY(0);
         const out = new Vector3().subVectors(centreField, home).setY(0);
         expect(back.angleTo(out.clone().negate())).toBeLessThan(1e-6);
-        expect(p.y - field.level).toBeGreaterThan(2);
+        // In the field's feet: close enough that the life-size batter and bat read.
+        expect(back.length() / field.scale).toBeLessThan(40);
+        expect((p.y - field.level) / field.scale).toBeGreaterThan(6);
+        expect((p.y - field.level) / field.scale).toBeLessThan(15);
         const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
         expect(forward.clone().setY(0).angleTo(out)).toBeLessThan(1e-6);
         expect(forward.y).toBeLessThan(0);
       });
 
-      it("clears the ground and the field by 2, and every tower, Landmark part, the skyline and Hong Kong by 3", () => {
-        expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(2);
-        expect(p.y - field.level).toBeGreaterThan(2);
+      it("clears the ground by 6 feet, and every tower, Landmark part, the skyline and Hong Kong by 3", () => {
+        expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(6 * field.scale);
         const met = towers.find((tower) => near(p, tower, 3));
         expect(met, "a tower within 3").toBeUndefined();
       });

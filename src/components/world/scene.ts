@@ -90,7 +90,7 @@ export type ViewOptions = {
  * What the world shows. hero: the home page's, the name plate posed on the
  * headline that `measure` finds, the camera on the opening flight and then
  * the scroll route. court: the Juice Bros Case study's, the camera still and
- * low behind the court's near baseline (Lit site 3). play: /play's, the
+ * low behind the court's near baseline (Lit site 3). play: /rally's, the
  * court again, the camera raised behind the player's baseline as the Rally
  * game frames it, the game played on it. derby: the Home Run Derby's, the
  * camera raised behind the Diamond's home plate, looking out to centre
@@ -690,7 +690,7 @@ export async function createWorld(
     pools.set(wet() ? wetPools(lit) : lit);
   }
 
-  /** A still view's pose (the court's, /play's, the Skyline's). */
+  /** A still view's pose (the court's, /rally's, the Skyline's). */
   function placeStill(pose: Pose) {
     placeCamera(pose);
     setPools(structures.pools);

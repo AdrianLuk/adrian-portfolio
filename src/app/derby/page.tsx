@@ -5,9 +5,9 @@ import { HomeRunDerby } from "@/components/home-run-derby";
 import { PlaceWorld } from "@/components/place-world";
 import { WorldStill } from "@/components/world-backdrop";
 import { derby, shareCards } from "@/content/site";
-import { shareMetadata } from "../../share";
-import { overPlace, textLink } from "../../styles";
-import { torontoWeather } from "../../toronto-weather";
+import { shareMetadata } from "../share";
+import { overPlace, textLink } from "../styles";
+import { torontoWeather } from "../toronto-weather";
 
 // Rebuilt at most hourly, for the Diamond's weather (WEATHER_REVALIDATE):
 // segment config must be a literal.

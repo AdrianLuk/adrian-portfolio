@@ -62,9 +62,15 @@ const OUTFIELD_SEATS = {
 } as const;
 const LIGHT_TOWER = { height: 160 } as const;
 
-/** How wide the lines are drawn, and the bases, in world units: wider than life, to read. */
+/** How wide the lines are drawn, in world units: wider than life, to read. */
 const LINE = 0.35;
-const BASE = 1.1;
+
+/**
+ * The bases' side and home plate's edges to its point, in feet: life-size,
+ * so the Home Run Derby's batter stands to scale beside the plate.
+ */
+const BASE_FEET = 15 / 12;
+const PLATE_FEET = 1;
 
 /** How high the mound stands, in world units: far higher than life, to read as a hill. */
 export const MOUND_RISE = 0.8;
@@ -230,13 +236,14 @@ export function layoutDiamond(options: DiamondOptions) {
     [B, 0],
     [B, B],
     [0, B],
-  ].map(([a, c]) =>
-    flat(a - BASE / 2, a + BASE / 2, c - BASE / 2, c + BASE / 2, 0.15, palette.ink),
-  );
+  ].map(([a, c]) => {
+    const half = (BASE_FEET * scale) / 2;
+    return flat(a - half, a + half, c - half, c + half, 0.15, palette.ink);
+  });
 
   // Home plate, its point at the lines' corner: two sides down the lines,
   // two square to them and its front edge facing the mound.
-  const P = 0.9;
+  const P = PLATE_FEET * scale;
   const s = P * (8.5 / 12 / Math.SQRT2);
   const pentagon = [
     [0, 0],
@@ -245,7 +252,10 @@ export function layoutDiamond(options: DiamondOptions) {
     [s, P + s],
     [0, P],
   ] as const;
-  const plate = sheet(pentagon, 0.17, palette.ink, 1);
+  // A slab an inch thick, laid just over the lines' chalk.
+  const plateBottom = 0.15;
+  const plateTop = plateBottom + scale / 12;
+  const plate = sheet(pentagon, plateTop, palette.ink, 1, plateBottom);
 
   const [mx, mz] = at(m, m);
   const moundR = DIAMOND.moundRadius * scale;
@@ -292,10 +302,10 @@ export function layoutDiamond(options: DiamondOptions) {
     wall(fenceArc, FENCE, color),
     {
       x: hx,
-      y: level + 0.17,
+      y: level + plateTop,
       z: hz,
       r: 0,
-      h: 0.1,
+      h: scale / 12,
       color: palette.ink,
       outline: pentagon.map(([a, c]) => off(a, c)),
     },

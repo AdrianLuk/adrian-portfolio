@@ -177,6 +177,26 @@ describe("the baseball diamond", () => {
     }
   });
 
+  it("draws its bases and home plate life-size: bases 15 inches square, the plate 17 inches across its front and 12 along each edge to its point", () => {
+    for (const b of diamond.bases) {
+      expect(b.w / scale).toBeCloseTo(15 / 12);
+      expect(b.d / scale).toBeCloseTo(15 / 12);
+    }
+    const plate = outline(diamond.plate);
+    const edges = plate.map(([x, z], i) => {
+      const [nx, nz] = plate[(i + 1) % plate.length];
+      return Math.hypot(nx - x, nz - z) / scale;
+    });
+    expect(Math.max(...edges)).toBeCloseTo(17 / 12, 2);
+    expect(edges.filter((e) => Math.abs(e - 1) < 0.01)).toHaveLength(2);
+    // A slab, as are its outline's light and the bases: inches thick, not feet.
+    const [bottom, top] = diamond.plate.sections!;
+    expect((top.h - bottom.h) / scale).toBeLessThan(0.25);
+    const rim = diamond.rings.find((r) => r.outline?.length === 5)!;
+    expect(rim.h / scale).toBeLessThan(0.25);
+    for (const b of diamond.bases) expect(b.h / scale).toBeLessThan(0.25);
+  });
+
   it("rings it with a stadium: a deck of seats in the outfield beyond the fence, light towers behind, foul ground open and nothing behind home", () => {
     const { stands } = diamond;
     const top = (b: Box) => b.y + b.h / 2;

@@ -40,7 +40,7 @@ describe("which navigations are transits", () => {
       expect(transitBetween("court", other)).toBeNull();
       expect(transitBetween("play", other)).toBeNull();
     }
-    for (const place of ["/", "/resume", "/work/juice-bros", "/play"]) {
+    for (const place of ["/", "/resume", "/work/juice-bros", "/rally"]) {
       expect(transitBetween(null, place)).toBeNull();
     }
   });
@@ -85,9 +85,9 @@ describe("the Juice Bros Case study's place, the court", () => {
   });
 });
 
-describe("/play's place, the court seen from behind the player's baseline", () => {
+describe("/rally's place, the court seen from behind the player's baseline", () => {
   it("is the court, in a view of its own, however its URL is written", () => {
-    for (const url of ["/play", "/play/", "/play?weather=snow", "https://adrianluk.com/play"]) {
+    for (const url of ["/rally", "/rally/", "/rally?weather=snow", "https://adrianluk.com/rally"]) {
       expect(placeOf(url)).toBe("court");
       expect(viewOf(url)).toBe("play");
     }
@@ -97,31 +97,31 @@ describe("/play's place, the court seen from behind the player's baseline", () =
     expect(placeOfView("skyline")).toBe("skyline");
   });
 
-  it("flies between home or the Skyline and /play, either way", () => {
-    expect(transitBetween("hero", "/play")).toBe("play");
-    expect(transitBetween("skyline", "/play")).toBe("play");
+  it("flies between home or the Skyline and /rally, either way", () => {
+    expect(transitBetween("hero", "/rally")).toBe("play");
+    expect(transitBetween("skyline", "/rally")).toBe("play");
     expect(transitBetween("play", "/")).toBe("hero");
     expect(transitBetween("play", "/resume")).toBe("skyline");
   });
 
   it("flies between the court's two views, though the Place is the same", () => {
-    expect(transitBetween("court", "/play")).toBe("play");
+    expect(transitBetween("court", "/rally")).toBe("play");
     expect(transitBetween("play", "/work/juice-bros")).toBe("court");
   });
 
-  it("never flies within /play", () => {
-    expect(transitBetween("play", "/play?weather=rain")).toBeNull();
-    expect(transitBetween("play", "/play#rally")).toBeNull();
+  it("never flies within /rally", () => {
+    expect(transitBetween("play", "/rally?weather=rain")).toBeNull();
+    expect(transitBetween("play", "/rally#rally")).toBeNull();
   });
 });
 
 describe("the Home Run Derby's place, the Diamond", () => {
-  it("is the Derby page's, under the Rally game's path, however its URL is written", () => {
+  it("is the Derby page's, `/derby`, however its URL is written", () => {
     for (const url of [
-      "/play/derby",
-      "/play/derby/",
-      "/play/derby?x=1",
-      "https://adrianluk.com/play/derby",
+      "/derby",
+      "/derby/",
+      "/derby?x=1",
+      "https://adrianluk.com/derby",
     ]) {
       expect(viewOf(url)).toBe("derby");
       expect(placeOf(url)).toBe("diamond");
@@ -131,12 +131,12 @@ describe("the Home Run Derby's place, the Diamond", () => {
 
   it("crossfades, flying nowhere, until its Transit lands (#102)", () => {
     for (const from of ["hero", "court", "play", "skyline"] as const) {
-      expect(transitBetween(from, "/play/derby")).toBeNull();
+      expect(transitBetween(from, "/derby")).toBeNull();
     }
-    for (const to of ["/", "/work/juice-bros", "/play", "/resume"]) {
+    for (const to of ["/", "/work/juice-bros", "/rally", "/resume"]) {
       expect(transitBetween("derby", to)).toBeNull();
     }
-    expect(transitTo("/play/derby")).toBeNull();
-    expect(transitTo("/play")).toBe("play");
+    expect(transitTo("/derby")).toBeNull();
+    expect(transitTo("/rally")).toBe("play");
   });
 });

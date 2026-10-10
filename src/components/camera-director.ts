@@ -26,14 +26,14 @@ export type CameraPaths = {
   skyline: Pose;
   /**
    * The camera's vertical field of view, in degrees: the world's own, the
-   * Skyline's for the screen's shape (wider on a narrow screen), /play's
+   * Skyline's for the screen's shape (wider on a narrow screen), /rally's
    * (the Rally game's framing of the court) and the Derby's (its framing of
    * the Diamond).
    */
   fovY: { world: number; skyline: number; play: number; derby: number };
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
-  /** /play's view of the court, for the screen's shape: raised behind the player's baseline. */
+  /** /rally's view of the court, for the screen's shape: raised behind the player's baseline. */
   play: Pose;
   /** The Derby's view of the Diamond, for the screen's shape: raised behind home plate. */
   derby: Pose;
@@ -78,7 +78,7 @@ export type CameraLights = {
 type Looks = Pick<CameraLights, "court" | "skyline">;
 
 /**
- * How far each Place's look is in, and how far /play's view and the
+ * How far each Place's look is in, and how far /rally's view and the
  * Derby's, whose fields of view are their own: blended alike through a
  * Transit (see `looks`).
  */
@@ -332,11 +332,11 @@ export function createCameraDirector({
    * How far each Place's look is in at `now`, 0 to 1: through a Transit,
    * from where it was as the camera left to where the view it flies to has
    * it, eased along with the camera; otherwise full at its own Place (in
-   * either of the court's views) and out elsewhere. /play's view blends the
+   * either of the court's views) and out elsewhere. /rally's view blends the
    * same way, for its field of view.
    */
   function looks(now: number): Blend {
-    /** Whether `view` is /play's view, the Derby's, or a view of the Place `key`. */
+    /** Whether `view` is /rally's view, the Derby's, or a view of the Place `key`. */
     const is = (view: PlaceView | null, key: keyof Blend) =>
       view !== null &&
       (key === "play" || key === "derby" ? view : placeOfView(view)) === key;

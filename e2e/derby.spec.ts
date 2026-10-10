@@ -42,7 +42,7 @@ const outcomeLine = new RegExp(
 
 /** Opens the Derby and waits for the Diamond to be drawn, the game on it. */
 async function openDerby(page: Page) {
-  await page.goto("/play/derby");
+  await page.goto("/derby");
   await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });
@@ -74,10 +74,10 @@ async function playOut(page: Page, swing: () => Promise<void>) {
   });
 }
 
-test("sets its title and description from the content module, and names the teams plainly", async ({
+test("sets its title and description from the content module", async ({
   page,
 }) => {
-  await page.goto("/play/derby");
+  await page.goto("/derby");
   await expect(page).toHaveTitle(derby.metaTitle);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     "content",
@@ -87,10 +87,9 @@ test("sets its title and description from the content module, and names the team
   for (const line of Object.values(derby.hint)) {
     await expect(page.getByText(line)).toBeVisible();
   }
-  // The start screen: Curvebot's line, then the teams, one plain line.
+  // The start screen: Curvebot's line.
   await expect(page.getByRole("heading", { name: copy.start.title })).toBeVisible();
   await expect(page.getByText(copy.start.line)).toBeVisible();
-  await expect(page.getByText(copy.start.teams, { exact: true })).toBeVisible();
   await expect(
     page.getByRole("main").getByRole("link", { name: rallyLink.label }),
   ).toHaveAttribute("href", rallyLink.href);
@@ -197,7 +196,7 @@ test("?weather=snow lies on the ground at the Diamond, and nothing falls", async
 }, testInfo) => {
   test.setTimeout(90_000);
   // The page's copy, all of it the game's.
-  const at = { path: "/play/derby", copy: "[data-phase] > *" };
+  const at = { path: "/derby", copy: "[data-phase] > *" };
   const clear = await placeIn(browser, testInfo, { ...at, weather: "clear" });
   const snow = await placeIn(browser, testInfo, { ...at, weather: "snow" });
   expect(clear.perFrame).toBeGreaterThan(0);
@@ -209,7 +208,7 @@ test("without WebGL the Diamond's still stays, and the game says it can't run he
   page,
 }) => {
   await withoutWorld(page);
-  await page.goto("/play/derby");
+  await page.goto("/derby");
   await expect(gameRoot(page)).toHaveAttribute("data-world", "unavailable");
   await expect(page.locator('[data-backdrop="diamond"] img')).toBeVisible();
   await expect(page.getByText(copy.unavailable)).toBeVisible();
@@ -224,7 +223,7 @@ test("crossfades in from home's Off the clock link, flying nowhere: no Transit t
     timeout: SCENE_TIMEOUT,
   });
   await page.locator("#contact").getByRole("link", { name: derbyLink.label }).click();
-  await expect(page).toHaveURL(/\/play\/derby$/);
+  await expect(page).toHaveURL(/\/derby$/);
   await expect(page.locator("[data-world-root]")).not.toHaveAttribute("data-transit", /.+/);
   await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
@@ -308,6 +307,6 @@ test("neither the Case study nor the Rally game asks for the Derby's code", asyn
 }) => {
   await page.goto(hrefFor({ kind: "case-study", slug: "juice-bros" }));
   await expectNoDerbyCode(page, request);
-  await page.goto("/play");
+  await page.goto("/rally");
   await expectNoDerbyCode(page, request);
 });

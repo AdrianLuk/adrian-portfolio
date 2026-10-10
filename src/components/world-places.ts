@@ -20,7 +20,7 @@ export type Place = "hero" | "court" | "skyline" | "diamond";
 /**
  * A page's view of its Place, where the camera stands there: each Place's
  * own, but the court has one per page, courtside for the Juice Bros Case
- * study ("court") and behind the player's baseline for /play ("play"). A
+ * study ("court") and behind the player's baseline for /rally ("play"). A
  * navigation between two views of one Place is a Transit too. The Diamond's
  * one view is the Derby's ("derby"), behind home plate.
  */
@@ -58,8 +58,8 @@ export function viewOf(url: string): PlaceView | null {
   const page = pageOf(url);
   if (page === "/") return "hero";
   if (page === COURT_PAGE) return "court";
-  if (page === "/play") return "play";
-  if (page === "/play/derby") return "derby";
+  if (page === "/rally") return "play";
+  if (page === "/derby") return "derby";
   if (page === "/resume") return "skyline";
   return null;
 }

@@ -394,7 +394,6 @@ export function HomeRunDerby({
                 <>
                   <h3 className={overlayTitle}>{copy.start.title}</h3>
                   <p className="text-ink/85">{copy.start.line}</p>
-                  <p className="text-ink/85">{copy.start.teams}</p>
                 </>
               )}
               <SlowMode copy={copy.slowMode} checked={hud.slow} onChange={toggleSlow} />

@@ -12,8 +12,8 @@ describe("sitemap", () => {
       `${siteUrl}/`,
       `${siteUrl}/resume`,
       ...caseStudies.map((study) => `${siteUrl}/work/${study.slug}`),
-      `${siteUrl}/play`,
-      `${siteUrl}/play/derby`,
+      `${siteUrl}/rally`,
+      `${siteUrl}/derby`,
     ]);
   });
 });

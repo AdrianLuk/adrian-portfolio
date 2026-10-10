@@ -236,10 +236,10 @@ export const work = { heading: "Work" } as const;
 const mediaBase = "/case-studies/juice-bros";
 
 /** Into the Rally game, from the Juice Bros Highlight and Case study. Says it's a game; the jokes stay inside it. */
-export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/play" } as const;
+export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/rally" } as const;
 
 /** Into the Home Run Derby, from Off the clock's baseball line. Says it's a game, as `rallyLink` does. */
-export const derbyLink = { label: "Bat against Curvebot", href: "/play/derby" } as const;
+export const derbyLink = { label: "Bat against Curvebot", href: "/derby" } as const;
 
 /** A rally in the Rally game, over its link in the Juice Bros Highlight. */
 export const rallyClip: Recording = {
@@ -833,7 +833,7 @@ export const notFound = {
 } as const;
 
 /**
- * The Rally game on /play. The page's own copy is plain; the game's UI (the
+ * The Rally game on /rally. The page's own copy is plain; the game's UI (the
  * start, pause and game-over screens and the point lines) is the one place
  * after the credits and the bookend where the copy may joke, and it makes no
  * claims about Juice Bros.
@@ -895,9 +895,8 @@ export const rally = {
 } as const;
 
 /**
- * The Home Run Derby on /play/derby. As the Rally game's, the page's own
- * copy is plain, and so is the teams line; Curvebot's lines may joke, and
- * make no claims. Curvebot's lines are drafts for Adrian to approve (#91).
+ * The Home Run Derby on /derby. As the Rally game's, the page's own
+ * copy is plain; Curvebot's lines may joke, and make no claims. Curvebot's lines are drafts for Adrian to approve (#91).
  */
 export const derby = {
   metaTitle: "Home Run Derby at the Diamond | Adrian Luk",
@@ -919,9 +918,6 @@ export const derby = {
     start: {
       title: "Batter up",
       line: "Ten pitches. Curvebot throws, you swing.",
-      /** The teams, in one plain line: no joke attached. */
-      teams:
-        "I played for the North York Blues, Scarborough Stingers, Markham Mariners and North Toronto A's.",
       action: "Start",
     },
     slowMode: {
@@ -992,15 +988,15 @@ export const shareCards = {
     caption: { eyebrow: "Case study", title: juiceBros.title },
   },
   play: {
-    path: "/play",
+    path: "/rally",
     title: rally.metaTitle,
     description: rally.metaDescription,
-    image: "/share/play.png",
+    image: "/share/rally.png",
     imageAlt: `${settledFrameAlt} Captioned "${rally.eyebrow}: ${rally.heading}".`,
     caption: { eyebrow: rally.eyebrow, title: rally.heading },
   },
   derby: {
-    path: "/play/derby",
+    path: "/derby",
     title: derby.metaTitle,
     description: derby.metaDescription,
     image: "/share/derby.png",

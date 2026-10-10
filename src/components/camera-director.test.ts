@@ -32,7 +32,7 @@ const plateCentre = new Vector3(-18, 0, -CAMERA.plateDepth)
   .applyQuaternion(settled.quaternion)
   .add(settled.position);
 const aspect = 1.6;
-/** /play's view of the court, and its field of view. */
+/** /rally's view of the court, and its field of view. */
 const play = playView(aspect, layoutLandmarks().court);
 /** The Derby's view of the Diamond, and its field of view. */
 const derby = derbyView(aspect, layoutLandmarks().field);
@@ -262,7 +262,7 @@ describe("the Camera director", () => {
     expect(fovY).toBe(derby.fovY);
   });
 
-  it("holds /play's pose at /play, the court's look full, in the game's field of view", () => {
+  it("holds /rally's pose at /rally, the court's look full, in the game's field of view", () => {
     const { director } = setup();
     director.show("play");
     const { pose, lights, lean, fovY } = director.frame(0);
@@ -278,7 +278,7 @@ describe("the Camera director", () => {
     expect(fovY).toBe(play.fovY);
   });
 
-  describe("/play's view of the court", () => {
+  describe("/rally's view of the court", () => {
     it("flies there from home along the route, landing on its pose, widening to the game's field of view, without a jump", () => {
       const { director } = setup();
       director.show("hero");
@@ -372,7 +372,7 @@ describe("the Camera director", () => {
       expectSamePose(director.frame(landedAt).pose!, paths.court);
     });
 
-    it("flies on to /play by the route when the camera is still on its way down to the court", () => {
+    it("flies on to /rally by the route when the camera is still on its way down to the court", () => {
       const { director, paths } = setup();
       director.show("hero");
       director.openingLands();
@@ -495,7 +495,7 @@ describe("the Camera director", () => {
   });
 
   describe("a Recall", () => {
-    it("from the court, /play or the Skyline flies home to the settled view, home arriving at its top, without a jump", () => {
+    it("from the court, /rally or the Skyline flies home to the settled view, home arriving at its top, without a jump", () => {
       for (const from of ["court", "play", "skyline"] as const) {
         const { director, route } = setup();
         director.show(from);

@@ -19,7 +19,7 @@ export type WorldState = "pending" | "drawn" | "unavailable";
 /**
  * What the page on screen wants from the world: home the hero (the opening,
  * the settled view, the scroll route), the Juice Bros Case study the court
- * from courtside, /play the court from behind the player's baseline (the
+ * from courtside, /rally the court from behind the player's baseline (the
  * Rally game's view), and the Resume page the Skyline (each with the camera
  * still, in Toronto's weather), any other page nothing (its still backdrop
  * stands in, and the world is parked, drawing nothing).

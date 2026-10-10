@@ -56,7 +56,7 @@ const VALLEY_SCROLL = 0.32;
 /** The pages whose Places have stills of their own: the court, the Skyline, the Diamond. */
 const COURT_PAGE = "/work/juice-bros";
 const SKYLINE_PAGE = "/resume";
-const DIAMOND_PAGE = "/play/derby";
+const DIAMOND_PAGE = "/derby";
 
 /** The world's two still shapes: wide, and a tall phone or tablet. */
 function stillShots(stills) {

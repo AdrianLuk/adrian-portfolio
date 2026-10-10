@@ -286,7 +286,7 @@ test("the Off the clock block has its four lines and their links: pickleball's, 
       .getByRole("listitem")
       .filter({ hasText: baseball.text })
       .getByRole("link", { name: derbyLink.label }),
-  ).toHaveAttribute("href", "/play/derby");
+  ).toHaveAttribute("href", "/derby");
   // Ahead of the built block, which keeps its place before the bookend.
   const [offBox, builtBox] = await Promise.all([
     section.getByRole("heading", { level: 3, name: contact.offClock.heading }).boundingBox(),
@@ -404,7 +404,7 @@ test.describe("the closing view", () => {
 });
 
 test("every page's footer links the site's source", async ({ page }) => {
-  for (const path of ["/", "/resume", "/work/juice-bros", "/play"]) {
+  for (const path of ["/", "/resume", "/work/juice-bros", "/rally"]) {
     await page.goto(path);
     await expect(
       page.getByRole("contentinfo").getByRole("link", { name: footer.source.label }),

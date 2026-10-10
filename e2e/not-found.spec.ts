@@ -378,7 +378,7 @@ test.describe("the backdrop's parallax", () => {
   });
 
   test("does not apply to the Rally game's page", async ({ page }) => {
-    await page.goto("/play");
+    await page.goto("/rally");
     await move(page, "mouse");
     await page.waitForTimeout(500);
     await expect(page.locator("[data-parallax]")).toHaveCount(0);

@@ -158,7 +158,7 @@ test.describe("holding B", () => {
   });
 
   test("does nothing while the Rally game is in play", async ({ page }) => {
-    await page.goto("/play");
+    await page.goto("/rally");
     const game = page.locator("[data-phase]");
     await expect(game).toHaveAttribute("data-world", "drawn", { timeout: SCENE_TIMEOUT });
     await page.getByRole("button", { name: rally.game.start.action }).click();
@@ -167,7 +167,7 @@ test.describe("holding B", () => {
     await page.waitForTimeout(CHANNEL_MS + 500);
     await page.keyboard.up("b");
     await expect(announcer(page)).toBeEmpty();
-    await expect(page).toHaveURL(/\/play$/);
+    await expect(page).toHaveURL(/\/rally$/);
   });
 
   test("on home, takes the visitor back to the top", async ({ page }) => {
