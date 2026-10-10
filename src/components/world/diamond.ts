@@ -27,6 +27,16 @@ export const DIAMOND = {
   lip: 5,
 } as const;
 
+/**
+ * Where the Diamond stands: past BT Cup's bowl, short of Victoria Harbour,
+ * right of the valley's centre line (the bowl stands left), its plinth 22
+ * off it (the runway's lights are 14 off), `fromCentreLine` its centre's
+ * offset. The floor narrows here, so it is drawn small: the most that stands
+ * level there and keeps off the court on the court stop's screen. Home's
+ * route turns to frame it between the bowl and the closing view.
+ */
+export const DIAMOND_AT = { z: -1045, fromCentreLine: 33.4, scale: 0.12 };
+
 /** How wide the lines are drawn, and the bases, in world units: wider than life, to read. */
 const LINE = 0.35;
 const BASE = 1.1;

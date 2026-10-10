@@ -1,6 +1,7 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
 import type { RallyCourt } from "./court-look";
+import { DIAMOND_AT } from "./diamond";
 import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE, HONG_KONG_SHORE } from "./hong-kong";
 import { CAMERA } from "./pose";
@@ -28,7 +29,9 @@ import {
  * order), and ends looking across Victoria Harbour at Hong Kong. The route
  * is measured in stops: 0 is the settled view, 1 to 4 frame the four sites,
  * 5 Hong Kong; in between it flies at an even speed and turns smoothly from
- * one framing to the next.
+ * one framing to the next, but for one look aside: between the last site and
+ * Hong Kong it turns right to frame the Diamond, with no panel or stop of
+ * its own.
  */
 
 /** A Lit site, standing where it stands in the world. */
@@ -396,8 +399,40 @@ export function createRoute(
   });
   // On a wide screen, to the right, clear of the contact copy on the left.
   const hongKong = hongKongPose(aspect);
-  return routeThrough([settled, ...sites, hongKong], climb);
+  const diamond = above(DIAMOND_AT.z, 0, DIAMOND_AT.fromCentreLine);
+  const glance = DIAMOND_GLANCE[aspect >= 1 ? "wide" : "narrow"];
+  return routeThrough([settled, ...sites, hongKong], climb, {
+    after: SITES.length,
+    ...glance,
+    look: (from) => framing(from, diamond, glance.ndcX, aspect),
+  });
 }
+
+/**
+ * When, through the leg from the last site to Hong Kong, home's route turns
+ * right to frame the Diamond (`at`, as a fraction of the leg) and how long it
+ * keeps it framed (to `until`), the turns in and out as long as the
+ * route's pace allows: on a narrow screen further off, so the whole park
+ * fits across the frame; on a wide one a little right of centre (`ndcX`),
+ * which spares the turns a few degrees.
+ */
+export const DIAMOND_GLANCE = {
+  narrow: { at: 0.42, until: 0.45, ndcX: 0 },
+  wide: { at: 0.33, until: 0.36, ndcX: 0.15 },
+};
+
+/**
+ * A look aside partway along one leg (the one leaving stop `after`): the
+ * camera turns from that stop's view to `look`'s view from where it stands
+ * by `at` (a fraction of the leg), keeps to it until `until`, then turns on
+ * to the next stop's view.
+ */
+export type Glance = {
+  after: number;
+  look: (from: Vector3) => Quaternion;
+  at: number;
+  until: number;
+};
 
 /**
  * A scroll route through `stops`, in order down the valley: from the first,
@@ -407,6 +442,7 @@ export function createRoute(
 export function routeThrough(
   stops: readonly Pose[],
   climb: readonly Vector3[] = [],
+  glance?: Glance,
 ) {
   const points: Vector3[] = [stops[0].position.clone(), ...climb];
   /** Index into `points` of each stop. */
@@ -441,15 +477,49 @@ export function routeThrough(
       const s = Math.min(stops.length - 1, Math.max(0, stop));
       const k = Math.min(stops.length - 2, Math.floor(s));
       const f = s - k;
-      const u =
-        stopFractions[k] + (stopFractions[k + 1] - stopFractions[k]) * f;
-      const position =
-        f === 0 ? points[stopPoints[k]].clone() : curve.getPointAt(u);
-      const eased = f * f * (3 - 2 * f);
-      const quaternion = views[k].clone().slerp(views[k + 1], eased);
+      const position = f === 0 ? points[stopPoints[k]].clone() : at(k, f);
+      const quaternion =
+        glance?.after === k
+          ? glancing(glance, k, f, position)
+          : views[k].clone().slerp(views[k + 1], ease(f));
       return { position, quaternion };
     },
   };
+
+  /** Where the camera stands `f` through the leg leaving stop `k`. */
+  function at(k: number, f: number) {
+    const u = stopFractions[k] + (stopFractions[k + 1] - stopFractions[k]) * f;
+    return curve.getPointAt(u);
+  }
+
+  /** The view `f` through the leg leaving stop `k`, with `glance` on it. */
+  function glancing(g: Glance, k: number, f: number, position: Vector3) {
+    if (f < g.at) {
+      return views[k].clone().slerp(g.look(at(k, g.at)), ramp(f / g.at));
+    }
+    if (f <= g.until) return g.look(position);
+    return g
+      .look(at(k, g.until))
+      .slerp(views[k + 1], ramp((f - g.until) / (1 - g.until)));
+  }
+}
+
+/** Smoothstep: eases a turn in and out. */
+function ease(f: number) {
+  return f * f * (3 - 2 * f);
+}
+
+/**
+ * Eases a turn in over its first fifth and out over its last, steady in
+ * between: at its fastest only 5/4 its mean pace (smoothstep's is 3/2), so
+ * the Diamond's longer turns keep to the route's pace.
+ */
+function ramp(f: number) {
+  const r = 0.2;
+  const v = 1 / (1 - r);
+  if (f < r) return (v * f * f) / (2 * r);
+  if (f > 1 - r) return 1 - (v * (1 - f) ** 2) / (2 * r);
+  return v * (f - r / 2);
 }
 
 export type Route = ReturnType<typeof routeThrough>;

@@ -16,7 +16,12 @@ import type { HighlightId } from "@/content/site";
 import { courtFootprint, layoutCourt } from "./court";
 import type { RallyCourt } from "./court-look";
 import { COURT } from "./court-size";
-import { DIAMOND, diamondFootprint, layoutDiamond } from "./diamond";
+import {
+  DIAMOND,
+  DIAMOND_AT,
+  diamondFootprint,
+  layoutDiamond,
+} from "./diamond";
 import type { Glow } from "./glow-points";
 import { fogChunk, fogUniforms, palette } from "./palette";
 import { SITES, type Site } from "./route";
@@ -62,16 +67,6 @@ const NEON: Record<string, [number, number, number, number][]> = (() => {
     L: [left, bottom],
   };
 })();
-
-/**
- * Where the Diamond stands: past BT Cup's bowl, at the foot of its hill by
- * Victoria Harbour, left of the valley's centre line, its plinth 22 off it
- * (the runway's lights are 14 off). The floor narrows here, so it is drawn
- * small, 19 across: the most that stands level there and keeps off the bowl
- * on the bowl stop's screen. The route flies at it from the bowl; on the right,
- * the street's towers would hide it.
- */
-const DIAMOND_AT = { z: -1045, fromCentreLine: -31.5, scale: 0.1 };
 
 /** A ball of light: Juice Bros' pickleball, the site's light. */
 export type Ball = { x: number; y: number; z: number; r: number; color: Color };

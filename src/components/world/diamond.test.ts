@@ -1,12 +1,13 @@
-import { PerspectiveCamera, Vector3 } from "three";
+import { Box3, PerspectiveCamera, Ray, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { DIAMOND, layoutDiamond } from "./diamond";
+import { DIAMOND, DIAMOND_AT, layoutDiamond } from "./diamond";
 import { FOG_DENSITY, palette } from "./palette";
 import { CAMERA } from "./pose";
 import type { Pose } from "./flight";
 import { nominalRoute } from "./nominal-route";
 import {
   courtPose,
+  DIAMOND_GLANCE,
   hongKongPose,
   playView,
   ROUTE_STOPS,
@@ -402,6 +403,47 @@ describe("home's scroll route and the Diamond", () => {
           );
         }
       });
+      it("turns to frame it between the bowl and Hong Kong: the whole park in frame near the middle, clear of the fog, nothing standing in front of it", () => {
+        const { at, until } = DIAMOND_GLANCE[aspect >= 1 ? "wide" : "narrow"];
+        for (const f of [at, (at + until) / 2, until]) {
+          const pose = route.poseAt(bowlStop + f);
+          const seen = sighting(pose, aspect);
+          expect(seen.shows).toBe(true);
+          expect(Math.abs(seen.x)).toBeLessThan(0.25);
+          expect(seen.fog).toBeLessThan(0.3);
+          // The park, plinth to pole tops, all in frame.
+          const park = onScreen(pose, aspect, diamondBox);
+          for (const edge of [park.x0, park.x1, park.y0, park.y1]) {
+            expect(Math.abs(edge)).toBeLessThan(1);
+          }
+          // No tower or Landmark between the camera and its middle or its
+          // corners at the field's level.
+          for (const [u, v] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+            const point = new Vector3(
+              diamondBox.x + (u * diamondBox.w) / 2,
+              diamondBox.y +
+                diamondBox.h / 2 -
+                DIAMOND.poleHeight * DIAMOND_AT.scale +
+                0.5,
+              diamondBox.z + (v * diamondBox.d) / 2,
+            );
+            const far = pose.position.distanceTo(point);
+            const ray = new Ray(
+              pose.position.clone(),
+              point.clone().sub(pose.position).normalize(),
+            );
+            for (const b of [...buildings, ...masts, ...landmarks.bounds]) {
+              const box = new Box3(
+                new Vector3(b.x - b.w / 2, b.y - b.h / 2, b.z - b.d / 2),
+                new Vector3(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2),
+              );
+              const hit = ray.intersectBox(box, new Vector3());
+              expect(hit && pose.position.distanceTo(hit) < far).toBeFalsy();
+            }
+          }
+        }
+      });
+
       it("glimpses it in passing, between stops", () => {
         const glimpses = Array.from(
           { length: (ROUTE_STOPS - 1) * 100 },
