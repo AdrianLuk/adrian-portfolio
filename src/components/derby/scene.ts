@@ -1,14 +1,15 @@
 import {
   CatmullRomCurve3,
   CircleGeometry,
-  CylinderGeometry,
   Group,
+  LatheGeometry,
   Material,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
   SphereGeometry,
   TubeGeometry,
+  Vector2,
   Vector3,
 } from "three";
 import { ADRIAN, adrianTextures, createMii, ROBOT } from "../mii";
@@ -17,7 +18,7 @@ import { DIAMOND, MOUND_FEET } from "../world/diamond";
 import { palette } from "../world/palette";
 import type { DiamondStage } from "../world/scene";
 import { WINDUP, type Game } from "./rules";
-import { ballAt, batAt, BAT_LENGTH, HANDS, type Point } from "./swing";
+import { ballAt, BALL_RADIUS, batAt, BAT_PROFILE, HANDS, type Point } from "./swing";
 
 /**
  * The Home Run Derby drawn into the world, on the Diamond's field itself, in
@@ -38,8 +39,6 @@ export type DerbyView = {
   dispose(): void;
 };
 
-/** The ball, a little bigger than life (a real one is under 3 inches across), to read from behind the plate. */
-const BALL_RADIUS = 0.4;
 /** How fast the ball spins, radians a second. */
 const SPIN = 30;
 /** The longest step the figures' motions take between draws, in seconds. */
@@ -108,12 +107,13 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
     ),
   );
 
-  // The bat, along the pivot's +x from the hands, its barrel thicker than
-  // its handle, in the ball's own light.
+  // The bat, along the pivot's +x from the hands: its knob, handle, barrel
+  // and rounded end turned from ./swing's outline, in the ball's own light.
   const bat = new Mesh(
-    new CylinderGeometry(0.2, 0.08, BAT_LENGTH, 12)
-      .rotateZ(-Math.PI / 2)
-      .translate(BAT_LENGTH / 2, 0, 0),
+    new LatheGeometry(
+      BAT_PROFILE.map(({ along, radius }) => new Vector2(radius, along)),
+      16,
+    ).rotateZ(-Math.PI / 2),
     new MeshBasicMaterial({ color: palette.ink }),
   );
   const pivot = new Group();
