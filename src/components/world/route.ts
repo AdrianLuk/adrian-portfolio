@@ -1,5 +1,5 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
-import { LIT_SITES, type LitSite } from "../lit-sites";
+import { DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
 import { ARENA, arenaAxes, STAGE, STRETCH } from "./arena";
 import type { RallyCourt } from "./court-look";
 import { diamondMiddle, type DiamondField } from "./diamond";
@@ -27,12 +27,10 @@ import {
  *
  * From the settled view the camera climbs over the name plate and carries on
  * down the valley, stopping beside each lit site in turn (the Highlights, in
- * order), and ends looking across Victoria Harbour at Hong Kong. The route
- * is measured in stops: 0 is the settled view, 1 to 4 frame the four sites,
- * 5 Hong Kong; in between it flies at an even speed and turns smoothly from
- * one framing to the next, but for one look aside: between the last site and
- * Hong Kong it turns right to frame the Diamond, with no panel or stop of
- * its own.
+ * order), then beside the Diamond, and ends looking across Victoria Harbour
+ * at Hong Kong. The route is measured in stops: 0 is the settled view, 1 to
+ * 4 frame the four sites, 5 the Diamond, 6 Hong Kong; in between it flies at
+ * an even speed and turns smoothly from one framing to the next.
  */
 
 /** A Lit site, standing where it stands in the world. */
@@ -68,8 +66,31 @@ export const HONG_KONG = new Vector3(
   HONG_KONG_CENTRE.z,
 );
 
-/** Stops along the route: the settled view, each site, Hong Kong. */
-export const ROUTE_STOPS = SITES.length + 2;
+/**
+ * What the route's Diamond stop looks at: the stadium's middle, a little
+ * over the field, to frame its stands and towers. Not a Lit site: nothing
+ * lights there.
+ */
+export const DIAMOND_MIDDLE = (() => {
+  const { x, z } = diamondMiddle();
+  return new Vector3(x, valleyHeight(x, z) + 3, z);
+})();
+
+/** The route's stop beside the Diamond, after the last site. */
+export const DIAMOND_STOP = SITES.length + 1;
+
+/**
+ * What the route frames at each stop with a panel, in the panels' order
+ * (panel i at stop i + 1): each Lit site's light, then the Diamond's middle;
+ * and the side of the valley each stands (+1 = right).
+ */
+export const PANEL_STOPS: readonly { position: Vector3; side: 1 | -1 }[] = [
+  ...SITES,
+  { position: DIAMOND_MIDDLE, side: DIAMOND_SIDE },
+];
+
+/** Stops along the route: the settled view, each site, the Diamond, Hong Kong. */
+export const ROUTE_STOPS = SITES.length + 3;
 
 /** How far short of a site the camera stops to frame it. */
 const STOP_LEAD = 80;
@@ -600,8 +621,8 @@ export function skylinePose(aspect: number): Pose {
 
 /**
  * Home's route for one layout (the settled pose and the screen's shape): from
- * the settled view up and over the plate, then to each Lit site and on to
- * Hong Kong.
+ * the settled view up and over the plate, then to each Lit site, the Diamond
+ * and on to Hong Kong.
  */
 export function createRoute(
   settled: Pose,
@@ -623,50 +644,30 @@ export function createRoute(
     const aim = s.position.clone().setY(s.position.y - AIM_BELOW);
     return stopPose(aim, s.side * siteScreenX(aspect), aspect);
   });
-  // On a wide screen, to the right, clear of the contact copy on the left.
-  const hongKong = hongKongPose(aspect);
-  const middle = diamondMiddle();
-  const diamond = new Vector3(
-    middle.x,
-    valleyHeight(middle.x, middle.z) + DIAMOND_AIM,
-    middle.z,
+  return routeThrough(
+    [settled, ...sites, diamondPose(aspect), hongKongPose(aspect)],
+    climb,
   );
-  const glance = DIAMOND_GLANCE[aspect >= 1 ? "wide" : "narrow"];
-  return routeThrough([settled, ...sites, hongKong], climb, {
-    after: SITES.length,
-    ...glance,
-    look: (from) => framing(from, diamond, glance.ndcX, aspect),
-  });
 }
 
-/** How high over the stadium's middle the route looks, to frame its stands and towers. */
-const DIAMOND_AIM = 3;
+/**
+ * How far short of the Diamond's middle, down the valley, the route stops to
+ * frame it, and how high: over the stands round it, so nothing stands in
+ * front of the field, and far enough off for the whole park to fit.
+ */
+const DIAMOND_VIEW = { lead: 90, height: CRUISE_HEIGHT };
 
 /**
- * When, through the leg from the last site to Hong Kong, home's route turns
- * right to frame the Diamond (`at`, as a fraction of the leg) and how long it
- * keeps it framed (to `until`), the turns in and out as long as the
- * route's pace allows: on a narrow screen further off, so the whole park
- * fits across the frame; on a wide one a little right of centre (`ndcX`),
- * which spares the turns a few degrees.
+ * The route's Diamond stop, for a screen of this shape: on the valley's
+ * centre line short of the park, which stands on its own side, opposite the
+ * Diamond's panel, on a wide screen, as a site stands opposite its own, and
+ * centred and whole on a narrow one.
  */
-export const DIAMOND_GLANCE = {
-  narrow: { at: 0.38, until: 0.4, ndcX: 0 },
-  wide: { at: 0.33, until: 0.36, ndcX: 0.15 },
-};
-
-/**
- * A look aside partway along one leg (the one leaving stop `after`): the
- * camera turns from that stop's view to `look`'s view from where it stands
- * by `at` (a fraction of the leg), keeps to it until `until`, then turns on
- * to the next stop's view.
- */
-export type Glance = {
-  after: number;
-  look: (from: Vector3) => Quaternion;
-  at: number;
-  until: number;
-};
+function diamondPose(aspect: number): Pose {
+  const position = above(DIAMOND_MIDDLE.z + DIAMOND_VIEW.lead, DIAMOND_VIEW.height);
+  const ndcX = aspect >= 1 ? DIAMOND_SIDE * siteScreenX(aspect) : 0;
+  return { position, quaternion: framing(position, DIAMOND_MIDDLE, ndcX, aspect) };
+}
 
 /**
  * A scroll route through `stops`, in order down the valley: from the first,
@@ -676,7 +677,6 @@ export type Glance = {
 export function routeThrough(
   stops: readonly Pose[],
   climb: readonly Vector3[] = [],
-  glance?: Glance,
 ) {
   const points: Vector3[] = [stops[0].position.clone(), ...climb];
   /** Index into `points` of each stop. */
@@ -712,10 +712,7 @@ export function routeThrough(
       const k = Math.min(stops.length - 2, Math.floor(s));
       const f = s - k;
       const position = f === 0 ? points[stopPoints[k]].clone() : at(k, f);
-      const quaternion =
-        glance?.after === k
-          ? glancing(glance, k, f, position)
-          : views[k].clone().slerp(views[k + 1], ease(f));
+      const quaternion = views[k].clone().slerp(views[k + 1], ease(f));
       return { position, quaternion };
     },
     /**
@@ -730,35 +727,11 @@ export function routeThrough(
     const u = stopFractions[k] + (stopFractions[k + 1] - stopFractions[k]) * f;
     return curve.getPointAt(u);
   }
-
-  /** The view `f` through the leg leaving stop `k`, with `glance` on it. */
-  function glancing(g: Glance, k: number, f: number, position: Vector3) {
-    if (f < g.at) {
-      return views[k].clone().slerp(g.look(at(k, g.at)), ramp(f / g.at));
-    }
-    if (f <= g.until) return g.look(position);
-    return g
-      .look(at(k, g.until))
-      .slerp(views[k + 1], ramp((f - g.until) / (1 - g.until)));
-  }
 }
 
 /** Smoothstep: eases a turn in and out. */
 function ease(f: number) {
   return f * f * (3 - 2 * f);
-}
-
-/**
- * Eases a turn in over its first 15% and out over its last, steady in
- * between: at its fastest only 1.18 times its mean pace (smoothstep's 1.5), so
- * the Diamond's longer turns keep to the route's pace.
- */
-function ramp(f: number) {
-  const r = 0.15;
-  const v = 1 / (1 - r);
-  if (f < r) return (v * f * f) / (2 * r);
-  if (f > 1 - r) return 1 - (v * (1 - f) ** 2) / (2 * r);
-  return v * (f - r / 2);
 }
 
 export type Route = ReturnType<typeof routeThrough>;

@@ -40,12 +40,19 @@ export const LIT_SITES: readonly LitSite[] = highlights.map(({ id }, i) => ({
 }));
 
 /**
+ * Which side of the valley's centre line the Diamond stands (+1 = right):
+ * the one place it is said, for the world (./world/diamond), its route stop
+ * and its panel. Not a Lit site, but plain data like them.
+ */
+export const DIAMOND_SIDE: 1 | -1 = 1;
+
+/**
  * Home's scroll route: its name, and which side each panel's stop stands,
- * in the panels' order.
+ * in the panels' order: each Lit site's, then the Diamond's.
  */
 export const HOME_SCROLL_ROUTE = {
   name: "home",
-  sides: LIT_SITES.map((s) => s.side),
+  sides: [...LIT_SITES.map((s) => s.side), DIAMOND_SIDE],
 } as const;
 
 /** The Lit site that stands for a Highlight. */

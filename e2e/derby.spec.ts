@@ -10,6 +10,7 @@ import {
   contact,
   derby,
   derbyLink,
+  diamondPanel,
   hrefFor,
   rallyLink,
 } from "../src/content/site";
@@ -268,17 +269,23 @@ async function expectNoDerbyCode(page: Page, request: APIRequestContext) {
   }
 }
 
-test("the home page never asks for the Derby's code, even with Off the clock's link on screen", async ({
+test("the home page never asks for the Derby's code, even with the Diamond panel's link and Off the clock's on screen", async ({
   page,
   request,
 }) => {
-  // The world compiles in software on CI, then the scroll to Contact and
-  // every script's fetch: more than the default 30s on a loaded runner.
+  // The world compiles in software on CI, then the scrolls to the Diamond
+  // and Contact and every script's fetch: more than the default 30s on a
+  // loaded runner.
   test.setTimeout(60_000);
   await page.goto("/");
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });
+  const play = page
+    .locator(`#${diamondPanel.id}`)
+    .getByRole("link", { name: derbyLink.label });
+  await play.scrollIntoViewIfNeeded();
+  await expect(play).toBeInViewport();
   await page
     .locator("#contact")
     .getByRole("heading", { level: 3, name: contact.offClock.heading })

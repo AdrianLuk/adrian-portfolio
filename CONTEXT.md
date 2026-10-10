@@ -89,7 +89,7 @@ The Home Run Derby's pitcher, an AI, as Dinkbot is the Rally game's opponent. It
 _Avoid_: Pitcher (unqualified), Knucklebot
 
 **Diamond**:
-The baseball stadium built from light, a diamond with a deck of seats in its outfield from pole to pole and light towers behind, home plate nearest the route, in the valley past the stadium bowl, right of the light path (the bowl stands left), well inland of Victoria Harbour: the Home Run Derby's Place and a stop on the Hobby route. Home's scroll route turns to frame it between the bowl and the closing view, with no panel; it may show down the valley behind the court and bowl stops, never over their Landmarks. It is not a Lit site.
+The baseball stadium built from light, a diamond with a deck of seats in its outfield from pole to pole and light towers behind, home plate nearest the route, in the valley past the stadium bowl, right of the light path (the bowl stands left), well inland of Victoria Harbour: the Home Run Derby's Place, a stop on the Hobby route, and a stop on home's scroll route, with a panel, between the bowl's stop and the closing view. It may show down the valley behind the court and bowl stops, never over their Landmarks. It is not a Lit site: its panel lights, but nothing in the world lights for it.
 _Avoid_: Ballpark, field
 
 **Hobby route**:

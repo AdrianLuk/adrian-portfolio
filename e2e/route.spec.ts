@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import {
   credits,
+  diamondPanel,
   hero,
   highlightAnchor,
   highlights,
@@ -15,8 +16,13 @@ import { heroRoot, openHome, SCENE_TIMEOUT, watched } from "./hero";
 // check is made in as few round trips as it can be.
 test.describe.configure({ mode: "serial", timeout: 60_000 });
 
-const panel = (page: Page, i: number) =>
-  page.locator(`#${highlightAnchor(highlights[i].id)}`);
+/** The route's panels, one per stop after the first: the Highlights', then the Diamond's. */
+const panels = [
+  ...highlights.map((h) => ({ id: highlightAnchor(h.id), name: h.title })),
+  { id: diamondPanel.id, name: diamondPanel.heading },
+];
+
+const panel = (page: Page, i: number) => page.locator(`#${panels[i].id}`);
 
 /**
  * Scrolls so panel `i` is centred, as a reader would stop to read it, and
@@ -101,7 +107,7 @@ test.describe("with motion allowed, the opening skipped", () => {
     expect(results.violations).toEqual([]);
   });
 
-  test("each site lights as its panel enters, at native scroll, nothing pinned or snapped", async () => {
+  test("each site lights as its panel enters, and the Diamond's panel as it enters, at native scroll, nothing pinned or snapped", async () => {
     const { terms: before } = await scrollState(page);
     expect(before.snapping).toEqual([]);
     expect(before.pinned).toBe(0);
@@ -116,13 +122,13 @@ test.describe("with motion allowed, the opening skipped", () => {
             lit: el.hasAttribute("data-lit"),
           };
         }),
-      highlights.slice(1).map((h) => highlightAnchor(h.id)),
+      panels.slice(1).map((p) => p.id),
     );
     expect(atTop).toEqual(atTop.map(() => ({ below: true, lit: false })));
 
-    for (let i = 0; i < highlights.length; i++) {
+    for (let i = 0; i < panels.length; i++) {
       const { y, lit } = await visitPanel(page, i);
-      expect(lit, highlights[i].title).toBe(true);
+      expect(lit, panels[i].name).toBe(true);
       // The page went exactly where it was sent and stays there.
       expect(await scrollState(page)).toEqual({ y, terms: before });
     }
@@ -221,8 +227,8 @@ test.describe("on a 390px phone, portrait", () => {
   });
 
   test("every panel stays inside the screen, with the world behind it", async () => {
-    for (let i = 0; i < highlights.length; i++) {
-      expect((await visitPanel(page, i)).lit, highlights[i].title).toBe(true);
+    for (let i = 0; i < panels.length; i++) {
+      expect((await visitPanel(page, i)).lit, panels[i].name).toBe(true);
       const seen = await panel(page, i).evaluate((el) => {
         const box = el.getBoundingClientRect();
         const canvas = document.querySelector("canvas")!;
