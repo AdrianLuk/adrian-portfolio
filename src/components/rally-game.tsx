@@ -404,6 +404,8 @@ export function RallyGame({
       data-phase={hud.phase}
       data-paused={hud.paused}
       data-slow={hud.slow}
+      // The Recall's B waits while a game is in play (src/components/recall.tsx).
+      data-game-in-play={playing || undefined}
       // The site's header steps aside with the copy (see globals.css).
       data-court-filled={filled || undefined}
       onKeyDown={onKeyDown}

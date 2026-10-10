@@ -14,7 +14,7 @@ const { game: copy } = rally;
 /** The game's root: it carries the phase, pause and slow mode as data attributes. */
 const gameRoot = (page: Page) => page.locator("[data-phase]");
 const court = (page: Page) => page.getByRole("application", { name: copy.label });
-const announcer = (page: Page) => page.locator('[aria-live="polite"]');
+const announcer = (page: Page) => page.getByRole("main").locator('[aria-live="polite"]');
 
 /** Opens /play and waits for the court to be drawn. */
 async function openPlay(page: Page) {

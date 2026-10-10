@@ -5,7 +5,8 @@ import { Anybody, Hanken_Grotesk } from "next/font/google";
 import { ViewTransition } from "react";
 import { CROSSFADE_TRANSITION_TYPE } from "@/components/world-places";
 import { AchievementCounter } from "@/components/achievement-counter";
-import { achievements, footer, nav, person, shareCards } from "@/content/site";
+import { RecallName } from "@/components/recall";
+import { achievements, footer, nav, person, recall, shareCards } from "@/content/site";
 import { shareMetadata } from "./share";
 import { glowsLit } from "./styles";
 import "./globals.css";
@@ -44,9 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             aria-label="Main"
             className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6"
           >
-            <h1 className="font-display text-lg font-bold tracking-wide uppercase [font-stretch:125%]">
-              <Link href="/">{person.name}</Link>
-            </h1>
+            <RecallName name={person.name} copy={recall} />
             <ul className="flex gap-5 font-display text-sm tracking-widest uppercase [font-stretch:75%]">
               {nav.map((item) => (
                 <li key={item.href}>

@@ -464,6 +464,39 @@ describe("the Camera director", () => {
     });
   });
 
+  describe("a Recall", () => {
+    it("from the court, /play or the Skyline flies home to the settled view, home arriving at its top, without a jump", () => {
+      for (const from of ["court", "play", "skyline"] as const) {
+        const { director, route } = setup();
+        director.show(from);
+        const before = film(director, 0, 100);
+        // Home arrives at its top, rejoining the live world settled.
+        const { poses, landedAt } = flyTo(director, "hero", 116, 300, (now) => {
+          if (now >= 416) director.openingLands();
+        });
+        const after = film(director, landedAt, 200);
+        expectNoJump([...before, ...poses, ...after]);
+        expectSamePose(after.at(-1)!, route.poseAt(0));
+      }
+    });
+
+    it("on home scrolls the camera back along the route to the settled view, without a jump", () => {
+      const { director, route } = setup();
+      director.show("hero");
+      director.openingLands();
+      const far = 4;
+      director.scrolled(far, [1, 1, 1, 1]);
+      const before = film(director, 0, 100);
+      // The page scrolls smoothly back to its top, the scroll route easing after it.
+      const back = film(director, 116, 1500, (now) => {
+        const f = Math.min(1, (now - 116) / 1200);
+        director.scrolled(far * (1 - f) ** 2, [1, 1, 1, 1].map((l) => l * (1 - f)));
+      });
+      expectNoJump([...before, ...back]);
+      expectSamePose(back.at(-1)!, route.poseAt(0));
+    });
+  });
+
   /** A Place's look in each frame of `ms` filmed from `from`. */
   function filmLook(
     director: CameraDirector,

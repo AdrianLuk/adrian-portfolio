@@ -764,6 +764,13 @@ export const achievements = {
   close: "Close",
 } as const;
 
+/** The Recall's announcements, to a screen reader: as it starts, if it's cancelled, and as it completes. */
+export const recall = {
+  started: "Recalling home. Keep holding.",
+  cancelled: "Recall cancelled.",
+  done: "Recalled home.",
+} as const;
+
 export const notFound = {
   heading: "Lost in the fog",
   body: "Nothing out here but fog. This page doesn't exist, or it drifted off.",
