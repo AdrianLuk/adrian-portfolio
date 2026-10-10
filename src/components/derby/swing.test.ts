@@ -14,6 +14,7 @@ import {
   batAt,
   BAT_LENGTH,
   batRadius,
+  between,
   contactOf,
   HANDS,
   homeRunFlight,
@@ -208,13 +209,7 @@ describe("a home run's flight, as its tracer draws it", () => {
   function along(points: Point[], drawn: number): Point {
     const at = drawn * (points.length - 1);
     const i = Math.min(points.length - 2, Math.floor(at));
-    const f = at - i;
-    const [a, b] = [points[i], points[i + 1]];
-    return {
-      x: a.x + (b.x - a.x) * f,
-      y: a.y + (b.y - a.y) * f,
-      z: a.z + (b.z - a.z) * f,
-    };
+    return between(points[i], points[i + 1], at - i);
   }
 
   it("runs from where the bat meets the ball down to the ground where it lands, out past the fence", () => {

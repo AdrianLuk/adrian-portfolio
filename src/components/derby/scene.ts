@@ -29,6 +29,7 @@ import { resultBeat, WINDUP, type Game } from "./rules";
 import {
   ballAt,
   BALL_RADIUS,
+  between,
   batAt,
   BAT_PROFILE,
   HANDS,
@@ -113,7 +114,7 @@ const LABEL_HEIGHT = 0.07;
  * of the way through them, not of its length, so the tube drawn along it
  * runs to the ball at the same share of the flight.
  */
-class FlightCurve extends Curve<Vector3> {
+class TracerPath extends Curve<Vector3> {
   constructor(private readonly points: readonly Point[]) {
     super();
   }
@@ -121,13 +122,8 @@ class FlightCurve extends Curve<Vector3> {
   getPoint(t: number, target = new Vector3()) {
     const at = Math.min(1, Math.max(0, t)) * (this.points.length - 1);
     const i = Math.min(this.points.length - 2, Math.floor(at));
-    const [a, b] = [this.points[i], this.points[i + 1]];
-    const f = at - i;
-    return target.set(
-      a.x + (b.x - a.x) * f,
-      a.y + (b.y - a.y) * f,
-      a.z + (b.z - a.z) * f,
-    );
+    const { x, y, z } = between(this.points[i], this.points[i + 1], at - i);
+    return target.set(x, y, z);
   }
 
   getUtoTmapping(u: number) {
@@ -141,7 +137,7 @@ class FlightCurve extends Curve<Vector3> {
  * hide its end, as a ball landing there would be.
  */
 function createTracer() {
-  const mesh = new Group();
+  const group = new Group();
   const tubes = [
     { radius: TRACER_GLOW / 2, color: palette.cyan, opacity: 0.3 },
     { radius: TRACER_CORE / 2, color: palette.ink, opacity: 0.95 },
@@ -156,15 +152,15 @@ function createTracer() {
       }),
     );
     tube.renderOrder = 10;
-    mesh.add(tube);
+    group.add(tube);
     return { tube, radius, opacity };
   });
-  mesh.visible = false;
+  group.visible = false;
   return {
-    mesh,
+    group,
     /** Lays the tracer along a new flight. */
     trace(points: readonly Point[]) {
-      const curve = new FlightCurve(points);
+      const curve = new TracerPath(points);
       for (const { tube, radius } of tubes) {
         tube.geometry.dispose();
         tube.geometry = new TubeGeometry(
@@ -178,7 +174,7 @@ function createTracer() {
     },
     /** Draws it on a share `drawn` of the way along, at `fade` of its light. */
     draw(drawn: number, fade: number) {
-      mesh.visible = drawn > 0 && fade > 0;
+      group.visible = drawn > 0 && fade > 0;
       const count = Math.round(drawn * TRACER_STEPS) * TRACER_SIDES * 6;
       for (const { tube, opacity } of tubes) {
         tube.geometry.setDrawRange(0, count);
@@ -331,7 +327,7 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
     curvebot.group,
     ball,
     shadow,
-    tracer.mesh,
+    tracer.group,
     label.sprite,
   );
 
@@ -350,7 +346,7 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
     if (!flying) {
       if (traced) stage.cut(null);
       traced = null;
-      tracer.mesh.visible = label.sprite.visible = false;
+      tracer.group.visible = label.sprite.visible = false;
       return;
     }
     const { aspect } = stage.camera;

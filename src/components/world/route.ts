@@ -392,7 +392,7 @@ const DERBY_VIEW = {
 };
 
 /** The batter in the box, left of home plate: their feet and their head, in the field's feet. */
-const BATTER = [
+export const BATTER = [
   [-6, 0, 4],
   [-6, 7, 0],
 ] as const;

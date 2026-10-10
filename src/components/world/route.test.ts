@@ -12,6 +12,7 @@ import { courtFootprint } from "./court";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
 import {
+  BATTER,
   CN_TOWER_TOP,
   courtPose,
   createRoute,
@@ -485,6 +486,7 @@ const DERBY_SHAPES = {
   "square": 1,
   "tablet, portrait": 0.75,
   "phone": 0.46,
+  "phone, 412 by 915": 412 / 915,
   "narrow phone": 0.4,
 };
 
@@ -492,7 +494,6 @@ describe("the Home Run Derby's batter's view of the Diamond", () => {
   const { field, towers, feet } = atTheDiamond();
   const home = feet(0, 0, 0);
   const centreField = feet(0, 0, -100);
-  const shapes = DERBY_SHAPES;
 
   it("lays the field's feet on the Diamond: second base 127 feet out toward centre field, the mound between", () => {
     const second = feet(0, 0, -90 * Math.SQRT2);
@@ -504,7 +505,7 @@ describe("the Home Run Derby's batter's view of the Diamond", () => {
     expect(Math.abs(out.x)).toBeCloseTo(Math.abs(out.z));
   });
 
-  for (const [name, aspect] of Object.entries(shapes)) {
+  for (const [name, aspect] of Object.entries(DERBY_SHAPES)) {
     describe(name, () => {
       const { pose, fovY } = derbyView(aspect, field);
       const p = pose.position;
@@ -579,8 +580,7 @@ describe("the Home Run Derby's wide shot of a home run", () => {
   const held = (points: Point[]) => [
     ...points,
     // And the batter in the box who hit it, left of the plate.
-    { x: -6, y: 0, z: 4 },
-    { x: -6, y: 7, z: 0 },
+    ...BATTER.map(([x, y, z]) => ({ x, y, z })),
   ];
 
   it("covers home runs pulled to left, to centre and pushed to right, short and long", () => {

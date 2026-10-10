@@ -69,7 +69,8 @@ function along({ turn, lift }: Bat): Point {
 }
 
 const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
-const between = (a: Point, b: Point, f: number): Point => ({
+/** The point a share `f` of the way from `a` to `b`. */
+export const between = (a: Point, b: Point, f: number): Point => ({
   x: lerp(a.x, b.x, f),
   y: lerp(a.y, b.y, f),
   z: lerp(a.z, b.z, f),

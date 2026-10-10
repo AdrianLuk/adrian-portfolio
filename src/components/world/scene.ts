@@ -184,8 +184,8 @@ export type DiamondStage = Stage & {
   field: DiamondField;
   /**
    * Cuts the camera to `shot` (a home run's wide shot, see `homeRunView`)
-   * and holds it there; null cuts back to the Derby's own view. A cut, not
-   * a move: nothing eases between them.
+   * and holds it there, through the Camera director; null cuts back to the
+   * Derby's own view. A cut, not a move: nothing eases between them.
    */
   cut(shot: { pose: Pose; fovY: number } | null): void;
 };
@@ -434,8 +434,6 @@ export async function createWorld(
    */
   let guest: StageGuest | null = null;
   let guestGroup: Group | null = null;
-  /** The Derby's cut away from its view (a home run's wide shot), while it holds. */
-  let shot: { pose: Pose; fovY: number } | null = null;
   const courtGroup = new Group();
   const fieldGroup = new Group();
   {
@@ -542,12 +540,8 @@ export async function createWorld(
     const now = performance.now();
     const { pose, lights, lean: toward, fovY } = options.director.frame(now);
     easeLean(toward, now);
-    // A cut holds only at the Diamond, once the camera has landed there.
-    const cut =
-      view?.kind === "derby" && !options.director.flying() ? shot : null;
-    setFov(cut?.fovY ?? fovY);
-    if (cut) placeCamera(cut.pose);
-    else if (pose) {
+    setFov(fovY);
+    if (pose) {
       placeCamera(pose);
       // Turned from the pose afresh each frame, so the lean never builds up.
       if (lean.x || lean.y) {
@@ -1061,8 +1055,8 @@ export async function createWorld(
     diamond: {
       ...stageOn(fieldGroup),
       field: structures.field,
-      cut(next) {
-        shot = next;
+      cut(shot) {
+        options.director.cut(shot);
         if (!running || holds()) render();
       },
     },

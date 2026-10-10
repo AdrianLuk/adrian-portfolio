@@ -281,6 +281,30 @@ describe("the Camera director", () => {
     expect(fovY).toBe(derby.fovY);
   });
 
+  it("cuts to the Derby's shot of a home run, holds it at once in its own field of view, and cuts back on null", () => {
+    const { director } = setup();
+    director.show("derby");
+    const shot = { pose: play.pose, fovY: 47 };
+    director.cut(shot);
+    const held = director.frame(0);
+    expectSamePose(held.pose!, shot.pose);
+    expect(held.fovY).toBe(47);
+    expect(held.lean).toEqual({ x: 0, y: 0 });
+    director.cut(null);
+    const back = director.frame(0);
+    expectSamePose(back.pose!, derby.pose);
+    expect(back.fovY).toBe(derby.fovY);
+  });
+
+  it("holds a cut only at the Diamond: elsewhere the place's own view stands", () => {
+    const { director } = setup();
+    director.show("play");
+    director.cut({ pose: derby.pose, fovY: 47 });
+    const { pose, fovY } = director.frame(0);
+    expectSamePose(pose!, play.pose);
+    expect(fovY).toBe(play.fovY);
+  });
+
   it("holds /rally's pose at /rally, the court's look full, in the game's field of view", () => {
     const { director } = setup();
     director.show("play");
