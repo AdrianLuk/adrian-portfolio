@@ -24,6 +24,10 @@ async function hoverPanelEdge(page: Page) {
 const inlineTransform = (page: Page) =>
   firstPanel(page).evaluate((el) => el.style.transform);
 
+// Home's world is live under these tests: on CI's software WebGL one look at
+// the page can take about 3s, so the default 5s gets a single, early look.
+const expectLive = expect.configure({ timeout: 15_000 });
+
 test.describe("with motion allowed and a mouse", () => {
   let page: Page;
   test.beforeAll(async ({ browser }, testInfo) => {
@@ -37,20 +41,20 @@ test.describe("with motion allowed and a mouse", () => {
 
   test("a Highlight's panel tilts toward the pointer, a few degrees, and levels as it leaves", async () => {
     await hoverPanelEdge(page);
-    await expect.poll(() => inlineTransform(page)).toMatch(
+    await expectLive.poll(() => inlineTransform(page)).toMatch(
       // Near the right edge, half way down: turned about y by most of the
       // five degrees, and hardly at all about x.
       /^perspective\(1200px\) rotateX\(-?0(\.\d+)?deg\) rotateY\(4(\.\d+)?deg\)$/,
     );
     // Off the panels (onto the nav bar): level again.
     await page.mouse.move(8, 8, { steps: 2 });
-    await expect.poll(() => inlineTransform(page)).toBe("");
-    await expect(firstPanel(page)).toHaveCSS("transform", "none");
+    await expectLive.poll(() => inlineTransform(page)).toBe("");
+    await expectLive(firstPanel(page)).toHaveCSS("transform", "none");
   });
 
   test("the scroll route's sideways shift and the tilt keep to their own properties", async () => {
     await hoverPanelEdge(page);
-    await expect.poll(() => inlineTransform(page)).not.toBe("");
+    await expectLive.poll(() => inlineTransform(page)).not.toBe("");
     const translate = await firstPanel(page).evaluate((el) => el.style.translate);
     expect(translate).not.toContain("rotate");
     await page.mouse.move(8, 8);
