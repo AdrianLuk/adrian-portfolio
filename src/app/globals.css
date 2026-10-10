@@ -184,6 +184,64 @@ body > :is(header, footer) {
   }
 }
 
+/* Over a page with a Place (one carrying data-world), the header lets the
+   world show through at the top: no bar, only a soft scrim of night behind the
+   name and links, dark enough that they hold AA contrast over a beam or the
+   CN Tower's wash. Scrolling past the header brings its bar back as glass,
+   faded with the scroll, or all at once under reduced motion. Without
+   scroll-driven animations, and on the 404, the bar stays. */
+@supports (animation-timeline: scroll()) {
+  :root:has([data-world]) body > header,
+  :root:has([data-world]) body > header::before {
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root);
+    animation-range: 0 4rem;
+  }
+
+  :root:has([data-world]) body > header {
+    animation-name: header-glass;
+  }
+
+  :root:has([data-world]) body > header::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: -1;
+    height: 7rem;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-night) 85%, transparent),
+      color-mix(in srgb, var(--color-night) 60%, transparent) 50%,
+      transparent
+    );
+    animation-name: header-scrim;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root:has([data-world]) body > header,
+    :root:has([data-world]) body > header::before {
+      animation-timing-function: steps(1, end);
+    }
+  }
+}
+
+/* From clear to the header's own bar. */
+@keyframes header-glass {
+  from {
+    background-color: transparent;
+    border-color: transparent;
+    backdrop-filter: none;
+  }
+}
+
+@keyframes header-scrim {
+  to {
+    opacity: 0;
+  }
+}
+
 /* While the camera flies (a transit), the flight is the transition. The
    layout's ViewTransition crossfades only a commit carrying a navigation's
    crossfade type, which a transit's doesn't; the world's root says so too,

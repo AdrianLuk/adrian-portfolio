@@ -20,6 +20,7 @@ import {
   watched,
   watchHero,
   withoutWorld,
+  timedAnimations,
 } from "./hero";
 
 const routes = [
@@ -187,7 +188,7 @@ test.describe("the night backdrop", () => {
       motes: 0,
       drifting: 0,
     });
-    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    expect(await timedAnimations(page)).toBe(0);
   });
 
   test("home has the world itself, not the backdrop", async ({ page }) => {

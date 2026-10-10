@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { credits, resume, roles } from "../src/content/site";
-import { countFrames, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { countFrames, SCENE_TIMEOUT, withoutWorld, timedAnimations } from "./hero";
 import { placeIn } from "./place";
 
 // The Resume page stands at the Skyline: the world, live, from low down the
@@ -165,7 +165,7 @@ test.describe("under prefers-reduced-motion", () => {
       return (await frames()) - before;
     };
     expect(await framesOver()).toBe(0);
-    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    expect(await timedAnimations(page)).toBe(0);
 
     // Allowing motion brings the scene alive; reducing it again stills it.
     await page.emulateMedia({ reducedMotion: "no-preference" });
