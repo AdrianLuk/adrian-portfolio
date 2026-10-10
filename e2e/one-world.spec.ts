@@ -36,7 +36,7 @@ const caseStudyPath = routes[1].path;
  * on each.
  */
 const backdropRoutes = [
-  { name: "404", path: routes[3].path, heading: notFound.heading },
+  { name: "404", path: routes[3].path, heading: notFound.variants[0].heading },
 ];
 
 /**
@@ -131,6 +131,10 @@ test.describe("the night backdrop", () => {
       await page.locator("[data-backdrop] img").evaluate(
         (img: HTMLImageElement) => img.decode(),
       );
+      // The 404 shows its variant once hydrated.
+      await expect(
+        page.getByRole("heading", { name: route.heading }),
+      ).toBeVisible();
       const state = await backdropState(page, route.heading);
       expect(state).toMatchObject({
         name: "valley",
@@ -174,6 +178,9 @@ test.describe("the night backdrop", () => {
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(backdropRoutes[0].path);
+    await expect(
+      page.getByRole("heading", { name: backdropRoutes[0].heading }),
+    ).toBeVisible();
     expect(await backdropState(page, backdropRoutes[0].heading)).toMatchObject({
       covers: true,
       behind: true,

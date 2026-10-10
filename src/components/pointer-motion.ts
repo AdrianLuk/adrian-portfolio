@@ -6,6 +6,16 @@ export const PANEL_TILT = 5;
 /** The depth a tilted panel is seen from, in px: deep enough to stay a panel, not a card flip. */
 const PERSPECTIVE = 1200;
 
+/** Whether a pointer event is a mouse or a pen: the pointers that lean the world, as touch never does. */
+export const isMouseOrPen = (event: PointerEvent) =>
+  event.pointerType === "mouse" || event.pointerType === "pen";
+
+/** Where the pointer is on the screen: each of x and y from -1 (left, top) to 1. */
+export const pointerOffset = (event: PointerEvent) => ({
+  x: (event.clientX / window.innerWidth) * 2 - 1,
+  y: (event.clientY / window.innerHeight) * 2 - 1,
+});
+
 type Box = { left: number; top: number; width: number; height: number };
 
 /**
@@ -58,10 +68,7 @@ export function createPointerMotion({
     frame = 0;
     const event = last;
     if (!event) return;
-    director.pointerAt({
-      x: (event.clientX / window.innerWidth) * 2 - 1,
-      y: (event.clientY / window.innerHeight) * 2 - 1,
-    });
+    director.pointerAt(pointerOffset(event));
     const target = event.target instanceof Node ? event.target : null;
     const panel = target && panels.find((el) => el.contains(target));
     if (panel !== tilted) level();
@@ -85,7 +92,7 @@ export function createPointerMotion({
   }
 
   function onMove(event: PointerEvent) {
-    if (event.pointerType !== "mouse" && event.pointerType !== "pen") return;
+    if (!isMouseOrPen(event)) return;
     last = event;
     frame ||= requestAnimationFrame(apply);
   }
