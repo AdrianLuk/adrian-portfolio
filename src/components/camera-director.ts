@@ -5,6 +5,8 @@ import { placeOfView, type PlaceView } from "./world-places";
 import type { FlightPath, Pose } from "./world/flight";
 import { smoothstep } from "./world/noise";
 import {
+  ENCORE_FILL_SECONDS,
+  ENCORE_SECONDS,
   FLIGHT_START_RIG,
   SETTLED_RIG,
   TRANSIT_MAX_SECONDS,
@@ -26,10 +28,10 @@ export type CameraPaths = {
   skyline: Pose;
   /**
    * The camera's vertical field of view, in degrees: the world's own, the
-   * Skyline's for the screen's shape (wider on a narrow screen), and /play's
-   * (the Rally game's framing of the court).
+   * Skyline's for the screen's shape (wider on a narrow screen), /play's
+   * (the Rally game's framing of the court), and the Arena's inside view's.
    */
-  fovY: { world: number; skyline: number; play: number };
+  fovY: { world: number; skyline: number; play: number; encore: number };
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
   /** /play's view of the court, for the screen's shape: raised behind the player's baseline. */
@@ -39,6 +41,11 @@ export type CameraPaths = {
   transit(route: Route, departure: Departure, to: Arrival): Transit;
   /** A Transit between two views of one Place: straight, off the route. */
   within(departure: Pose, to: Pose): Transit;
+  /**
+   * The Encore's way into the Arena, leaving from `from` (the route's end,
+   * or wherever the scroll has the camera): `t` 0 to 1 through ENCORE_SECONDS.
+   */
+  encore(from: Pose): { poseAt(t: number): Pose };
 };
 
 /**
@@ -69,6 +76,14 @@ export type CameraLights = {
    * blended the same way: full at the Skyline, none anywhere else.
    */
   skyline: number;
+  /**
+   * The Encore's show in the Arena, 0 to 1: its stage's light beams and the
+   * lightsticks on its floor, switching on as the camera comes in and off
+   * as it leaves; none anywhere else, so off, the Arena is as it stands.
+   */
+  encore: number;
+  /** How much of the Arena's floor the lightsticks have filled, 0 to 1. */
+  fill: number;
 };
 
 /** The Places with a look of their own (see CameraLights). */
@@ -185,6 +200,15 @@ export function createCameraDirector({
   let last: Pose | null = null;
   /** Where the pointer is on screen; null while it is off it, or not a mouse's. */
   let pointer: CameraLean | null = null;
+  /**
+   * The Encore: whether home's scroll has reached it, and how far into the
+   * Arena the camera was (0 to 1) when that last changed, and when.
+   */
+  let encore = { reached: false, from: 0, at: 0 };
+  /** When the lightsticks start filling the Arena's floor; null until it's reached. */
+  let fillFrom: number | null = null;
+  /** The way into the Arena from the route's stop it last left from. */
+  let wayIn: { from: number; paths: CameraPaths; path: { poseAt(t: number): Pose } } | null = null;
 
   /** Home's paths, once measured. */
   const homePaths = () =>
@@ -192,15 +216,43 @@ export function createCameraDirector({
       ? { opening: paths.opening, route: paths.route }
       : null;
 
+  /**
+   * How far into the Arena the camera is at `now`, 0 to 1: moving in at the
+   * Encore's pace once its stretch is reached, back out once the scroll
+   * leaves it; never while home's scroll route isn't running.
+   */
+  function encoreAt(now: number) {
+    if (!scrolling || shown !== "hero" || !landed) return 0;
+    const moved = Math.max(0, now - encore.at) / (ENCORE_SECONDS * 1000);
+    const at = encore.from + (encore.reached ? moved : -moved);
+    return Math.min(1, Math.max(0, at));
+  }
+
+  /** The lightsticks' fill at `now`, 0 to 1. */
+  function fillAt(now: number) {
+    if (fillFrom === null || now <= fillFrom) return 0;
+    return Math.min(1, (now - fillFrom) / (ENCORE_FILL_SECONDS * 1000));
+  }
+
+  /** The camera `e` of the way into the Arena, leaving from the route at its stop. */
+  function encorePose(base: Pose, e: number) {
+    if (wayIn?.from !== routeStop || wayIn.paths !== paths) {
+      wayIn = { from: routeStop, paths: paths!, path: paths!.encore(base) };
+    }
+    return wayIn.path.poseAt(e);
+  }
+
   /** The place's own camera, without a Transit; null if not yet known. */
-  function viewPose(): Pose | null {
+  function viewPose(now: number): Pose | null {
     if (shown === "skyline") return paths?.skyline ?? null;
     if (shown === "court") return paths?.court ?? null;
     if (shown === "play") return paths?.play ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     if (!landed) return home.opening.poseAt(opening);
-    return SCROLL_ROUTES[running](paths!)?.poseAt(routeStop) ?? null;
+    const base = SCROLL_ROUTES[running](paths!)?.poseAt(routeStop) ?? null;
+    const e = encoreAt(now);
+    return base && e > 0 ? encorePose(base, e) : base;
   }
 
   /** How far through its Transit `t` is at `now`, 0 to 1. */
@@ -273,7 +325,7 @@ export function createCameraDirector({
         departure: { opening: home.opening, travel, settle },
       };
     }
-    const pose = viewPose() ?? last;
+    const pose = viewPose(now) ?? last;
     return pose && { held: copyOf(pose), departure: { pose: copyOf(pose) } };
   }
 
@@ -364,10 +416,19 @@ export function createCameraDirector({
           return waiting + SITE_LIGHT.lit * lit[i];
         }),
         ...look,
+        encore: smoothstep(0, 1, encoreAt(now)),
+        fill: fillAt(now),
       };
     }
     if (!paths || (!shown && !trip)) return null;
-    return { beams: 0, sweep: 0, sites: LIT_SITES.map(() => 0), ...look };
+    return {
+      beams: 0,
+      sweep: 0,
+      sites: LIT_SITES.map(() => 0),
+      ...look,
+      encore: 0,
+      fill: 0,
+    };
   }
 
   return {
@@ -424,6 +485,28 @@ export function createCameraDirector({
       running = "home";
       routeStop = 0;
       lit.fill(0);
+      encore = { reached: false, from: 0, at: 0 };
+      fillFrom = null;
+    },
+    /**
+     * Whether home's scroll has reached the Encore, past the closing
+     * bookend, at `now`: the camera turns from the route's end into the
+     * Arena, or back out. Only while the scroll route runs.
+     */
+    encore(reached: boolean, now: number) {
+      if (!scrolling || reached === encore.reached) return;
+      const from = encoreAt(now);
+      encore = { reached, from, at: now };
+      // The floor fills once the camera lands, unless it never quite left.
+      if (reached && from === 0) {
+        fillFrom = now + ENCORE_SECONDS * 1000;
+      }
+    },
+    /** One more song: the lightsticks fill the floor again, once the camera is in. */
+    replayEncore(now: number) {
+      if (!encore.reached) return;
+      const lands = encore.at + (1 - encore.from) * ENCORE_SECONDS * 1000;
+      fillFrom = Math.max(now, lands);
     },
     /**
      * The route stop the camera stands at, or is landing at in a Transit
@@ -498,10 +581,11 @@ export function createCameraDirector({
      * restored its scroll) never plans one.
      */
     frame(now: number): CameraFrame {
-      const pose = trip ? poseIn(trip, now) : viewPose();
+      const pose = trip ? poseIn(trip, now) : viewPose(now);
       if (pose) last = pose;
       const fov = paths?.fovY;
       const blend = looks(now);
+      const inside = smoothstep(0, 1, encoreAt(now));
       return {
         pose,
         lights: lights(now),
@@ -509,7 +593,8 @@ export function createCameraDirector({
         fovY: fov
           ? fov.world +
             (fov.skyline - fov.world) * blend.skyline +
-            (fov.play - fov.world) * blend.play
+            (fov.play - fov.world) * blend.play +
+            (fov.encore - fov.world) * inside
           : null,
       };
     },

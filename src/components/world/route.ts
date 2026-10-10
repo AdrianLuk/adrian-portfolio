@@ -185,12 +185,13 @@ export function arenaView(aspect: number): { pose: Pose; fovY: number } {
  * The way into the Arena from home's route's end (Hong Kong's view), for a
  * screen of this shape: climbing from the shore to above the Arena's open
  * middle, clear of its canopy, then down into it onto the inside view, the
- * view turning from Hong Kong to the stage as it goes. `t` runs 0 to 1; its
- * pace, and the widening of the field of view to the inside view's, are the
- * Encore's.
+ * view turning from Hong Kong to the stage as it goes. It may leave from
+ * elsewhere (`from`): the route a little short of its end, say, as the
+ * visitor scrolls back up while the camera is still on its way out. `t` runs
+ * 0 to 1 through its `ENCORE_SECONDS` (./rigs), eased out of `from` and into the view;
+ * the widening of the field of view to the inside view's is the Encore's.
  */
-export function arenaWayIn(aspect: number) {
-  const from = hongKongPose(aspect);
+export function arenaWayIn(aspect: number, from: Pose = hongKongPose(aspect)) {
   const to = arenaView(aspect).pose;
   const arena = arenaAxes();
   const over = new Vector3(arena.x, arena.level + ARENA_VIEW.over, arena.z);
@@ -202,9 +203,10 @@ export function arenaWayIn(aspect: number) {
   );
   return {
     poseAt(t: number): Pose {
+      const f = ease(Math.min(1, Math.max(0, t)));
       return {
-        position: curve.getPointAt(t),
-        quaternion: from.quaternion.clone().slerp(to.quaternion, ease(t)),
+        position: curve.getPointAt(f),
+        quaternion: from.quaternion.clone().slerp(to.quaternion, f),
       };
     },
   };

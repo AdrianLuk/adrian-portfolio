@@ -25,6 +25,11 @@ export type GlowOptions = {
   drift?: number;
   /** Brightness multiplier. */
   intensity?: number;
+  /**
+   * Sway side to side by up to this much, slowly, as lightsticks held up in
+   * a crowd do: each in its seed's turn, so a wave runs through them.
+   */
+  sway?: number;
 };
 
 /**
@@ -35,7 +40,7 @@ export type GlowOptions = {
 export function createGlowPoints(
   glows: readonly Glow[],
   shared: SharedUniforms,
-  { drift = 0, intensity = 1 }: GlowOptions = {},
+  { drift = 0, intensity = 1, sway = 0 }: GlowOptions = {},
 ) {
   const positions: number[] = [];
   const colors: number[] = [];
@@ -61,6 +66,9 @@ export function createGlowPoints(
       ...shared,
       uViewportHeight: { value: 800 },
       uDrift: { value: drift },
+      uSway: { value: sway },
+      // Each point lights once the fill passes its seed: all of them by default.
+      uFill: { value: 2 },
       uIntensity: { value: intensity },
       ...fogUniforms(),
     },
@@ -72,6 +80,8 @@ export function createGlowPoints(
       uniform float uPixelRatio;
       uniform float uViewportHeight;
       uniform float uDrift;
+      uniform float uSway;
+      uniform float uFill;
       varying vec3 vColor;
       varying float vAlpha;
       ${fogChunk}
@@ -86,6 +96,13 @@ export function createGlowPoints(
           p.z += cos(uTime * 0.29 + aSeed * 23.0) * 1.6;
           alpha *= 0.65 + 0.35 * sin(uTime * 1.7 + aSeed * 13.0);
         }
+        if (uSway > 0.0) {
+          // About one sway every four seconds: nothing near a flash.
+          float swing = sin(uTime * 1.6 - aSeed * 9.0);
+          p.x += swing * uSway;
+          p.y += abs(swing) * uSway * 0.3;
+        }
+        alpha *= smoothstep(aSeed - 0.03, aSeed + 0.03, uFill);
         vec4 world = modelMatrix * vec4(p, 1.0);
         vec4 mv = viewMatrix * world;
         gl_Position = projectionMatrix * mv;
@@ -123,6 +140,11 @@ export function createGlowPoints(
     },
     setIntensity(value: number) {
       material.uniforms.uIntensity.value = value;
+    },
+    /** Lights the points whose seed the fill (0 to 1) has passed. */
+    setFill(value: number) {
+      // Stretched a hair each way, so 0 lights none and 1 lights all.
+      material.uniforms.uFill.value = value * 1.06 - 0.03;
     },
   };
 }

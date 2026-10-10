@@ -21,7 +21,9 @@ import {
   rallyBall,
   type RallyCourt,
 } from "./court-look";
+import { layoutArena } from "./arena";
 import { createBackdrop } from "./backdrop";
+import { createBeams } from "./beams";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
@@ -37,6 +39,8 @@ import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
 import type { CameraDirector, CameraLean } from "../camera-director";
 import { nominalRoute } from "./nominal-route";
 import {
+  arenaView,
+  arenaWayIn,
   courtPose,
   createRoute,
   playView,
@@ -260,6 +264,9 @@ const CREDIT_PARALLAX = 0.3;
 /** A beacon's full intensity: each site burns at the share the director says. */
 const BEACON_INTENSITY = 3;
 
+/** How far the Encore's lightsticks sway each way, in world units. */
+const ENCORE_SWAY = 0.35;
+
 /**
  * The lit sites' lights, one each so each brightens on its own: the first
  * glows on the horizon down the valley once the camera has settled.
@@ -378,6 +385,12 @@ export async function createWorld(
   const lights = createGlowPoints(structures.glows, shared);
   const floodlights = createGlowPoints(structures.floodlights, shared);
   const sites = createSiteLights(shared);
+  // The Encore's show in the Arena, off (and hidden) until the director
+  // switches it on: the lightsticks on its floor and its stage's beams.
+  const arena = layoutArena();
+  const crowd = createGlowPoints(arena.crowd, shared, { sway: ENCORE_SWAY });
+  crowd.points.visible = false;
+  const beams = createBeams(arena.beams, arena.turn, shared);
   // The rally ball, in the scene from the start (hidden, so it compiles with
   // the rest) and shown only by the court's look.
   const [rally] = createBalls([
@@ -417,6 +430,8 @@ export async function createWorld(
     lights.points,
     floodlights.points,
     rally,
+    crowd.points,
+    beams.mesh,
     ...sites.map((s) => s.points),
     ...createMist(shared),
     plate.group,
@@ -508,6 +523,19 @@ export async function createWorld(
     look = courtLook(lights.court);
     skyline = skylineLook(lights.skyline);
     showLook();
+    showEncore(lights.encore, lights.fill);
+  }
+
+  /**
+   * The Encore's show, as far on as the director says: the beams and the
+   * lightsticks brightening together, the floor filled as far as `fill`
+   * (all of it at once while the world holds still).
+   */
+  function showEncore(on: number, fill: number) {
+    beams.setIntensity(on);
+    crowd.setIntensity(on);
+    crowd.setFill(motion ? fill : 1);
+    crowd.points.visible = on > 0;
   }
 
   /**
@@ -579,6 +607,7 @@ export async function createWorld(
     for (const glow of [
       lights,
       floodlights,
+      crowd,
       plate.flares,
       ...sites,
       motes,
@@ -624,6 +653,7 @@ export async function createWorld(
     const home = view.kind === "hero";
     const skyline = skylineView(camera.aspect);
     const play = playView(camera.aspect, structures.court);
+    const arena = arenaView(camera.aspect);
     // The view's own field of view; the plate is measured in the world's.
     setFov(
       view.kind === "skyline"
@@ -649,12 +679,18 @@ export async function createWorld(
       opening: home ? path : null,
       route: home ? route : nominalRoute(camera.aspect),
       skyline: skyline.pose,
-      fovY: { world: CAMERA.fovY, skyline: skyline.fovY, play: play.fovY },
+      fovY: {
+        world: CAMERA.fovY,
+        skyline: skyline.fovY,
+        play: play.fovY,
+        encore: arena.fovY,
+      },
       court: courtPose(camera.aspect),
       play: play.pose,
       courtStop: COURT_STOP,
       transit,
       within: transitWithin,
+      encore: (from) => arenaWayIn(camera.aspect, from),
     });
     // The motes rise round where the camera stands.
     const { x, z } = camera.position;

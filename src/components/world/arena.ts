@@ -95,6 +95,37 @@ const SEATS = { spacing: 2.6, size: 0.9 } as const;
 /** The colours of the crowd's lightsticks. */
 const STICKS = [palette.ink, palette.ink, palette.violet, palette.magenta, palette.cyan];
 
+/**
+ * The Encore's crowd on the floor: a lightstick about every `spacing` each
+ * way, held `held` over the floor, kept `clear` off the stage, runway and
+ * B-stage; filling from the stage back, each a little out of turn (`jitter`).
+ */
+const CROWD = { spacing: 1.5, held: 1.3, size: 0.75, clear: 0.9, jitter: 0.15 } as const;
+
+/**
+ * The Encore's light beams, from the truss's front frame up into the night:
+ * `count` of them `length` long, `radius` wide at the top, fanned across
+ * `fan` radians, leaning `tilt` off upright (alternately more and less).
+ */
+const BEAMS = { count: 6, length: 110, radius: 4.5, fan: 1.6, tilt: [0.35, 0.55] } as const;
+
+/**
+ * A beam of light: a cone from `from` (its apex, on the truss) `length` up
+ * to `top`, `radius` across there, leaning `tilt` off upright toward
+ * `heading` (in the Arena's frame, radians from +lz toward +lx); the show
+ * sweeps it about that, out of step with the others by `phase`.
+ */
+export type Beam = {
+  from: readonly [number, number, number];
+  top: readonly [number, number, number];
+  length: number;
+  radius: number;
+  heading: number;
+  tilt: number;
+  phase: number;
+  color: Color;
+};
+
 /** An outline turned to run anticlockwise, as a loft's walls and cap face out and up. */
 function anticlockwise(outline: Outline): Outline {
   const area = outline.reduce((sum, [x0, z0], i) => {
@@ -417,6 +448,59 @@ export function layoutArena() {
     return { x: wx, y: level + s.truss - 0.6, z: wz };
   });
 
+  // The Encore's crowd, filling the floor from the stage back.
+  const bStageAt = [0, front + s.runway.length + s.bStage.r - 1] as const;
+  const back = ARENA.floor * STRETCH;
+  const crowd: { x: number; y: number; z: number; color: Color; size: number; seed: number }[] = [];
+  for (let lz = front + CROWD.clear; lz < back; lz += CROWD.spacing) {
+    for (let lx = -ARENA.floor; lx < ARENA.floor; lx += CROWD.spacing) {
+      const jx = lx + (random() - 0.5) * CROWD.spacing * 0.6;
+      const jz = lz + (random() - 0.5) * CROWD.spacing * 0.6;
+      const order = random();
+      const pick = random();
+      if (Math.hypot(jx, jz / STRETCH) > ARENA.floor - CROWD.clear) continue;
+      if (jz < front + CROWD.clear) continue;
+      if (Math.abs(jx) < s.runway.width / 2 + CROWD.clear && jz < front + s.runway.length) continue;
+      if (Math.hypot(jx - bStageAt[0], jz - bStageAt[1]) < s.bStage.r + CROWD.clear) continue;
+      const [wx, wz] = toWorld(jx, jz);
+      const depth = (jz - front) / (back - front);
+      crowd.push({
+        x: wx,
+        y: level + CROWD.held,
+        z: wz,
+        color: STICKS[Math.floor(pick * STICKS.length)],
+        size: CROWD.size,
+        seed: Math.min(1, Math.max(0, depth * (1 - CROWD.jitter) + order * CROWD.jitter)),
+      });
+    }
+  }
+
+  // The Encore's beams, from the truss's front frame into the night.
+  const beamColors = [cyan, violet, magenta];
+  const beams: Beam[] = Array.from({ length: BEAMS.count }, (_, i) => {
+    const u = i / (BEAMS.count - 1);
+    const [ax, az] = toWorld(-half + 1 + u * (s.width - 2), frames[0]);
+    // Fanned out across the stage, leaning back from the crowd, toward the city.
+    const heading = Math.PI + (u - 0.5) * BEAMS.fan;
+    const tilt = BEAMS.tilt[i % 2];
+    const [dx, dz] = facing(Math.sin(tilt) * Math.sin(heading), Math.sin(tilt) * Math.cos(heading));
+    const from = [ax, level + s.truss, az] as const;
+    return {
+      from,
+      top: [
+        ax + dx * BEAMS.length,
+        from[1] + Math.cos(tilt) * BEAMS.length,
+        az + dz * BEAMS.length,
+      ] as const,
+      length: BEAMS.length,
+      radius: BEAMS.radius,
+      heading,
+      tilt,
+      phase: u * Math.PI * 2,
+      color: beamColors[i % beamColors.length],
+    };
+  });
+
   // The braces, where the U stands out over the slope.
   const braces: Solid[] = [];
   const braceLights: { x: number; y: number; z: number }[] = [];
@@ -510,6 +594,8 @@ export function layoutArena() {
     braces,
     braceLights,
     seats,
+    crowd,
+    beams,
     rings,
     strokes,
     solids: [floor, ...tiers, ...underside, ...canopy, deck, runway, bStage, ...braces],

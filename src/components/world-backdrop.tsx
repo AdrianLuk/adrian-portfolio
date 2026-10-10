@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
+  arenaStills,
   courtStills,
   skylineStills,
   srcSet,
@@ -11,6 +12,7 @@ const STILLS = {
   valley: valleyStills,
   court: courtStills,
   skyline: skylineStills,
+  arena: arenaStills,
 } as const;
 
 /** A small seeded generator (mulberry32), so every render scatters the same. */
@@ -42,20 +44,26 @@ const MOTES = (() => {
 })();
 
 /**
- * A still of the world, held fixed behind the page and covering the screen:
- * the landscape frame, or the portrait one on a portrait screen. Its parent
- * sets the stacking context it sits at the back of, over the body's sky.
- * `children` lie over the still.
+ * A still of the world, held fixed behind the page and covering the screen
+ * (or, by `className`, placed otherwise): the landscape frame, or the
+ * portrait one on a portrait screen. Its parent sets the stacking context it
+ * sits at the back of, over the body's sky. `children` lie over the still.
  */
 export function WorldStill({
   name,
   parallax,
+  className = "fixed inset-x-0 top-0 h-lvh",
+  lazy,
   children,
 }: {
   /** Which still, and its data-backdrop. */
   name: StillName;
   /** Opts into leaning toward the pointer (see globals.css): the 404 alone. */
   parallax?: boolean;
+  /** Where it stands: fixed over the screen by default. */
+  className?: string;
+  /** Loads only once near the screen (and never while hidden): for a still far down a page. */
+  lazy?: boolean;
   children?: ReactNode;
 }) {
   const stills = STILLS[name];
@@ -64,7 +72,7 @@ export function WorldStill({
       aria-hidden="true"
       data-backdrop={name}
       data-parallax={parallax || undefined}
-      className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-lvh overflow-hidden"
+      className={`pointer-events-none -z-10 overflow-hidden ${className}`}
     >
       <picture>
         <source
@@ -80,6 +88,7 @@ export function WorldStill({
           sizes="100vw"
           alt=""
           decoding="async"
+          loading={lazy ? "lazy" : undefined}
           className="size-full object-cover"
         />
       </picture>
