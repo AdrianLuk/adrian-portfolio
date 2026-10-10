@@ -3,6 +3,7 @@ import { CAMERA } from "./pose";
 import {
   bayWidth,
   corridorHalfWidth,
+  groundHit,
   HARBOUR,
   HARBOURS,
   harbourWater,
@@ -188,5 +189,36 @@ describe("the valley short of Hong Kong", () => {
     );
     const peak = -1400;
     expect(heightShortOfHongKong(valleyCentre(peak), peak)).toBeLessThan(5);
+  });
+});
+
+describe("where a line of sight meets the ground", () => {
+  it("is straight below, looking straight down", () => {
+    const hit = groundHit({ x: 10, y: 40, z: -90 }, { x: 0, y: -1, z: 0 });
+    expect(hit?.x).toBeCloseTo(10);
+    expect(hit?.z).toBeCloseTo(-90);
+  });
+
+  it("is where the ground rises to meet a glancing look", () => {
+    const from = { x: 0, y: 6, z: 0 };
+    const dir = { x: 0.1, y: -0.05, z: -1 };
+    const length = Math.hypot(dir.x, dir.y, dir.z);
+    const hit = groundHit(from, {
+      x: dir.x / length,
+      y: dir.y / length,
+      z: dir.z / length,
+    });
+    expect(hit).not.toBeNull();
+    const t = (hit!.z - from.z) / (dir.z / length);
+    expect(from.y + (dir.y / length) * t).toBeCloseTo(
+      valleyHeight(hit!.x, hit!.z),
+      1,
+    );
+  });
+
+  it("is nowhere, looking at the sky", () => {
+    expect(groundHit({ x: 0, y: 6, z: 0 }, { x: 0, y: 0.2, z: -0.98 })).toBe(
+      null,
+    );
   });
 });

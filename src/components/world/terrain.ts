@@ -195,6 +195,31 @@ export function groundUnder(x: number, z: number, w: number, d: number) {
   return { low: Math.min(...heights), high: Math.max(...heights) };
 }
 
+type Point = { x: number; y: number; z: number };
+
+/**
+ * Where a line of sight from `from` along the unit `dir` first meets the
+ * ground, within `far` units; null if it never does (it looks at the sky).
+ * Marched in steps short of a facet, then narrowed down: far cheaper than
+ * raycasting the terrain's triangles.
+ */
+export function groundHit(from: Point, dir: Point, far = 1500) {
+  const below = (t: number) =>
+    from.y + dir.y * t <= valleyHeight(from.x + dir.x * t, from.z + dir.z * t);
+  const STEP = 2;
+  for (let t = STEP; t <= far; t += STEP) {
+    if (!below(t)) continue;
+    let [near, past] = [t - STEP, t];
+    for (let i = 0; i < 10; i++) {
+      const mid = (near + past) / 2;
+      if (below(mid)) past = mid;
+      else near = mid;
+    }
+    return { x: from.x + dir.x * past, z: from.z + dir.z * past };
+  }
+  return null;
+}
+
 /**
  * Terrain height at (x, z) as the valley stands short of Hong Kong: without
  * Victoria Harbour or Victoria Peak, both lost in fog past the hero's sight.

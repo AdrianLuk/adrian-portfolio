@@ -4,6 +4,7 @@ import { createCameraDirector } from "./camera-director";
 import { scrolledStop } from "./home-panels";
 import { REDUCED_MOTION } from "./reduced-motion";
 import type { PlaceView } from "./world-places";
+import { tapsBareWorld } from "./world-taps";
 import type { Measurement, World, WorldView } from "./world/scene";
 import type { Weather } from "./world/weather";
 
@@ -79,7 +80,7 @@ export function createWorldHost() {
   let building: Promise<World | null> | null = null;
   let state: WorldState = "pending";
   const listeners = new Set<() => void>();
-  /** Stops the world following the reduced-motion preference. */
+  /** Stops the world following the reduced-motion preference, and taps. */
   let unfollow: (() => void) | null = null;
   let disposed = false;
 
@@ -132,7 +133,15 @@ export function createWorldHost() {
       if (motion !== !reduced.matches) world.setMotion(!reduced.matches);
       const follow = () => world?.setMotion(!reduced.matches);
       reduced.addEventListener("change", follow);
-      unfollow = () => reduced.removeEventListener("change", follow);
+      // A tap on bare world ripples across it; the click itself goes on.
+      const onTap = (event: MouseEvent) => {
+        if (tapsBareWorld(event)) world?.ripple(event.clientX, event.clientY);
+      };
+      document.addEventListener("click", onTap);
+      unfollow = () => {
+        reduced.removeEventListener("change", follow);
+        document.removeEventListener("click", onTap);
+      };
       return world;
     } catch {
       // A stale chunk after a deploy, say: the page's fallback stays.

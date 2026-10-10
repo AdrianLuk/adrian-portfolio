@@ -8,8 +8,10 @@ import {
   Object3D,
   PerspectiveCamera,
   Points,
+  Raycaster,
   Scene,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -58,8 +60,13 @@ import { createSky } from "./sky";
 import { magentaWash } from "./skyline";
 import { skylineLook } from "./skyline-look";
 import { createStructures } from "./structures";
-import { createTerrain, setTerrainWeather } from "./terrain-mesh";
-import { valleyHeight } from "./terrain";
+import { createRipples } from "./ripples";
+import {
+  createTerrain,
+  setTerrainRings,
+  setTerrainWeather,
+} from "./terrain-mesh";
+import { groundHit, valleyHeight } from "./terrain";
 import type { Weather } from "./weather";
 
 /** The canvas size and the headline's word boxes, in canvas pixels. */
@@ -189,6 +196,13 @@ export type World = View & {
   setView(view: WorldView | null): void;
   /** Changes the weather in place: the ground, the pools and what falls. */
   setWeather(weather: Weather): void;
+  /**
+   * A tap on the world at (clientX, clientY): sends a ring of light across
+   * the terrain from the spot under it (none from the sky). Only while the
+   * world moves on a GPU: under reduced motion, in software, or with the
+   * context lost, nothing.
+   */
+  ripple(clientX: number, clientY: number): void;
   /** The court, for the Rally game to play on. */
   court: CourtStage;
 };
@@ -341,6 +355,7 @@ export async function createWorld(
   let { weather, view } = options;
   const wet = () => weather === "rain";
   const terrain = createTerrain(weather);
+  const ripples = createRipples();
   await nextTask();
 
   // The plate is the hero object, built whatever the view, so showing the
@@ -518,6 +533,7 @@ export async function createWorld(
     if (!view || !posed || !compiled || lost) return;
     pose();
     plate.sweep(shared.uTime.value);
+    setTerrainRings(terrain, ripples.at(shared.uTime.value));
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
     // In software, with the Rally game on the court and the camera landed,
     // only the game (and the veils' light over it) draws each frame.
@@ -910,6 +926,21 @@ export async function createWorld(
     };
   }
 
+  const raycaster = new Raycaster();
+  const tapped = new Vector2();
+
+  function ripple(clientX: number, clientY: number) {
+    if (!running || software || !posed) return;
+    const box = canvas.getBoundingClientRect();
+    tapped.set(
+      ((clientX - box.left) / box.width) * 2 - 1,
+      1 - ((clientY - box.top) / box.height) * 2,
+    );
+    raycaster.setFromCamera(tapped, camera);
+    const hit = groundHit(raycaster.ray.origin, raycaster.ray.direction);
+    if (hit) ripples.start(hit.x, hit.z, shared.uTime.value);
+  }
+
   const court: CourtStage = {
     shared,
     court: structures.court,
@@ -939,6 +970,7 @@ export async function createWorld(
     layout,
     placeCredit,
     placeSite,
+    ripple,
     setMotion(next) {
       motion = next;
       backdrop.invalidate();
