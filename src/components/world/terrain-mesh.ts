@@ -1,5 +1,6 @@
-import { Mesh, PlaneGeometry, ShaderMaterial } from "three";
+import { Mesh, PlaneGeometry, ShaderMaterial, Vector4 } from "three";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
+import { RIPPLE, type Ring } from "./ripples";
 import { valleyHeight, WORLD_BACK, WORLD_FRONT } from "./terrain";
 import type { Weather } from "./weather";
 
@@ -7,6 +8,12 @@ const WIDTH = 1100;
 /** From behind the opening flight's start (+z) to the far end of the valley. */
 const DEPTH = WORLD_BACK - WORLD_FRONT;
 const NEAR_Z = WORLD_BACK;
+/**
+ * How far a ripple spreads across the valley, in world units: further the
+ * further off its tap lands, so a far one reads on screen much as a near one.
+ */
+export const rippleReach = (distance: number) =>
+  Math.min(160, Math.max(45, distance / 2));
 
 /**
  * The valley as a low-poly mesh: faceted (flat-shaded from screen-space
@@ -14,7 +21,8 @@ const NEAR_Z = WORLD_BACK;
  * contour lines gathering towards them, all sinking into the shader fog.
  * The weather leaves its mark, still even under reduced motion: snow settles
  * on the flatter facets, and rain darkens the ground and wets the valley
- * floor into a sheen of the sky.
+ * floor into a sheen of the sky. A tap on it sends a ring of cyan light out
+ * across it (see ./ripples).
  */
 export function createTerrain(weather: Weather = "clear") {
   // A facet about every 7 units down the valley.
@@ -39,6 +47,10 @@ export function createTerrain(weather: Weather = "clear") {
       uSnowColor: { value: palette.ink.clone().lerp(palette.violet, 0.45) },
       uWet: { value: weather === "rain" ? 1 : 0 },
       uSheen: { value: palette.fog.clone().lerp(palette.violet, 0.35) },
+      // Each ring's centre (x, z), radius and brightness: 0, unlit.
+      uRings: {
+        value: Array.from({ length: RIPPLE.rings }, () => new Vector4()),
+      },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorld;
@@ -51,6 +63,7 @@ export function createTerrain(weather: Weather = "clear") {
     fragmentShader: /* glsl */ `
       uniform vec3 uLow, uHigh, uCyan, uViolet, uMoon, uSnowColor, uSheen;
       uniform float uSnow, uWet;
+      uniform vec4 uRings[${RIPPLE.rings}];
       varying vec3 vWorld;
       ${fogChunk}
       void main() {
@@ -81,7 +94,22 @@ export function createTerrain(weather: Weather = "clear") {
         // Crests catch the violet sky.
         col += uViolet * 0.3 * smoothstep(0.55, 0.95, n.y) * smoothstep(28.0, 55.0, vWorld.y);
 
-        col = mix(col, uFogColor, fogAmount(vWorld));
+        float fog = fogAmount(vWorld);
+        col = mix(col, uFogColor, fog);
+
+        // Ripples: a band of cyan at each ring's radius (never under two
+        // pixels wide, so a far one doesn't shimmer), and a faint wake inside,
+        // only half lost in the fog, so a far tap still shows.
+        for (int i = 0; i < ${RIPPLE.rings}; i++) {
+          vec4 ring = uRings[i];
+          if (ring.w <= 0.0) continue;
+          float d = distance(vWorld.xz, ring.xy);
+          float width = max(2.0, 2.0 * fwidth(d));
+          float band = 1.0 - smoothstep(0.0, width, abs(d - ring.z));
+          float wake = step(d, ring.z) * (1.0 - smoothstep(0.0, 8.0, ring.z - d));
+          col += uCyan * ring.w * (band + 0.25 * wake) * (1.0 - 0.5 * fog);
+        }
+
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }
@@ -99,4 +127,19 @@ export function setTerrainWeather(terrain: Mesh, weather: Weather) {
   const { uniforms } = terrain.material as ShaderMaterial;
   uniforms.uSnow.value = weather === "snow" ? 1 : 0;
   uniforms.uWet.value = weather === "rain" ? 1 : 0;
+}
+
+/** Lights `rings` on the valley (see ./ripples), and leaves the rest unlit. */
+export function setTerrainRings(
+  terrain: Mesh,
+  rings: readonly Ring<{ x: number; z: number; reach: number }>[],
+) {
+  const slots: Vector4[] = (terrain.material as ShaderMaterial).uniforms.uRings
+    .value;
+  slots.forEach((slot, i) => {
+    const ring = rings[i];
+    if (ring) {
+      slot.set(ring.at.x, ring.at.z, ring.spread * ring.at.reach, ring.strength);
+    } else slot.setW(0);
+  });
 }
