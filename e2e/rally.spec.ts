@@ -322,15 +322,20 @@ test("has no axe violations mid-game, playing and paused", async ({ page }) => {
 });
 
 test("announces the score after a point, politely", async ({ page }) => {
+  // Up to a minute of rallies, on a loaded machine.
+  test.setTimeout(90_000);
   await openPlay(page);
   await page.getByRole("button", { name: copy.start.action }).click();
   await expect(announcer(page)).toHaveText(/0–0, you serve/);
-  await page.keyboard.press("Space");
-  // The player stands still: sooner or later a point is decided.
-  await expect(announcer(page)).toHaveText(
-    new RegExp(`(${copy.point.won}|${copy.point.lost}).*\\d–\\d`),
-    { timeout: 60_000 },
-  );
+  // The player stands still, serving whenever the serve comes back (a side
+  // out hands it back without a point): sooner or later a point is decided.
+  await expect(async () => {
+    await page.keyboard.press("Space");
+    await expect(announcer(page)).toHaveText(
+      new RegExp(`(${copy.point.won}|${copy.point.lost}).*\\d–\\d`),
+      { timeout: 2_000 },
+    );
+  }).toPass({ timeout: 60_000 });
 });
 
 test.describe("under reduced motion", () => {
