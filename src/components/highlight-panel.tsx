@@ -126,7 +126,7 @@ export function HighlightPanel({
         </Link>
       </p>
       {highlight.clip && (
-        <div className="mt-6 max-w-md">
+        <div className="mt-6">
           <Recording recording={highlight.clip} />
         </div>
       )}
