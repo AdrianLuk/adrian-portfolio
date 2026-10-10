@@ -1,5 +1,6 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
+import { ARENA, worldArena } from "./arena";
 import type { RallyCourt } from "./court-look";
 import { diamondMiddle } from "./diamond";
 import type { Pose } from "./flight";
@@ -138,6 +139,69 @@ export function hongKongPose(aspect: number): Pose {
   const position = above(HONG_KONG_SHORE.z, SHORE_HEIGHT);
   const ndcX = aspect >= 1 ? siteScreenX(aspect) : 0;
   return { position, quaternion: framing(position, HONG_KONG, ndcX, aspect) };
+}
+
+/**
+ * Where the camera stands in the Arena: `back` up its axis from its middle,
+ * behind the crowd's floor and just behind the last rib, far enough back
+ * that the stage fits a narrow phone's frame, and `height` over the floor,
+ * over the crowd's lightsticks. The way in comes `behind` past the Arena's
+ * back wall (clear of the Diamond), `over` the floor, before it turns in
+ * down the axis under the ribs.
+ */
+const ARENA_VIEW = { back: 19, height: 4, behind: 5, over: 5.5 };
+
+/**
+ * The Arena's inside pose, the Encore's frame and the Hobby route's last
+ * stop: behind the crowd, looking down the Arena's axis at the stage's main
+ * screen, the ribs arching over the frame's top. The stage fits a narrow
+ * phone's frame from here, so the pose is the same for every screen.
+ */
+export function arenaPose(): Pose {
+  const arena = worldArena();
+  const position = new Vector3(
+    arena.x,
+    arena.level + ARENA_VIEW.height,
+    arena.z + ARENA_VIEW.back,
+  );
+  const screen = arena.stage.screens[0];
+  const look = new Matrix4().lookAt(
+    position,
+    new Vector3(screen.x, screen.y, screen.z),
+    UP,
+  );
+  return { position, quaternion: new Quaternion().setFromRotationMatrix(look) };
+}
+
+/**
+ * The way into the Arena from home's route's end (Hong Kong's view), for a
+ * screen of this shape: across the shore past the Diamond to behind the
+ * Arena's back wall, then in over it down the Arena's axis, under the ribs,
+ * onto the inside pose, the view turning from Hong Kong to the stage as it
+ * goes. `t` runs 0 to 1; its pace is the Encore's.
+ */
+export function arenaWayIn(aspect: number) {
+  const from = hongKongPose(aspect);
+  const to = arenaPose();
+  const arena = worldArena();
+  const behind = new Vector3(
+    arena.x,
+    arena.level + ARENA_VIEW.over,
+    arena.z + ARENA.long + ARENA_VIEW.behind,
+  );
+  const curve = new CatmullRomCurve3(
+    [from.position, behind, to.position],
+    false,
+    "centripetal",
+  );
+  return {
+    poseAt(t: number): Pose {
+      return {
+        position: curve.getPointAt(t),
+        quaternion: from.quaternion.clone().slerp(to.quaternion, ease(t)),
+      };
+    },
+  };
 }
 
 /** Which of the Lit sites is Juice Bros' court, where the Case study stands. */
