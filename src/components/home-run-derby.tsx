@@ -41,8 +41,13 @@ import type { DerbyView } from "./derby/scene";
 
 type Copy = (typeof derby)["game"];
 
-/** The longest step a frame may take, so a stall (a hidden tab, a slow frame) doesn't jump the pitch. */
-const MAX_STEP = 0.05;
+/**
+ * The longest step a frame may take, in seconds: a long stall can't jump the
+ * pitch (a hidden tab pauses the game anyway). Longer than the Rally game's,
+ * as a swing is timed at its press, not its frame: a slow device still
+ * plays in real time, not slow motion.
+ */
+const MAX_STEP = 0.25;
 
 /** What the game's UI shows: kept in React state, changed only by events. */
 type Hud = {

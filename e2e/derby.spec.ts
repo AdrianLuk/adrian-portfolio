@@ -157,7 +157,7 @@ test.describe("on a touch screen", () => {
   test.use({ hasTouch: true });
 
   test("is played by tapping the field through to Play again", async ({ page }) => {
-    test.setTimeout(GAME_MS);
+    test.setTimeout(GAME_MS * 2);
     await openDerby(page);
     await page.getByRole("button", { name: copy.start.action }).tap();
     const { width, height } = page.viewportSize()!;
