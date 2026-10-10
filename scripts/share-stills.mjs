@@ -35,6 +35,8 @@ import {
   courtStills,
   diamondStills,
   credits,
+  highlightAnchor,
+  highlights,
   shareCards,
   skylineStills,
   valleyStills,
@@ -59,8 +61,13 @@ if (unknown.length) {
 const sets = new Set(named.length ? named : SETS);
 const SCENE_TIMEOUT = 60_000;
 
-/** How far down the home page the valley's camera has flown, 0 to 1. */
-const VALLEY_SCROLL = 0.32;
+/**
+ * How far the valley's camera has flown from the settled view toward the
+ * first Lit site's stop, 0 to 1, for each still shape: a stop on the scroll
+ * route, so the page's layout can't move it. Portrait stops short, where the
+ * site still stands back from the camera.
+ */
+const VALLEY_STOP = { landscape: 1, portrait: 0.6 };
 
 /** The pages whose Places have stills of their own: the court, the Skyline, the Diamond. */
 const COURT_PAGE = "/work/juice-bros";
@@ -70,8 +77,8 @@ const DIAMOND_PAGE = "/derby";
 /** The world's two still shapes: wide, and a tall phone or tablet. */
 function stillShots(stills) {
   return [
-    { viewport: { width: 2560, height: 1440 }, sizes: stills.landscape },
-    { viewport: { width: 1366, height: 2960 }, sizes: stills.portrait },
+    { shape: "landscape", viewport: { width: 2560, height: 1440 }, sizes: stills.landscape },
+    { shape: "portrait", viewport: { width: 1366, height: 2960 }, sizes: stills.portrait },
   ];
 }
 
@@ -157,12 +164,20 @@ async function shareStills(browser) {
 /** The valley past the plate, wide and tall: the night backdrop. */
 async function drawValley(browser) {
   mkdirSync("public/world", { recursive: true });
-  for (const { viewport, sizes } of stillShots(valleyStills)) {
+  for (const { shape, viewport, sizes } of stillShots(valleyStills)) {
     const page = await openHome(browser, { viewport, motion: true });
-    await page.evaluate((at) => {
-      const end = document.documentElement.scrollHeight - window.innerHeight;
-      window.scrollTo(0, Math.round(end * at));
-    }, VALLEY_SCROLL);
+    // The camera reaches the first site's stop as its panel is centred in
+    // the viewport (routeAnchors in route-anchors.ts).
+    await page.evaluate(
+      ([at, id]) => {
+        const panel = document.getElementById(id);
+        if (!panel) throw new Error(`No panel #${id} on home`);
+        const top = panel.getBoundingClientRect().top + window.scrollY;
+        const centred = top + panel.offsetHeight / 2 - window.innerHeight / 2;
+        window.scrollTo(0, Math.round(Math.max(0, centred) * at));
+      },
+      [VALLEY_STOP[shape], highlightAnchor(highlights[0].id)],
+    );
     // The camera eases on after the scroll stops.
     await page.waitForTimeout(4000);
     await page.addStyleTag({ content: WORLD_ONLY });
