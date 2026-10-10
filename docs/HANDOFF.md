@@ -20,7 +20,7 @@ The source of truth for the site's scope, decisions and content-accuracy rules. 
   - Resume page (with PDF download)
   - Contact
   - Polish after it ships.
-- **After launch:** the Rally game on `/play`, a short pickleball game on the Juice Bros court (issue #41), reached from the Juice Bros Highlight and Case study (issue #45).
+- **After launch:** the Rally game on `/play`, a short pickleball game on the Juice Bros court (issue #41), reached from the Juice Bros Highlight and Case study (issue #45). The Highlight shows a short silent clip of a rally over a play button into it (issue #122), so it reads as a game; the clip is a `Recording`, so it stays on its poster under reduced motion.
 - **Case studies:** only Juice Bros gets a full Case study. Control D, Life House and BT Cup are Highlights only (the verified paragraph and key numbers), each linking to its Role on the Resume page, with no page of their own: there are no showable visuals, and not enough detail for a full write-up without padding. Any of them can be promoted to a Case study later. A Case study covers the problem, what Adrian did, the approach and the outcome. Studio isn't on the site.
 - **Highlight order:** Control D, Life House, Juice Bros, BT Cup. The Control D Highlight presents the whole senior role (SSO across four identity providers, the scheduled Reports feature end to end, the a11y overhaul with its 96-route suite), not an accessibility story: the site doesn't lead with a11y.
 - **Juice Bros Case study visuals:** screenshots and short recordings of the live site and Player tools (recordings respect reduced motion), plus prominent links to juicebrospickleball.com and the public `juice-bros` repo. No embedded live tools.

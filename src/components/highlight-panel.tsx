@@ -6,8 +6,12 @@ import {
   type Highlight,
   type HighlightId,
 } from "@/content/site";
-import { metaLine, textLink } from "@/app/styles";
+import { glowsLit, metaLine, textLink } from "@/app/styles";
 import { litSite, type LitSite } from "./lit-sites";
+import { Recording } from "./recording";
+
+/** The second link, a play button: in the court's violet, as ember is the page's primary action's alone. */
+const playButton = `inline-flex items-center gap-2 rounded-full border-2 border-violet/80 bg-night/60 px-5 py-2.5 font-display text-sm font-bold tracking-widest text-ink uppercase [font-stretch:90%] hover:border-violet hover:bg-violet/20 ${glowsLit}`;
 
 /**
  * Each panel's accent is its Lit site's light, and glows brighter once the
@@ -121,14 +125,22 @@ export function HighlightPanel({
           {linkLabelFor(highlight)}
         </Link>
       </p>
+      {highlight.clip && (
+        <div className="mt-6 max-w-md">
+          <Recording recording={highlight.clip} />
+        </div>
+      )}
       {highlight.secondLink && (
-        <p className="mt-3">
+        <p className="mt-4">
           {/* Not prefetched: that would load the Rally game's code on home. */}
           <Link
             href={highlight.secondLink.href}
             prefetch={false}
-            className={textLink}
+            className={playButton}
           >
+            <svg aria-hidden="true" viewBox="0 0 10 12" className="size-3 fill-current">
+              <path d="M0 0 10 6 0 12z" />
+            </svg>
             {highlight.secondLink.label}
           </Link>
         </p>
