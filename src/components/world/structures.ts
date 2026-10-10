@@ -190,9 +190,9 @@ export function layoutStructures() {
   const pools: Pool[] = [];
   const lightOf = () => (random() < 0.62 ? palette.cyan : palette.violet);
   const landmarks = layoutLandmarks();
-  /** True if a w by d footprint at (x, z) meets a landmark's, with a gap. */
+  /** True if a w by d footprint at (x, z) meets a landmark's or the Diamond's, with a gap. */
   const onLandmark = (x: number, z: number, w: number, d: number) =>
-    landmarks.bounds.some(
+    [...landmarks.bounds, landmarks.diamond].some(
       (b) =>
         Math.abs(x - b.x) < (w + b.w) / 2 + 2 &&
         Math.abs(z - b.z) < (d + b.d) / 2 + 2,
