@@ -328,6 +328,18 @@ for (const [place, shots] of [
   });
 }
 
+describe("Game clips", () => {
+  it("ship the Rally and Derby clips, each with its poster at the size it declares", async () => {
+    for (const clip of [site.rallyClip, site.derbyClip]) {
+      for (const src of [clip.poster, ...clip.sources.map((s) => s.src)]) {
+        expect(existsSync(path.join("public", src)), src).toBe(true);
+      }
+      const { width, height } = await sharp(path.join("public", clip.poster)).metadata();
+      expect({ width, height }, clip.poster).toEqual({ width: clip.width, height: clip.height });
+    }
+  });
+});
+
 describe("Contact portrait", () => {
   const { portrait } = site.contact;
 
