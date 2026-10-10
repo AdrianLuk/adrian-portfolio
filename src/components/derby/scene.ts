@@ -111,7 +111,7 @@ export async function createDerbyView(stage: DiamondStage): Promise<DerbyView> {
   // and rounded end turned from ./swing's outline, in the ball's own light.
   const bat = new Mesh(
     new LatheGeometry(
-      BAT_PROFILE.map(({ along, radius }) => new Vector2(radius, along)),
+      BAT_PROFILE.map(({ fromHands, radius }) => new Vector2(radius, fromHands)),
       16,
     ).rotateZ(-Math.PI / 2),
     new MeshBasicMaterial({ color: palette.ink }),

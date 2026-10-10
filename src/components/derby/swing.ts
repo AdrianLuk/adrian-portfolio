@@ -39,7 +39,7 @@ const LEAD = WINDOW.foul;
 export const BAT_LENGTH = 34 / 12;
 const SWEET = 27 / 12;
 /** Where each hit meets the bat, from the hands: a fly-out toward the end, a foul down by the handle, so a mis-hit looks it. */
-const MEETS = { "home-run": SWEET, "fly-out": 30.5 / 12, foul: 22 / 12 } as const;
+const MEETS = { "home-run": SWEET, "fly-out": 30.5 / 12, foul: 21 / 12 } as const;
 
 /** The ball, a little bigger than life (a real one is under 3 inches across), to read from behind the plate. */
 export const BALL_RADIUS = 0.4;
@@ -76,8 +76,8 @@ const between = (a: Point, b: Point, f: number): Point => ({
 });
 
 /**
- * The bat's outline down its length, from the knob, as [inches from the
- * knob, radius in inches]: a knob, a thin handle tapering into a long
+ * The bat's outline down its length, as [inches from the hands (the knob's
+ * end), radius in inches]: a knob, a thin handle tapering into a long
  * barrel, a rounded end. Oversized as the ball is, to read from behind the
  * plate.
  */
@@ -95,18 +95,18 @@ const OUTLINE: [number, number][] = [
 ];
 
 /** The bat's outline in feet, from the hands to the end: what the scene turns into the drawn bat. */
-export const BAT_PROFILE = OUTLINE.map(([along, radius]) => ({
-  along: along / 12,
+export const BAT_PROFILE = OUTLINE.map(([inches, radius]) => ({
+  fromHands: inches / 12,
   radius: radius / 12,
 }));
 
-/** The drawn bat's radius `along` feet from the hands (0 off either end). */
-export function batRadius(along: number) {
+/** The drawn bat's radius `fromHands` feet from the hands (0 off either end). */
+export function batRadius(fromHands: number) {
   for (let i = 1; i < BAT_PROFILE.length; i++) {
     const a = BAT_PROFILE[i - 1];
     const b = BAT_PROFILE[i];
-    if (b.along > a.along && along >= a.along && along <= b.along) {
-      return lerp(a.radius, b.radius, (along - a.along) / (b.along - a.along));
+    if (b.fromHands > a.fromHands && fromHands >= a.fromHands && fromHands <= b.fromHands) {
+      return lerp(a.radius, b.radius, (fromHands - a.fromHands) / (b.fromHands - a.fromHands));
     }
   }
   return 0;
@@ -114,17 +114,17 @@ export function batRadius(along: number) {
 
 /**
  * Where the ball's centre is, from the hands, as it meets `bat` at `distance`
- * feet along it: touching the bat there, on the pitcher's side (level, square
+ * feet along it: touching the bat there, on the mound's side (level, square
  * to the bat).
  */
 function touching(bat: Bat, distance: number): Point {
   const d = along(bat);
-  const side = Math.hypot(d.x, d.z);
-  const off = batRadius(distance) + BALL_RADIUS;
+  // How far the ball's centre stands off the bat's axis, over the length of the bat's level part.
+  const standoff = (batRadius(distance) + BALL_RADIUS) / Math.hypot(d.x, d.z);
   return {
-    x: distance * d.x + (off * d.z) / side,
+    x: distance * d.x + standoff * d.z,
     y: distance * d.y,
-    z: distance * d.z - (off * d.x) / side,
+    z: distance * d.z - standoff * d.x,
   };
 }
 
@@ -142,8 +142,8 @@ export const HANDS: Point = (() => {
   };
 })();
 
-/** The point `distance` feet along the bat from the hands (its sweet spot by default). */
-export function barrel(bat: Bat, distance = SWEET): Point {
+/** The point on the bat's axis `distance` feet along it from the hands. */
+export function barrel(bat: Bat, distance: number): Point {
   const d = along(bat);
   return {
     x: HANDS.x + distance * d.x,
@@ -202,16 +202,16 @@ function pitchReaches(game: Game, release: Point, z: number) {
 export function contactOf(
   game: Game,
   release: Point,
-): { at: number; point: Point; turn: number; along: number } | null {
+): { at: number; point: Point; turn: number; fromHands: number } | null {
   const { hit } = game;
   if (game.phase !== "result" || !hit || hit.error === null) return null;
   if (hit.outcome === "strike") return null;
   const turn = -TURN_PER_ANGLE * hit.angle;
-  const along = MEETS[hit.outcome];
-  const offset = touching({ turn, lift: liftAt(turn) }, along);
+  const fromHands = MEETS[hit.outcome];
+  const offset = touching({ turn, lift: liftAt(turn) }, fromHands);
   const point = { x: HANDS.x + offset.x, y: HANDS.y + offset.y, z: HANDS.z + offset.z };
   const at = Math.max(pitchReaches(game, release, point.z), hit.at + QUICKEST);
-  return { at, point, turn, along };
+  return { at, point, turn, fromHands };
 }
 
 /**
