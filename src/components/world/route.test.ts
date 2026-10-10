@@ -1,5 +1,13 @@
 import { Euler, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
+import {
+  createGame,
+  PITCH_TIME,
+  startGame,
+  step,
+  WINDOW,
+} from "../derby/rules";
+import { homeRunFlight, type Point } from "../derby/swing";
 import { courtFootprint } from "./court";
 import type { Pose } from "./flight";
 import { CAMERA } from "./pose";
@@ -11,6 +19,8 @@ import {
   derbyView,
   fieldPoint,
   HONG_KONG,
+  HOME_RUN_FRAME,
+  homeRunView,
   hongKongPose,
   PLAY_FRAME,
   playView,
@@ -438,7 +448,14 @@ describe("the Rally game's view of the court, /rally's", () => {
   }
 });
 
-describe("the Home Run Derby's batter's view of the Diamond", () => {
+/**
+ * The Diamond's field, and everything a camera over it must clear: every
+ * tower, Landmark part, the skyline and Hong Kong. The Diamond's own parts
+ * count where they stand up off the field (its poles, light towers and
+ * lamps); its plinth, chalk and lofted seats' boxes (drawn at home plate,
+ * with no footprint) don't.
+ */
+function atTheDiamond() {
   const { buildings, masts, landmarks, skyline, hongKong } =
     layoutStructures();
   const { field, diamond } = landmarks;
@@ -446,9 +463,6 @@ describe("the Home Run Derby's batter's view of the Diamond", () => {
   const atDiamond = (b: Box) =>
     Math.abs(b.x - diamond.x) <= diamond.w / 2 &&
     Math.abs(b.z - diamond.z) <= diamond.d / 2;
-  // The Diamond's own parts count where they stand up off the field (its
-  // poles, light towers and lamps); its plinth, chalk and lofted seats'
-  // boxes (drawn at home plate, with no footprint) don't.
   const towers = [
     ...buildings,
     ...masts,
@@ -460,18 +474,25 @@ describe("the Home Run Derby's batter's view of the Diamond", () => {
   ];
   /** A point on the field, in the Derby's feet from home plate: -z out to centre field, +x toward first base's side of the frame. */
   const feet = (x: number, y: number, z: number) => fieldPoint(field, x, y, z);
+  return { field, towers, feet };
+}
+
+/** The screen shapes the Derby's views are proven on. */
+const DERBY_SHAPES = {
+  "ultrawide": 2.4,
+  "desktop": 1.6,
+  "tablet, landscape": 1.33,
+  "square": 1,
+  "tablet, portrait": 0.75,
+  "phone": 0.46,
+  "narrow phone": 0.4,
+};
+
+describe("the Home Run Derby's batter's view of the Diamond", () => {
+  const { field, towers, feet } = atTheDiamond();
   const home = feet(0, 0, 0);
   const centreField = feet(0, 0, -100);
-
-  const shapes = {
-    "ultrawide": 2.4,
-    "desktop": 1.6,
-    "tablet, landscape": 1.33,
-    "square": 1,
-    "tablet, portrait": 0.75,
-    "phone": 0.46,
-    "narrow phone": 0.4,
-  };
+  const shapes = DERBY_SHAPES;
 
   it("lays the field's feet on the Diamond: second base 127 feet out toward centre field, the mound between", () => {
     const second = feet(0, 0, -90 * Math.SQRT2);
@@ -527,6 +548,136 @@ describe("the Home Run Derby's batter's view of the Diamond", () => {
       it("stands upright, not rolled", () => {
         const right = new Vector3(1, 0, 0).applyQuaternion(pose.quaternion);
         expect(Math.abs(right.y)).toBeLessThan(1e-9);
+      });
+    });
+  }
+});
+
+describe("the Home Run Derby's wide shot of a home run", () => {
+  const { field, towers, feet } = atTheDiamond();
+  /** Where Curvebot lets the pitch go, near enough: the mound's top. */
+  const release = { x: 0, y: 17, z: -55 };
+  /** Every home run the rules hit: swung early to late across the window, on each kind of pitch. */
+  const flights = [1, 2, 3].flatMap((seed) =>
+    Array.from(
+      { length: 21 },
+      (_, i) => 0.98 * WINDOW.homeRun * (i / 10 - 1),
+    ).map((error) => {
+      let game = startGame(createGame({ seed }));
+      while (game.phase !== "pitch") game = step(game, 1 / 60);
+      game = step(game, PITCH_TIME[game.pitch] + error - game.clock, {
+        swing: true,
+      });
+      return homeRunFlight(game, release)!.points;
+    }),
+  );
+  /**
+   * What the shot must hold of a flight: all of it, off the bat, over the
+   * top and down in the seats (on screen its highest point isn't its peak:
+   * the climb, nearer the camera, stands higher).
+   */
+  const held = (points: Point[]) => [
+    ...points,
+    // And the batter in the box who hit it, left of the plate.
+    { x: -6, y: 0, z: 4 },
+    { x: -6, y: 7, z: 0 },
+  ];
+
+  it("covers home runs pulled to left, to centre and pushed to right, short and long", () => {
+    const landings = flights.map((points) => points.at(-1)!);
+    const angles = landings.map((p) => Math.atan2(p.x, -p.z));
+    expect(Math.min(...angles)).toBeLessThan(-0.3);
+    expect(Math.max(...angles)).toBeGreaterThan(0.3);
+    const carries = landings.map((p) => Math.hypot(p.x, p.z));
+    expect(Math.max(...carries) - Math.min(...carries)).toBeGreaterThan(60);
+  });
+
+  for (const [name, aspect] of Object.entries(DERBY_SHAPES)) {
+    describe(name, () => {
+      const shots = flights.map((points) => ({
+        points,
+        ...homeRunView(aspect, field, points),
+      }));
+
+      it("holds the batter and the whole flight, off the bat, over the top and down in the seats, in front of the camera", () => {
+        for (const { points, pose, fovY } of shots) {
+          expect(fovY).toBeLessThanOrEqual(HOME_RUN_FRAME.fovMax);
+          for (const { x, y, z } of held(points)) {
+            const at = onScreen(pose, feet(x, y, z), aspect, fovY);
+            expect(at.z, "in front of the camera").toBeLessThan(1);
+            expect(Math.abs(at.x)).toBeLessThanOrEqual(
+              HOME_RUN_FRAME.edge + 1e-9,
+            );
+            expect(Math.abs(at.y)).toBeLessThanOrEqual(
+              HOME_RUN_FRAME.edge + 1e-9,
+            );
+          }
+        }
+      });
+
+      it("fills the frame evenly: what it holds is centred, edge to edge one way or the other", () => {
+        for (const { points, pose, fovY } of shots) {
+          const seen = held(points).map(({ x, y, z }) =>
+            onScreen(pose, feet(x, y, z), aspect, fovY),
+          );
+          for (const axis of ["x", "y"] as const) {
+            const low = Math.min(...seen.map((s) => s[axis]));
+            const high = Math.max(...seen.map((s) => s[axis]));
+            expect(Math.abs(low + high), `centred across ${axis}`).toBeLessThan(
+              0.1,
+            );
+          }
+          const spread = (axis: "x" | "y") =>
+            Math.max(...seen.map((s) => Math.abs(s[axis])));
+          expect(Math.max(spread("x"), spread("y"))).toBeGreaterThan(
+            HOME_RUN_FRAME.edge - 0.05,
+          );
+        }
+      });
+
+      it("stands raised behind home plate, below the flight's peak (so its arc reads), upright, looking out the way the ball goes", () => {
+        const home = feet(0, 0, 0);
+        for (const { points, pose } of shots) {
+          const p = pose.position;
+          const height = (p.y - field.level) / field.scale;
+          expect(height).toBeGreaterThan(15);
+          // Well under the peak: the ball climbs over the camera's eye line and drops back into the seats.
+          const peak = Math.max(...points.map((point) => point.y));
+          expect(height).toBeLessThan(peak - 30);
+          const landing = points.at(-1)!;
+          const out = new Vector3()
+            .subVectors(feet(landing.x, 0, landing.z), home)
+            .setY(0);
+          const back = new Vector3().subVectors(p, home).setY(0);
+          expect(back.angleTo(out)).toBeGreaterThan(Math.PI / 2);
+          const forward = new Vector3(0, 0, -1).applyQuaternion(
+            pose.quaternion,
+          );
+          expect(forward.clone().setY(0).angleTo(out)).toBeLessThan(
+            Math.PI / 6,
+          );
+          const right = new Vector3(1, 0, 0).applyQuaternion(pose.quaternion);
+          expect(Math.abs(right.y)).toBeLessThan(1e-9);
+        }
+      });
+
+      it("clears the ground by 6 feet, and every tower, Landmark part, the skyline and Hong Kong by 3", () => {
+        for (const { pose } of shots) {
+          const p = pose.position;
+          expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(6 * field.scale);
+          const met = towers.find((tower) => near(p, tower, 3));
+          expect(met, "a tower within 3").toBeUndefined();
+        }
+      });
+
+      it("sees the whole flight, with nothing of the terrain in the way", () => {
+        for (const { points, pose } of shots) {
+          for (const { x, y, z } of held(points)) {
+            expect(clearView(pose.position, feet(x, Math.max(y, 1), z))).toBe(
+              true,
+            );
+          }
+        }
       });
     });
   }

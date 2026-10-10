@@ -16,6 +16,7 @@ import {
   batRadius,
   contactOf,
   HANDS,
+  homeRunFlight,
   PLATE,
   type Point,
 } from "./swing";
@@ -196,5 +197,63 @@ describe("the bat", () => {
       expect(batAt(game, RELEASE)).toEqual(loaded);
     }
     expect(distance(barrel(loaded, 0), HANDS)).toBeLessThan(1e-9);
+  });
+});
+
+describe("a home run's flight, as its tracer draws it", () => {
+  const homeRuns = connecting.filter(
+    (game) => game.hit!.outcome === "home-run",
+  );
+  /** Where along `points` a share `drawn` of the way through them is, counting each step between two points alike. */
+  function along(points: Point[], drawn: number): Point {
+    const at = drawn * (points.length - 1);
+    const i = Math.min(points.length - 2, Math.floor(at));
+    const f = at - i;
+    const [a, b] = [points[i], points[i + 1]];
+    return {
+      x: a.x + (b.x - a.x) * f,
+      y: a.y + (b.y - a.y) * f,
+      z: a.z + (b.z - a.z) * f,
+    };
+  }
+
+  it("runs from where the bat meets the ball down to the ground where it lands, out past the fence", () => {
+    expect(homeRuns.length).toBeGreaterThan(5);
+    for (const game of homeRuns) {
+      const { points } = homeRunFlight(game, RELEASE)!;
+      expect(distance(points[0], contactOf(game, RELEASE)!.point)).toBeLessThan(
+        1e-9,
+      );
+      const landing = points.at(-1)!;
+      expect(landing.y).toBeCloseTo(0, 6);
+      // Over a 400-foot centre-field fence at least.
+      expect(Math.hypot(landing.x, landing.z)).toBeGreaterThan(330);
+    }
+  });
+
+  it("is drawn as far as the ball has flown, its head on the ball all the way", () => {
+    for (const game of homeRuns) {
+      const contact = contactOf(game, RELEASE)!;
+      expect(homeRunFlight(game, RELEASE)!.drawn).toBe(0);
+      for (let t = 0; t <= 2.2; t += 0.1) {
+        const at = step(game, contact.at - game.hit!.at + t);
+        if (at.phase !== "result") break;
+        const { points, drawn } = homeRunFlight(at, RELEASE)!;
+        expect(
+          distance(along(points, drawn), ballAt(at, RELEASE)!),
+        ).toBeLessThan(0.5);
+      }
+    }
+  });
+
+  it("isn't there for a fly-out, a foul or a strike", () => {
+    const others = [
+      ...connecting.filter((game) => game.hit!.outcome !== "home-run"),
+      swungAt(0.5),
+    ];
+    expect(others.map((game) => game.hit!.outcome)).toEqual(
+      expect.arrayContaining(["fly-out", "foul", "strike"]),
+    );
+    for (const game of others) expect(homeRunFlight(game, RELEASE)).toBeNull();
   });
 });
