@@ -7,6 +7,9 @@ import {
   CN_TOWER_TOP,
   courtPose,
   createRoute,
+  DERBY_FRAME,
+  derbyView,
+  fieldPoint,
   HONG_KONG,
   hongKongPose,
   PLAY_FRAME,
@@ -359,7 +362,7 @@ describe("the court pose", () => {
   }
 });
 
-describe("the Rally game's view of the court, /play's", () => {
+describe("the Rally game's view of the court, /rally's", () => {
   const { buildings, masts, landmarks, skyline } =
     layoutStructures();
   const towers = [
@@ -423,6 +426,100 @@ describe("the Rally game's view of the court, /play's", () => {
 
       it("sees the whole court and the ball over it, with nothing of the terrain in the way", () => {
         for (const [x, y, z] of PLAY_FRAME.points) {
+          expect(clearView(p, feet(x, Math.max(y, 1), z))).toBe(true);
+        }
+      });
+
+      it("stands upright, not rolled", () => {
+        const right = new Vector3(1, 0, 0).applyQuaternion(pose.quaternion);
+        expect(Math.abs(right.y)).toBeLessThan(1e-9);
+      });
+    });
+  }
+});
+
+describe("the Home Run Derby's batter's view of the Diamond", () => {
+  const { buildings, masts, landmarks, skyline, hongKong } =
+    layoutStructures();
+  const { field, diamond } = landmarks;
+  /** Inside the Diamond's stadium, in plan. */
+  const atDiamond = (b: Box) =>
+    Math.abs(b.x - diamond.x) <= diamond.w / 2 &&
+    Math.abs(b.z - diamond.z) <= diamond.d / 2;
+  // The Diamond's own parts count where they stand up off the field (its
+  // poles, light towers and lamps); its plinth, chalk and lofted seats'
+  // boxes (drawn at home plate, with no footprint) don't.
+  const towers = [
+    ...buildings,
+    ...masts,
+    ...skyline.bounds,
+    ...hongKong.bounds,
+    ...landmarks.parts.filter(
+      (b) => !atDiamond(b) || (b.w > 0 && b.y + b.h / 2 > field.level + 1),
+    ),
+  ];
+  /** A point on the field, in the Derby's feet from home plate: -z out to centre field, +x toward first base's side of the frame. */
+  const feet = (x: number, y: number, z: number) => fieldPoint(field, x, y, z);
+  const home = feet(0, 0, 0);
+  const centreField = feet(0, 0, -100);
+
+  const shapes = {
+    "ultrawide": 2.4,
+    "desktop": 1.6,
+    "tablet, landscape": 1.33,
+    "square": 1,
+    "tablet, portrait": 0.75,
+    "phone": 0.46,
+    "narrow phone": 0.4,
+  };
+
+  it("lays the field's feet on the Diamond: second base 127 feet out toward centre field, the mound between", () => {
+    const second = feet(0, 0, -90 * Math.SQRT2);
+    const out = new Vector3().subVectors(second, home);
+    expect(out.length() / field.scale).toBeCloseTo(90 * Math.SQRT2);
+    // Down the valley and away from its centre line, as the diamond runs.
+    expect(out.z).toBeLessThan(0);
+    expect(Math.sign(out.x)).toBe(field.side);
+    expect(Math.abs(out.x)).toBeCloseTo(Math.abs(out.z));
+  });
+
+  for (const [name, aspect] of Object.entries(shapes)) {
+    describe(name, () => {
+      const { pose, fovY } = derbyView(aspect, field);
+      const p = pose.position;
+
+      it("stands at a batter's eye behind the catcher, on the line out to centre field, looking out along it", () => {
+        const back = new Vector3().subVectors(p, home).setY(0);
+        const out = new Vector3().subVectors(centreField, home).setY(0);
+        expect(back.angleTo(out.clone().negate())).toBeLessThan(1e-6);
+        // In the field's feet: close enough that the life-size batter and bat read.
+        expect(back.length() / field.scale).toBeLessThan(40);
+        expect((p.y - field.level) / field.scale).toBeGreaterThan(6);
+        expect((p.y - field.level) / field.scale).toBeLessThan(15);
+        const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
+        expect(forward.clone().setY(0).angleTo(out)).toBeLessThan(1e-6);
+        expect(forward.y).toBeLessThan(0);
+      });
+
+      it("clears the ground by 6 feet, and every tower, Landmark part, the skyline and Hong Kong by 3", () => {
+        expect(p.y - valleyHeight(p.x, p.z)).toBeGreaterThan(6 * field.scale);
+        const met = towers.find((tower) => near(p, tower, 3));
+        expect(met, "a tower within 3").toBeUndefined();
+      });
+
+      it("holds home plate, Curvebot on the mound and centre field's fence in frame", () => {
+        expect(fovY).toBeGreaterThanOrEqual(DERBY_FRAME.fovY);
+        expect(fovY).toBeLessThanOrEqual(DERBY_FRAME.fovMax);
+        for (const [x, y, z] of DERBY_FRAME.points) {
+          const at = onScreen(pose, feet(x, y, z), aspect, fovY);
+          expect(at.z, "in front of the camera").toBeLessThan(1);
+          expect(Math.abs(at.x)).toBeLessThanOrEqual(DERBY_FRAME.edge + 1e-9);
+          expect(Math.abs(at.y)).toBeLessThanOrEqual(DERBY_FRAME.edge + 1e-9);
+        }
+      });
+
+      it("sees all of it, with nothing of the terrain in the way", () => {
+        for (const [x, y, z] of DERBY_FRAME.points) {
           expect(clearView(p, feet(x, Math.max(y, 1), z))).toBe(true);
         }
       });

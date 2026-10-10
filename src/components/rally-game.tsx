@@ -12,6 +12,14 @@ import {
 import { arrivesAtPlay, overPlace } from "@/app/styles";
 import type { rally } from "@/content/site";
 import { afterFirstPaint } from "./after-first-paint";
+import {
+  gameButton,
+  gamePrimary,
+  overField,
+  overlayTitle,
+  SlowMode,
+  StepsAside,
+} from "./game-ui";
 import { earnAchievement } from "./achievements";
 import { REDUCED_MOTION } from "./reduced-motion";
 import { useWorldState } from "./use-world-state";
@@ -62,19 +70,6 @@ type Hud = {
   server: Side;
   call: string;
 };
-
-const button =
-  "rounded-full border border-cyan/60 bg-night/80 px-5 py-2 font-display text-sm font-bold tracking-widest text-ink uppercase [font-stretch:90%] hover:border-cyan";
-
-const primary =
-  "rounded-full bg-ember px-7 py-3 font-display font-bold tracking-wide text-night uppercase [font-stretch:110%] disabled:opacity-60";
-
-const overlayTitle =
-  "font-display text-3xl font-extrabold uppercase [font-stretch:120%]";
-
-/** Shadowed in the night, so a line on the court holds over its lights. */
-const overCourt =
-  "[text-shadow:0_0_12px_var(--color-night),0_1px_3px_var(--color-night)]";
 
 /** The final score, the player's first. */
 const finalScore = (score: Record<Side, number>) => `${score.player}–${score.ai}`;
@@ -407,7 +402,7 @@ export function RallyGame({
       // The Recall's B waits while a game is in play (src/components/recall.tsx).
       data-game-in-play={playing || undefined}
       // The site's header steps aside with the copy (see globals.css).
-      data-court-filled={filled || undefined}
+      data-game-filled={filled || undefined}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
       onBlur={(event) => {
@@ -418,7 +413,7 @@ export function RallyGame({
         }
       }}
     >
-      <StepsAside away={filled}>{intro}</StepsAside>
+      <StepsAside away={filled} arrives={arrivesAtPlay}>{intro}</StepsAside>
 
       {/* The score and Pause, pinned to the screen's top corners in play. */}
       <div
@@ -436,7 +431,7 @@ export function RallyGame({
         </dl>
         <button
           type="button"
-          className={`${button} pointer-events-auto`}
+          className={`${gameButton} pointer-events-auto`}
           onClick={() => (hud.paused ? resume() : pause(true))}
           tabIndex={playing ? 0 : -1}
         >
@@ -464,7 +459,7 @@ export function RallyGame({
       {filled && (
         <p
           aria-hidden="true"
-          className={`pointer-events-none fixed inset-x-0 top-[calc(max(1rem,env(safe-area-inset-top))+3.75rem)] z-30 px-4 text-center font-display text-sm tracking-widest uppercase [font-stretch:90%] ${overCourt}`}
+          className={`pointer-events-none fixed inset-x-0 top-[calc(max(1rem,env(safe-area-inset-top))+3.75rem)] z-30 px-4 text-center font-display text-sm tracking-widest uppercase [font-stretch:90%] ${overField}`}
         >
           {hud.call}
           {hud.phase === "serving" && hud.server === "player" && (
@@ -473,14 +468,14 @@ export function RallyGame({
         </p>
       )}
 
-      <StepsAside away={filled}>
-        <div className={`${overPlace.court} flex flex-col items-start gap-5`}>
+      <StepsAside away={filled} arrives={arrivesAtPlay}>
+        <div className={`${overPlace.court} flex flex-col items-center gap-5 text-center`}>
           {corners}
           {playing && hud.paused ? (
             <>
               <h3 className={overlayTitle}>{copy.paused.title}</h3>
               <p className="text-ink/85">{copy.paused.line}</p>
-              <button ref={resumeRef} type="button" className={primary} onClick={resume}>
+              <button ref={resumeRef} type="button" className={gamePrimary} onClick={resume}>
                 {copy.resume}
               </button>
             </>
@@ -505,11 +500,11 @@ export function RallyGame({
               {view === "unavailable" ? (
                 <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
               ) : (
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <div className="flex flex-col items-center gap-2">
                   <button
                     ref={actionRef}
                     type="button"
-                    className={primary}
+                    className={gamePrimary}
                     disabled={!lit}
                     onClick={begin}
                   >
@@ -548,62 +543,11 @@ export function RallyGame({
         {copy.dink}
       </div>
 
-      <StepsAside away={filled}>{outro}</StepsAside>
+      <StepsAside away={filled} arrives={arrivesAtPlay}>{outro}</StepsAside>
 
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>
     </div>
-  );
-}
-
-/**
- * The page's copy over the court: held back while the camera flies to
- * /play, as any Transit destination's is, and stepping aside (faded out,
- * then out of reach of focus) while `away`, the court filling the screen.
- * It comes back within reach at once, so focus can return to it.
- */
-function StepsAside({ away, children }: { away: boolean; children: ReactNode }) {
-  return (
-    <div className={arrivesAtPlay}>
-      <div
-        className={
-          away
-            ? "invisible opacity-0 motion-safe:[transition:opacity_500ms,visibility_0s_500ms]"
-            : "motion-safe:transition-opacity motion-safe:duration-500"
-        }
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function SlowMode({
-  copy,
-  checked,
-  onChange,
-}: {
-  copy: Copy["slowMode"];
-  checked: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  return (
-    <label className="flex max-w-xs cursor-pointer items-start gap-3 text-left">
-      <input
-        type="checkbox"
-        role="switch"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 size-5 accent-cyan"
-        aria-describedby="slow-mode-description"
-      />
-      <span>
-        <span className="font-semibold">{copy.label}</span>
-        <span id="slow-mode-description" className="block text-sm text-ink/75">
-          {copy.description}
-        </span>
-      </span>
-    </label>
   );
 }

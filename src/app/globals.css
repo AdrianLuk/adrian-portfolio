@@ -161,15 +161,15 @@ body {
   animation-duration: 260ms;
 }
 
-/* The Rally game in play: the court fills the screen, so the site's header
-   and footer step aside with the page's copy (faded, then out of reach of
-   focus), and return at once at a pause or the game's end
-   (src/components/rally-game.tsx). */
+/* A game in play (the Rally game, the Home Run Derby): its field fills the
+   screen, so the site's header and footer step aside with the page's copy
+   (faded, then out of reach of focus), and return at once at a pause or the
+   game's end (src/components/rally-game.tsx, home-run-derby.tsx). */
 body > :is(header, footer) {
   transition: opacity 500ms;
 }
 
-:root:has([data-court-filled]) body > :is(header, footer) {
+:root:has([data-game-filled]) body > :is(header, footer) {
   visibility: hidden;
   opacity: 0;
   transition:
@@ -179,7 +179,7 @@ body > :is(header, footer) {
 
 @media (prefers-reduced-motion: reduce) {
   body > :is(header, footer),
-  :root:has([data-court-filled]) body > :is(header, footer) {
+  :root:has([data-game-filled]) body > :is(header, footer) {
     transition: none;
   }
 }

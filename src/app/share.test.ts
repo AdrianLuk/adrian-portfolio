@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   caseStudies,
+  derby,
   meta,
   rally,
   resume,
@@ -45,7 +46,8 @@ function webpSize(file: string) {
 const routes = [
   { path: "/", card: shareCards.home, title: meta.title },
   { path: "/resume", card: shareCards.resume, title: resume.metaTitle },
-  { path: "/play", card: shareCards.play, title: rally.metaTitle },
+  { path: "/rally", card: shareCards.play, title: rally.metaTitle },
+  { path: "/derby", card: shareCards.derby, title: derby.metaTitle },
   ...caseStudies.map((study) => ({
     path: `/work/${study.slug}`,
     card: shareCards[study.slug],

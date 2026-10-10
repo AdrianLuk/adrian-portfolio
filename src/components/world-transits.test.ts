@@ -7,7 +7,13 @@ import { createFlightPath, type Pose } from "./world/flight";
 import { CAMERA } from "./world/pose";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
 import { layoutLandmarks } from "./world/landmarks";
-import { courtPose, createRoute, playView, skylinePose } from "./world/route";
+import {
+  courtPose,
+  createRoute,
+  derbyView,
+  playView,
+  skylinePose,
+} from "./world/route";
 import { COURT_STOP, transit, transitWithin } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
@@ -34,9 +40,15 @@ function standInHost() {
     opening: createFlightPath(settled, plateCentre),
     route: createRoute(settled, plateCentre, aspect),
     skyline: skylinePose(aspect),
-    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY, play: CAMERA.fovY },
+    fovY: {
+      world: CAMERA.fovY,
+      skyline: CAMERA.fovY,
+      play: CAMERA.fovY,
+      derby: CAMERA.fovY,
+    },
     court: courtPose(aspect),
     play: playView(aspect, layoutLandmarks().court).pose,
+    derby: derbyView(aspect, layoutLandmarks().field).pose,
     courtStop: COURT_STOP,
     transit,
     within: transitWithin,
@@ -120,10 +132,10 @@ describe("transits between Places", () => {
     return transits;
   }
 
-  it("flies home → /play, marking the world for /play's view of the court and holding its copy", () => {
+  it("flies home → /rally, marking the world for /rally's view of the court and holding its copy", () => {
     const { host, world, director } = standInHost();
     const transits = start(host);
-    expect(transits.navigate("/play")).toBe(true);
+    expect(transits.navigate("/rally")).toBe(true);
     expect(root.attributes.get("data-transit")).toBe("play");
     expect(root.attributes.get("data-arriving")).toBe("play");
     world.intent = "play";
@@ -134,12 +146,12 @@ describe("transits between Places", () => {
     expect(root.attributes.has("data-arriving")).toBe(false);
   });
 
-  it("flies between the court's two views, the Case study and /play, either way", () => {
+  it("flies between the court's two views, the Case study and /rally, either way", () => {
     const { host, world, director } = standInHost();
     world.intent = "court";
     director.show("court");
     const transits = start(host);
-    expect(transits.navigate("/play")).toBe(true);
+    expect(transits.navigate("/rally")).toBe(true);
     expect(director.flying()).toBe("play");
     world.intent = "play";
     director.show("play");
@@ -147,7 +159,7 @@ describe("transits between Places", () => {
     expect(director.flying()).toBeNull();
     expect(transits.navigate("/work/juice-bros")).toBe(true);
     expect(director.flying()).toBe("court");
-    expect(transits.navigate("/play?weather=snow")).toBe(true);
+    expect(transits.navigate("/rally?weather=snow")).toBe(true);
     expect(director.flying()).toBe("play");
   });
 
@@ -161,7 +173,7 @@ describe("transits between Places", () => {
     it("resolves only once the camera lands", async () => {
       const { host, world, director } = standInHost();
       const transits = start(host);
-      transits.navigate("/play");
+      transits.navigate("/rally");
       let landed = false;
       void transits.landed().then(() => (landed = true));
       world.intent = "play";
@@ -178,7 +190,7 @@ describe("transits between Places", () => {
     it("resolves when a Transit is called off, as by a lost GPU context", async () => {
       const { host, world } = standInHost();
       const transits = start(host);
-      transits.navigate("/play");
+      transits.navigate("/rally");
       const landed = transits.landed();
       world.state = "pending";
       for (const listener of world.listeners) listener();

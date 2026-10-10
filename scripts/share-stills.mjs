@@ -12,6 +12,8 @@
 //   first frame (the rally ball in), at the backdrop's shapes and sizes.
 // - public/world/skyline-*.webp: the Resume page's first paint, likewise:
 //   the Skyline as the camera holds it there.
+// - public/world/diamond-*.webp: the Home Run Derby's first paint, likewise:
+//   the Diamond as the camera holds it behind home plate.
 //
 // Run against the production build, on a machine with a GPU:
 //
@@ -19,13 +21,14 @@
 //   node scripts/share-stills.mjs http://localhost:3300
 //
 // Re-run it whenever the world or the share cards change. Name sets to draw
-// only those: `--share`, `--valley`, `--court`, `--skyline` (for example
+// only those: `--share`, `--valley`, `--court`, `--skyline`, `--diamond` (for example
 // `node scripts/share-stills.mjs http://localhost:3300 --court`).
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
 import {
   courtStills,
+  diamondStills,
   credits,
   shareCards,
   skylineStills,
@@ -35,7 +38,7 @@ import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
-const SETS = ["share", "valley", "court", "skyline"];
+const SETS = ["share", "valley", "court", "skyline", "diamond"];
 const named = SETS.filter((set) => args.includes(`--${set}`));
 const unknown = args.filter(
   (a) => a.startsWith("--") && !SETS.includes(a.slice(2)),
@@ -50,9 +53,10 @@ const SCENE_TIMEOUT = 60_000;
 /** How far down the home page the valley's camera has flown, 0 to 1. */
 const VALLEY_SCROLL = 0.32;
 
-/** The pages whose Places have stills of their own: the court, the Skyline. */
+/** The pages whose Places have stills of their own: the court, the Skyline, the Diamond. */
 const COURT_PAGE = "/work/juice-bros";
 const SKYLINE_PAGE = "/resume";
+const DIAMOND_PAGE = "/derby";
 
 /** The world's two still shapes: wide, and a tall phone or tablet. */
 function stillShots(stills) {
@@ -194,6 +198,8 @@ try {
   if (sets.has("court")) await drawPlace(browser, COURT_PAGE, courtStills);
   if (sets.has("skyline"))
     await drawPlace(browser, SKYLINE_PAGE, skylineStills);
+  if (sets.has("diamond"))
+    await drawPlace(browser, DIAMOND_PAGE, diamondStills);
 } finally {
   await browser.close();
 }

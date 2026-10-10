@@ -2,7 +2,7 @@ import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
 import { ARENA, arenaAxes, STAGE, STRETCH } from "./arena";
 import type { RallyCourt } from "./court-look";
-import { diamondMiddle } from "./diamond";
+import { diamondMiddle, type DiamondField } from "./diamond";
 import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE, HONG_KONG_SHORE } from "./hong-kong";
 import { CAMERA } from "./pose";
@@ -304,7 +304,7 @@ function ndc(pose: Pose, point: Vector3, fovY: number, aspect: number) {
 }
 
 /**
- * The Rally game's view of the court on /play, for a screen of this shape:
+ * The Rally game's view of the court on /rally, for a screen of this shape:
  * a still camera raised behind the player's baseline, looking down the
  * court (its length runs down the valley, the player's half nearer home),
  * framed as the game's own camera framed it: the narrowest field of view
@@ -321,28 +321,113 @@ export function playView(
   /** A point in the court's feet, in the world. */
   const at = (x: number, y: number, z: number) =>
     new Vector3(court.x + x * scale, court.level + y * scale, court.z + z * scale);
-  const aim = at(0, 0, view.aim);
-  const from = at(0, view.height, view.back);
-  const frame = PLAY_FRAME.points.map(([x, y, z]) => at(x, y, z));
-  for (let back = 1; ; back += PLAY_FRAME.backOff) {
+  return fitted(
+    at(0, 0, view.aim),
+    at(0, view.height, view.back),
+    PLAY_FRAME.points.map(([x, y, z]) => at(x, y, z)),
+    PLAY_FRAME,
+    aspect,
+  );
+}
+
+/**
+ * A still camera looking from `from` at `aim`, framed to hold every point
+ * of `frame` within `fit.edge` of the frame's middle: the narrowest field
+ * of view that does, from `fit.fovY` up to `fit.fovMax`; past that, backed
+ * off along its line of sight, `fit.backOff` of its distance at a time.
+ */
+function fitted(
+  aim: Vector3,
+  from: Vector3,
+  frame: readonly Vector3[],
+  fit: { edge: number; fovY: number; fovMax: number; backOff: number },
+  aspect: number,
+): { pose: Pose; fovY: number } {
+  for (let back = 1; ; back += fit.backOff) {
     const position = aim.clone().lerp(from, back);
     const look = new Matrix4().lookAt(position, aim, UP);
     const pose = {
       position,
       quaternion: new Quaternion().setFromRotationMatrix(look),
     };
-    for (let fovY = PLAY_FRAME.fovY; fovY <= PLAY_FRAME.fovMax; fovY++) {
+    for (let fovY = fit.fovY; fovY <= fit.fovMax; fovY++) {
       const fits = frame.every((point) => {
         const { x, y, depth } = ndc(pose, point, fovY, aspect);
-        return (
-          depth > 0 &&
-          Math.abs(x) <= PLAY_FRAME.edge &&
-          Math.abs(y) <= PLAY_FRAME.edge
-        );
+        return depth > 0 && Math.abs(x) <= fit.edge && Math.abs(y) <= fit.edge;
       });
       if (fits) return { pose, fovY };
     }
   }
+}
+
+/**
+ * A point on the Diamond's field, in the Home Run Derby's feet from home
+ * plate: -z out to centre field, x across it (to the right, looking out),
+ * y up.
+ */
+export function fieldPoint(field: DiamondField, x: number, y: number, z: number) {
+  // Turned so the field's -z runs out along its line to centre field.
+  const turn = (-field.side * Math.PI) / 4;
+  const cos = Math.cos(turn);
+  const sin = Math.sin(turn);
+  return new Vector3(
+    field.x + (x * cos + z * sin) * field.scale,
+    field.level + y * field.scale,
+    field.z + (-x * sin + z * cos) * field.scale,
+  );
+}
+
+/**
+ * Where the camera stands at the Diamond for the Home Run Derby, in the
+ * field's feet (see `fieldPoint`): at a batter's eye, behind the catcher on
+ * the line out to centre field, aiming out along it, so the life-size
+ * batter and bat read; on a screen taller than it is wide, a little higher
+ * and further back.
+ */
+const DERBY_VIEW = {
+  landscape: { height: 9, back: 16, aim: -70 },
+  portrait: { height: 11, back: 20, aim: -60 },
+};
+
+/**
+ * What the Derby's frame holds, in the field's feet: home plate with the
+ * batter in the box left of it, Curvebot standing on the mound (drawn far
+ * higher than life), and centre field's fence with room over it for a home
+ * run, each within `edge` of the frame's middle, fitted as /rally's frame
+ * is (see PLAY_FRAME).
+ */
+export const DERBY_FRAME = {
+  points: [
+    [-6, 0, 4],
+    [-6, 7, 0],
+    [6, 0, 4],
+    [0, 19, -60.5],
+    [0, 20, -225],
+  ],
+  edge: 0.9,
+  fovY: 30,
+  fovMax: 60,
+  backOff: 0.05,
+} as const;
+
+/**
+ * The Home Run Derby's view of the Diamond, for a screen of this shape: a
+ * still camera raised behind home plate, looking out over the mound to
+ * centre field (see DERBY_FRAME). It doesn't depend on the layout, so it
+ * needs no route to find, and it stands off the route.
+ */
+export function derbyView(
+  aspect: number,
+  field: DiamondField,
+): { pose: Pose; fovY: number } {
+  const view = aspect < 1 ? DERBY_VIEW.portrait : DERBY_VIEW.landscape;
+  return fitted(
+    fieldPoint(field, 0, 0, view.aim),
+    fieldPoint(field, 0, view.height, view.back),
+    DERBY_FRAME.points.map(([x, y, z]) => fieldPoint(field, x, y, z)),
+    DERBY_FRAME,
+    aspect,
+  );
 }
 
 /** The tip of the CN Tower's antenna, which the Skyline's camera looks up to. */

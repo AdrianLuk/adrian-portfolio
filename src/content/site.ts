@@ -236,7 +236,10 @@ export const work = { heading: "Work" } as const;
 const mediaBase = "/case-studies/juice-bros";
 
 /** Into the Rally game, from the Juice Bros Highlight and Case study. Says it's a game; the jokes stay inside it. */
-export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/play" } as const;
+export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/rally" } as const;
+
+/** Into the Home Run Derby, from Off the clock's baseball line. Says it's a game, as `rallyLink` does. */
+export const derbyLink = { label: "Bat against Curvebot", href: "/derby" } as const;
 
 /** A rally in the Rally game, over its link in the Juice Bros Highlight. */
 export const rallyClip: Recording = {
@@ -691,7 +694,7 @@ export const contact = {
       {
         id: "baseball",
         text: "Played competitively for 15 years: pitcher, middle infield and center field.",
-        links: [],
+        links: [derbyLink],
       },
       {
         id: "gaming",
@@ -830,7 +833,7 @@ export const notFound = {
 } as const;
 
 /**
- * The Rally game on /play. The page's own copy is plain; the game's UI (the
+ * The Rally game on /rally. The page's own copy is plain; the game's UI (the
  * start, pause and game-over screens and the point lines) is the one place
  * after the credits and the bookend where the copy may joke, and it makes no
  * claims about Juice Bros.
@@ -887,7 +890,72 @@ export const rally = {
       lost: "Dinkbot wins. It's been practicing.",
       action: "Play again",
     },
-    score: { player: "You", ai: "Dinkbot" },
+    /** The player is Adrian, by the name on his back. */
+    score: { player: "Adrian", ai: "Dinkbot" },
+  },
+} as const;
+
+/**
+ * The Home Run Derby on /derby. As the Rally game's, the page's own
+ * copy is plain; Curvebot's lines may joke, and make no claims. Curvebot's lines are drafts for Adrian to approve (#91).
+ */
+export const derby = {
+  metaTitle: "Home Run Derby at the Diamond | Adrian Luk",
+  metaDescription:
+    "Bat against a bot, Curvebot, at the Diamond: ten pitches, and your swing's timing decides each one.",
+  eyebrow: "Home Run Derby",
+  heading: "The Diamond",
+  hint: {
+    timing: "Swing as the pitch reaches the plate: your timing decides where it goes.",
+    keys: "Space swings. Esc or P pauses.",
+    touch: "Tap anywhere on the field to swing.",
+  },
+  rallyLink,
+  game: {
+    label: "Home Run Derby",
+    loading: "Lighting the Diamond…",
+    unavailable:
+      "This browser can't draw the Diamond (WebGL is off or unsupported), so the game can't run here.",
+    start: {
+      title: "Batter up",
+      line: "Ten pitches. Curvebot throws, you swing.",
+      action: "Start",
+    },
+    slowMode: {
+      label: "Slow mode",
+      description: "Half speed, for every pitch.",
+    },
+    pause: "Pause",
+    resume: "Resume",
+    paused: {
+      title: "Paused",
+      line: "Curvebot is checking the runner at first.",
+    },
+    /** The count, over the field: "Pitch 3/10". */
+    pitch: "Pitch",
+    pitches: { fastball: "Fastball", curveball: "Curveball", changeup: "Changeup" },
+    outcomes: {
+      "home-run": "Gone. Curvebot watched that one leave.",
+      "fly-out": "Caught at the warning track.",
+      foul: "Foul ball. Straighten it out.",
+      strike: "Strike. That one broke late.",
+    },
+    /** A home run's distance: "412 feet". */
+    feet: "feet",
+    swingHint: "Space or tap to swing",
+    over: {
+      title: "That's ten",
+      count: { one: "home run", other: "home runs" },
+      /** Curvebot's line by the home-run count: the first band whose `upTo` reaches it. */
+      bands: [
+        { upTo: 0, line: "Curvebot would like this on the scoreboard." },
+        { upTo: 3, line: "Solid. Curvebot is mildly concerned." },
+        { upTo: 6, line: "Curvebot wants a rematch." },
+        { upTo: 10, line: "Curvebot is calling the bullpen." },
+      ],
+      action: "Play again",
+    },
+    score: { homeRuns: "Home runs" },
   },
 } as const;
 
@@ -921,14 +989,25 @@ export const shareCards = {
     caption: { eyebrow: "Case study", title: juiceBros.title },
   },
   play: {
-    path: "/play",
+    path: "/rally",
     title: rally.metaTitle,
     description: rally.metaDescription,
-    image: "/share/play.png",
+    image: "/share/rally.png",
     imageAlt: `${settledFrameAlt} Captioned "${rally.eyebrow}: ${rally.heading}".`,
     caption: { eyebrow: rally.eyebrow, title: rally.heading },
   },
-} as const satisfies Record<"home" | "resume" | "play" | CaseStudySlug, ShareCard>;
+  derby: {
+    path: "/derby",
+    title: derby.metaTitle,
+    description: derby.metaDescription,
+    image: "/share/derby.png",
+    imageAlt: `${settledFrameAlt} Captioned "${derby.eyebrow}: ${derby.heading}".`,
+    caption: { eyebrow: derby.eyebrow, title: derby.heading },
+  },
+} as const satisfies Record<
+  "home" | "resume" | "play" | "derby" | CaseStudySlug,
+  ShareCard
+>;
 
 /**
  * Stills of one world frame, drawn by scripts/share-stills.mjs to
@@ -936,7 +1015,7 @@ export const shareCards = {
  * phones and tablets, each in the shape of the screen it is shot at. A
  * still's name is also its `data-backdrop` on the page.
  */
-export type StillName = "valley" | "court" | "skyline";
+export type StillName = "valley" | "court" | "skyline" | "diamond";
 
 function worldStills(name: StillName) {
   return {
@@ -968,6 +1047,12 @@ export const courtStills = worldStills("court");
  * at the Skyline.
  */
 export const skylineStills = worldStills("skyline");
+
+/**
+ * The Home Run Derby's first paint, likewise: the world as the camera holds
+ * it behind the Diamond's home plate.
+ */
+export const diamondStills = worldStills("diamond");
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */
 export function highlightAnchor(id: HighlightId): string {

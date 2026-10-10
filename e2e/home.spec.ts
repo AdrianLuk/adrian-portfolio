@@ -3,6 +3,7 @@ import {
   caseStudies,
   contact,
   credits,
+  derbyLink,
   footer,
   hero,
   highlightAnchor,
@@ -259,7 +260,7 @@ test("the Contact section has a lead, the resume link, the contact channels and 
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });
 
-test("the Off the clock block has its four lines and the pickleball links", async ({
+test("the Off the clock block has its four lines and their links: pickleball's, and the baseball line's into the Derby", async ({
   page,
 }) => {
   await page.goto("/");
@@ -272,12 +273,20 @@ test("the Off the clock block has its four lines and the pickleball links", asyn
       section.getByRole("listitem").filter({ hasText: line.text }),
     ).toBeVisible();
   }
-  const pickleball = contact.offClock.lines.find((line) => line.id === "pickleball")!;
-  for (const link of pickleball.links ?? []) {
-    await expect(
-      section.getByRole("link", { name: link.label }),
-    ).toHaveAttribute("href", link.href);
+  for (const line of contact.offClock.lines) {
+    for (const link of line.links) {
+      await expect(
+        section.getByRole("link", { name: link.label }),
+      ).toHaveAttribute("href", link.href);
+    }
   }
+  const baseball = contact.offClock.lines.find((line) => line.id === "baseball")!;
+  await expect(
+    section
+      .getByRole("listitem")
+      .filter({ hasText: baseball.text })
+      .getByRole("link", { name: derbyLink.label }),
+  ).toHaveAttribute("href", "/derby");
   // Ahead of the built block, which keeps its place before the bookend.
   const [offBox, builtBox] = await Promise.all([
     section.getByRole("heading", { level: 3, name: contact.offClock.heading }).boundingBox(),
@@ -395,7 +404,7 @@ test.describe("the closing view", () => {
 });
 
 test("every page's footer links the site's source", async ({ page }) => {
-  for (const path of ["/", "/resume", "/work/juice-bros", "/play"]) {
+  for (const path of ["/", "/resume", "/work/juice-bros", "/rally"]) {
     await page.goto(path);
     await expect(
       page.getByRole("contentinfo").getByRole("link", { name: footer.source.label }),

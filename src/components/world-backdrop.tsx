@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
   courtStills,
+  diamondStills,
   skylineStills,
   srcSet,
   valleyStills,
@@ -11,6 +12,7 @@ const STILLS = {
   valley: valleyStills,
   court: courtStills,
   skyline: skylineStills,
+  diamond: diamondStills,
 } as const;
 
 /** A small seeded generator (mulberry32), so every render scatters the same. */

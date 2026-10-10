@@ -39,7 +39,7 @@ const toastFor = (page: Page, id: AchievementId, ms = 15_000) =>
 test("earning Dinkbot down toasts it and First Blood together, counted in the footer and remembered", async ({
   page,
 }) => {
-  await page.goto("/play");
+  await page.goto("/rally");
   await expect(counter(page, 0)).toBeVisible();
   const focused = await page.evaluate(() => document.activeElement?.tagName);
 
