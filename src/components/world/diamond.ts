@@ -1,9 +1,10 @@
 import { Color } from "three";
 import { palette } from "./palette";
 import type { Box, Outline, Ring, Solid } from "./skyline";
+import { valleyCentre } from "./terrain";
 
 /**
- * The Diamond, a baseball diamond built from light, as boxes, rings and
+ * The Diamond, a baseball stadium built from light, as boxes, rings and
  * solids (unit tested without WebGL); its own module, as the court's is, for
  * the Home Run Derby to lay out the Diamond on.
  */
@@ -28,14 +29,26 @@ export const DIAMOND = {
 } as const;
 
 /**
- * Where the Diamond stands: past BT Cup's bowl, short of Victoria Harbour,
- * right of the valley's centre line (the bowl stands left), its plinth 22
- * off it (the runway's lights are 14 off), `fromCentreLine` its centre's
- * offset. The floor narrows here, so it is drawn small: the most that stands
- * level there and keeps off the court on the court stop's screen. Home's
- * route turns to frame it between the bowl and the closing view.
+ * Where the Diamond stands: past BT Cup's bowl, right of the valley's centre
+ * line (the bowl stands left), its stadium 16 off the line at its nearest
+ * (the runway's lights are 14 off) and over 10 short of Victoria Harbour's
+ * water, `fromCentreLine` its plinth's centre's offset. The floor narrows
+ * here, so it is drawn small: the most whose stadium keeps off the court on
+ * the court stop's screen and fits a phone's frame when home's route turns
+ * to frame it, between the bowl and the closing view.
  */
-export const DIAMOND_AT = { z: -1045, fromCentreLine: 33.4, scale: 0.12 };
+export const DIAMOND_AT = { z: -1036, fromCentreLine: 32, scale: 0.07 };
+
+/**
+ * The stadium round the diamond, in feet. Grandstands behind home plate and
+ * down both lines, past foul ground `gap` deep: `tiers` steps, each `tier`
+ * deep and `rise` higher than the last, out to `reach` of the way to the
+ * poles. Bleachers beyond the fence, past a `gap`, in steps likewise, built
+ * in `segments` straight runs round the curve. Light towers `height` tall.
+ */
+const STANDS = { gap: 16, tier: 12, rise: 14, tiers: 3, reach: 0.85 } as const;
+const BLEACHERS = { gap: 8, tier: 12, rise: 8, tiers: 2, segments: 8 } as const;
+const LIGHT_TOWER = { height: 150 } as const;
 
 /** How wide the lines are drawn, and the bases, in world units: wider than life, to read. */
 const LINE = 0.35;
@@ -66,7 +79,7 @@ export function diamondFootprint(scale: number) {
 }
 
 export type DiamondOptions = {
-  /** The plinth's centre; home plate is its corner nearest home and the route's line, a lip in. */
+  /** The plinth's centre; home plate is its corner furthest from home's end and the route's line, a lip in. */
   x: number;
   z: number;
   /** Which side of the valley it stands: -1 left, 1 right. */
@@ -79,24 +92,30 @@ export type DiamondOptions = {
 };
 
 /**
- * The diamond, its foul lines square to the valley: one down it from home,
- * the other across it toward the wall, so centre field faces down the
- * valley, toward its wall. A dark plinth under the park; the outfield in
+ * The diamond, its foul lines square to the valley: home plate at the
+ * plinth's corner furthest down the valley and toward the wall, one line
+ * up the valley from it and the other across toward the route's line, so
+ * centre field faces back up the valley at the route, and from there the
+ * grandstands face the route across the park. A dark plinth under the park; the outfield in
  * faint light out to a curved fence of light from pole to pole; the
  * infield's dirt an arc of violet behind the bases, round its grass; the
  * lines and bases in bright light, home plate a pentagon; the mound a low
  * violet hill in a ring of light; and the foul poles standing at the
- * lines' ends.
+ * lines' ends. Round it, a stadium: stepped grandstands behind home and
+ * down both lines and bleachers beyond the fence, each step's edge a row of
+ * light; and light towers with banks of lamps. `bounds` is the whole of it.
  */
 export function layoutDiamond(options: DiamondOptions) {
   const { level, scale, color, side } = options;
   const B = DIAMOND.base * scale;
   const F = DIAMOND.foulLine * scale;
-  // Home plate.
-  const hx = options.x - (side * F) / 2;
-  const hz = options.z + F / 2;
-  /** World x, z of the point `a` down the valley's foul line and `c` along the other. */
-  const at = (a: number, c: number) => [hx + side * c, hz - a] as const;
+  // Home plate, at the plinth's far corner.
+  const hx = options.x + (side * F) / 2;
+  const hz = options.z - F / 2;
+  /** World x, z off home plate of the point `a` up the valley's foul line and `c` along the other. */
+  const off = (a: number, c: number) => [-side * c, a] as const;
+  /** World x, z of the point `a` up the valley's foul line and `c` along the other. */
+  const at = (a: number, c: number) => [hx - side * c, hz + a] as const;
   const chalk = color.clone().lerp(palette.ink, 0.35);
   const dirt = palette.violet;
   /** A flat box over `a0` to `a1` down the valley and `c0` to `c1` across. */
@@ -112,8 +131,14 @@ export function layoutDiamond(options: DiamondOptions) {
     return { x, y: level + y, z, w: c1 - c0, h: 0.04, d: a1 - a0, color: c };
   };
   /** A thin flat solid over an outline in (a, c), wound to face up. */
-  const sheet = (points: readonly (readonly [number, number])[], top: number, c: Color, wash: number): Solid => {
-    let outline: Outline = points.map(([a, c]) => [side * c, -a] as const);
+  const sheet = (
+    points: readonly (readonly [number, number])[],
+    top: number,
+    c: Color,
+    wash: number,
+    bottom = 0,
+  ): Solid => {
+    let outline: Outline = points.map(([a, c]) => off(a, c));
     const area = outline.reduce((sum, [x0, z0], i) => {
       const [x1, z1] = outline[(i + 1) % outline.length];
       return sum + x0 * z1 - x1 * z0;
@@ -131,7 +156,7 @@ export function layoutDiamond(options: DiamondOptions) {
       color: c,
       wash,
       sections: [
-        { h: 0, outline },
+        { h: bottom, outline },
         { h: top, outline },
       ],
     };
@@ -221,14 +246,19 @@ export function layoutDiamond(options: DiamondOptions) {
   };
 
   /** A wall of light along `points` (in a, c), as a ring round a thin loop. */
-  const wall = (points: readonly (readonly [number, number])[], h: number, c: Color): Ring => {
-    const there = points.map(([a, cc]) => [side * cc, -a] as const);
+  const wall = (
+    points: readonly (readonly [number, number])[],
+    h: number,
+    c: Color,
+    y = h / 2,
+  ): Ring => {
+    const there = points.map(([a, cc]) => off(a, cc));
     const back = [...there].reverse().map(([x, z]) => {
       // A hair inward, toward home, so the loop has two faces.
       const r = Math.hypot(x, z);
       return [x * (1 - 0.06 / r), z * (1 - 0.06 / r)] as const;
     });
-    return { x: hx, y: level + h / 2, z: hz, r: 0, h, color: c, outline: [...there, ...back] };
+    return { x: hx, y: level + y, z: hz, r: 0, h, color: c, outline: [...there, ...back] };
   };
   const rings: Ring[] = [
     { x: mx, y: level + 0.14, z: mz, r: moundR + 0.05, h: 0.12, color: chalk },
@@ -240,7 +270,7 @@ export function layoutDiamond(options: DiamondOptions) {
       r: 0,
       h: 0.1,
       color: palette.ink,
-      outline: pentagon.map(([a, c]) => [side * c, -a] as const),
+      outline: pentagon.map(([a, c]) => off(a, c)),
     },
   ];
 
@@ -258,20 +288,134 @@ export function layoutDiamond(options: DiamondOptions) {
     color,
   }));
 
+  // The stadium. Every corner it reaches, in (a, c), for its bounds.
+  const reaches: (readonly [number, number])[] = [];
+  const foot = -PLINTH_DEPTH;
+  const bodies: Box[] = [];
+  const rows: Box[] = [];
+  /** A box over `a0` to `a1` and `c0` to `c1`, from `y0` to `y1` above the level. */
+  const block = (
+    a0: number,
+    a1: number,
+    c0: number,
+    c1: number,
+    y0: number,
+    y1: number,
+    c: Color,
+  ): Box => {
+    reaches.push([a0, c0], [a1, c1]);
+    const [x, z] = at((a0 + a1) / 2, (c0 + c1) / 2);
+    const h = y1 - y0;
+    return { x, y: level + (y0 + y1) / 2, z, w: c1 - c0, h, d: a1 - a0, color: c };
+  };
+  const row = 0.2;
+
+  // Grandstands, behind home and down both lines, stepping up away from
+  // them: along the valley's line on the wall's side (up the hillside), and
+  // along the other on the harbour's side.
+  const gap = STANDS.gap * scale;
+  const tier = STANDS.tier * scale;
+  const back = gap + STANDS.tiers * tier;
+  const end = STANDS.reach * F;
+  for (let i = 0; i < STANDS.tiers; i++) {
+    const near = gap + i * tier;
+    const top = (i + 1) * STANDS.rise * scale;
+    bodies.push(
+      block(-back, end, -(near + tier), -near, foot, top, color),
+      block(-(near + tier), -near, -near, end, foot, top, color),
+    );
+    rows.push(
+      block(-back, end, -near - row, -near, top, top + 0.08, palette.ink),
+      block(-near - row, -near, -near, end, top, top + 0.08, palette.ink),
+    );
+  }
+
+  // Bleachers beyond the fence, round its circle, in straight runs.
+  const bleachers: Solid[] = [];
+  const turn0 = Math.atan2(-k, F - k);
+  const turn1 = Math.atan2(F - k, -k);
+  const benchRows: Ring[] = [];
+  for (let i = 0; i < BLEACHERS.tiers; i++) {
+    const r0 = fenceR + (BLEACHERS.gap + i * BLEACHERS.tier) * scale;
+    const r1 = r0 + BLEACHERS.tier * scale;
+    const top = (i + 1) * BLEACHERS.rise * scale;
+    const inner = arc(k, k, r0, turn0, turn1).filter((_, j) => j % 3 === 0);
+    const outer = arc(k, k, r1, turn0, turn1).filter((_, j) => j % 3 === 0);
+    for (let j = 0; j < BLEACHERS.segments; j++) {
+      const quad = [inner[j], inner[j + 1], outer[j + 1], outer[j]];
+      reaches.push(...quad);
+      bleachers.push(sheet(quad, top, color, 0.12, foot));
+    }
+    benchRows.push(wall(arc(k, k, r0, turn0, turn1), 0.1, chalk, top + 0.05));
+    // The back row's outer edge too, toward the route.
+    if (i === BLEACHERS.tiers - 1) {
+      benchRows.push(wall(arc(k, k, r1, turn0, turn1), 0.1, chalk, top + 0.05));
+    }
+  }
+  const rim = fenceR + (BLEACHERS.gap + BLEACHERS.tiers * BLEACHERS.tier) * scale;
+
+  // Light towers: at the grandstands' far ends, and behind the bleachers.
+  const towerTop = LIGHT_TOWER.height * scale;
+  const towerAt: (readonly [number, number])[] = [
+    [end, -back - 0.6],
+    [-back - 0.6, end],
+    ...[0.18, 0.82].map((t) => {
+      const turn = turn0 + (turn1 - turn0) * t;
+      const r = rim + 0.8;
+      return [k + r * Math.cos(turn), k + r * Math.sin(turn)] as const;
+    }),
+  ];
+  const lamps: Box[] = [];
+  const lights: { x: number; y: number; z: number }[] = [];
+  for (const [a, c] of towerAt) {
+    bodies.push(block(a - 0.25, a + 0.25, c - 0.25, c + 0.25, foot, towerTop, color));
+    lamps.push(
+      block(a - 0.9, a + 0.9, c - 0.9, c + 0.9, towerTop, towerTop + 0.7, palette.ink),
+    );
+    const [x, z] = at(a, c);
+    lights.push({ x, y: level + towerTop + 1, z });
+  }
+
+  const xs = reaches.map(([a, c]) => at(a, c)[0]);
+  const zs = reaches.map(([a, c]) => at(a, c)[1]);
+  const bounds = {
+    x0: Math.min(...xs),
+    x1: Math.max(...xs),
+    z0: Math.min(...zs),
+    z1: Math.max(...zs),
+    top: level + towerTop + 1.5,
+  };
+
   return {
     plinth,
     home: { x: hx, z: hz },
+    bounds,
+    stands: { bodies, rows, lamps, lights, bleachers, benchRows },
     surfaces,
     lines,
     bases,
-    solids: [outfield, skin, plate, mound],
+    solids: [outfield, skin, plate, mound, ...bleachers],
     outfield,
     skin,
     plate,
     mound,
     rubber,
-    rings,
+    rings: [...rings, ...benchRows],
     poles,
     level,
   };
+}
+
+/** The middle of the Diamond's stadium, in plan: where home's route looks to frame it. */
+export function diamondMiddle() {
+  const { z, fromCentreLine, scale } = DIAMOND_AT;
+  const { bounds } = layoutDiamond({
+    x: valleyCentre(z) + fromCentreLine,
+    z,
+    side: Math.sign(fromCentreLine) as 1 | -1,
+    level: 0,
+    scale,
+    color: palette.cyan,
+  });
+  return { x: (bounds.x0 + bounds.x1) / 2, z: (bounds.z0 + bounds.z1) / 2 };
 }

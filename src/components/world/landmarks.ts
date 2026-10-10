@@ -499,8 +499,9 @@ export function layoutLandmarks(): Landmarks {
   }
 
   /**
-   * The Diamond: a baseball diamond in the world's light on a plinth, home
-   * plate nearest home and the route's line, with a light atop each foul pole.
+   * The Diamond: a baseball stadium in the world's light, its diamond on a
+   * plinth, home plate nearest home and the route's line, with a light atop
+   * each foul pole and each light tower.
    */
   function diamond() {
     const { scale, z } = DIAMOND_AT;
@@ -510,13 +511,16 @@ export function layoutLandmarks(): Landmarks {
     const level = high + 0.3;
     const side = Math.sign(DIAMOND_AT.fromCentreLine) as 1 | -1;
     const d = layoutDiamond({ x, z, side, level, scale, color: palette.cyan });
-    out.bodies.push(d.plinth);
+    const { stands, bounds } = d;
+    out.bodies.push(d.plinth, ...stands.bodies);
     out.bands.push(
       ...d.surfaces,
       ...d.lines,
       ...d.bases,
       d.rubber,
       ...d.poles,
+      ...stands.rows,
+      ...stands.lamps,
     );
     out.solids.push(...d.solids);
     out.rings.push(...d.rings);
@@ -531,7 +535,15 @@ export function layoutLandmarks(): Landmarks {
         seed: i / 2,
       });
     }
-    return standing(x, z, low - 2, top, foot.w, foot.d, palette.cyan);
+    for (const [i, lamp] of stands.lights.entries()) {
+      out.glows.push({ ...lamp, color: palette.ink, size: 3.2, seed: 0.25 + i / 4 });
+    }
+    const w = bounds.x1 - bounds.x0;
+    const dd = bounds.z1 - bounds.z0;
+    const cx = (bounds.x0 + bounds.x1) / 2;
+    const cz = (bounds.z0 + bounds.z1) / 2;
+    const ground = groundUnder(cx, cz, w, dd);
+    return standing(cx, cz, Math.min(low, ground.low) - 2, bounds.top, w, dd, palette.cyan);
   }
 
   /**

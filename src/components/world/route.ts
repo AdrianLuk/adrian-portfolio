@@ -1,7 +1,7 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
 import type { RallyCourt } from "./court-look";
-import { DIAMOND_AT } from "./diamond";
+import { diamondMiddle } from "./diamond";
 import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE, HONG_KONG_SHORE } from "./hong-kong";
 import { CAMERA } from "./pose";
@@ -399,7 +399,12 @@ export function createRoute(
   });
   // On a wide screen, to the right, clear of the contact copy on the left.
   const hongKong = hongKongPose(aspect);
-  const diamond = above(DIAMOND_AT.z, 0, DIAMOND_AT.fromCentreLine);
+  const middle = diamondMiddle();
+  const diamond = new Vector3(
+    middle.x,
+    valleyHeight(middle.x, middle.z) + DIAMOND_AIM,
+    middle.z,
+  );
   const glance = DIAMOND_GLANCE[aspect >= 1 ? "wide" : "narrow"];
   return routeThrough([settled, ...sites, hongKong], climb, {
     after: SITES.length,
@@ -407,6 +412,9 @@ export function createRoute(
     look: (from) => framing(from, diamond, glance.ndcX, aspect),
   });
 }
+
+/** How high over the stadium's middle the route looks, to frame its stands and towers. */
+const DIAMOND_AIM = 3;
 
 /**
  * When, through the leg from the last site to Hong Kong, home's route turns
@@ -417,7 +425,7 @@ export function createRoute(
  * which spares the turns a few degrees.
  */
 export const DIAMOND_GLANCE = {
-  narrow: { at: 0.42, until: 0.45, ndcX: 0 },
+  narrow: { at: 0.38, until: 0.4, ndcX: 0 },
   wide: { at: 0.33, until: 0.36, ndcX: 0.15 },
 };
 
@@ -510,12 +518,12 @@ function ease(f: number) {
 }
 
 /**
- * Eases a turn in over its first fifth and out over its last, steady in
- * between: at its fastest only 5/4 its mean pace (smoothstep's is 3/2), so
+ * Eases a turn in over its first 15% and out over its last, steady in
+ * between: at its fastest only 1.18 times its mean pace (smoothstep's 1.5), so
  * the Diamond's longer turns keep to the route's pace.
  */
 function ramp(f: number) {
-  const r = 0.2;
+  const r = 0.15;
   const v = 1 / (1 - r);
   if (f < r) return (v * f * f) / (2 * r);
   if (f > 1 - r) return 1 - (v * (1 - f) ** 2) / (2 * r);
