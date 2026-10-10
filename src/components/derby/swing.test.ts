@@ -9,9 +9,11 @@ import {
 } from "./rules";
 import {
   ballAt,
+  BALL_RADIUS,
   barrel,
   batAt,
   BAT_LENGTH,
+  batRadius,
   contactOf,
   HANDS,
   PLATE,
@@ -47,24 +49,63 @@ const connecting = [1, 2, 3].flatMap((seed) =>
     .filter((game) => game.hit?.outcome !== "strike"),
 );
 
-/** The point on the bat nearest `p`, from the hands to its tip. */
-function nearestOnBat(game: Game, p: Point) {
-  let best = Infinity;
-  for (let along = 0; along <= BAT_LENGTH; along += 0.05) {
-    best = Math.min(best, distance(barrel(batAt(game, RELEASE), along), p));
+/** The gap between the ball, its centre at `ball`, and the drawn bat's surface, from the hands to its end (negative: overlapping). */
+function clearance(game: Game, ball: Point) {
+  const bat = batAt(game, RELEASE);
+  let gap = Infinity;
+  for (let fromHands = 0; fromHands <= BAT_LENGTH; fromHands += 0.02) {
+    gap = Math.min(
+      gap,
+      distance(barrel(bat, fromHands), ball) - batRadius(fromHands) - BALL_RADIUS,
+    );
   }
-  return best;
+  return gap;
 }
 
 describe("a swing that connects", () => {
-  it("meets the ball on the bat's sweet spot, at the moment of contact", () => {
+  it("meets the ball at the moment of contact: touching the bat on the mound's side, never inside it", () => {
     expect(connecting.length).toBeGreaterThan(50);
     for (const game of connecting) {
       const contact = contactOf(game, RELEASE)!;
       const at = step(game, contact.at - game.hit!.at);
       const ball = ballAt(at, RELEASE)!;
       expect(distance(ball, contact.point)).toBeLessThan(0.01);
-      expect(distance(barrel(batAt(at, RELEASE)), ball)).toBeLessThan(0.05);
+      const axis = barrel(batAt(at, RELEASE), contact.fromHands);
+      expect(distance(axis, contact.point)).toBeCloseTo(
+        batRadius(contact.fromHands) + BALL_RADIUS,
+        6,
+      );
+      expect(ball.z).toBeLessThan(axis.z);
+      expect(clearance(at, ball)).toBeGreaterThan(-0.03);
+    }
+  });
+
+  it("on a home run, meets it on the barrel's sweet spot, 27 inches from the hands, the whole ball short of the end", () => {
+    const homeRuns = connecting.filter((game) => game.hit!.outcome === "home-run");
+    expect(homeRuns.length).toBeGreaterThan(5);
+    for (const game of homeRuns) {
+      const { fromHands } = contactOf(game, RELEASE)!;
+      expect(fromHands * 12).toBeCloseTo(27);
+      expect((BAT_LENGTH - fromHands - BALL_RADIUS) * 12).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("on a mis-hit, meets it off the sweet spot: a fly-out toward the end, a foul toward the hands", () => {
+    const contactInches = (outcome: string) =>
+      connecting
+        .filter((game) => game.hit!.outcome === outcome)
+        .map((game) => contactOf(game, RELEASE)!.fromHands * 12);
+    const flyOuts = contactInches("fly-out");
+    const fouls = contactInches("foul");
+    expect(flyOuts.length).toBeGreaterThan(5);
+    expect(fouls.length).toBeGreaterThan(5);
+    for (const at of flyOuts) {
+      expect(at).toBeGreaterThanOrEqual(30);
+      expect(at).toBeLessThanOrEqual(31);
+    }
+    for (const at of fouls) {
+      expect(at).toBeGreaterThanOrEqual(21);
+      expect(at).toBeLessThanOrEqual(23);
     }
   });
 
@@ -124,7 +165,7 @@ describe("a swing and a miss", () => {
       expect(game.hit?.outcome).toBe("strike");
       for (let t = 0; t < 0.6; t += 0.002) {
         const ball = ballAt(game, RELEASE);
-        if (ball) expect(nearestOnBat(game, ball)).toBeGreaterThan(0.5);
+        if (ball) expect(clearance(game, ball)).toBeGreaterThan(0);
         game = step(game, 0.002);
       }
     }
@@ -132,6 +173,20 @@ describe("a swing and a miss", () => {
 });
 
 describe("the bat", () => {
+  it("is shaped like a bat: a knob, a thin handle, a long barrel and a rounded end", () => {
+    const radiusAt = (inches: number) => batRadius(inches / 12) * 12;
+    const handle = radiusAt(6);
+    expect(handle).toBeLessThan(1.2);
+    expect(radiusAt(0.2)).toBeGreaterThan(handle);
+    // The barrel: over twice the handle's width, from the sweet spot to near the end.
+    for (const at of [22, 27, 31]) expect(radiusAt(at)).toBeGreaterThan(2 * handle);
+    // Rounded: narrowing over its last inch, to nothing at the end.
+    expect(radiusAt(33.5)).toBeGreaterThan(0);
+    expect(radiusAt(33.5)).toBeLessThan(radiusAt(31));
+    expect(batRadius(BAT_LENGTH)).toBeCloseTo(0);
+    expect(batRadius(BAT_LENGTH + 0.1)).toBe(0);
+  });
+
   it("stays loaded over the batter's shoulder until the swing", () => {
     let game = nextPitch(startGame(createGame()));
     const loaded = batAt(game, RELEASE);

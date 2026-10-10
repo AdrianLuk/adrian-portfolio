@@ -35,9 +35,14 @@ const BREAK = 1.5;
  */
 const LEAD = WINDOW.foul;
 
-/** The bat: 34 inches, its sweet spot about 29 from the hands. */
+/** The bat: 34 inches, its sweet spot 27 from the hands (7 from the end), where a home run meets it. */
 export const BAT_LENGTH = 34 / 12;
-const SWEET = 29 / 12;
+const SWEET = 27 / 12;
+/** Where each hit meets the bat, from the hands: a fly-out toward the end, a foul down by the handle, so a mis-hit looks it. */
+const MEETS = { "home-run": SWEET, "fly-out": 30.5 / 12, foul: 21 / 12 } as const;
+
+/** The ball, a little bigger than life (a real one is under 3 inches across), to read from behind the plate. */
+export const BALL_RADIUS = 0.4;
 
 /** The bat's lift through the zone: level, its barrel a touch below the hands. */
 const LEVEL = (-5 * Math.PI) / 180;
@@ -63,22 +68,82 @@ function along({ turn, lift }: Bat): Point {
   };
 }
 
+const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
+const between = (a: Point, b: Point, f: number): Point => ({
+  x: lerp(a.x, b.x, f),
+  y: lerp(a.y, b.y, f),
+  z: lerp(a.z, b.z, f),
+});
+
+/**
+ * The bat's outline down its length, as [inches from the hands (the knob's
+ * end), radius in inches]: a knob, a thin handle tapering into a long
+ * barrel, a rounded end. Oversized as the ball is, to read from behind the
+ * plate.
+ */
+const OUTLINE: [number, number][] = [
+  [0, 0], [0, 1.5], [0.45, 1.5], [1.2, 0.96], [11, 0.96],
+  ...Array.from({ length: 7 }, (_, i): [number, number] => {
+    const f = (i + 1) / 8;
+    return [11 + 9.5 * f, lerp(0.96, 2.4, f * f * (3 - 2 * f))];
+  }),
+  [20.5, 2.4], [32, 2.4],
+  ...Array.from({ length: 8 }, (_, i): [number, number] => {
+    const a = ((i + 1) / 8) * (Math.PI / 2);
+    return [32 + 2 * Math.sin(a), 2.4 * Math.cos(a)];
+  }),
+];
+
+/** The bat's outline in feet, from the hands to the end: what the scene turns into the drawn bat. */
+export const BAT_PROFILE = OUTLINE.map(([inches, radius]) => ({
+  fromHands: inches / 12,
+  radius: radius / 12,
+}));
+
+/** The drawn bat's radius `fromHands` feet from the hands (0 off either end). */
+export function batRadius(fromHands: number) {
+  for (let i = 1; i < BAT_PROFILE.length; i++) {
+    const a = BAT_PROFILE[i - 1];
+    const b = BAT_PROFILE[i];
+    if (b.fromHands > a.fromHands && fromHands >= a.fromHands && fromHands <= b.fromHands) {
+      return lerp(a.radius, b.radius, (fromHands - a.fromHands) / (b.fromHands - a.fromHands));
+    }
+  }
+  return 0;
+}
+
+/**
+ * Where the ball's centre is, from the hands, as it meets `bat` at `distance`
+ * feet along it: touching the bat there, on the mound's side (level, square
+ * to the bat).
+ */
+function touching(bat: Bat, distance: number): Point {
+  const d = along(bat);
+  // How far the ball's centre stands off the bat's axis, over the length of the bat's level part.
+  const standoff = (batRadius(distance) + BALL_RADIUS) / Math.hypot(d.x, d.z);
+  return {
+    x: distance * d.x + standoff * d.z,
+    y: distance * d.y,
+    z: distance * d.z - standoff * d.x,
+  };
+}
+
 /**
  * The batter's hands, a right-handed batter's on the plate's third-base
  * side: placed so a square, level swing's sweet spot meets a pitch over the
  * middle of the plate.
  */
 export const HANDS: Point = (() => {
-  const square = along({ turn: 0, lift: LEVEL });
+  const square = touching({ turn: 0, lift: LEVEL }, SWEET);
   return {
-    x: PLATE.x - SWEET * square.x,
-    y: PLATE.y - SWEET * square.y,
-    z: PLATE.z - SWEET * square.z,
+    x: PLATE.x - square.x,
+    y: PLATE.y - square.y,
+    z: PLATE.z - square.z,
   };
 })();
 
-/** The point `distance` feet along the bat from the hands (its sweet spot by default). */
-export function barrel(bat: Bat, distance = SWEET): Point {
+/** The point on the bat's axis `distance` feet along it from the hands. */
+export function barrel(bat: Bat, distance: number): Point {
   const d = along(bat);
   return {
     x: HANDS.x + distance * d.x,
@@ -86,13 +151,6 @@ export function barrel(bat: Bat, distance = SWEET): Point {
     z: HANDS.z + distance * d.z,
   };
 }
-
-const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
-const between = (a: Point, b: Point, f: number): Point => ({
-  x: lerp(a.x, b.x, f),
-  y: lerp(a.y, b.y, f),
-  z: lerp(a.z, b.z, f),
-});
 
 /** The bat's lift as it comes round: up over the shoulder, level through the zone, up again in the follow-through. */
 function liftAt(turn: number) {
@@ -144,14 +202,16 @@ function pitchReaches(game: Game, release: Point, z: number) {
 export function contactOf(
   game: Game,
   release: Point,
-): { at: number; point: Point; turn: number } | null {
+): { at: number; point: Point; turn: number; fromHands: number } | null {
   const { hit } = game;
   if (game.phase !== "result" || !hit || hit.error === null) return null;
   if (hit.outcome === "strike") return null;
   const turn = -TURN_PER_ANGLE * hit.angle;
-  const point = barrel({ turn, lift: liftAt(turn) });
+  const fromHands = MEETS[hit.outcome];
+  const offset = touching({ turn, lift: liftAt(turn) }, fromHands);
+  const point = { x: HANDS.x + offset.x, y: HANDS.y + offset.y, z: HANDS.z + offset.z };
   const at = Math.max(pitchReaches(game, release, point.z), hit.at + QUICKEST);
-  return { at, point, turn };
+  return { at, point, turn, fromHands };
 }
 
 /**
