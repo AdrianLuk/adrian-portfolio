@@ -17,7 +17,7 @@ import {
   credits,
   type PlayerTool,
 } from "../src/content/site";
-import { countFrames, SCENE_TIMEOUT, withoutWorld, timedAnimations } from "./hero";
+import { countFrames, FRAME_RATE, SCENE_TIMEOUT, withoutWorld, timedAnimations } from "./hero";
 import { placeIn } from "./place";
 
 // The Juice Bros Case study stands at the court: the world, live, from low
@@ -274,7 +274,7 @@ const percentile = (values: number[], p: number) => {
   return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
 };
 
-test("the pinned Player tools scene keeps its frame rate with the world live behind it", async ({
+test("the pinned Player tools scene keeps its frame rate with the world live behind it", FRAME_RATE, async ({
   browser,
 }, testInfo) => {
   test.setTimeout(120_000);

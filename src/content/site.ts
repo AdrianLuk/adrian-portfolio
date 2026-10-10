@@ -751,6 +751,49 @@ export const contact = {
   bookend: string;
 };
 
+/**
+ * The Encore, home's stretch past the closing bookend: the camera turns into
+ * the Arena, and the ticket wall lists the K-pop concerts Adrian has been to
+ * (Personal facts, docs/HANDOFF.md). Each ticket's light is its group's
+ * colour where it has one (TWICE's apricot and neon magenta, per JYP), else
+ * the world's palette. Text and colour only: no logos.
+ */
+/** The world's palette, as the page's theme names it (src/app/globals.css). */
+const world = {
+  cyan: "var(--color-cyan)",
+  violet: "var(--color-violet)",
+  magenta: "var(--color-magenta)",
+  green: "var(--color-green)",
+} as const;
+
+export const encore = {
+  id: "encore",
+  heading: "Encore",
+  lead: "The K-pop concerts I've been to, so far.",
+  wallLabel: "Concert tickets",
+  replay: "One more song",
+  // Oldest first.
+  tickets: [
+    { group: "aespa", year: 2025, colors: [world.cyan] },
+    { group: "Stray Kids", year: 2025, colors: [world.violet] },
+    { group: "BLACKPINK", year: 2025, colors: ["#F7A7BB"] },
+    { group: "BABYMONSTER", year: 2025, colors: ["#E8132E"] },
+    { group: "aespa", year: 2026, colors: [world.green] },
+    { group: "EVERGLOW", year: 2026, colors: [world.magenta] },
+    { group: "IVE", year: 2026, colors: [world.cyan] },
+    { group: "TWICE", year: 2026, colors: ["#FCC89B", "#FF5FA2"] },
+    { group: "BTS", year: 2026, colors: ["#A15EE6"] },
+    { group: "XG", year: 2026, colors: [world.green] },
+  ],
+} as const satisfies {
+  id: string;
+  heading: string;
+  lead: string;
+  wallLabel: string;
+  replay: string;
+  tickets: readonly { group: string; year: number; colors: readonly string[] }[];
+};
+
 /** Adrian's profiles elsewhere: every contact channel but email. */
 export const profiles = contact.channels.filter(
   (channel) => channel.id !== "email",
@@ -1015,7 +1058,7 @@ export const shareCards = {
  * phones and tablets, each in the shape of the screen it is shot at. A
  * still's name is also its `data-backdrop` on the page.
  */
-export type StillName = "valley" | "court" | "skyline" | "diamond";
+export type StillName = "valley" | "court" | "skyline" | "diamond" | "arena";
 
 function worldStills(name: StillName) {
   return {
@@ -1053,6 +1096,12 @@ export const skylineStills = worldStills("skyline");
  * it behind the Diamond's home plate.
  */
 export const diamondStills = worldStills("diamond");
+
+/**
+ * The Encore's backdrop where the world isn't live behind it (without WebGL,
+ * or under reduced motion): the Arena from inside, its show on.
+ */
+export const arenaStills = worldStills("arena");
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */
 export function highlightAnchor(id: HighlightId): string {

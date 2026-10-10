@@ -1,4 +1,4 @@
-import { highlightAnchor } from "@/content/site";
+import { encore, highlightAnchor } from "@/content/site";
 import { pageLayout, routeAnchors, stopAt } from "./route-anchors";
 import { LIT_SITES } from "./lit-sites";
 
@@ -36,5 +36,19 @@ export function sitePanels() {
 export function scrolledStop() {
   const panels = sitePanels();
   if (!panels) return 0;
-  return stopAt(window.scrollY, routeAnchors(pageLayout(panels)));
+  return stopAt(window.scrollY, routeAnchors(pageLayout(panels, routeEnd())));
+}
+
+/**
+ * The furthest home's scroll route runs, in scroll pixels: the closing view,
+ * the bookend at the foot of the screen, short of the Encore past it (the
+ * camera's way into the Arena is the Encore's own, not the route's).
+ */
+export function routeEnd(
+  maxScroll = document.documentElement.scrollHeight - window.innerHeight,
+) {
+  const stretch = document.getElementById(encore.id);
+  if (!stretch) return maxScroll;
+  const top = stretch.getBoundingClientRect().top + window.scrollY;
+  return Math.min(maxScroll, top - window.innerHeight);
 }

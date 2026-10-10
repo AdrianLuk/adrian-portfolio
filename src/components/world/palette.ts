@@ -8,6 +8,8 @@ export const palette = {
   cyan: new Color("#3df2e6"),
   violet: new Color("#9b6cff"),
   magenta: new Color("#ff6fd8"),
+  /** Neon green: the Encore's show (its lightsticks and beams) and tickets. */
+  green: new Color("#7cff63"),
   /** Hong Kong's own: its landmarks' tips and their streaks in Victoria Harbour. */
   neonRed: new Color("#ff4d5e"),
   ink: new Color("#eaf2ff"),

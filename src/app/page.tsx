@@ -1,4 +1,5 @@
 import { ContactPortrait } from "@/components/contact-portrait";
+import { Encore } from "@/components/encore";
 import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
 import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
@@ -282,6 +283,8 @@ export default async function Home() {
           </p>
         </div>
       </section>
+      {/* Past the bookend, the Contact section's last word: the Encore. */}
+      <Encore />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(homeJsonLd) }}

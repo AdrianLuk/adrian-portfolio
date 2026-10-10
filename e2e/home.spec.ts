@@ -4,6 +4,7 @@ import {
   contact,
   credits,
   derbyLink,
+  encore,
   footer,
   hero,
   highlightAnchor,
@@ -382,13 +383,16 @@ test.describe("the closing view", () => {
         expect(last).toBe(contact.bookend);
       });
 
-      test("is the page's last screen, clear of copy but the bookend over its lower half", async ({
+      test("is the screen the route ends on, short of the Encore: clear of copy but the bookend over its lower half", async ({
         page,
       }) => {
         await page.goto("/");
-        await page.evaluate(() =>
-          window.scrollTo(0, document.documentElement.scrollHeight),
-        );
+        // The bookend at the foot of the screen, the Encore just past it.
+        await page.evaluate((id) => {
+          const encore = document.getElementById(id)!;
+          const top = encore.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo(0, top - window.innerHeight);
+        }, encore.id);
         const section = page.locator("#contact");
         const bookend = section.getByText(contact.bookend, { exact: true });
         await expect(bookend).toBeInViewport({ ratio: 1 });
