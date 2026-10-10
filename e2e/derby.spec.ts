@@ -286,6 +286,9 @@ test("the home page never asks for the Derby's code, even with Off the clock's l
   page,
   request,
 }) => {
+  // The world compiles in software on CI, then the scroll to Contact and
+  // every script's fetch: more than the default 30s on a loaded runner.
+  test.setTimeout(60_000);
   await page.goto("/");
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,

@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { highlightAnchor, hrefFor, rally, rallyLink } from "../src/content/site";
-import { heroRoot, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { FRAME_RATE, heroRoot, SCENE_TIMEOUT, withoutWorld } from "./hero";
 import { placeIn } from "./place";
 
 const { game: copy } = rally;
@@ -266,7 +266,7 @@ for (const [width, viewport] of Object.entries({
   });
 }
 
-test("keeps its frame rate mid-game, the world drawing the game on its court", async ({
+test("keeps its frame rate mid-game, the world drawing the game on its court", FRAME_RATE, async ({
   page,
 }, testInfo) => {
   test.setTimeout(60_000);
