@@ -63,19 +63,29 @@ test("earning Dinkbot down toasts it and First Blood together, counted in the fo
 });
 
 test("a toast holds while hovered", async ({ page }) => {
+  // The page's clock, held still: the toast's 5s run out only when the test
+  // steps it, so a loaded runner can't outrun the hover (or the 30s limit).
+  await page.clock.install();
   await page.goto("/");
-  // The pointer waits where the toast will show (top centre), so it's hovered
-  // from its first frame, before its timer could run out.
-  const spot = await toast(page).evaluate((status) => {
-    const box = status.getBoundingClientRect();
-    return { x: box.left + box.width / 2, y: box.top + 24 };
-  });
-  await page.mouse.move(spot.x, spot.y);
-  expect(await toastFor(page, "dinkbot-down")).toContain(copy.names["dinkbot-down"]);
-  await page.waitForTimeout(7_000);
+  await page.clock.pauseAt(new Date(Date.now() + 1_000));
+  // Raised until the footer has hydrated and hears it.
+  await expect
+    .poll(() =>
+      page.evaluate(([type, detail]) => {
+        window.dispatchEvent(new CustomEvent(type, { detail }));
+        return document.querySelector('[role="status"]')?.textContent ?? "";
+      }, [EARN_EVENT, "dinkbot-down"] as const),
+    )
+    .toContain(copy.names["dinkbot-down"]);
+  await toast(page).locator("p").hover();
+  await page.clock.fastForward(7_000);
   await expect(toast(page)).toContainText(copy.names["dinkbot-down"]);
   await page.mouse.move(0, 0);
-  await expect(toast(page)).toBeEmpty({ timeout: 10_000 });
+  // Its timer starts once the pointer has left: step the clock until it runs out.
+  await expect(async () => {
+    await page.clock.fastForward(1_000);
+    await expect(toast(page)).toBeEmpty({ timeout: 200 });
+  }).toPass({ timeout: 10_000 });
 });
 
 test("the counter opens the list by keyboard: unearned as ???, Esc closes it, focus back on the counter", async ({
