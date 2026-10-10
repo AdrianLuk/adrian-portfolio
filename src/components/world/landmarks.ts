@@ -64,11 +64,14 @@ const NEON: Record<string, [number, number, number, number][]> = (() => {
 })();
 
 /**
- * Where the Diamond stands: midway between Juice Bros' court and BT Cup's
- * bowl, its centre set back left of the valley's centre line, in the bowl's
- * plaza (no tower stands there), so the route glimpses it but never frames it.
+ * Where the Diamond stands: past BT Cup's bowl, at the foot of its hill by
+ * Victoria Harbour, left of the valley's centre line, its plinth 22 off it
+ * (the runway's lights are 14 off). The floor narrows here, so it is drawn
+ * small, 19 across: the most that stands level there and keeps off the bowl
+ * on the bowl stop's screen. The route flies at it from the bowl; on the right,
+ * the street's towers would hide it.
  */
-const DIAMOND_AT = { z: -870, fromCentreLine: -37, scale: 0.2 };
+const DIAMOND_AT = { z: -1045, fromCentreLine: -31.5, scale: 0.1 };
 
 /** A ball of light: Juice Bros' pickleball, the site's light. */
 export type Ball = { x: number; y: number; z: number; r: number; color: Color };
@@ -502,7 +505,7 @@ export function layoutLandmarks(): Landmarks {
 
   /**
    * The Diamond: a baseball diamond in the world's light on a plinth, home
-   * plate nearest home, with a light atop each foul pole.
+   * plate nearest home and the route's line, with a light atop each foul pole.
    */
   function diamond() {
     const { scale, z } = DIAMOND_AT;
@@ -510,10 +513,18 @@ export function layoutLandmarks(): Landmarks {
     const foot = diamondFootprint(scale);
     const { low, high } = groundUnder(x, z, foot.w, foot.d);
     const level = high + 0.3;
-    const d = layoutDiamond({ x, z, level, scale, color: palette.cyan });
+    const side = Math.sign(DIAMOND_AT.fromCentreLine) as 1 | -1;
+    const d = layoutDiamond({ x, z, side, level, scale, color: palette.cyan });
     out.bodies.push(d.plinth);
-    out.bands.push(...d.surfaces, ...d.lines, ...d.bases, ...d.poles);
-    out.rings.push(d.mound);
+    out.bands.push(
+      ...d.surfaces,
+      ...d.lines,
+      ...d.bases,
+      d.rubber,
+      ...d.poles,
+    );
+    out.solids.push(...d.solids);
+    out.rings.push(...d.rings);
     const top = level + DIAMOND.poleHeight * scale;
     for (const [i, pole] of d.poles.entries()) {
       out.glows.push({
