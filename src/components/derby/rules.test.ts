@@ -159,6 +159,25 @@ describe("a home run", () => {
     expect(events).not.toContainEqual({ type: "three-in-a-row" });
     expect(game.streak).toBe(2);
   });
+
+  it("holds its beat a second longer than any other outcome, for its flight to land and its distance to read", () => {
+    /** How long the beat after the swing at `error` lasts, to the next windup. */
+    const beat = (error: number) => {
+      let game = swingOff(ready, error);
+      let held = 0;
+      while (game.phase === "result") {
+        game = step(game, FRAME);
+        held += FRAME;
+      }
+      return held;
+    };
+    const homeRun = beat(0);
+    for (const other of [0.08, 0.14, 0.3]) {
+      expect(homeRun - beat(other)).toBeGreaterThan(0.9);
+    }
+    // Long enough to watch: the flight takes under 2 seconds of it.
+    expect(homeRun).toBeGreaterThan(3);
+  });
 });
 
 describe("Curvebot's pitches", () => {

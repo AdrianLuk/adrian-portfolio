@@ -182,6 +182,12 @@ export type CourtStage = Stage & {
 export type DiamondStage = Stage & {
   /** Where home plate stands, which way the field runs, and its scale. */
   field: DiamondField;
+  /**
+   * Cuts the camera to `shot` (a home run's wide shot, see `homeRunView`)
+   * and holds it there, through the Camera director; null cuts back to the
+   * Derby's own view. A cut, not a move: nothing eases between them.
+   */
+  cut(shot: { pose: Pose; fovY: number } | null): void;
 };
 
 /** A view of the world on a canvas. */
@@ -1046,7 +1052,14 @@ export async function createWorld(
 
   return {
     court: { ...stageOn(courtGroup), court: structures.court },
-    diamond: { ...stageOn(fieldGroup), field: structures.field },
+    diamond: {
+      ...stageOn(fieldGroup),
+      field: structures.field,
+      cut(shot) {
+        options.director.cut(shot);
+        if (!running || holds()) render();
+      },
+    },
     layout,
     placeCredit,
     placeSite,
