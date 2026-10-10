@@ -11,7 +11,7 @@ const another = (page: Page) => page.getByRole("button", { name: notFound.next }
 const home = (page: Page) =>
   page.getByRole("main").getByRole("link", { name: notFound.homeLink });
 /** The announcement the button leaves in the polite live region. */
-const announced = (page: Page) => page.locator("p[aria-live=polite]");
+const announced = (page: Page) => page.getByRole("main").locator("p[aria-live=polite]");
 const counter = (page: Page, n: number) =>
   page
     .getByRole("contentinfo")

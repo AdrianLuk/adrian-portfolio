@@ -765,6 +765,17 @@ export const achievements = {
 } as const;
 
 /**
+ * The Recall: how long it channels, in ms, and its announcements to a screen
+ * reader: as it starts, if it's cancelled, and as it completes.
+ */
+export const recall = {
+  channelMs: 3000,
+  started: "Recalling home. Keep holding.",
+  cancelled: "Recall cancelled.",
+  done: "Recalled home.",
+} as const;
+
+/**
  * The 404's five themed variants, in the order a browser sees them (the
  * rotation in src/components/not-found-rotation.ts). Each has a heading and a
  * line; the home link is the same on all.

@@ -99,6 +99,24 @@ body {
   }
 }
 
+/* The Recall's channel ring filling round the header's name
+   (src/components/recall.tsx): it fills under reduced motion too, as it shows
+   progress; only its glow pulses, once a second, and only with motion allowed. */
+@keyframes recall-fill {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes recall-name-glow {
+  50% {
+    filter: drop-shadow(0 0 6px var(--color-cyan));
+  }
+}
+
 /* The backdrop's motes: glowing points drifting slowly up and across, in and
    out of the dark. Only with motion allowed; the backdrop hides them otherwise. */
 .mote {

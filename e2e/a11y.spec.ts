@@ -30,6 +30,20 @@ for (const route of routes) {
   });
 }
 
+test("a Recall channeling has no axe violations", async ({ page }) => {
+  await page.goto("/resume");
+  // Held until the page has hydrated and the ring is up.
+  const ring = page.locator("[data-recall-ring]");
+  await expect(async () => {
+    await page.keyboard.up("b");
+    await page.keyboard.down("b");
+    await expect(ring).toBeVisible({ timeout: 500 });
+  }).toPass();
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+  await page.keyboard.up("b");
+});
+
 test("Juice Bros case study has no axe violations with motion allowed", async ({
   page,
 }) => {
