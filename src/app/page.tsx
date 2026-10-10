@@ -1,4 +1,5 @@
 import { ContactPortrait } from "@/components/contact-portrait";
+import { DiamondPanel } from "@/components/diamond-panel";
 import { Encore } from "@/components/encore";
 import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
@@ -192,6 +193,12 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {/* The route's stop at the Diamond, after the Highlights: the way into
+        the Derby. */}
+      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+        <DiamondPanel />
+      </div>
 
       <section
         id="contact"

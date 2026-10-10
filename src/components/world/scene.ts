@@ -45,6 +45,7 @@ import {
   courtPose,
   createRoute,
   derbyView,
+  PANEL_STOPS,
   playView,
   SITES,
   skylineView,
@@ -212,9 +213,10 @@ export type World = View & {
     spot: { x: number; y: number },
   ): CreditPlacement | null;
   /**
-   * Where lit site `index` stands on the canvas, seen from the scroll route
+   * Where what panel `index`'s stop frames (a Lit site, or the Diamond;
+   * ./route's PANEL_STOPS) stands on the canvas, seen from the scroll route
    * at stop `at` (by default, where the camera is now). Null until the plate
-   * is posed, or while the site is behind the camera.
+   * is posed, or while it is behind the camera.
    */
   placeSite(index: number, at?: number): { x: number; y: number } | null;
   /**
@@ -981,14 +983,15 @@ export async function createWorld(
   }
 
   /**
-   * Where site `index` stands on the canvas, in canvas pixels, seen from the
-   * route at stop `at` (the camera's own stop by default). Null until the
-   * plate is posed, or while the site is behind the camera.
+   * Where what panel `index`'s stop frames stands on the canvas, in canvas
+   * pixels, seen from the route at stop `at` (the camera's own stop by
+   * default). Null until the plate is posed, or while it is behind the
+   * camera.
    */
   function placeSite(index: number, at = options.director.stop()) {
     if (!posed || !route || view?.kind !== "hero") return null;
     aimProbe(route.poseAt(at));
-    const ndc = SITES[index].position.clone().project(probe);
+    const ndc = PANEL_STOPS[index].position.clone().project(probe);
     if (ndc.z >= 1) return null;
     return {
       x: ((ndc.x + 1) / 2) * canvasSize.width,

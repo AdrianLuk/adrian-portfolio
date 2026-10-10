@@ -253,6 +253,20 @@ export const rallyClip: Recording = {
   ],
 };
 
+const derbyMedia = "/home-run-derby";
+
+/** A home run in the Home Run Derby, over its play button. Recorded by scripts/derby-clip.mjs. */
+export const derbyClip: Recording = {
+  label: "A home run in the Home Run Derby, from behind home plate: Curvebot pitches, the batter swings, and a broadcast shot traces the ball high toward left field, under Curvebot's line: \"Gone. Curvebot watched that one leave.\"",
+  poster: `${derbyMedia}/home-run-poster.webp`,
+  width: 720,
+  height: 540,
+  sources: [
+    { src: `${derbyMedia}/home-run.webm`, type: "video/webm" },
+    { src: `${derbyMedia}/home-run.mp4`, type: "video/mp4" },
+  ],
+};
+
 export const caseStudies = [
   {
     slug: "juice-bros",
@@ -1006,6 +1020,20 @@ export const derby = {
     },
     score: { homeRuns: "Home runs" },
   },
+} as const;
+
+/**
+ * The Diamond's panel on home, after the Highlights: the route's stop beside
+ * the park, and a way into the Derby. Its eyebrow and heading are the
+ * Derby's own.
+ */
+export const diamondPanel = {
+  id: "derby",
+  eyebrow: derby.eyebrow,
+  heading: derby.heading,
+  line: "Ten pitches from Curvebot. Your timing decides where each one goes.",
+  clip: derbyClip,
+  link: derbyLink,
 } as const;
 
 const settledFrameAlt =

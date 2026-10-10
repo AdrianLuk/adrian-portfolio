@@ -431,6 +431,76 @@ describe("the Camera director", () => {
     });
   });
 
+  describe("the Derby's view of the Diamond", () => {
+    it("flies there from home along the route, landing on its pose, easing to the Derby's field of view, without a jump", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      const before = film(director, 0, 200);
+      const fovs: number[] = [];
+      const { poses, landedAt } = flyTo(director, "derby", 216, 300, (now) =>
+        fovs.push(director.frame(now).fovY!),
+      );
+      expect(landedAt - 216).toBeLessThan(TRANSIT_MAX_SECONDS * 1000 + 100);
+      const after = film(director, landedAt, 200);
+      expectNoJump([...before, ...poses, ...after]);
+      expectSamePose(after.at(-1)!, derby.pose);
+      expect(fovs[0]).toBeCloseTo(CAMERA.fovY);
+      expect(director.frame(landedAt).fovY).toBe(derby.fovY);
+      for (let i = 1; i < fovs.length; i++) {
+        expect(Math.abs(fovs[i] - fovs[i - 1])).toBeLessThan(1.5);
+      }
+    });
+
+    it("flies home from it along the route, landing on the settled view", () => {
+      const { director, route } = setup();
+      director.show("derby");
+      const before = film(director, 0, 100);
+      const { poses, landedAt } = flyTo(director, "hero", 116, 300, (now) => {
+        if (now >= 416) director.openingLands();
+      });
+      expectNoJump([...before, ...poses]);
+      expectSamePose(director.frame(landedAt).pose!, route.poseAt(0));
+      expect(director.frame(landedAt).fovY).toBe(CAMERA.fovY);
+    });
+
+    it("flies between it and the court's views or the Skyline by the route, either way, the looks blending, without a jump", () => {
+      for (const other of ["court", "play", "skyline"] as const) {
+        for (const [from, to] of [
+          [other, "derby"],
+          ["derby", other],
+        ] as const) {
+          const { director, paths } = setup();
+          director.show(from);
+          const before = film(director, 0, 100);
+          const { poses, landedAt } = flyTo(director, to, 116, 300);
+          expectNoJump([...before, ...poses]);
+          expectSamePose(director.frame(landedAt).pose!, paths[to]);
+          const { lights } = director.frame(landedAt);
+          expect(lights!.court).toBe(to === "derby" ? 0 : other === "skyline" ? 0 : 1);
+          expect(lights!.skyline).toBe(to === "skyline" ? 1 : 0);
+        }
+      }
+    });
+
+    it("turns round mid-flight, back home, from exactly where the camera is", () => {
+      const { director, route } = setup();
+      director.show("hero");
+      director.openingLands();
+      expect(director.fly("derby", 0)).toBe(true);
+      const out = film(director, 0, 1000, (now) => {
+        if (now >= 300) director.show("derby");
+      });
+      const turning = director.frame(1000).pose!;
+      const { poses, landedAt } = flyTo(director, "hero", 1000, 100, (now) => {
+        if (now >= 1100) director.openingLands();
+      });
+      expectSamePose(poses[0], turning);
+      expectNoJump([...out, ...poses]);
+      expectSamePose(director.frame(landedAt).pose!, route.poseAt(0));
+    });
+  });
+
   describe("never jumps at a handoff", () => {
     it("from the Opening to the scroll route", () => {
       const { director } = setup();

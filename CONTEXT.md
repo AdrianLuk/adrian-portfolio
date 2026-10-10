@@ -49,11 +49,11 @@ A page's spot in the one world, with its own look, that the camera flies to: hom
 _Avoid_: Scene, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court. Not yet to or from the Diamond: the Derby crossfades until its Transit is built.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court, the Skyline or the Diamond (sweeping off the route across the Harbour, panning to face downtown; or leaving it at the stadium bowl, past which home's route glances at the Diamond, to come down behind home plate), between any two of them, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
-The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court and the Skyline. It never lets the camera jump, with one deliberate exception: at the Diamond, a home run cuts to its wide shot and back, and the Play of the Game to its own shot, as a broadcast does.
+The one place that decides where the world's camera is and how the world is lit, frame by frame, as it hands over between the Opening, the scroll route, a Transit, the court, the Diamond and the Skyline. It never lets the camera jump, with one deliberate exception: at the Diamond, a home run cuts to its wide shot and back, and the Play of the Game to its own shot, as a broadcast does.
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:
@@ -93,7 +93,7 @@ The Home Run Derby's pitcher, an AI, as Dinkbot is the Rally game's opponent. It
 _Avoid_: Pitcher (unqualified), Knucklebot
 
 **Diamond**:
-The baseball stadium built from light, a diamond with a deck of seats in its outfield from pole to pole and light towers behind, home plate nearest the route, in the valley past the stadium bowl, right of the light path (the bowl stands left), well inland of Victoria Harbour: the Home Run Derby's Place and a stop on the Hobby route. Home's scroll route turns to frame it between the bowl and the closing view, with no panel; it may show down the valley behind the court and bowl stops, never over their Landmarks. It is not a Lit site.
+The baseball stadium built from light, a diamond with a deck of seats in its outfield from pole to pole and light towers behind, home plate nearest the route, in the valley past the stadium bowl, right of the light path (the bowl stands left), well inland of Victoria Harbour: the Home Run Derby's Place, a stop on the Hobby route, and a stop on home's scroll route, with a panel, between the bowl's stop and the closing view. It may show down the valley behind the court and bowl stops, never over their Landmarks. It is not a Lit site: its panel lights, but nothing in the world lights for it.
 _Avoid_: Ballpark, field
 
 **Hobby route**:

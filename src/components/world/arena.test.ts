@@ -21,7 +21,10 @@ import {
   arenaView,
   arenaWayIn,
   courtPose,
+  DIAMOND_MIDDLE,
+  DIAMOND_STOP,
   hongKongPose,
+  PANEL_STOPS,
   playView,
   ROUTE_STOPS,
   SITES,
@@ -400,10 +403,17 @@ describe("home's camera and the Arena", () => {
           const inFrame = z < 1 && Math.abs(x) < 1 && Math.abs(y) < 1;
           if (!inFrame || (hidden(pose.position, middle) && hidden(pose.position, crown))) continue;
           // The settled view and Hong Kong's frame nothing beside their own.
-          const site = SITES[stop - 1];
+          const site = PANEL_STOPS[stop - 1];
           expect(site, `in view at stop ${stop}`).toBeDefined();
           const distance = pose.position.distanceTo(middle);
           expect(distance).toBeGreaterThan(pose.position.distanceTo(site.position));
+          if (stop === DIAMOND_STOP) {
+            // Past the Diamond, on its side of the valley, it stands behind
+            // the park, higher in the frame, as it did when the route only
+            // glanced at the park.
+            expect(y).toBeGreaterThan(project(pose, aspect, DIAMOND_MIDDLE).y);
+            continue;
+          }
           const fog = 1 - Math.exp(-((distance * FOG_DENSITY) ** 2));
           if (fog >= 0.5) {
             // Half lost in the haze: under a fifth of the frame across, at its

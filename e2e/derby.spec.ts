@@ -18,10 +18,11 @@ import {
   contact,
   derby,
   derbyLink,
+  diamondPanel,
   hrefFor,
   rallyLink,
 } from "../src/content/site";
-import { heroRoot, openHome, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { heroRoot, SCENE_TIMEOUT, withoutWorld } from "./hero";
 import { placeIn } from "./place";
 
 const { game: copy } = derby;
@@ -227,20 +228,6 @@ test("without WebGL the Diamond's still stays, and the game says it can't run he
   await expect(page.getByRole("button", { name: copy.start.action })).toHaveCount(0);
 });
 
-test("crossfades in from home's Off the clock link, flying nowhere: no Transit to the Diamond yet", async ({
-  browser,
-}, testInfo) => {
-  test.setTimeout(90_000);
-  // Settled first: in software (CI), the opening would still be flying.
-  const page = await openHome(browser, testInfo, { skip: true, until: "settled" });
-  await page.locator("#contact").getByRole("link", { name: derbyLink.label }).click();
-  await expect(page).toHaveURL(/\/derby$/, { timeout: SCENE_TIMEOUT });
-  await expect(page.locator("[data-world-root]")).not.toHaveAttribute("data-transit", /.+/);
-  await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
-    timeout: SCENE_TIMEOUT,
-  });
-});
-
 /**
  * Starts a game and hits its first pitch for a home run, swung within 8ms of
  * the pitch's arrival: the page's clock is held still from Start and stepped
@@ -412,17 +399,23 @@ async function expectNoDerbyCode(page: Page, request: APIRequestContext) {
   }
 }
 
-test("the home page never asks for the Derby's code, even with Off the clock's link on screen", async ({
+test("the home page never asks for the Derby's code, even with the Diamond panel's link and Off the clock's on screen", async ({
   page,
   request,
 }) => {
-  // The world compiles in software on CI, then the scroll to Contact and
-  // every script's fetch: more than the default 30s on a loaded runner.
+  // The world compiles in software on CI, then the scrolls to the Diamond
+  // and Contact and every script's fetch: more than the default 30s on a
+  // loaded runner.
   test.setTimeout(60_000);
   await page.goto("/");
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });
+  const play = page
+    .locator(`#${diamondPanel.id}`)
+    .getByRole("link", { name: derbyLink.label });
+  await play.scrollIntoViewIfNeeded();
+  await expect(play).toBeInViewport();
   await page
     .locator("#contact")
     .getByRole("heading", { level: 3, name: contact.offClock.heading })

@@ -1,30 +1,34 @@
-import { encore, highlightAnchor } from "@/content/site";
+import { diamondPanel, encore, highlightAnchor } from "@/content/site";
 import { pageLayout, routeAnchors, stopAt } from "./route-anchors";
 import { LIT_SITES } from "./lit-sites";
 
 /**
- * The scroll route's reading of home: its Highlights' panels and where they
- * stand. Plain DOM reads, with no GSAP, so a transit can ask where home's
- * scroll puts the camera before the scroll route itself has loaded.
+ * The scroll route's reading of home: its panels and where they stand. Plain
+ * DOM reads, with no GSAP, so a transit can ask where home's scroll puts the
+ * camera before the scroll route itself has loaded.
  */
 
 /**
- * Each Lit site's panel, found by its Highlight id, in the Lit sites' order
- * whatever the page's; or null if any is missing, so no panel can stand for
- * the wrong site. `find` looks a panel up by its anchor id.
+ * Home's panels in the route's order, one per stop after the first: each
+ * Lit site's, found by its Highlight id, in the Lit sites' order whatever
+ * the page's, then the Diamond's; or null if any is missing, so no panel can
+ * stand for the wrong stop. `find` looks a panel up by its anchor id.
  */
 export function findPanels<P>(find: (id: string) => P | null): P[] | null {
   const panels: P[] = [];
-  for (const site of LIT_SITES) {
-    const panel = find(highlightAnchor(site.highlight));
+  for (const id of [
+    ...LIT_SITES.map((site) => highlightAnchor(site.highlight)),
+    diamondPanel.id,
+  ]) {
+    const panel = find(id);
     if (panel === null) return null;
     panels.push(panel);
   }
   return panels;
 }
 
-/** Each Lit site's panel on home, in the Lit sites' order, or null if any is missing. */
-export function sitePanels() {
+/** Home's panels in the route's order, or null if any is missing. */
+export function routePanels() {
   return findPanels((id) => document.getElementById(id));
 }
 
@@ -34,7 +38,7 @@ export function sitePanels() {
  * missing the scroll route never starts, so the camera stays settled.
  */
 export function scrolledStop() {
-  const panels = sitePanels();
+  const panels = routePanels();
   if (!panels) return 0;
   return stopAt(window.scrollY, routeAnchors(pageLayout(panels, routeEnd())));
 }

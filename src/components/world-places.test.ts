@@ -129,14 +129,22 @@ describe("the Home Run Derby's place, the Diamond", () => {
     expect(placeOfView("derby")).toBe("diamond");
   });
 
-  it("crossfades, flying nowhere, until its Transit lands (#102)", () => {
-    for (const from of ["hero", "court", "play", "skyline"] as const) {
-      expect(transitBetween(from, "/derby")).toBeNull();
+  it("flies between the Derby and every other view, either way", () => {
+    const others = {
+      hero: "/",
+      court: "/work/juice-bros",
+      play: "/rally",
+      skyline: "/resume",
+    } as const;
+    for (const [view, url] of Object.entries(others)) {
+      expect(transitBetween(view as keyof typeof others, "/derby")).toBe("derby");
+      expect(transitBetween("derby", url)).toBe(view);
     }
-    for (const to of ["/", "/work/juice-bros", "/rally", "/resume"]) {
-      expect(transitBetween("derby", to)).toBeNull();
-    }
-    expect(transitTo("/derby")).toBeNull();
-    expect(transitTo("/rally")).toBe("play");
+    expect(transitTo("/derby")).toBe("derby");
+  });
+
+  it("never flies within the Derby", () => {
+    expect(transitBetween("derby", "/derby?weather=rain")).toBeNull();
+    expect(transitBetween("derby", "/derby#derby")).toBeNull();
   });
 });

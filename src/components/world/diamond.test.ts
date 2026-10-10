@@ -12,7 +12,7 @@ import type { Pose } from "./flight";
 import { nominalRoute } from "./nominal-route";
 import {
   courtPose,
-  DIAMOND_GLANCE,
+  DIAMOND_STOP,
   hongKongPose,
   playView,
   ROUTE_STOPS,
@@ -539,7 +539,7 @@ describe("home's scroll route and the Diamond", () => {
 
       it("never frames it at any other stop: it is out of frame, lost in the fog, or out at the frame's edge away from the stop's Lit site", () => {
         for (let stop = 0; stop < ROUTE_STOPS; stop++) {
-          if (stop === courtStop || stop === bowlStop) continue;
+          if ([courtStop, bowlStop, DIAMOND_STOP].includes(stop)) continue;
           const pose = route.poseAt(stop);
           const seen = sighting(pose, aspect);
           if (!seen.shows || seen.fog > 0.5) continue;
@@ -558,64 +558,66 @@ describe("home's scroll route and the Diamond", () => {
           );
         }
       });
-      it("turns to frame it between the bowl and Hong Kong: the whole stadium in frame near the middle, clear of the fog, nothing standing in front of it", () => {
-        const { at, until } = DIAMOND_GLANCE[aspect >= 1 ? "wide" : "narrow"];
-        for (const f of [at, (at + until) / 2, until]) {
-          const pose = route.poseAt(bowlStop + f);
-          const seen = sighting(pose, aspect);
-          expect(seen.shows).toBe(true);
-          expect(Math.abs(seen.x)).toBeLessThan(0.25);
-          expect(seen.fog).toBeLessThan(0.3);
-          // The stadium, every stand, seat, lamp and the field, all in frame.
-          const camera = cameraAt(pose, aspect);
-          for (const point of stadiumPoints) {
-            const { x, y, z } = point.clone().project(camera);
-            expect(z).toBeLessThan(1);
-            expect(Math.abs(x)).toBeLessThan(1);
-            expect(Math.abs(y)).toBeLessThan(1);
+
+      it("frames it at its own stop, after the bowl: the whole stadium in frame, right of its panel on a wide screen and centred on a narrow one, clear of the fog, nothing standing in front of it", () => {
+        const pose = route.poseAt(DIAMOND_STOP);
+        const seen = sighting(pose, aspect);
+        expect(seen.shows).toBe(true);
+        // At the Highlights' offset on a wide screen (./route).
+        if (aspect >= 1) expect(seen.x).toBeCloseTo(0.45, 1);
+        else expect(Math.abs(seen.x)).toBeLessThan(0.05);
+        expect(seen.fog).toBeLessThan(0.3);
+        // The stadium, every stand, seat, lamp and the field, all in frame:
+        // on a wide screen, in the right half, clear of the panel on the left.
+        const camera = cameraAt(pose, aspect);
+        for (const point of stadiumPoints) {
+          const { x, y, z } = point.clone().project(camera);
+          expect(z).toBeLessThan(1);
+          expect(x).toBeGreaterThan(aspect >= 1 ? 0 : -1);
+          expect(x).toBeLessThan(1);
+          expect(Math.abs(y)).toBeLessThan(1);
+        }
+        // Home plate, the bases, the mound and both foul lines out to the
+        // poles, in plain view: no stand stands in front of them.
+        for (const [a, c] of infield) {
+          const point = new Vector3(...fromHome(a, c));
+          const far = pose.position.distanceTo(point);
+          const ray = new Ray(
+            pose.position.clone(),
+            point.clone().sub(pose.position).normalize(),
+          );
+          for (const b of [...built.stands.bodies, ...built.stands.lamps]) {
+            const box = new Box3(
+              new Vector3(b.x - b.w / 2, b.y - b.h / 2, b.z - b.d / 2),
+              new Vector3(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2),
+            );
+            const hit = ray.intersectBox(box, new Vector3());
+            expect(hit && pose.position.distanceTo(hit) < far).toBeFalsy();
           }
-          // Home plate, the bases, the mound and both foul lines out to the
-          // poles, in plain view: no stand stands in front of them.
-          for (const [a, c] of infield) {
-            const point = new Vector3(...fromHome(a, c));
-            const far = pose.position.distanceTo(point);
-            const ray = new Ray(
-              pose.position.clone(),
-              point.clone().sub(pose.position).normalize(),
+        }
+        // No tower or Landmark between the camera and its middle or its
+        // corners at the field's level.
+        for (const [u, v] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+          const point = new Vector3(
+            diamondBox.x + (u * diamondBox.w) / 2,
+            diamondBox.y +
+              diamondBox.h / 2 -
+              DIAMOND.poleHeight * DIAMOND_AT.scale +
+              0.5,
+            diamondBox.z + (v * diamondBox.d) / 2,
+          );
+          const far = pose.position.distanceTo(point);
+          const ray = new Ray(
+            pose.position.clone(),
+            point.clone().sub(pose.position).normalize(),
+          );
+          for (const b of [...buildings, ...masts, ...landmarks.bounds]) {
+            const box = new Box3(
+              new Vector3(b.x - b.w / 2, b.y - b.h / 2, b.z - b.d / 2),
+              new Vector3(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2),
             );
-            for (const b of [...built.stands.bodies, ...built.stands.lamps]) {
-              const box = new Box3(
-                new Vector3(b.x - b.w / 2, b.y - b.h / 2, b.z - b.d / 2),
-                new Vector3(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2),
-              );
-              const hit = ray.intersectBox(box, new Vector3());
-              expect(hit && pose.position.distanceTo(hit) < far).toBeFalsy();
-            }
-          }
-          // No tower or Landmark between the camera and its middle or its
-          // corners at the field's level.
-          for (const [u, v] of [[0, 0], [-1, -1], [-1, 1], [1, -1], [1, 1]]) {
-            const point = new Vector3(
-              diamondBox.x + (u * diamondBox.w) / 2,
-              diamondBox.y +
-                diamondBox.h / 2 -
-                DIAMOND.poleHeight * DIAMOND_AT.scale +
-                0.5,
-              diamondBox.z + (v * diamondBox.d) / 2,
-            );
-            const far = pose.position.distanceTo(point);
-            const ray = new Ray(
-              pose.position.clone(),
-              point.clone().sub(pose.position).normalize(),
-            );
-            for (const b of [...buildings, ...masts, ...landmarks.bounds]) {
-              const box = new Box3(
-                new Vector3(b.x - b.w / 2, b.y - b.h / 2, b.z - b.d / 2),
-                new Vector3(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2),
-              );
-              const hit = ray.intersectBox(box, new Vector3());
-              expect(hit && pose.position.distanceTo(hit) < far).toBeFalsy();
-            }
+            const hit = ray.intersectBox(box, new Vector3());
+            expect(hit && pose.position.distanceTo(hit) < far).toBeFalsy();
           }
         }
       });

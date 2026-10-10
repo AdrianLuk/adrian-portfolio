@@ -13,7 +13,7 @@ export type PageLayout = {
   viewport: number;
   /** The furthest the page scrolls. */
   maxScroll: number;
-  /** The Highlights' panels, in order. */
+  /** The route's panels, one per stop after the first, in order. */
   panels: readonly PanelBox[];
 };
 
@@ -38,9 +38,10 @@ export function pageLayout(
 
 /**
  * The scroll position at which the camera reaches each stop: the settled view
- * at the top, each site as its panel is centred in the viewport, Hong Kong
- * at the foot of the page. Clamped to the page and never decreasing, so a
- * short page simply arrives at its last stops together.
+ * at the top, each panel's stop (a site's, the Diamond's) as its panel is
+ * centred in the viewport, Hong Kong at the foot of the page. Clamped to the
+ * page and never decreasing, so a short page simply arrives at its last
+ * stops together.
  */
 export function routeAnchors({ viewport, maxScroll, panels }: PageLayout) {
   const anchors = [0];
