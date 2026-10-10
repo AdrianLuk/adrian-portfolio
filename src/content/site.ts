@@ -253,6 +253,20 @@ export const rallyClip: Recording = {
   ],
 };
 
+const derbyMedia = "/home-run-derby";
+
+/** A home run in the Home Run Derby, over its play button. Recorded by scripts/derby-clip.mjs. */
+export const derbyClip: Recording = {
+  label: "A home run in the Home Run Derby, from behind home plate: Curvebot pitches, Adrian swings and the ball flies high toward left field, under Curvebot's line: \"Gone. Curvebot watched that one leave.\"",
+  poster: `${derbyMedia}/home-run-poster.webp`,
+  width: 720,
+  height: 540,
+  sources: [
+    { src: `${derbyMedia}/home-run.webm`, type: "video/webm" },
+    { src: `${derbyMedia}/home-run.mp4`, type: "video/mp4" },
+  ],
+};
+
 export const caseStudies = [
   {
     slug: "juice-bros",
