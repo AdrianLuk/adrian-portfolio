@@ -19,6 +19,7 @@ import {
   rallyBall,
   type RallyCourt,
 } from "./court-look";
+import type { DiamondField } from "./diamond";
 import { createBackdrop } from "./backdrop";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
@@ -37,6 +38,7 @@ import { nominalRoute } from "./nominal-route";
 import {
   courtPose,
   createRoute,
+  derbyView,
   playView,
   SITES,
   skylineView,
@@ -90,7 +92,9 @@ export type ViewOptions = {
  * the scroll route. court: the Juice Bros Case study's, the camera still and
  * low behind the court's near baseline (Lit site 3). play: /play's, the
  * court again, the camera raised behind the player's baseline as the Rally
- * game frames it, the game played on it. skyline: the Resume
+ * game frames it, the game played on it. derby: the Home Run Derby's, the
+ * camera raised behind the Diamond's home plate, looking out to centre
+ * field, the game played on it. skyline: the Resume
  * page's, the camera still and low down the valley from downtown, looking
  * back up at Toronto's skyline. Away from the hero, the plate and the lit
  * sites are out of sight.
@@ -99,6 +103,7 @@ export type WorldView =
   | { kind: "hero"; measure: () => Measurement }
   | { kind: "court" }
   | { kind: "play" }
+  | { kind: "derby" }
   | { kind: "skyline" };
 
 /**
@@ -121,38 +126,50 @@ type NamePlate = ReturnType<typeof createNamePlate>;
 export type CreditPlacement = { x: number; y: number; scale: number };
 
 /**
- * What the Rally game puts on the world's court (see ../rally/scene):
- * its objects, in the court's feet from where the net crosses its centre
- * line, the player's half nearer home.
+ * What a game puts on a stage in the world: its objects, in the stage's
+ * feet. The Rally game's (see ../rally/scene) stand on the court, from
+ * where the net crosses its centre line, the player's half nearer home; the
+ * Home Run Derby's (see ../derby/scene) on the Diamond's field, from home
+ * plate (see `fieldPoint`).
  */
-export type CourtGuest = {
+export type StageGuest = {
   group: Group;
   /** The canvas's height has changed: for its glows' sizes. */
   setViewportHeight(height: number): void;
 };
 
-/** The world's court, for the Rally game to play on. */
-export type CourtStage = {
+/** A stage in the world for a game to play on: the court, or the Diamond's field. */
+type Stage = {
   /** The world's own clock and pixel ratio, which every glow reads. */
   shared: SharedUniforms;
-  /** Where the court stands, and its scale: world units to the foot. */
-  court: RallyCourt;
-  /** The world's camera, for mapping a drag on screen onto the court. */
+  /** The world's camera, for mapping a drag on screen onto the stage. */
   camera: PerspectiveCamera;
   /**
-   * Puts `guest` on the court once its shaders have compiled (off the main
+   * Puts `guest` on the stage once its shaders have compiled (off the main
    * thread where the browser allows): the court's own rally ball steps off
-   * while it's there.
+   * while anything is.
    */
-  host(guest: CourtGuest): Promise<void>;
-  /** Takes the guest off the court: the rally ball comes back. */
-  release(guest: CourtGuest): void;
+  host(guest: StageGuest): Promise<void>;
+  /** Takes the guest off the stage: the rally ball comes back. */
+  release(guest: StageGuest): void;
   /**
    * The guest has moved: draws it now if the world isn't drawing frame by
    * frame on its own (under reduced motion, or holding its frame), else on
    * its next frame.
    */
   draw(): void;
+};
+
+/** The world's court, for the Rally game to play on. */
+export type CourtStage = Stage & {
+  /** Where the court stands, and its scale: world units to the foot. */
+  court: RallyCourt;
+};
+
+/** The Diamond's field, for the Home Run Derby to play on. */
+export type DiamondStage = Stage & {
+  /** Where home plate stands, which way the field runs, and its scale. */
+  field: DiamondField;
 };
 
 /** A view of the world on a canvas. */
@@ -191,6 +208,8 @@ export type World = View & {
   setWeather(weather: Weather): void;
   /** The court, for the Rally game to play on. */
   court: CourtStage;
+  /** The Diamond's field, for the Home Run Derby to play on. */
+  diamond: DiamondStage;
 };
 
 /**
@@ -374,11 +393,20 @@ export async function createWorld(
   let look = courtLook(0);
   let skyline = skylineLook(0);
   /**
-   * The Rally game's objects, while it's on the court, under a group that
-   * stands them there in feet.
+   * A game's objects, while one is on a stage, under the stage's group,
+   * which stands them there in feet: the court's or the Diamond's.
    */
-  let guest: CourtGuest | null = null;
+  let guest: StageGuest | null = null;
+  let guestGroup: Group | null = null;
   const courtGroup = new Group();
+  const fieldGroup = new Group();
+  {
+    const { field } = structures;
+    fieldGroup.position.set(field.x, field.level, field.z);
+    // Its -z out along the field's line to centre field (see `fieldPoint`).
+    fieldGroup.rotation.y = (-field.side * Math.PI) / 4;
+    fieldGroup.scale.setScalar(field.scale);
+  }
   /** The world drawn once, for the game's frames in software (see ./backdrop). */
   const backdrop = createBackdrop(renderer);
   courtGroup.position.set(
@@ -404,6 +432,7 @@ export async function createWorld(
     ...createMist(shared),
     plate.group,
     courtGroup,
+    fieldGroup,
   );
 
   let motes: ReturnType<typeof createMotes> | null = null;
@@ -519,13 +548,13 @@ export async function createWorld(
     pose();
     plate.sweep(shared.uTime.value);
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
-    // In software, with the Rally game on the court and the camera landed,
-    // only the game (and the veils' light over it) draws each frame.
-    if (software && guest && options.director.flying() === null) {
+    // In software, with a game on its stage and the camera landed, only the
+    // game (and the veils' light over it) draws each frame.
+    if (software && guestGroup && options.director.flying() === null) {
       backdrop.draw(
         scene,
         camera,
-        [courtGroup, structures.veils],
+        [guestGroup, structures.veils],
         [shared.uTime.value, look.floodlights, look.fog, skyline.fog].join(),
       );
     } else {
@@ -605,23 +634,15 @@ export async function createWorld(
     const home = view.kind === "hero";
     const skyline = skylineView(camera.aspect);
     const play = playView(camera.aspect, structures.court);
+    const derby = derbyView(camera.aspect, structures.field);
+    const court = { pose: courtPose(camera.aspect), fovY: CAMERA.fovY };
+    const still =
+      view.kind === "hero" ? null : { court, play, derby, skyline }[view.kind];
     // The view's own field of view; the plate is measured in the world's.
-    setFov(
-      view.kind === "skyline"
-        ? skyline.fovY
-        : view.kind === "play"
-          ? play.fovY
-          : CAMERA.fovY,
-    );
-    posed = home
-      ? placePlate(plate, words, width, height)
-      : placeStill(
-          view.kind === "court"
-            ? courtPose(camera.aspect)
-            : view.kind === "play"
-              ? play.pose
-              : skyline.pose,
-        );
+    setFov(still?.fovY ?? CAMERA.fovY);
+    posed = still
+      ? placeStill(still.pose)
+      : placePlate(plate, words, width, height);
     if (!posed) return;
     // The director takes the paths this layout measured, and the Transit
     // maths. Home's paths come only from home's own layout; away from it, the
@@ -630,9 +651,15 @@ export async function createWorld(
       opening: home ? path : null,
       route: home ? route : nominalRoute(camera.aspect),
       skyline: skyline.pose,
-      fovY: { world: CAMERA.fovY, skyline: skyline.fovY, play: play.fovY },
-      court: courtPose(camera.aspect),
+      fovY: {
+        world: CAMERA.fovY,
+        skyline: skyline.fovY,
+        play: play.fovY,
+        derby: derby.fovY,
+      },
+      court: court.pose,
       play: play.pose,
+      derby: derby.pose,
       courtStop: COURT_STOP,
       transit,
       within: transitWithin,
@@ -910,32 +937,37 @@ export async function createWorld(
     };
   }
 
-  const court: CourtStage = {
-    shared,
-    court: structures.court,
-    camera,
-    async host(next) {
-      await renderer.compileAsync(next.group, camera, scene);
-      guest = next;
-      next.setViewportHeight(canvasSize.height);
-      courtGroup.add(next.group);
-      showLook();
-      court.draw();
-    },
-    release(leaving) {
-      if (guest !== leaving) return;
-      courtGroup.remove(leaving.group);
-      guest = null;
-      showLook();
-      court.draw();
-    },
-    draw() {
-      if (!running || holds()) render();
-    },
-  };
+  /** A stage whose guests stand in `group`. */
+  function stageOn(group: Group): Stage {
+    const stage: Stage = {
+      shared,
+      camera,
+      async host(next) {
+        await renderer.compileAsync(next.group, camera, scene);
+        guest = next;
+        guestGroup = group;
+        next.setViewportHeight(canvasSize.height);
+        group.add(next.group);
+        showLook();
+        stage.draw();
+      },
+      release(leaving) {
+        if (guest !== leaving) return;
+        group.remove(leaving.group);
+        guest = guestGroup = null;
+        showLook();
+        stage.draw();
+      },
+      draw() {
+        if (!running || holds()) render();
+      },
+    };
+    return stage;
+  }
 
   return {
-    court,
+    court: { ...stageOn(courtGroup), court: structures.court },
+    diamond: { ...stageOn(fieldGroup), field: structures.field },
     layout,
     placeCredit,
     placeSite,

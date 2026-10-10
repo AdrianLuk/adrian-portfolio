@@ -5,6 +5,7 @@ import {
   placeOf,
   placeOfView,
   transitBetween,
+  transitTo,
   viewOf,
 } from "./world-places";
 
@@ -111,5 +112,31 @@ describe("/play's place, the court seen from behind the player's baseline", () =
   it("never flies within /play", () => {
     expect(transitBetween("play", "/play?weather=rain")).toBeNull();
     expect(transitBetween("play", "/play#rally")).toBeNull();
+  });
+});
+
+describe("the Home Run Derby's place, the Diamond", () => {
+  it("is the Derby page's, under the Rally game's path, however its URL is written", () => {
+    for (const url of [
+      "/play/derby",
+      "/play/derby/",
+      "/play/derby?x=1",
+      "https://adrianluk.com/play/derby",
+    ]) {
+      expect(viewOf(url)).toBe("derby");
+      expect(placeOf(url)).toBe("diamond");
+    }
+    expect(placeOfView("derby")).toBe("diamond");
+  });
+
+  it("crossfades, flying nowhere, until its Transit lands (#102)", () => {
+    for (const from of ["hero", "court", "play", "skyline"] as const) {
+      expect(transitBetween(from, "/play/derby")).toBeNull();
+    }
+    for (const to of ["/", "/work/juice-bros", "/play", "/resume"]) {
+      expect(transitBetween("derby", to)).toBeNull();
+    }
+    expect(transitTo("/play/derby")).toBeNull();
+    expect(transitTo("/play")).toBe("play");
   });
 });

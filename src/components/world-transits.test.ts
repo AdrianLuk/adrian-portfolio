@@ -7,7 +7,13 @@ import { createFlightPath, type Pose } from "./world/flight";
 import { CAMERA } from "./world/pose";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
 import { layoutLandmarks } from "./world/landmarks";
-import { courtPose, createRoute, playView, skylinePose } from "./world/route";
+import {
+  courtPose,
+  createRoute,
+  derbyView,
+  playView,
+  skylinePose,
+} from "./world/route";
 import { COURT_STOP, transit, transitWithin } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
@@ -34,9 +40,15 @@ function standInHost() {
     opening: createFlightPath(settled, plateCentre),
     route: createRoute(settled, plateCentre, aspect),
     skyline: skylinePose(aspect),
-    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY, play: CAMERA.fovY },
+    fovY: {
+      world: CAMERA.fovY,
+      skyline: CAMERA.fovY,
+      play: CAMERA.fovY,
+      derby: CAMERA.fovY,
+    },
     court: courtPose(aspect),
     play: playView(aspect, layoutLandmarks().court).pose,
+    derby: derbyView(aspect, layoutLandmarks().field).pose,
     courtStop: COURT_STOP,
     transit,
     within: transitWithin,

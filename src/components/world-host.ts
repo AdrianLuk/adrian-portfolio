@@ -36,7 +36,7 @@ export type WorldClaim =
       weather: Weather;
       measure: (canvas: HTMLCanvasElement) => Measurement;
     }
-  | { kind: "court" | "play" | "skyline"; weather: Weather };
+  | { kind: "court" | "play" | "derby" | "skyline"; weather: Weather };
 
 function viewFor(
   claim: WorldClaim | null,

@@ -12,7 +12,13 @@ import { nominalRoute } from "./world/nominal-route";
 import { CAMERA } from "./world/pose";
 import { FLIGHT_START_RIG, TRANSIT_MAX_SECONDS } from "./world/rigs";
 import { layoutLandmarks } from "./world/landmarks";
-import { courtPose, createRoute, playView, skylinePose } from "./world/route";
+import {
+  courtPose,
+  createRoute,
+  derbyView,
+  playView,
+  skylinePose,
+} from "./world/route";
 import { COURT_STOP, transit, transitWithin } from "./world/transit";
 
 /** A desktop layout's settled pose and plate (as in transit.test.ts). */
@@ -28,6 +34,8 @@ const plateCentre = new Vector3(-18, 0, -CAMERA.plateDepth)
 const aspect = 1.6;
 /** /play's view of the court, and its field of view. */
 const play = playView(aspect, layoutLandmarks().court);
+/** The Derby's view of the Diamond, and its field of view. */
+const derby = derbyView(aspect, layoutLandmarks().field);
 
 const FRAME = 16;
 
@@ -48,9 +56,15 @@ function setup() {
     opening,
     route,
     skyline: skylinePose(aspect),
-    fovY: { world: CAMERA.fovY, skyline: CAMERA.fovY, play: play.fovY },
+    fovY: {
+      world: CAMERA.fovY,
+      skyline: CAMERA.fovY,
+      play: play.fovY,
+      derby: derby.fovY,
+    },
     court: courtPose(aspect),
     play: play.pose,
+    derby: derby.pose,
     courtStop: COURT_STOP,
     transit,
     within: transitWithin,
@@ -230,6 +244,22 @@ describe("the Camera director", () => {
       skyline: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
+  });
+
+  it("holds the Derby's pose at the Diamond, no Place's look in, in the Derby's field of view", () => {
+    const { director } = setup();
+    director.show("derby");
+    const { pose, lights, lean, fovY } = director.frame(0);
+    expectSamePose(pose!, derby.pose);
+    expect(lights).toEqual({
+      beams: 0,
+      sweep: 0,
+      sites: [0, 0, 0, 0],
+      court: 0,
+      skyline: 0,
+    });
+    expect(lean).toEqual({ x: 0, y: 0 });
+    expect(fovY).toBe(derby.fovY);
   });
 
   it("holds /play's pose at /play, the court's look full, in the game's field of view", () => {
@@ -531,7 +561,12 @@ describe("the Camera director", () => {
       const setup_ = setup();
       setup_.director.layout({
         ...setup_.paths,
-        fovY: { world: CAMERA.fovY, skyline: 55, play: play.fovY },
+        fovY: {
+          world: CAMERA.fovY,
+          skyline: 55,
+          play: play.fovY,
+          derby: derby.fovY,
+        },
       });
       return setup_;
     }

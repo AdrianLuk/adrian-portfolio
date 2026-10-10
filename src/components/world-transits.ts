@@ -2,7 +2,7 @@
 // front: the Transit's maths ship with the world, which the director asks.
 import { REDUCED_MOTION } from "./reduced-motion";
 import { worldHost, type WorldHost } from "./world-host";
-import { transitBetween, viewOf, type PlaceView } from "./world-places";
+import { transitBetween, transitTo, type PlaceView } from "./world-places";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
 
 /** What the Transits need of the world host. */
@@ -117,7 +117,7 @@ export function createWorldTransits(host: TransitHost) {
      */
     navigate(url: string) {
       const flying = director.flying();
-      const to = flying ? viewOf(url) : transitBetween(committed(), url);
+      const to = flying ? transitTo(url) : transitBetween(committed(), url);
       // On to where the camera is already flying (an anchor there, say).
       if (flying && to === flying) return true;
       if (
