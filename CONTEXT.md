@@ -77,7 +77,7 @@ The Easter egg borrowed from League of Legends: holding `B`, or holding Adrian's
 _Avoid_: Teleport, B-hold
 
 **Encore**:
-The stretch of home past the closing bookend: the camera turns to frame the stadium bowl, which fills with lightsticks, and a wall of light tickets lists the K-pop concerts Adrian has been to. The bookend stays the Contact section's last word.
+The stretch of home past the closing bookend: the camera turns from the route's end into the Arena, which fills with lightsticks, and a wall of light tickets lists the K-pop concerts Adrian has been to. The bookend stays the Contact section's last word.
 _Avoid_: Outro, ending, concert
 
 **Home Run Derby**:
@@ -93,8 +93,12 @@ The baseball diamond built from light in the valley between the court and the st
 _Avoid_: Ballpark, field
 
 **Hobby route**:
-The About page's scroll route: the camera moves from the court (pickleball) to the Diamond (baseball) to the stadium bowl (K-pop) as each section's panel enters. It runs on the same route engine as home's.
+The About page's scroll route: the camera moves from the court (pickleball) to the Diamond (baseball) to the Arena (K-pop) as each section's panel enters. It runs on the same route engine as home's.
 _Avoid_: About route, second route
+
+**Arena**:
+The concert arena built from light in the valley past the Diamond: an oval whose roof is only ribs of light, with a stage, its truss and screens at one end. Its floor holds the lightstick crowd. The Encore's frame and the Hobby route's last stop, seen from inside, behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
+_Avoid_: Stadium, stadium bowl (BT Cup's Landmark), venue, concert hall
 
 **About page**:
 The page (`/about`) about Adrian outside work, along the Hobby route: roots first ("Born and raised in Canada. My parents are from Hong Kong."), then pickleball, baseball, K-pop and the gaming line. Its Place is the Hobby route, starting at the court; Hong Kong is not on it.
