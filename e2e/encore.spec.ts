@@ -28,6 +28,20 @@ const lastLight = (page: Page) =>
       return { name: style.animationName, delay: style.animationDelay };
     });
 
+/**
+ * Presses "One more song" by `press` and waits for the wall to light again:
+ * its tickets afresh (the list is drawn anew, so their light runs again from
+ * the first), the last waiting its turn. Read off the page as it stands, not
+ * the animations' two seconds, which a starved runner's round trips outlast.
+ */
+async function replays(page: Page, press: () => Promise<void>) {
+  await wall(page).getByRole("listitem").first().evaluate((li) => li.setAttribute("data-sung", ""));
+  await press();
+  await expect(wall(page).locator("li[data-sung]")).toHaveCount(0);
+  await expect(wall(page).getByRole("listitem")).toHaveCount(encore.tickets.length);
+  expect((await lastLight(page)).name).toBe("ticket-on");
+}
+
 /** How many of the wall's tickets are lighting up on the clock now. */
 const lighting = (page: Page) =>
   page.evaluate(
@@ -82,11 +96,10 @@ test.describe("with motion allowed, the world live", () => {
   });
 
   test('"One more song" replays it by keyboard', async () => {
-    await expect.poll(() => lighting(page), { timeout: 10_000 }).toBe(0);
-    await replay(page).focus();
-    await page.keyboard.press("Enter");
-    await expect.poll(() => lighting(page)).toBeGreaterThan(0);
-    await expect(wall(page).getByRole("listitem")).toHaveCount(encore.tickets.length);
+    await replays(page, async () => {
+      await replay(page).focus();
+      await page.keyboard.press("Enter");
+    });
   });
 });
 
@@ -107,9 +120,7 @@ test('"One more song" replays it by touch, without WebGL, the wall over the Aren
   await expect(still(page)).toBeVisible();
   await expect.poll(() => still(page).evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
   await expect(wall(page)).toBeVisible();
-  await expect.poll(() => lighting(page), { timeout: 10_000 }).toBe(0);
-  await replay(page).tap();
-  await expect.poll(() => lighting(page)).toBeGreaterThan(0);
+  await replays(page, () => replay(page).tap());
   await context.close();
 });
 
