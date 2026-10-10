@@ -1,34 +1,45 @@
-const KEY = "not-found-shown";
+const KEY = "not-found-variants";
 
-/** Where the count is kept: a browser's localStorage, which may throw or be empty. */
+/** Where progress is kept: a browser's localStorage, which may throw or be empty. */
 type ShownStore = Pick<Storage, "getItem" | "setItem">;
+
+type State = { shown: number; seen: number[] };
 
 /**
  * The 404's variant order: each showing (an arrival, or the button) takes the
- * next of `size` variants, in order, round again. The count of showings is
- * kept in `storage`, and in memory for the visit when storage fails. Any
- * `size` showings in a row have shown every variant: `seenAll`.
+ * next of `size` variants, in order, round again. What this browser has been
+ * shown (the count, for the order, and the distinct variants, for `seenAll`)
+ * is read from `storage` at every showing, so two tabs share one order, and
+ * kept in memory for the visit once storage fails (a private window, say).
  */
 export function createRotation(storage: ShownStore, size: number) {
-  let shown = read(storage);
+  let memory: State = { shown: 0, seen: [] };
+  let broken = false;
+
+  const read = (): State => {
+    if (broken) return memory;
+    try {
+      const state: unknown = JSON.parse(storage.getItem(KEY) ?? "null");
+      const { shown, seen } = (state ?? {}) as Partial<State>;
+      return Number.isSafeInteger(shown) && Array.isArray(seen)
+        ? { shown: shown!, seen: seen.filter((i) => Number.isInteger(i) && i >= 0 && i < size) }
+        : { shown: 0, seen: [] };
+    } catch {
+      return memory;
+    }
+  };
+
   return {
     next() {
-      shown += 1;
+      const { shown, seen } = read();
+      const index = shown % size;
+      memory = { shown: shown + 1, seen: [...new Set([...seen, index])] };
       try {
-        storage.setItem(KEY, String(shown));
+        storage.setItem(KEY, JSON.stringify(memory));
       } catch {
-        // Kept in memory for this visit.
+        broken = true;
       }
-      return { index: (shown - 1) % size, seenAll: shown >= size };
+      return { index, seenAll: memory.seen.length === size };
     },
   };
-}
-
-function read(storage: ShownStore) {
-  try {
-    const shown = Number(storage.getItem(KEY));
-    return Number.isSafeInteger(shown) && shown > 0 ? shown : 0;
-  } catch {
-    return 0;
-  }
 }

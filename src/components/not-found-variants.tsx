@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { notFound } from "@/content/site";
 import { earnAchievement } from "./achievements";
 import { createRotation } from "./not-found-rotation";
+import { isMouseOrPen, pointerOffset } from "./pointer-motion";
 import { prefersReducedMotion } from "./reduced-motion";
 
 type Copy = typeof notFound;
@@ -18,6 +19,14 @@ const getRotation = (size: number) =>
     },
     size,
   ));
+
+/** Takes the next variant in this browser's order, and earns Full rotation on the last of the five. */
+function showNext(size: number) {
+  const { index, seenAll } = getRotation(size).next();
+  // After this commit's effects, so the footer's Achievements are listening.
+  if (seenAll) queueMicrotask(() => earnAchievement("full-rotation"));
+  return index;
+}
 
 /**
  * The 404: one of its themed variants (the next in this browser's order on
@@ -42,26 +51,20 @@ export function NotFoundVariants({
   const root = useRef<HTMLElement>(null);
   const arrived = useRef(false);
 
-  function show() {
-    const { index, seenAll } = getRotation(copy.variants.length).next();
-    setCurrent(index);
-    // After this commit's effects, so the footer's Achievements are listening.
-    if (seenAll) queueMicrotask(() => earnAchievement("full-rotation"));
-    return index;
-  }
+  const size = copy.variants.length;
 
   useEffect(() => {
     if (arrived.current) return;
     arrived.current = true;
-    show();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- arrival only
-  }, []);
+    setCurrent(showNext(size));
+  }, [size]);
 
   useEffect(() => {
     const lean = (event: PointerEvent) => {
-      if (event.pointerType === "touch" || prefersReducedMotion()) return;
-      root.current?.style.setProperty("--px", String((event.clientX / innerWidth) * 2 - 1));
-      root.current?.style.setProperty("--py", String((event.clientY / innerHeight) * 2 - 1));
+      if (!isMouseOrPen(event) || prefersReducedMotion()) return;
+      const { x, y } = pointerOffset(event);
+      root.current?.style.setProperty("--px", String(x));
+      root.current?.style.setProperty("--py", String(y));
     };
     window.addEventListener("pointermove", lean);
     return () => window.removeEventListener("pointermove", lean);
@@ -73,11 +76,16 @@ export function NotFoundVariants({
       className="relative isolate mx-auto flex min-h-[60svh] max-w-3xl flex-col justify-center gap-4 px-4 py-24 sm:px-6"
     >
       {backdrop}
+      {/* Without scripts, nothing picks a variant: show the first, and drop the button. */}
+      <noscript>
+        <style>{"[data-variant='0']{visibility:visible!important}[data-excuse]{display:none}"}</style>
+      </noscript>
       <div className="grid">
         {copy.variants.map((variant, i) => (
           <div
             key={variant.theme}
             data-theme={variant.theme}
+            data-variant={i}
             className={`col-start-1 row-start-1 flex flex-col gap-4 ${i === current ? "" : "invisible"}`}
           >
             <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
@@ -88,12 +96,14 @@ export function NotFoundVariants({
         ))}
       </div>
       {children}
-      <p>
+      <p data-excuse>
         <button
           type="button"
           className="rounded-full border border-cyan/60 px-5 py-2 font-display text-sm font-bold tracking-widest uppercase [font-stretch:90%] hover:border-cyan"
           onClick={() => {
-            const next = copy.variants[show()];
+            const index = showNext(size);
+            const next = copy.variants[index];
+            setCurrent(index);
             setAnnouncement(`${next.heading}. ${next.line}`);
           }}
         >

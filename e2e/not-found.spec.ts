@@ -103,11 +103,42 @@ test("seeing all five earns Full rotation, with First Blood, once", async ({ pag
 });
 
 test("arriving as the fifth showing earns Full rotation too", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("not-found-shown", "4"));
+  await page.addInitScript(() => localStorage.setItem("not-found-variants", JSON.stringify({ shown: 4, seen: [0, 1, 2, 3] })));
   await page.goto(missing);
   await expect(heading(page, 4)).toBeVisible();
   await expect(page.getByRole("status")).toContainText(achievements.names["full-rotation"]);
   await expect(counter(page, 2)).toBeVisible();
+});
+
+test.describe("under reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("the button cycles, announces and keeps the home link in place", async ({ page }) => {
+    await page.goto(missing);
+    await expect(heading(page, 0)).toBeVisible();
+    const where = await home(page).boundingBox();
+    for (const i of [1, 2, 3, 4]) {
+      await another(page).click();
+      await expect(heading(page, i)).toBeVisible();
+      await expect(announced(page)).toHaveText(`${variants[i].heading}. ${variants[i].line}`);
+      await expect(another(page)).toBeFocused();
+      expect(await home(page).boundingBox()).toEqual(where);
+    }
+  });
+});
+
+test.describe("without scripts", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("the first variant and the home link are there, and the dead button is not", async ({
+    page,
+  }) => {
+    await page.goto(missing);
+    await expect(heading(page, 0)).toBeVisible();
+    await expect(page.getByText(variants[0].line, { exact: true })).toBeVisible();
+    await expect(home(page)).toBeVisible();
+    await expect(another(page)).toBeHidden();
+  });
 });
 
 test.describe("on touch", () => {
