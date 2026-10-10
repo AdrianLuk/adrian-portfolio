@@ -101,9 +101,15 @@ export const WINDOW = { homeRun: 0.05, flyOut: 0.1, foul: 0.16 } as const;
 /** Slow mode's speed, as a share of full speed. */
 export const SLOW_SPEED = 0.5;
 
-/** The windup before each pitch, and the beat after it. */
+/** The windup before each pitch. */
 export const WINDUP = 1.1;
+/** The beat after a pitch; after a home run, longer: its flight lands, and its distance stands there to read. */
 const RESULT = 2.2;
+const HOME_RUN_RESULT = 3.4;
+
+/** How long the beat after `game`'s last pitch lasts, in seconds of game time. */
+export const resultBeat = (game: Game) =>
+  game.hit?.outcome === "home-run" ? HOME_RUN_RESULT : RESULT;
 
 /** A small seeded generator (mulberry32): returns the next value and seed. */
 function random(seed: number): [number, number] {
@@ -286,7 +292,7 @@ export function step(game: Game, dt: number, input: Input = {}): Game {
         at: game.clock,
       });
     }
-  } else if (game.phase === "result" && game.clock >= RESULT) {
+  } else if (game.phase === "result" && game.clock >= resultBeat(game)) {
     if (game.pitches >= PITCHES) {
       game = {
         ...game,
@@ -315,7 +321,7 @@ export const REPLAY_WINDUP = 0.6;
  * How long the Play of the Game runs, in seconds of game time: the windup's
  * end, the pitch, and the beat to watch it go.
  */
-export const replayLength = (play: Play) => REPLAY_WINDUP + play.hit.at + RESULT;
+export const replayLength = (play: Play) => REPLAY_WINDUP + play.hit.at + HOME_RUN_RESULT;
 
 /**
  * The Play of the Game `t` seconds of game time in, as the game stood then

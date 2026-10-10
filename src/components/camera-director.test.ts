@@ -281,18 +281,28 @@ describe("the Camera director", () => {
     expect(fovY).toBe(derby.fovY);
   });
 
-  it("films the Play of the Game from the Derby's own shot, at the Diamond only, back to the Derby's pose after", () => {
+  it("cuts to the Derby's shot of a home run, holds it at once in its own field of view, and cuts back on null", () => {
     const { director } = setup();
-    const shot = { position: new Vector3(1, 2, 3), quaternion: new Quaternion() };
     director.show("derby");
-    director.film(shot);
-    expectSamePose(director.frame(0).pose!, shot);
-    expect(director.frame(0).fovY).toBe(derby.fovY);
+    const shot = { pose: play.pose, fovY: 47 };
+    director.cut(shot);
+    const held = director.frame(0);
+    expectSamePose(held.pose!, shot.pose);
+    expect(held.fovY).toBe(47);
+    expect(held.lean).toEqual({ x: 0, y: 0 });
+    director.cut(null);
+    const back = director.frame(0);
+    expectSamePose(back.pose!, derby.pose);
+    expect(back.fovY).toBe(derby.fovY);
+  });
+
+  it("holds a cut only at the Diamond: elsewhere the place's own view stands", () => {
+    const { director } = setup();
     director.show("play");
-    expectSamePose(director.frame(0).pose!, play.pose);
-    director.show("derby");
-    director.film(null);
-    expectSamePose(director.frame(0).pose!, derby.pose);
+    director.cut({ pose: derby.pose, fovY: 47 });
+    const { pose, fovY } = director.frame(0);
+    expectSamePose(pose!, play.pose);
+    expect(fovY).toBe(play.fovY);
   });
 
   it("holds /rally's pose at /rally, the court's look full, in the game's field of view", () => {

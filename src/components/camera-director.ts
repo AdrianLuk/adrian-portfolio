@@ -206,6 +206,8 @@ export function createCameraDirector({
   let routeStop = 0;
   const lit = LIT_SITES.map(() => 0);
   let trip: Trip | null = null;
+  /** The Derby's cut away from its view (a home run's wide shot), while it holds. */
+  let shot: { pose: Pose; fovY: number } | null = null;
   /** The last pose drawn, for a Transit leaving before the paths are in. */
   let last: Pose | null = null;
   /** Where the pointer is on screen; null while it is off it, or not a mouse's. */
@@ -217,8 +219,6 @@ export function createCameraDirector({
   let encore = { reached: false, from: 0, at: 0 };
   /** When the lightsticks start filling the Arena's floor; null until it's reached. */
   let fillFrom: number | null = null;
-  /** The Play of the Game's camera, while the Derby replays it; null otherwise. */
-  let shot: Pose | null = null;
   /** The way into the Arena from the route's stop it last left from. */
   let wayIn: { from: number; paths: CameraPaths; path: { poseAt(t: number): Pose } } | null = null;
 
@@ -259,7 +259,7 @@ export function createCameraDirector({
     if (shown === "skyline") return paths?.skyline ?? null;
     if (shown === "court") return paths?.court ?? null;
     if (shown === "play") return paths?.play ?? null;
-    if (shown === "derby") return shot ?? paths?.derby ?? null;
+    if (shown === "derby") return paths?.derby ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     if (!landed) return home.opening.poseAt(opening);
@@ -552,16 +552,6 @@ export function createCameraDirector({
       };
     },
 
-    // From the Derby.
-
-    /**
-     * The Play of the Game's camera, frame by frame (null: back to the
-     * Derby's view). Only at the Diamond; it cuts as a broadcast replay does.
-     */
-    film(pose: Pose | null) {
-      shot = pose;
-    },
-
     // From navigation.
 
     /**
@@ -603,6 +593,15 @@ export function createCameraDirector({
     awaitingPage: () => trip !== null && shown !== trip.to,
     /** Moves a Transit on to `now`: plans it, chases home's scroll, lands it. */
     advance,
+    /**
+     * Cuts the Derby's camera to `next` (a home run's wide shot, see
+     * `homeRunView`) and holds it there, in its own field of view, until
+     * cut back with null: the one jump the camera makes, and only at the
+     * Diamond, once landed there.
+     */
+    cut(next: { pose: Pose; fovY: number } | null) {
+      shot = next;
+    },
 
     // To the world.
 
@@ -613,22 +612,24 @@ export function createCameraDirector({
      * restored its scroll) never plans one.
      */
     frame(now: number): CameraFrame {
-      const pose = trip ? poseIn(trip, now) : viewPose(now);
+      const cut = !trip && shown === "derby" ? shot : null;
+      const pose = trip ? poseIn(trip, now) : (cut?.pose ?? viewPose(now));
       if (pose) last = pose;
       const fov = paths?.fovY;
       const blend = looks(now);
       const inside = smoothstep(0, 1, encoreAt(now));
+      const fovY = fov
+        ? fov.world +
+          (fov.skyline - fov.world) * blend.skyline +
+          (fov.play - fov.world) * blend.play +
+          (fov.derby - fov.world) * blend.derby +
+          (fov.encore - fov.world) * inside
+        : null;
       return {
         pose,
         lights: lights(now),
         lean: lean(),
-        fovY: fov
-          ? fov.world +
-            (fov.skyline - fov.world) * blend.skyline +
-            (fov.play - fov.world) * blend.play +
-            (fov.derby - fov.world) * blend.derby +
-            (fov.encore - fov.world) * inside
-          : null,
+        fovY: cut?.fovY ?? fovY,
       };
     },
   };

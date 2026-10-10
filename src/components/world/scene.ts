@@ -4,12 +4,10 @@ import {
   Group,
   Line,
   Material,
-  Matrix4,
   Mesh,
   Object3D,
   PerspectiveCamera,
   Points,
-  Quaternion,
   Raycaster,
   Scene,
   SRGBColorSpace,
@@ -47,7 +45,6 @@ import {
   courtPose,
   createRoute,
   derbyView,
-  fieldPoint,
   playView,
   SITES,
   skylineView,
@@ -186,16 +183,12 @@ export type DiamondStage = Stage & {
   /** Where home plate stands, which way the field runs, and its scale. */
   field: DiamondField;
   /**
-   * Films the Diamond from `shot`, in the field's feet (the Play of the
-   * Game's camera); null hands the camera back to the Derby's view. Drawn
-   * with the guest's next `draw`.
+   * Cuts the camera to `shot` (a home run's wide shot, see `homeRunView`)
+   * and holds it there, through the Camera director; null cuts back to the
+   * Derby's own view. A cut, not a move: nothing eases between them.
    */
-  film(shot: FieldShot | null): void;
+  cut(shot: { pose: Pose; fovY: number } | null): void;
 };
-
-type FieldPoint = { x: number; y: number; z: number };
-/** A camera on the Diamond, in the field's feet: where it stands, and the point it looks at. */
-export type FieldShot = { position: FieldPoint; target: FieldPoint };
 
 /** A view of the world on a canvas. */
 export type View = {
@@ -1062,16 +1055,9 @@ export async function createWorld(
     diamond: {
       ...stageOn(fieldGroup),
       field: structures.field,
-      film(shot) {
-        if (!shot) return options.director.film(null);
-        const { field } = structures;
-        const at = ({ x, y, z }: FieldPoint) => fieldPoint(field, x, y, z);
-        const position = at(shot.position);
-        const look = new Matrix4().lookAt(position, at(shot.target), UP);
-        options.director.film({
-          position,
-          quaternion: new Quaternion().setFromRotationMatrix(look),
-        });
+      cut(shot) {
+        options.director.cut(shot);
+        if (!running || holds()) render();
       },
     },
     layout,

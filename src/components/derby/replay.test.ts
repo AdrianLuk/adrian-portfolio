@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cutAt, REPLAY_SPEED, shotAt, stillAt } from "./replay";
+import { contactAt, REPLAY_SPEED, shotAt, stillAt } from "./replay";
 import { createGame, PITCH_TIME, playOfTheGame, replayLength, startGame, step, type Play } from "./rules";
 import type { Point } from "./swing";
 
@@ -24,40 +24,31 @@ describe("the Play of the Game's camera", () => {
     expect(new Set(plays.map((p) => p.pitch)).size).toBe(3);
   });
 
-  it("pans at a medium speed, under 150° a second as it's watched, and never jumps but at its one cut", () => {
+  it("eases in front of the plate, on the bat's meeting point, without a jump", () => {
     const dt = 1 / 240;
     for (const play of plays) {
-      let last = shotAt(play, 0);
-      for (let t = dt; t <= replayLength(play); t += dt) {
-        const shot = shotAt(play, t);
-        if (t >= cutAt(play) && t - dt < cutAt(play)) {
-          last = shot;
-          continue;
-        }
-        const a = sub(last.target, last.position);
-        const b = sub(shot.target, shot.position);
-        const cos = (a.x * b.x + a.y * b.y + a.z * b.z) / (length(a) * length(b));
-        const degrees = (Math.acos(Math.min(1, cos)) * 180) / Math.PI;
-        expect(degrees / (dt / REPLAY_SPEED)).toBeLessThan(150);
-        expect(length(sub(shot.position, last.position)) / (dt / REPLAY_SPEED)).toBeLessThan(40);
+      let last = shotAt(play, 0)!;
+      for (let t = dt; t < contactAt(play); t += dt) {
+        const shot = shotAt(play, t)!;
+        expect(shot.position.z).toBeLessThan(-10);
+        expect(shot.target).toEqual(last.target);
+        expect(length(sub(shot.position, last.position)) / (dt / REPLAY_SPEED)).toBeLessThan(10);
         last = shot;
       }
     }
   });
 
-  it("cuts from in front of the plate, once the bat is through the ball, to behind it, ending with its eye on the ball out over the fence", () => {
+  it("hands over to the home run's wide shot as the bat meets the ball, to the end", () => {
     for (const play of plays) {
-      expect(shotAt(play, cutAt(play) - 0.01).position.z).toBeLessThan(-10);
-      const { position, target } = shotAt(play, replayLength(play));
-      expect(position.z).toBeGreaterThan(10);
-      expect(target.z).toBeLessThan(-350);
+      expect(shotAt(play, contactAt(play))).toBeNull();
+      expect(shotAt(play, replayLength(play))).toBeNull();
     }
   });
 
   it("takes its still in front of the plate, the bat on the ball", () => {
     for (const play of plays) {
-      expect(stillAt(play)).toBeLessThan(cutAt(play));
-      expect(shotAt(play, stillAt(play)).position.z).toBeLessThan(-10);
+      expect(contactAt(play) - stillAt(play)).toBeLessThan(0.01);
+      expect(shotAt(play, stillAt(play))).not.toBeNull();
     }
   });
 });

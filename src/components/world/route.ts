@@ -391,6 +391,12 @@ const DERBY_VIEW = {
   portrait: { height: 11, back: 20, aim: -60 },
 };
 
+/** The batter in the box, left of home plate: their feet and their head, in the field's feet. */
+export const BATTER = [
+  [-6, 0, 4],
+  [-6, 7, 0],
+] as const;
+
 /**
  * What the Derby's frame holds, in the field's feet: home plate with the
  * batter in the box left of it, Curvebot standing on the mound (drawn far
@@ -400,8 +406,7 @@ const DERBY_VIEW = {
  */
 export const DERBY_FRAME = {
   points: [
-    [-6, 0, 4],
-    [-6, 7, 0],
+    ...BATTER,
     [6, 0, 4],
     [0, 19, -60.5],
     [0, 20, -225],
@@ -430,6 +435,70 @@ export function derbyView(
     DERBY_FRAME,
     aspect,
   );
+}
+
+/**
+ * Where the Derby's camera cuts to for a home run, in the field's feet, as
+ * a broadcast's tracer shot does: raised behind home plate, a little off
+ * the ball's line toward first base (radians), aimed out along it. Well
+ * under the flight's peak, so the ball climbs over the camera's eye line
+ * and drops back into the seats: its tracer reads as an arc, not a stick.
+ */
+const HOME_RUN_VIEW = { height: 25, back: 60, aim: 200, side: 0.2 };
+
+/** How the home run's shot is fitted to its flight (see PLAY_FRAME). */
+export const HOME_RUN_FRAME = {
+  edge: 0.8,
+  fovY: 30,
+  fovMax: 60,
+  backOff: 0.05,
+} as const;
+
+/**
+ * The Home Run Derby's wide shot of a home run, for a screen of this shape:
+ * a still camera raised behind home plate, looking out the way the ball goes,
+ * fitted to hold the batter and all of the ball's `flight` (in the field's feet, from the bat to where
+ * it lands) from off the bat, over its peak, to down in the seats.
+ */
+export function homeRunView(
+  aspect: number,
+  field: DiamondField,
+  flight: readonly { x: number; y: number; z: number }[],
+): { pose: Pose; fovY: number } {
+  const landing = flight[flight.length - 1];
+  const reach = Math.hypot(landing.x, landing.z);
+  const [x, z] = [landing.x / reach, landing.z / reach];
+  const { height, back, aim, side } = HOME_RUN_VIEW;
+  // Back from home plate, turned off the ball's line toward first base (+x).
+  const [bx, bz] = [
+    -x * Math.cos(side) - z * Math.sin(side),
+    -z * Math.cos(side) + x * Math.sin(side),
+  ];
+  const from = fieldPoint(field, bx * back, height, bz * back);
+  const frame = [
+    ...flight.map((p) => fieldPoint(field, p.x, p.y, p.z)),
+    ...BATTER.map(([px, py, pz]) => fieldPoint(field, px, py, pz)),
+  ];
+  let centre = fieldPoint(field, x * aim, 0, z * aim);
+  const depth = from.distanceTo(centre);
+  let view = fitted(centre, from, frame, HOME_RUN_FRAME, aspect);
+  // Aimed again at the middle of what it holds, and fitted afresh, a few
+  // times over: the batter and the flight fill the frame evenly, as
+  // narrow as they can.
+  for (let pass = 0; pass < 3; pass++) {
+    const seen = frame.map((p) => ndc(view.pose, p, view.fovY, aspect));
+    const middle = (axis: "x" | "y") =>
+      (Math.min(...seen.map((s) => s[axis])) +
+        Math.max(...seen.map((s) => s[axis]))) /
+      2;
+    const tanY = Math.tan(((view.fovY / 2) * Math.PI) / 180);
+    centre = new Vector3(middle("x") * tanY * aspect, middle("y") * tanY, -1)
+      .multiplyScalar(depth)
+      .applyQuaternion(view.pose.quaternion)
+      .add(view.pose.position);
+    view = fitted(centre, from, frame, HOME_RUN_FRAME, aspect);
+  }
+  return view;
 }
 
 /** The tip of the CN Tower's antenna, which the Skyline's camera looks up to. */

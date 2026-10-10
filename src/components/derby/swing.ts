@@ -71,6 +71,7 @@ function along({ turn, lift }: Bat): Point {
 }
 
 const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
+/** The point a share `f` of the way from `a` to `b`. */
 export const between = (a: Point, b: Point, f: number): Point => ({
   x: lerp(a.x, b.x, f),
   y: lerp(a.y, b.y, f),
@@ -281,6 +282,30 @@ export function ballAt(game: Game, release: Point): Point | null {
   // On from where it was as the swing began, to where the bat meets it.
   const from = pitchAt(game, release, hit.at);
   return between(from, contact.point, (t - hit.at) / (contact.at - hit.at));
+}
+
+/** How many steps a home run's flight is drawn in, equal in time. */
+const FLIGHT_STEPS = 60;
+
+/**
+ * A home run's flight, for its tracer and the wide shot that frames it: its
+ * path from where the bat meets the ball down to where it lands, in steps
+ * equal in time, and how far along it the ball is now (0 to 1). Null for
+ * any other pitch, or before its outcome is decided.
+ */
+export function homeRunFlight(
+  game: Game,
+  release: Point,
+): { points: Point[]; drawn: number } | null {
+  const { hit } = game;
+  if (game.phase !== "result" || hit?.outcome !== "home-run") return null;
+  const contact = contactOf(game, release)!;
+  const { time } = FLIGHT["home-run"];
+  const points = Array.from({ length: FLIGHT_STEPS + 1 }, (_, i) =>
+    inFlight(hit, contact.point, (i / FLIGHT_STEPS) * time),
+  );
+  const flown = hit.at + game.clock - contact.at;
+  return { points, drawn: Math.min(1, Math.max(0, flown / time)) };
 }
 
 /** The bat now: loaded until a swing, then coming round, through the ball if it meets it, to the follow-through. */
