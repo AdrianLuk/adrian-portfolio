@@ -45,7 +45,7 @@ export default async function DerbyPage() {
             </p>
             <h2
               id="derby-heading"
-              className="mt-3 font-display text-5xl font-extrabold uppercase [font-stretch:140%]"
+              className="mt-3 font-display text-4xl sm:text-5xl font-extrabold uppercase [font-stretch:140%]"
             >
               {derby.heading}
             </h2>
