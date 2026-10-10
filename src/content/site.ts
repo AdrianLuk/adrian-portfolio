@@ -763,6 +763,7 @@ const world = {
   cyan: "var(--color-cyan)",
   violet: "var(--color-violet)",
   magenta: "var(--color-magenta)",
+  green: "var(--color-green)",
 } as const;
 
 export const encore = {
@@ -777,12 +778,12 @@ export const encore = {
     { group: "Stray Kids", year: 2025, colors: [world.violet] },
     { group: "BLACKPINK", year: 2025, colors: ["#F7A7BB"] },
     { group: "BABYMONSTER", year: 2025, colors: ["#E8132E"] },
-    { group: "aespa", year: 2026, colors: [world.violet] },
+    { group: "aespa", year: 2026, colors: [world.green] },
     { group: "EVERGLOW", year: 2026, colors: [world.magenta] },
     { group: "IVE", year: 2026, colors: [world.cyan] },
     { group: "TWICE", year: 2026, colors: ["#FCC89B", "#FF5FA2"] },
     { group: "BTS", year: 2026, colors: ["#A15EE6"] },
-    { group: "XG", year: 2026, colors: [world.magenta] },
+    { group: "XG", year: 2026, colors: [world.green] },
   ],
 } as const satisfies {
   id: string;

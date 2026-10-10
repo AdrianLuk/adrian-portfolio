@@ -221,6 +221,25 @@ describe("the Arena in the world", () => {
     expect(cos).toBeCloseTo(1);
   });
 
+  it("opens its side toward home's route, from the stage round to that side's middle, so the route sees in", () => {
+    // Home's route passes on its left (from inside, facing the stage): -lx.
+    for (let s = 4; s <= ROUTE_STOPS - 1; s += 0.25) {
+      const p = nominalRoute(1.6).poseAt(s).position;
+      expect(framed(p.x, p.z).lx, `at stop ${s}`).toBeLessThan(0);
+    }
+    // That side open from the stage to its middle; the other side's tiers
+    // run on to the stage's gap, as before.
+    const side = (3 * Math.PI) / 2;
+    for (let a = Math.PI; a <= side; a += 0.05) {
+      expect(inTiers(a), `at ${a.toFixed(2)}`).toBe(false);
+    }
+    for (let a = side; a >= Math.PI + ARENA.gap / 2 + 0.01; a -= 0.05) {
+      expect(inTiers(4 * Math.PI - a), `at ${(4 * Math.PI - a).toFixed(2)}`).toBe(true);
+    }
+    // Its back, cut into the hillside, still closes the curve.
+    expect(inTiers(2 * Math.PI)).toBe(true);
+  });
+
   it("sits in its seat: the ground under its floor and tiers cut below the underside", () => {
     for (let r = 0; r <= ARENA_SITE.wide; r += 2) {
       for (let a = 0; a < 2 * Math.PI; a += 0.1) {

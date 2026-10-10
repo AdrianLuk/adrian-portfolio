@@ -24,13 +24,17 @@ import { arenaFrame, ARENA_SITE, valleyHeight } from "./terrain";
  * its middle, stretched down the axis as far as the footprint is (./terrain);
  * `tiers` steps each `rise` high, filling the footprint out to its edge
  * (the last unit a parapet); the open end's `gap`, in radians, centred on
- * the stage; and `runs` straight runs round each tier.
+ * the stage, opened `open` further round its left side (seen from inside,
+ * facing the stage: the side over the shore, toward home's route), so the
+ * route sees in to the floor and the stage; and `runs` straight runs round
+ * each tier.
  */
 export const ARENA = {
   floor: 19,
   tiers: 13,
   rise: 1.45,
   gap: (2 * Math.PI) / 3,
+  open: Math.PI / 3,
   runs: 24,
 } as const;
 
@@ -42,7 +46,7 @@ const TIER = (ARENA_SITE.wide - 1 - ARENA.floor) / ARENA.tiers;
 
 /** Where the tiers run: from `from` round the closed curve to `to` (0 is the curve's end of the axis). */
 export const TIERS_SPAN = {
-  from: Math.PI + ARENA.gap / 2,
+  from: Math.PI + ARENA.gap / 2 + ARENA.open,
   to: 3 * Math.PI - ARENA.gap / 2,
 } as const;
 
@@ -93,7 +97,14 @@ const BRACES = {
 const SEATS = { spacing: 2.6, size: 0.9 } as const;
 
 /** The colours of the crowd's lightsticks. */
-const STICKS = [palette.ink, palette.ink, palette.violet, palette.magenta, palette.cyan];
+const STICKS = [
+  palette.ink,
+  palette.ink,
+  palette.violet,
+  palette.magenta,
+  palette.cyan,
+  palette.green,
+];
 
 /**
  * The Encore's crowd on the floor: a lightstick about every `spacing` each
@@ -476,7 +487,7 @@ export function layoutArena() {
   }
 
   // The Encore's beams, from the truss's front frame into the night.
-  const beamColors = [cyan, violet, magenta];
+  const beamColors = [cyan, violet, palette.green, magenta];
   const beams: Beam[] = Array.from({ length: BEAMS.count }, (_, i) => {
     const u = i / (BEAMS.count - 1);
     const [ax, az] = toWorld(-half + 1 + u * (s.width - 2), frames[0]);
