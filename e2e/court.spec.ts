@@ -17,7 +17,7 @@ import {
   credits,
   type PlayerTool,
 } from "../src/content/site";
-import { countFrames, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { countFrames, SCENE_TIMEOUT, withoutWorld, timedAnimations } from "./hero";
 import { placeIn } from "./place";
 
 // The Juice Bros Case study stands at the court: the world, live, from low
@@ -169,7 +169,7 @@ test.describe("under prefers-reduced-motion", () => {
       return (await frames()) - before;
     };
     expect(await framesOver()).toBe(0);
-    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    expect(await timedAnimations(page)).toBe(0);
 
     // Allowing motion brings the scene alive (the rally ball); reducing it
     // again stills it.

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { credits, highlightAnchor, highlights, person } from "../src/content/site";
-import { countFrames, heroRoot, openHome, watched } from "./hero";
+import { countFrames, heroRoot, openHome, watched, timedAnimations } from "./hero";
 
 test("the H1 and the hero's root are in the initial HTML, before any script", async ({
   request,
@@ -53,7 +53,7 @@ test.describe("under prefers-reduced-motion, on a 2x screen 2560px wide", () => 
     // Any render loop or drifting mote asks for a frame every few ms.
     await page.waitForTimeout(500);
     expect(await frames()).toBe(before);
-    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    expect(await timedAnimations(page)).toBe(0);
   });
 
   test("the camera never scrubs: panels sit in the flow over the still backdrop", async () => {

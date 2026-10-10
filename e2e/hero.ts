@@ -10,6 +10,18 @@ import { credits, hero } from "../src/content/site";
 // Software WebGL on CI is slow to compile the scene's shaders.
 export const SCENE_TIMEOUT = 20_000;
 
+/**
+ * How many animations run on the clock. The header's fade to glass moves only
+ * with the scroll (a scroll timeline), so it never counts.
+ */
+export const timedAnimations = (page: Page) =>
+  page.evaluate(
+    () =>
+      document
+        .getAnimations()
+        .filter((a) => a.timeline instanceof DocumentTimeline).length,
+  );
+
 export const heroRoot = (page: Page) =>
   page.getByRole("region", { name: hero.label });
 
@@ -191,7 +203,7 @@ export async function settledWorld(page: Page, state: "settled" | "reduced") {
   // A half-faded button fails contrast, so wait for the copy to land (which
   // a busy machine's slow frames can stretch out).
   await expect
-    .poll(() => page.evaluate(() => document.getAnimations().length), {
+    .poll(() => timedAnimations(page), {
       timeout: SCENE_TIMEOUT,
     })
     .toBe(0);
