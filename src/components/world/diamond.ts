@@ -37,18 +37,30 @@ export const DIAMOND = {
  * the court stop's screen and fits a phone's frame when home's route turns
  * to frame it, between the bowl and the closing view.
  */
-export const DIAMOND_AT = { z: -1036, fromCentreLine: 32, scale: 0.07 };
+export const DIAMOND_AT = { z: -1033, fromCentreLine: 32, scale: 0.072 };
 
 /**
- * The stadium round the diamond, in feet. Grandstands behind home plate and
- * down both lines, past foul ground `gap` deep: `tiers` steps, each `tier`
- * deep and `rise` higher than the last, out to `reach` of the way to the
- * poles. Bleachers beyond the fence, past a `gap`, in steps likewise, built
- * in `segments` straight runs round the curve. Light towers `height` tall.
+ * The stadium round the diamond, in feet. Its seats stand in the outfield,
+ * as Dodger Stadium's pavilions and Wrigley's bleachers do, and over them a
+ * deck, as Rogers Centre's and Fenway's Monster seats rise: past a `gap`
+ * beyond the fence, `tiers` steps round it from pole to pole, each `tier`
+ * deep and `rise` higher than the last, the steps from `deck` on lifted
+ * `deckRise` more; built in `segments` straight runs round the curve, and
+ * reaching no further than `cut` outside the foul lines. Foul ground is
+ * left open, so from behind home both lines and the infield read clear to
+ * the poles. Light towers `height` tall, behind the outfield's seats.
  */
-const STANDS = { gap: 16, tier: 12, rise: 14, tiers: 3, reach: 0.85 } as const;
-const BLEACHERS = { gap: 8, tier: 12, rise: 8, tiers: 2, segments: 8 } as const;
-const LIGHT_TOWER = { height: 150 } as const;
+const OUTFIELD_SEATS = {
+  gap: 8,
+  tier: 10,
+  rise: 6,
+  tiers: 8,
+  deck: 4,
+  deckRise: 14,
+  segments: 12,
+  cut: 25,
+} as const;
+const LIGHT_TOWER = { height: 160 } as const;
 
 /** How wide the lines are drawn, and the bases, in world units: wider than life, to read. */
 const LINE = 0.35;
@@ -79,7 +91,7 @@ export function diamondFootprint(scale: number) {
 }
 
 export type DiamondOptions = {
-  /** The plinth's centre; home plate is its corner furthest from home's end and the route's line, a lip in. */
+  /** The plinth's centre; home plate is its corner nearest home's end and the route's line, a lip in. */
   x: number;
   z: number;
   /** Which side of the valley it stands: -1 left, 1 right. */
@@ -93,29 +105,30 @@ export type DiamondOptions = {
 
 /**
  * The diamond, its foul lines square to the valley: home plate at the
- * plinth's corner furthest down the valley and toward the wall, one line
- * up the valley from it and the other across toward the route's line, so
- * centre field faces back up the valley at the route, and from there the
- * grandstands face the route across the park. A dark plinth under the park; the outfield in
+ * plinth's corner nearest home's end and the route's line, one line down
+ * the valley from it and the other across toward the wall, so from the
+ * route the view is the broadcast one, from behind home out to centre
+ * field. A dark plinth under the park; the outfield in
  * faint light out to a curved fence of light from pole to pole; the
  * infield's dirt an arc of violet behind the bases, round its grass; the
  * lines and bases in bright light, home plate a pentagon; the mound a low
  * violet hill in a ring of light; and the foul poles standing at the
- * lines' ends. Round it, a stadium: stepped grandstands behind home and
- * down both lines and bleachers beyond the fence, each step's edge a row of
- * light; and light towers with banks of lamps. `bounds` is the whole of it.
+ * lines' ends. Round it, a stadium: a bowl of seats beyond the fence from
+ * pole to pole, a deck over its upper steps, each step's edge a row of
+ * light; and light towers with banks of lamps behind the outfield. `bounds`
+ * is the whole of it.
  */
 export function layoutDiamond(options: DiamondOptions) {
   const { level, scale, color, side } = options;
   const B = DIAMOND.base * scale;
   const F = DIAMOND.foulLine * scale;
-  // Home plate, at the plinth's far corner.
-  const hx = options.x + (side * F) / 2;
-  const hz = options.z - F / 2;
-  /** World x, z off home plate of the point `a` up the valley's foul line and `c` along the other. */
-  const off = (a: number, c: number) => [-side * c, a] as const;
-  /** World x, z of the point `a` up the valley's foul line and `c` along the other. */
-  const at = (a: number, c: number) => [hx - side * c, hz + a] as const;
+  // Home plate, at the plinth's corner nearest home and the route.
+  const hx = options.x - (side * F) / 2;
+  const hz = options.z + F / 2;
+  /** World x, z off home plate of the point `a` down the valley's foul line and `c` along the other. */
+  const off = (a: number, c: number) => [side * c, -a] as const;
+  /** World x, z of the point `a` down the valley's foul line and `c` along the other. */
+  const at = (a: number, c: number) => [hx + side * c, hz - a] as const;
   const chalk = color.clone().lerp(palette.ink, 0.35);
   const dirt = palette.violet;
   /** A flat box over `a0` to `a1` down the valley and `c0` to `c1` across. */
@@ -292,7 +305,6 @@ export function layoutDiamond(options: DiamondOptions) {
   const reaches: (readonly [number, number])[] = [];
   const foot = -PLINTH_DEPTH;
   const bodies: Box[] = [];
-  const rows: Box[] = [];
   /** A box over `a0` to `a1` and `c0` to `c1`, from `y0` to `y1` above the level. */
   const block = (
     a0: number,
@@ -308,63 +320,46 @@ export function layoutDiamond(options: DiamondOptions) {
     const h = y1 - y0;
     return { x, y: level + (y0 + y1) / 2, z, w: c1 - c0, h, d: a1 - a0, color: c };
   };
-  const row = 0.2;
 
-  // Grandstands, behind home and down both lines, stepping up away from
-  // them: along the valley's line on the wall's side (up the hillside), and
-  // along the other on the harbour's side.
-  const gap = STANDS.gap * scale;
-  const tier = STANDS.tier * scale;
-  const back = gap + STANDS.tiers * tier;
-  const end = STANDS.reach * F;
-  for (let i = 0; i < STANDS.tiers; i++) {
-    const near = gap + i * tier;
-    const top = (i + 1) * STANDS.rise * scale;
-    bodies.push(
-      block(-back, end, -(near + tier), -near, foot, top, color),
-      block(-(near + tier), -near, -near, end, foot, top, color),
-    );
-    rows.push(
-      block(-back, end, -near - row, -near, top, top + 0.08, palette.ink),
-      block(-near - row, -near, -near, end, top, top + 0.08, palette.ink),
-    );
-  }
-
-  // Bleachers beyond the fence, round its circle, in straight runs.
+  // The outfield's seats, round the fence's circle from pole to pole, in
+  // straight runs, kept within `cut` of the foul lines.
+  const seats = OUTFIELD_SEATS;
+  const cut = -seats.cut * scale;
+  const inside = ([a, c]: readonly [number, number]) =>
+    [Math.max(a, cut), Math.max(c, cut)] as const;
   const bleachers: Solid[] = [];
   const turn0 = Math.atan2(-k, F - k);
   const turn1 = Math.atan2(F - k, -k);
   const benchRows: Ring[] = [];
-  for (let i = 0; i < BLEACHERS.tiers; i++) {
-    const r0 = fenceR + (BLEACHERS.gap + i * BLEACHERS.tier) * scale;
-    const r1 = r0 + BLEACHERS.tier * scale;
-    const top = (i + 1) * BLEACHERS.rise * scale;
-    const inner = arc(k, k, r0, turn0, turn1).filter((_, j) => j % 3 === 0);
-    const outer = arc(k, k, r1, turn0, turn1).filter((_, j) => j % 3 === 0);
-    for (let j = 0; j < BLEACHERS.segments; j++) {
+  const stepTop = (i: number) =>
+    ((i + 1) * seats.rise + (i >= seats.deck ? seats.deckRise : 0)) * scale;
+  const round = (r: number) =>
+    arc(k, k, r, turn0, turn1)
+      .filter((_, j) => j % (24 / seats.segments) === 0)
+      .map(inside);
+  for (let i = 0; i < seats.tiers; i++) {
+    const r0 = fenceR + (seats.gap + i * seats.tier) * scale;
+    const r1 = r0 + seats.tier * scale;
+    const top = stepTop(i);
+    const inner = round(r0);
+    const outer = round(r1);
+    for (let j = 0; j < seats.segments; j++) {
       const quad = [inner[j], inner[j + 1], outer[j + 1], outer[j]];
       reaches.push(...quad);
       bleachers.push(sheet(quad, top, color, 0.12, foot));
     }
-    benchRows.push(wall(arc(k, k, r0, turn0, turn1), 0.1, chalk, top + 0.05));
-    // The back row's outer edge too, toward the route.
-    if (i === BLEACHERS.tiers - 1) {
-      benchRows.push(wall(arc(k, k, r1, turn0, turn1), 0.1, chalk, top + 0.05));
-    }
+    benchRows.push(wall(inner, 0.1, chalk, top + 0.05));
+    if (i === seats.tiers - 1) benchRows.push(wall(outer, 0.1, chalk, top + 0.05));
   }
-  const rim = fenceR + (BLEACHERS.gap + BLEACHERS.tiers * BLEACHERS.tier) * scale;
+  const rim = fenceR + (seats.gap + seats.tiers * seats.tier) * scale;
 
-  // Light towers: at the grandstands' far ends, and behind the bleachers.
+  // Light towers, rising behind the outfield's seats.
   const towerTop = LIGHT_TOWER.height * scale;
-  const towerAt: (readonly [number, number])[] = [
-    [end, -back - 0.6],
-    [-back - 0.6, end],
-    ...[0.18, 0.82].map((t) => {
-      const turn = turn0 + (turn1 - turn0) * t;
-      const r = rim + 0.8;
-      return [k + r * Math.cos(turn), k + r * Math.sin(turn)] as const;
-    }),
-  ];
+  const towerAt = [0.06, 0.36, 0.64, 0.94].map((t) => {
+    const turn = turn0 + (turn1 - turn0) * t;
+    const r = rim + 0.8;
+    return inside([k + r * Math.cos(turn), k + r * Math.sin(turn)]);
+  });
   const lamps: Box[] = [];
   const lights: { x: number; y: number; z: number }[] = [];
   for (const [a, c] of towerAt) {
@@ -390,7 +385,7 @@ export function layoutDiamond(options: DiamondOptions) {
     plinth,
     home: { x: hx, z: hz },
     bounds,
-    stands: { bodies, rows, lamps, lights, bleachers, benchRows },
+    stands: { bodies, lamps, lights, bleachers, benchRows },
     surfaces,
     lines,
     bases,

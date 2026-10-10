@@ -35,8 +35,8 @@ const home = { x: -30, z: -860 };
 /** The plinth's centre, half the foul lines' square from home plate. */
 const half = (DIAMOND.foulLine * scale) / 2;
 const diamond = layoutDiamond({
-  x: home.x + half,
-  z: home.z + half,
+  x: home.x - half,
+  z: home.z - half,
   side: -1,
   level: 1,
   scale,
@@ -52,14 +52,14 @@ const at = (x: number, z: number) =>
 describe("the baseball diamond", () => {
   const base = DIAMOND.base * scale;
 
-  it("sets its bases 90 feet apart round a square, home plate at the corner furthest down the valley", () => {
+  it("sets its bases 90 feet apart round a square, home plate at the corner nearest home's end of the valley", () => {
     expect(DIAMOND.base).toBe(90);
-    // Home plate at the corner (its own test below), first base up the
-    // valley, second, third toward the route's line.
+    // Home plate at the corner (its own test below), first base down the
+    // valley, second, third toward the wall.
     expect(diamond.home).toEqual(home);
-    expect(at(home.x, home.z + base)).toHaveLength(1);
-    expect(at(home.x + base, home.z + base)).toHaveLength(1);
-    expect(at(home.x + base, home.z)).toHaveLength(1);
+    expect(at(home.x, home.z - base)).toHaveLength(1);
+    expect(at(home.x - base, home.z - base)).toHaveLength(1);
+    expect(at(home.x - base, home.z)).toHaveLength(1);
     expect(diamond.bases).toHaveLength(3);
   });
 
@@ -75,19 +75,19 @@ describe("the baseball diamond", () => {
       );
     for (let t = 0; t <= 1; t += 0.05) {
       // Home to first, first to second, second to third, third to home.
-      expect(chalked(home.x, home.z + t * base)).toBe(true);
-      expect(chalked(home.x + t * base, home.z + base)).toBe(true);
-      expect(chalked(home.x + base, home.z + base - t * base)).toBe(true);
-      expect(chalked(home.x + base - t * base, home.z)).toBe(true);
+      expect(chalked(home.x, home.z - t * base)).toBe(true);
+      expect(chalked(home.x - t * base, home.z - base)).toBe(true);
+      expect(chalked(home.x - base, home.z - base + t * base)).toBe(true);
+      expect(chalked(home.x - base + t * base, home.z)).toBe(true);
       // The foul lines, the whole way out.
-      expect(chalked(home.x, home.z + t * reach)).toBe(true);
-      expect(chalked(home.x + t * reach, home.z)).toBe(true);
+      expect(chalked(home.x, home.z - t * reach)).toBe(true);
+      expect(chalked(home.x - t * reach, home.z)).toBe(true);
     }
     const poles = diamond.poles.map((p) => [p.x, p.z]);
     expect(poles).toEqual(
       expect.arrayContaining([
-        [home.x, home.z + reach],
-        [home.x + reach, home.z],
+        [home.x, home.z - reach],
+        [home.x - reach, home.z],
       ]),
     );
   });
@@ -107,7 +107,7 @@ describe("the baseball diamond", () => {
     expect(out).toBeCloseTo(60.5 * scale);
     // On the line from home to second.
     expect(mound.x - home.x).toBeCloseTo(mound.z - home.z);
-    expect(mound.x).toBeGreaterThan(home.x);
+    expect(mound.x).toBeLessThan(home.x);
   });
 
   it("raises the mound as a hill, above the field and ringed in light", () => {
@@ -140,21 +140,21 @@ describe("the baseball diamond", () => {
       fence.some(
         (p) => Math.abs(p[0] - x) < 1e-6 && Math.abs(p[1] - z) < 1e-6,
       );
-    expect(near(home.x, home.z + reach)).toBe(true);
-    expect(near(home.x + reach, home.z)).toBe(true);
+    expect(near(home.x, home.z - reach)).toBe(true);
+    expect(near(home.x - reach, home.z)).toBe(true);
     expect(Math.max(...fence.map(far))).toBeCloseTo(
       DIAMOND.centreField * scale,
     );
     // A curve: every point out past the line joining the poles, bar the poles.
     for (const p of fence) {
-      expect(p[0] - home.x + (p[1] - home.z)).toBeGreaterThan(reach - 1e-6);
+      expect(home.x - p[0] + (home.z - p[1])).toBeGreaterThan(reach - 1e-6);
     }
     expect(fence.length).toBeGreaterThan(10);
   });
 
   it("lays the infield's dirt in an arc behind the bases, inside the fence", () => {
     const skin = rim(diamond.skin);
-    const back = (p: number[]) => (p[0] - home.x + (p[1] - home.z)) / Math.SQRT2;
+    const back = (p: number[]) => (home.x - p[0] + (home.z - p[1])) / Math.SQRT2;
     // Out past second base on the line from home, short of the fence.
     expect(Math.max(...skin.map(back))).toBeGreaterThan(base * Math.SQRT2);
     expect(Math.max(...skin.map(back))).toBeLessThan(
@@ -172,47 +172,42 @@ describe("the baseball diamond", () => {
       ),
     ).toBe(true);
     for (const [x, z] of plate) {
-      expect(x).toBeGreaterThanOrEqual(home.x - 1e-6);
-      expect(z).toBeGreaterThanOrEqual(home.z - 1e-6);
+      expect(x).toBeLessThanOrEqual(home.x + 1e-6);
+      expect(z).toBeLessThanOrEqual(home.z + 1e-6);
     }
   });
 
-  it("rings it with a stadium: grandstands stepping up behind home and down both lines, bleachers beyond the fence, light towers over it all", () => {
+  it("rings it with a stadium: a deck of seats in the outfield beyond the fence, light towers behind, foul ground open and nothing behind home", () => {
     const { stands } = diamond;
     const top = (b: Box) => b.y + b.h / 2;
-    // Along first base's line, behind it (toward the wall here), and along
-    // third's, behind home: each run of tiers higher the further back.
-    const alongFirst = stands.bodies
-      .filter((b) => b.x + b.w / 2 < home.x && b.d > 5)
-      .sort((p, q) => q.x - p.x);
-    const alongThird = stands.bodies
-      .filter((b) => b.z + b.d / 2 < home.z && b.w > 5)
-      .sort((p, q) => q.z - p.z);
-    for (const run of [alongFirst, alongThird]) {
-      expect(run.length).toBeGreaterThanOrEqual(3);
-      for (let i = 1; i < run.length; i++) {
-        expect(top(run[i])).toBeGreaterThan(top(run[i - 1]));
-      }
-    }
-    // Rows of light along the tiers.
-    expect(stands.rows.length).toBe(alongFirst.length + alongThird.length);
-    // Every bleacher out past the fence, the way it lies from home.
-    const fence = rim(diamond.outfield);
-    const angle = (p: number[]) => Math.atan2(p[1] - home.z, p[0] - home.x);
     const far = (p: number[]) => Math.hypot(p[0] - home.x, p[1] - home.z);
-    expect(stands.bleachers.length).toBeGreaterThan(0);
-    for (const bleacher of stands.bleachers) {
-      for (const p of outline(bleacher)) {
-        const nearest = fence.reduce((a, b) =>
+    const angle = (p: number[]) => Math.atan2(p[1] - home.z, p[0] - home.x);
+    const fence = rim(diamond.outfield);
+    const fenceAt = (p: number[]) =>
+      far(
+        fence.reduce((a, b) =>
           Math.abs(angle(b) - angle(p)) < Math.abs(angle(a) - angle(p)) ? b : a,
-        );
-        expect(far(p)).toBeGreaterThan(far(nearest));
-      }
+        ),
+      );
+    // The outfield's seats: many steps, every one beyond the fence, rising
+    // to a deck over the foul poles.
+    expect(stands.bleachers.length).toBeGreaterThanOrEqual(60);
+    for (const seat of stands.bleachers) {
+      for (const p of outline(seat)) expect(far(p)).toBeGreaterThan(fenceAt(p));
     }
-    // Three to six light towers, each a bank of lamps over the poles.
+    const deck = Math.max(...stands.bleachers.map((b) => b.y + b.h));
+    expect(deck - diamond.level).toBeGreaterThan(DIAMOND.poleHeight * scale);
+    // Foul ground and behind home left open: every stand beyond the fence,
+    // none behind home.
+    for (const b of stands.bodies) {
+      expect(far([b.x, b.z])).toBeGreaterThan(fenceAt([b.x, b.z]));
+      expect(b.x - b.w / 2 > home.x && b.z - b.d / 2 > home.z).toBe(false);
+    }
+    // Three to six light towers, beyond the fence, their lamps over the poles.
     expect(stands.lamps.length).toBeGreaterThanOrEqual(3);
     expect(stands.lamps.length).toBeLessThanOrEqual(6);
     for (const lamp of stands.lamps) {
+      expect(far([lamp.x, lamp.z])).toBeGreaterThan(fenceAt([lamp.x, lamp.z]));
       expect(lamp.y).toBeGreaterThan(diamond.level + DIAMOND.poleHeight * scale);
     }
     // Its bounds take in all of it.
@@ -422,6 +417,64 @@ function onScreen(pose: Pose, aspect: number, b: Box) {
   };
 }
 
+/** The Diamond as the landmarks lay it out, and its infield's points. */
+const built = (() => {
+  const { z, fromCentreLine, scale: s } = DIAMOND_AT;
+  const x = valleyCentre(z) + fromCentreLine;
+  const foot = diamondFootprint(s);
+  const level = groundUnder(x, z, foot.w, foot.d).high + 0.3;
+  const side = Math.sign(fromCentreLine) as 1 | -1;
+  return layoutDiamond({ x, z, side, level, scale: s, color: palette.cyan });
+})();
+/** World x, y, z on the built Diamond's field, `a` down one foul line and `c` along the other. */
+const fromHome = (a: number, c: number) => {
+  const side = Math.sign(DIAMOND_AT.fromCentreLine);
+  return [built.home.x + side * c, built.level + 0.1, built.home.z - a] as const;
+};
+/** Every corner of the built stadium above the field's level. */
+const stadiumPoints = [
+  ...[...built.stands.bodies, ...built.stands.lamps].flatMap((b) => {
+    const top = b.y + b.h / 2;
+    const bottom = Math.max(b.y - b.h / 2, built.level);
+    return [-1, 1].flatMap((u) =>
+      [-1, 1].flatMap((v) =>
+        [bottom, top].map(
+          (y) => new Vector3(b.x + (u * b.w) / 2, y, b.z + (v * b.d) / 2),
+        ),
+      ),
+    );
+  }),
+  ...built.stands.bleachers.flatMap((seat) =>
+    (seat.sections?.[1].outline ?? []).flatMap(([x, z]) => [
+      new Vector3(seat.x + x, built.level, seat.z + z),
+      new Vector3(seat.x + x, seat.y + seat.h, seat.z + z),
+    ]),
+  ),
+  ...[-1, 1].flatMap((u) =>
+    [-1, 1].map(
+      (v) =>
+        new Vector3(
+          built.plinth.x + (u * built.plinth.w) / 2,
+          built.level,
+          built.plinth.z + (v * built.plinth.d) / 2,
+        ),
+    ),
+  ),
+];
+const reach = DIAMOND.foulLine * DIAMOND_AT.scale;
+const bag = DIAMOND.base * DIAMOND_AT.scale;
+const infield: [number, number][] = [
+  [0, 0],
+  [bag, 0],
+  [bag, bag],
+  [0, bag],
+  [(DIAMOND.mound * DIAMOND_AT.scale) / Math.SQRT2, (DIAMOND.mound * DIAMOND_AT.scale) / Math.SQRT2],
+  ...[0.25, 0.5, 0.75, 1].flatMap((t): [number, number][] => [
+    [t * reach, 0],
+    [0, t * reach],
+  ]),
+];
+
 /** The stops that frame the court and the bowl, where it may show behind. */
 const courtStop = SITES.findIndex((s) => s.highlight === "juice-bros") + 1;
 const bowlStop = SITES.findIndex((s) => s.highlight === "bt-cup") + 1;
@@ -480,10 +533,31 @@ describe("home's scroll route and the Diamond", () => {
           expect(seen.shows).toBe(true);
           expect(Math.abs(seen.x)).toBeLessThan(0.25);
           expect(seen.fog).toBeLessThan(0.3);
-          // The stadium, plinth to light towers, all in frame.
-          const park = onScreen(pose, aspect, diamondBox);
-          for (const edge of [park.x0, park.x1, park.y0, park.y1]) {
-            expect(Math.abs(edge)).toBeLessThan(1);
+          // The stadium, every stand, seat, lamp and the field, all in frame.
+          const camera = cameraAt(pose, aspect);
+          for (const point of stadiumPoints) {
+            const { x, y, z } = point.clone().project(camera);
+            expect(z).toBeLessThan(1);
+            expect(Math.abs(x)).toBeLessThan(1);
+            expect(Math.abs(y)).toBeLessThan(1);
+          }
+          // Home plate, the bases, the mound and both foul lines out to the
+          // poles, in plain view: no stand stands in front of them.
+          for (const [a, c] of infield) {
+            const point = new Vector3(...fromHome(a, c));
+            const far = pose.position.distanceTo(point);
+            const ray = new Ray(
+              pose.position.clone(),
+              point.clone().sub(pose.position).normalize(),
+            );
+            for (const b of [...built.stands.bodies, ...built.stands.lamps]) {
+              const box = new Box3(
+                new Vector3(b.x - b.w / 2, b.y - b.h / 2, b.z - b.d / 2),
+                new Vector3(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2),
+              );
+              const hit = ray.intersectBox(box, new Vector3());
+              expect(hit && pose.position.distanceTo(hit) < far).toBeFalsy();
+            }
           }
           // No tower or Landmark between the camera and its middle or its
           // corners at the field's level.

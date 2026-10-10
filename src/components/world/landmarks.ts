@@ -519,7 +519,6 @@ export function layoutLandmarks(): Landmarks {
       ...d.bases,
       d.rubber,
       ...d.poles,
-      ...stands.rows,
       ...stands.lamps,
     );
     out.solids.push(...d.solids);
