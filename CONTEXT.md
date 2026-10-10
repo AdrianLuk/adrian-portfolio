@@ -45,11 +45,11 @@ The home page's fly-in on a first visit: the camera's flight down the canyon to 
 _Avoid_: Intro, fly-through
 
 **Place**:
-A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/play` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net) and the Skyline for the Resume page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/play`. A page without a Place, such as the 404, shows a still of the world instead.
+A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/play` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net), the Diamond for the Home Run Derby (seen from behind home plate) and the Skyline for the Resume page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/play`. A page without a Place, such as the 404, shows a still of the world instead.
 _Avoid_: Scene, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/play`: the camera moves round the court.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/play`: the camera moves round the court. Not yet to or from the Diamond: the Derby crossfades until its Transit is built.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:

@@ -902,7 +902,7 @@ export const rally = {
 export const derby = {
   metaTitle: "Home Run Derby at the Diamond | Adrian Luk",
   metaDescription:
-    "A short baseball game at the Diamond: ten pitches from a bot, Curvebot, and your timing decides each one.",
+    "Bat against a bot, Curvebot, at the Diamond: ten pitches, and your swing's timing decides each one.",
   eyebrow: "Home Run Derby",
   heading: "The Diamond",
   hint: {

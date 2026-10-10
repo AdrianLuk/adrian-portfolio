@@ -674,13 +674,15 @@ export async function createWorld(
 
   /**
    * Nothing falls under reduced motion, or in the clear, or at the court or
-   * the Skyline (it fades out as their looks come in): the ground shows it.
+   * the Skyline (it fades out as their looks come in), or at the Diamond
+   * (reached by crossfade, so nothing to fade): the ground shows it.
    */
   function showFalling() {
     if (!falling) return;
     const fade = Math.min(look.falling, skyline.falling);
     falling.setFade(fade);
-    falling.object.visible = motion && weather !== "clear" && fade > 0;
+    falling.object.visible =
+      motion && weather !== "clear" && fade > 0 && view?.kind !== "derby";
   }
 
   /** Lays the light pools on the floor, stretched on a wet one. */

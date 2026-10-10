@@ -40,11 +40,12 @@ export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";
  * world's alone, in the world's cyan, as at the Diamond, which burns it.
  * Written out in full, so Tailwind finds the classes.
  */
+const inCyan =
+  "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8";
+
 export const overPlace = {
-  skyline:
-    "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8",
-  diamond:
-    "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8",
+  skyline: inCyan,
+  diamond: inCyan,
   court:
     "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8",
 } as const;

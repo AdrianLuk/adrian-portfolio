@@ -74,10 +74,10 @@ export function placeOf(url: string): Place | null {
  * `view`, if the camera flies to and from it: every view but the Derby's,
  * which crossfades until its Transit to the Diamond lands (#102).
  */
-const flown = (view: PlaceView | null) => (view === "derby" ? null : view);
+const flyable = (view: PlaceView | null) => (view === "derby" ? null : view);
 
 /** The view a Transit under way may turn to for `url`, if any. */
-export const transitTo = (url: string) => flown(viewOf(url));
+export const transitTo = (url: string) => flyable(viewOf(url));
 
 /**
  * Where a navigation from the view `from` to `to` (a path or a URL) flies
@@ -90,5 +90,5 @@ export function transitBetween(
   to: string,
 ): PlaceView | null {
   const arriving = transitTo(to);
-  return flown(from) && arriving && from !== arriving ? arriving : null;
+  return flyable(from) && arriving && from !== arriving ? arriving : null;
 }

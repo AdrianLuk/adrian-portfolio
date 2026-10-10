@@ -98,7 +98,8 @@ export function HomeRunDerby({
   const viewRef = useRef<DerbyView | null>(null);
   const gameRef = useRef<Game>(createGame());
   const frameRef = useRef(0);
-  const swingRef = useRef(false);
+  /** When the visitor last swung (performance.now()'s ms), until the loop counts it. */
+  const swingRef = useRef<number | null>(null);
 
   /** Whether the game's objects are on the Diamond's field yet. */
   const [hosted, setHosted] = useState<"waiting" | "hosted" | "failed">(
@@ -135,8 +136,17 @@ export function HomeRunDerby({
     const tick = (now: number) => {
       const dt = Math.min((now - last) / 1000, MAX_STEP);
       last = now;
-      const game = step(gameRef.current, dt, { swing: swingRef.current });
-      swingRef.current = false;
+      // Stepped to the press first, then on: a swing is timed when it was
+      // pressed, not at the next frame.
+      const swung = swingRef.current;
+      swingRef.current = null;
+      const toSwing =
+        swung === null
+          ? 0
+          : Math.min(dt, Math.max(0, (swung - (now - dt * 1000)) / 1000));
+      const first = step(gameRef.current, toSwing, { swing: swung !== null });
+      const rest = step(first, dt - toSwing);
+      const game = { ...rest, events: [...first.events, ...rest.events] };
       gameRef.current = game;
       viewRef.current?.draw(game);
 
@@ -147,7 +157,8 @@ export function HomeRunDerby({
           setHud((s) => ({ ...s, pitches: game.pitches }));
         } else if (event.type === "outcome") {
           const line = lineFor(event);
-          setAnnouncement(line);
+          // Numbered, so two strikes running are each announced.
+          setAnnouncement(`${copy.pitch} ${game.pitches}. ${line}`);
           setHud(hudFor(game, line));
         } else if (event.type === "over") {
           const line = overLine(event.homeRuns, copy.over);
@@ -211,10 +222,12 @@ export function HomeRunDerby({
     (paused: boolean) => {
       const game = gameRef.current;
       if (!isLive(game.phase) || game.paused === paused) return;
-      swingRef.current = false;
+      swingRef.current = null;
       gameRef.current = setPaused(game, paused);
       setHud((s) => ({ ...s, paused }));
-      setAnnouncement(paused ? copy.paused.title : copy.resume);
+      setAnnouncement(
+        paused ? `${copy.paused.title}. ${copy.paused.line}` : copy.resume,
+      );
       if (paused) {
         cancelAnimationFrame(frameRef.current);
         draw();
@@ -277,7 +290,7 @@ export function HomeRunDerby({
     if (event.target !== surfaceRef.current) return;
     if (event.key === " ") {
       event.preventDefault();
-      if (!event.repeat) swingRef.current = true;
+      if (!event.repeat) swingRef.current = performance.now();
     }
   }
 
@@ -347,7 +360,7 @@ export function HomeRunDerby({
         className={`fixed inset-0 z-20 touch-none select-none focus-visible:outline-offset-[-6px] ${filled ? "" : "pointer-events-none"}`}
         // On the press, not the lift: the swing's timing is the game.
         onPointerDown={(event) => {
-          if (event.isPrimary) swingRef.current = true;
+          if (event.isPrimary) swingRef.current = performance.now();
         }}
       />
       {filled && (

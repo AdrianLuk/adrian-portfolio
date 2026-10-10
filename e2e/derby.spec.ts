@@ -14,6 +14,7 @@ import {
   rallyLink,
 } from "../src/content/site";
 import { heroRoot, SCENE_TIMEOUT, withoutWorld } from "./hero";
+import { placeIn } from "./place";
 
 const { game: copy } = derby;
 
@@ -175,7 +176,7 @@ test("announces a pitch nobody swung at as a strike, with Curvebot's line, polit
 }) => {
   await openDerby(page);
   await page.getByRole("button", { name: copy.start.action }).click();
-  await expect(announcer(page)).toHaveText(copy.outcomes.strike, {
+  await expect(announcer(page)).toHaveText(`${copy.pitch} 1. ${copy.outcomes.strike}`, {
     timeout: 10_000,
   });
 });
@@ -188,6 +189,19 @@ test("is played on the world's own Diamond: the page's one canvas, over the Diam
   const world = page.locator("[data-world]:has(> canvas)");
   await expect(world).toHaveAttribute("data-world", "drawn");
   await expect(page.locator('[data-backdrop="diamond"]')).toHaveCount(1);
+});
+
+test("?weather=snow lies on the ground at the Diamond, and nothing falls", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  // The page's copy, all of it the game's.
+  const at = { path: "/play/derby", copy: "[data-phase] > *" };
+  const clear = await placeIn(browser, testInfo, { ...at, weather: "clear" });
+  const snow = await placeIn(browser, testInfo, { ...at, weather: "snow" });
+  expect(clear.perFrame).toBeGreaterThan(0);
+  expect(snow.perFrame).toBe(clear.perFrame);
+  expect(snow.ground).toBeGreaterThan(clear.ground + 2);
 });
 
 test("without WebGL the Diamond's still stays, and the game says it can't run here", async ({
