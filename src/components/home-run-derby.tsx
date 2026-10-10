@@ -40,7 +40,7 @@ import {
   type GameEvent,
   type Phase,
 } from "./derby/rules";
-import { REPLAY_SPEED, shotAt, stillAt } from "./derby/replay";
+import type * as Replay from "./derby/replay";
 import type { DerbyView } from "./derby/scene";
 
 type Copy = (typeof derby)["game"];
@@ -114,6 +114,8 @@ export function HomeRunDerby({
   /** Where focus goes once the Play of the Game ends: "Watch again", if that played it. */
   const returnRef = useRef<HTMLButtonElement | null>(null);
   const viewRef = useRef<DerbyView | null>(null);
+  /** The Play of the Game's camera, loaded with the scene (it reaches Three.js through the field's layout). */
+  const replayRef = useRef<typeof Replay | null>(null);
   const gameRef = useRef<Game>(createGame());
   const frameRef = useRef(0);
   /** When the visitor last swung (performance.now()'s ms), until the loop counts it. */
@@ -164,7 +166,9 @@ export function HomeRunDerby({
   const showPlay = useCallback((lead = "") => {
     const play = playOfTheGame(gameRef.current);
     const view = viewRef.current;
-    if (!play || !view) return;
+    const replay = replayRef.current;
+    if (!play || !view || !replay) return;
+    const { REPLAY_SPEED, shotAt, stillAt } = replay;
     cancelAnimationFrame(frameRef.current);
     setShowing(true);
     setAnnouncement(`${lead}${copy.play.title}. ${play.hit.distance} ${copy.feet}.`);
@@ -246,10 +250,12 @@ export function HomeRunDerby({
         setHud((s) => ({ ...s, slow: true }));
       }
       try {
-        const [{ createDerbyView }, live] = await Promise.all([
+        const [{ createDerbyView }, replay, live] = await Promise.all([
           import("./derby/scene"),
+          import("./derby/replay"),
           host.start(),
         ]);
+        replayRef.current = replay;
         // Built (their shaders compiled) only once any Transit has landed,
         // so it doesn't stutter. Without a world, the world's own state
         // says the game can't run.
