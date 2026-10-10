@@ -110,12 +110,25 @@ describe("the baseball diamond", () => {
     expect(mound.x).toBeLessThan(home.x);
   });
 
-  it("raises the mound as a hill, above the field and ringed in light", () => {
+  it("is a major league park: 330 feet down the lines, 400 to centre field, so the infield is a small square in a big outfield", () => {
+    expect(DIAMOND.foulLine).toBe(330);
+    expect(DIAMOND.centreField).toBe(400);
+    // Second base is under a third of the way out to the centre field fence.
+    expect((DIAMOND.base * Math.SQRT2) / DIAMOND.centreField).toBeLessThan(0.33);
+  });
+
+  it("chalks its lines and raises its mound to life, near enough: lines 6 inches wide, the mound 10 inches high", () => {
+    const [firstLine] = diamond.lines;
+    expect(Math.min(firstLine.w, firstLine.d) / scale).toBeLessThanOrEqual(0.5 + 1e-9);
+    expect(diamond.mound.h / scale).toBeCloseTo(10 / 12);
+  });
+
+  it("raises the mound as a low hill, above the field and ringed in light", () => {
     const { mound } = diamond;
     expect(mound.shape).toBe("frustum");
     expect(mound.rBottom).toBeCloseTo(DIAMOND.moundRadius * scale);
     expect(mound.rTop).toBeLessThan(mound.rBottom);
-    expect(mound.y + mound.h).toBeGreaterThan(diamond.level + 0.4);
+    expect(mound.y + mound.h).toBeGreaterThan(diamond.level);
     expect(
       diamond.rings.some(
         (r) => r.x === mound.x && r.z === mound.z && r.r > mound.rBottom,

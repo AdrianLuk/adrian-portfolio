@@ -12,18 +12,18 @@ import { valleyCentre } from "./terrain";
 /**
  * A diamond, in feet: 90 between the bases, the mound's rubber 60 feet 6
  * inches from home and the mound 18 across, the infield's dirt 95 out from
- * the rubber. The foul lines run 180 to the poles and the fence bows out to
- * 225 in centre field, about half a real park's, so the park fits the
- * valley's floor.
+ * the rubber. The foul lines run 330 to the poles and the fence bows out to
+ * 400 in centre field: a major league park's dimensions and proportions,
+ * the infield a small square in a big outfield.
  */
 export const DIAMOND = {
   base: 90,
   mound: 60.5,
   moundRadius: 9,
   skin: 95,
-  foulLine: 180,
-  centreField: 225,
-  poleHeight: 60,
+  foulLine: 330,
+  centreField: 400,
+  poleHeight: 80,
   /** The plinth's lip round the park. */
   lip: 5,
 } as const;
@@ -35,9 +35,10 @@ export const DIAMOND = {
  * water, `fromCentreLine` its plinth's centre's offset. The floor narrows
  * here, so it is drawn small: the most whose stadium keeps off the court on
  * the court stop's screen and fits a phone's frame when home's route turns
- * to frame it, between the bowl and the closing view.
+ * to frame it, between the bowl and the closing view. Its scale keeps that
+ * footprint for a full-size park.
  */
-export const DIAMOND_AT = { z: -1033, fromCentreLine: 32, scale: 0.072 };
+export const DIAMOND_AT = { z: -1033, fromCentreLine: 32, scale: 0.0402 };
 
 /**
  * The stadium round the diamond, in feet. Its seats stand in the outfield,
@@ -51,19 +52,19 @@ export const DIAMOND_AT = { z: -1033, fromCentreLine: 32, scale: 0.072 };
  * the poles. Light towers `height` tall, behind the outfield's seats.
  */
 const OUTFIELD_SEATS = {
-  gap: 8,
-  tier: 10,
-  rise: 6,
+  gap: 15,
+  tier: 18,
+  rise: 11,
   tiers: 8,
   deck: 4,
-  deckRise: 14,
+  deckRise: 26,
   segments: 12,
-  cut: 25,
+  cut: 46,
 } as const;
-const LIGHT_TOWER = { height: 160 } as const;
+const LIGHT_TOWER = { height: 220 } as const;
 
-/** How wide the lines are drawn, in world units: wider than life, to read. */
-const LINE = 0.35;
+/** How wide the chalk lines are drawn, in feet: twice life, so they still read from afar. */
+const LINE_FEET = 0.5;
 
 /**
  * The bases' side and home plate's edges to its point, in feet: life-size,
@@ -72,11 +73,24 @@ const LINE = 0.35;
 const BASE_FEET = 15 / 12;
 const PLATE_FEET = 1;
 
-/** How high the mound stands, in world units: far higher than life, to read as a hill. */
-export const MOUND_RISE = 0.8;
+/** How high the mound rises, in feet: a major league's 10 inches. */
+export const MOUND_FEET = 10 / 12;
 
-/** How high the fence stands, in world units. */
-const FENCE = 0.9;
+/** How high the outfield fence stands, in feet. */
+const FENCE_FEET = 12;
+
+/**
+ * The field's flat layers stack this far apart, in world units, so none
+ * flickers into another seen from far down the valley: the outfield's
+ * grass, the infield's dirt (the field's own height, where the Derby's
+ * figures stand), the infield's grass, the chalk, the bases and the plate.
+ */
+const LAYER = 0.008;
+/** How thick a flat layer is, in world units. */
+const SLAB = 0.006;
+
+/** How high the mound's foot stands over the plinth, in world units: on the infield's dirt. */
+export const MOUND_BASE = 2 * LAYER;
 
 /** How far the plinth reaches below the field, to meet uneven ground. */
 const PLINTH_DEPTH = 6;
@@ -161,7 +175,7 @@ export function layoutDiamond(options: DiamondOptions) {
     c: Color,
   ): Box => {
     const [x, z] = at((a0 + a1) / 2, (c0 + c1) / 2);
-    return { x, y: level + y, z, w: c1 - c0, h: 0.04, d: a1 - a0, color: c };
+    return { x, y: level + y, z, w: c1 - c0, h: SLAB, d: a1 - a0, color: c };
   };
   /** A thin flat solid over an outline in (a, c), wound to face up. */
   const sheet = (
@@ -218,17 +232,18 @@ export function layoutDiamond(options: DiamondOptions) {
   const reach = m + Math.sqrt(skinR * skinR - m * m);
   const skinArc = arc(m, m, skinR, Math.atan2(-m, reach - m), Math.atan2(reach - m, -m));
 
-  const outfield = sheet([[0, 0], ...fenceArc], 0.03, color, 0.35);
-  const skin = sheet([[0, 0], ...skinArc], 0.06, dirt, 0.7);
-  const surfaces = [flat(0, B, 0, B, 0.08, color.clone().multiplyScalar(0.24))];
+  const outfield = sheet([[0, 0], ...fenceArc], LAYER, color, 0.35);
+  const skin = sheet([[0, 0], ...skinArc], 2 * LAYER, dirt, 0.7);
+  const surfaces = [flat(0, B, 0, B, 3 * LAYER, color.clone().multiplyScalar(0.24))];
+  const LINE = LINE_FEET * scale;
 
   const lines = [
     // The foul lines, out past the bases to the poles.
-    flat(-LINE / 2, F + LINE / 2, -LINE / 2, LINE / 2, 0.12, chalk),
-    flat(-LINE / 2, LINE / 2, -LINE / 2, F + LINE / 2, 0.12, chalk),
+    flat(-LINE / 2, F + LINE / 2, -LINE / 2, LINE / 2, 4 * LAYER, chalk),
+    flat(-LINE / 2, LINE / 2, -LINE / 2, F + LINE / 2, 4 * LAYER, chalk),
     // The base paths' far sides, round second.
-    flat(B - LINE / 2, B + LINE / 2, -LINE / 2, B + LINE / 2, 0.12, chalk),
-    flat(-LINE / 2, B + LINE / 2, B - LINE / 2, B + LINE / 2, 0.12, chalk),
+    flat(B - LINE / 2, B + LINE / 2, -LINE / 2, B + LINE / 2, 4 * LAYER, chalk),
+    flat(-LINE / 2, B + LINE / 2, B - LINE / 2, B + LINE / 2, 4 * LAYER, chalk),
   ];
 
   // The three bases, square; home plate is the pentagon below.
@@ -238,7 +253,7 @@ export function layoutDiamond(options: DiamondOptions) {
     [0, B],
   ].map(([a, c]) => {
     const half = (BASE_FEET * scale) / 2;
-    return flat(a - half, a + half, c - half, c + half, 0.15, palette.ink);
+    return flat(a - half, a + half, c - half, c + half, 5 * LAYER, palette.ink);
   });
 
   // Home plate, its point at the lines' corner: two sides down the lines,
@@ -253,7 +268,7 @@ export function layoutDiamond(options: DiamondOptions) {
     [0, P],
   ] as const;
   // A slab an inch thick, laid just over the lines' chalk.
-  const plateBottom = 0.15;
+  const plateBottom = 5.5 * LAYER;
   const plateTop = plateBottom + scale / 12;
   const plate = sheet(pentagon, plateTop, palette.ink, 1, plateBottom);
 
@@ -262,11 +277,11 @@ export function layoutDiamond(options: DiamondOptions) {
   const mound: Solid = {
     shape: "frustum",
     x: mx,
-    y: level + 0.08,
+    y: level + MOUND_BASE,
     z: mz,
     rTop: moundR * 0.25,
     rBottom: moundR,
-    h: MOUND_RISE,
+    h: MOUND_FEET * scale,
     segments: 16,
     color: dirt,
     wash: 0.8,
@@ -274,11 +289,12 @@ export function layoutDiamond(options: DiamondOptions) {
   // The rubber, a fleck of light atop the mound.
   const rubber: Box = {
     x: mx,
-    y: mound.y + MOUND_RISE + 0.03,
+    y: mound.y + MOUND_FEET * scale + SLAB / 2,
     z: mz,
-    w: 0.3,
-    h: 0.06,
-    d: 0.3,
+    // 24 inches by 6, square to the line home (near enough, as a square).
+    w: 2 * scale,
+    h: SLAB,
+    d: 2 * scale,
     color: palette.ink,
   };
 
@@ -298,8 +314,8 @@ export function layoutDiamond(options: DiamondOptions) {
     return { x: hx, y: level + y, z: hz, r: 0, h, color: c, outline: [...there, ...back] };
   };
   const rings: Ring[] = [
-    { x: mx, y: level + 0.14, z: mz, r: moundR + 0.05, h: 0.12, color: chalk },
-    wall(fenceArc, FENCE, color),
+    { x: mx, y: level + MOUND_BASE + 0.01, z: mz, r: moundR + 0.05, h: 0.02, color: chalk },
+    wall(fenceArc, FENCE_FEET * scale, color),
     {
       x: hx,
       y: level + plateTop,
@@ -408,7 +424,8 @@ export function layoutDiamond(options: DiamondOptions) {
   return {
     plinth,
     home: { x: hx, z: hz },
-    field: { x: hx, z: hz, level, scale, side } satisfies DiamondField,
+    // The field stands on the infield's dirt.
+    field: { x: hx, z: hz, level: level + MOUND_BASE, scale, side } satisfies DiamondField,
     bounds,
     stands: { bodies, lamps, lights, bleachers, benchRows },
     surfaces,

@@ -177,14 +177,14 @@ const fenceAt = (angle: number) =>
     Math.min(1, Math.abs(angle) / (Math.PI / 4));
 
 /**
- * How far a hit carries on the drawn field, in feet: the Diamond is about
- * half a real park, so a home run's real distance lands it in the outfield's
- * seats, its share past the fence as a real one's past a 330-foot fence; a
- * fly-out is caught at the warning track; a foul drops in foul ground.
+ * How far a hit carries on the field, in feet: the Diamond is a major
+ * league park, so a home run carries its own distance, and always over the
+ * fence (a short one to the gaps clears it by 20 at least); a fly-out is
+ * caught at the warning track; a foul drops in foul ground.
  */
 function drawnCarry(hit: Hit) {
   const fence = fenceAt(hit.angle);
-  if (hit.outcome === "home-run") return (fence * hit.distance) / 330;
+  if (hit.outcome === "home-run") return Math.max(hit.distance, fence + 20);
   if (hit.outcome === "fly-out") return fence - 12;
   return 0.55 * DIAMOND.foulLine;
 }

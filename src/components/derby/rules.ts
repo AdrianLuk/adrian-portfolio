@@ -94,7 +94,7 @@ const KINDS = Object.keys(PITCH_TIME) as PitchKind[];
 export const WINDOW = { homeRun: 0.05, flyOut: 0.1, foul: 0.16 } as const;
 
 /** The windup before each pitch, and the beat after it. */
-const WINDUP = 1.1;
+export const WINDUP = 1.1;
 const RESULT = 2.2;
 
 /** A small seeded generator (mulberry32): returns the next value and seed. */

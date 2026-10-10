@@ -890,7 +890,8 @@ export const rally = {
       lost: "Dinkbot wins. It's been practicing.",
       action: "Play again",
     },
-    score: { player: "You", ai: "Dinkbot" },
+    /** The player is Adrian, by the name on his back. */
+    score: { player: "Adrian", ai: "Dinkbot" },
   },
 } as const;
 

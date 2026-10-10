@@ -195,6 +195,18 @@ export function stubbleTexture(color: Color) {
   return texture;
 }
 
+/**
+ * Adrian's name and buzz cut, in `color`: the name in the site's display
+ * face, once it has loaded. Browser only.
+ */
+export async function adrianTextures(color: Color) {
+  const font =
+    getComputedStyle(document.body).getPropertyValue("--font-display").trim() ||
+    "sans-serif";
+  await document.fonts.load(`800 150px ${font}`).catch(() => {});
+  return { name: nameTexture("ADRIAN", font), hair: stubbleTexture(color) };
+}
+
 /** A rounded rectangle from `bottom` up to `top`, `width` across, rounder at the top. */
 function roundedRect(width: number, top: number, bottom: number, r: number) {
   const x = width / 2;

@@ -1,31 +1,31 @@
 import {
-  BoxGeometry,
-  CapsuleGeometry,
   CircleGeometry,
-  Color,
   Group,
   Material,
   Mesh,
   MeshBasicMaterial,
   Points,
-  RingGeometry,
   Vector3,
 } from "three";
 import { litSite } from "../lit-sites";
+import { ADRIAN, adrianTextures, createMii, ROBOT, type Mii } from "../mii";
+import { REDUCED_MOTION } from "../reduced-motion";
 import { createGlowPoints } from "../world/glow-points";
 import { createBalls } from "../world/landmarks";
 import { palette } from "../world/palette";
 import type { CourtStage } from "../world/scene";
 import { dragOnCourt } from "./drag";
-import { REACH, type Game, type Side, type Vec } from "./rules";
+import type { Game, Side, Vec } from "./rules";
 
 /**
  * The Rally game drawn into the world, on the Juice Bros court itself, in
  * feet: the world stands it there, and its camera, raised behind the
- * player's baseline, frames it. The player stands in cyan, the world's
- * light; the AI in magenta. It draws only when asked: the page steps the
- * game and calls `draw` each frame while it plays, and once when anything
- * changes.
+ * player's baseline, frames it. The player is Adrian, a Mii built from the
+ * world's cyan light, ADRIAN across his back; Dinkbot a robot in magenta
+ * (see ../mii). Each runs, swings a forehand or a backhand at its hits, and
+ * cheers or slumps at each point; under reduced motion both stand still. It
+ * draws only when asked: the page steps the game and calls `draw` each
+ * frame while it plays, and once when anything changes.
  */
 
 export type RallyView = {
@@ -49,26 +49,10 @@ const TRAIL = 9;
 const FLASH_MS = 260;
 const BALL_RADIUS = 0.42;
 
-/** A player: a column of light, the paddle's reach as a ring round it, and the paddle. */
-function createFigure(color: Color) {
-  const group = new Group();
-  const body = new Mesh(
-    new CapsuleGeometry(0.55, 3.6, 4, 12),
-    new MeshBasicMaterial({ color, transparent: true, opacity: 0.38 }),
-  );
-  body.position.y = 2.4;
-  const ring = new Mesh(
-    new RingGeometry(REACH - 0.14, REACH, 48).rotateX(-Math.PI / 2),
-    new MeshBasicMaterial({ color, transparent: true, opacity: 0.45 }),
-  );
-  ring.position.y = 0.07;
-  const paddle = new Mesh(
-    new BoxGeometry(0.75, 1, 0.12),
-    new MeshBasicMaterial({ color: color.clone().lerp(palette.ink, 0.35) }),
-  );
-  group.add(body, ring, paddle);
-  return { group, paddle };
-}
+/** The longest step a figure's motions take between draws, in seconds. */
+const MAX_STEP = 0.05;
+/** How near the ball must be, in feet, for a player to reach for it. */
+const NEAR = 10;
 
 /**
  * Builds the game's objects and puts them on the world's court once their
@@ -82,10 +66,19 @@ export async function createRallyView(stage: CourtStage): Promise<RallyView> {
   const light = palette[litSite("juice-bros").light];
   const group = new Group();
 
-  const figures: Record<Side, ReturnType<typeof createFigure>> = {
-    player: createFigure(palette.cyan),
-    ai: createFigure(palette.magenta),
+  const figures: Record<Side, Mii> = {
+    player: createMii({
+      color: palette.cyan,
+      build: ADRIAN,
+      name: "ADRIAN",
+      paddle: true,
+      textures: await adrianTextures(palette.cyan),
+    }),
+    ai: createMii({ color: palette.magenta, build: ROBOT, robot: true, paddle: true }),
   };
+  // Dinkbot faces the player, down +z.
+  figures.ai.group.rotation.y = Math.PI;
+  const reduced = window.matchMedia(REDUCED_MOTION);
 
   const [ball] = createBalls([{ x: 0, y: 0, z: 0, r: BALL_RADIUS, color: light }]);
   const shadow = new Mesh(
@@ -125,24 +118,49 @@ export async function createRallyView(stage: CourtStage): Promise<RallyView> {
   const history: Vector3[] = [];
   let flashAt = -Infinity;
   let last: Game | null = null;
+  let drawnAt = performance.now();
 
-  /** Where a player holds the paddle: out towards the ball when it's near, at their side otherwise. */
-  function placePaddle(side: Side, game: Game) {
-    const at = game[side];
-    const { paddle } = figures[side];
-    const near = Math.hypot(game.ball.x - at.x, game.ball.z - at.z) < 10;
-    const reach = REACH * 0.8;
-    const dx = near ? Math.max(-reach, Math.min(reach, game.ball.x - at.x)) : 1.3;
-    const toNet = side === "player" ? -1 : 1;
-    paddle.position.set(dx, near ? Math.max(1, Math.min(5, game.ball.y)) : 2.8, toNet * 0.9);
+  /**
+   * Moves the players on: where they stand, how fast they ran there, the
+   * ball as each sees it (x to their right, z behind them), a swing at each
+   * of their hits, and a cheer or a slump at each point (once per step, as
+   * a game is drawn again when it pauses).
+   */
+  function movePlayers(game: Game, from: Game | null) {
+    const now = performance.now();
+    const dt = Math.min(MAX_STEP, (now - drawnAt) / 1000);
+    drawnAt = now;
+    const fresh = game !== from;
+    for (const side of ["player", "ai"] as const) {
+      const mii = figures[side];
+      const at = game[side];
+      const facing = side === "player" ? 1 : -1;
+      const moved = from ? Math.hypot(at.x - from[side].x, at.z - from[side].z) : 0;
+      const ball = {
+        x: facing * (game.ball.x - at.x),
+        y: game.ball.y,
+        z: facing * (game.ball.z - at.z),
+      };
+      const near = Math.hypot(ball.x, ball.z) < NEAR;
+      if (fresh) {
+        for (const event of game.events) {
+          if (event.type === "hit" && event.side === side) {
+            mii.swing(ball.x >= -0.3 ? 1 : -1);
+          } else if (event.type === "point") {
+            if (event.winner === side) mii.cheer();
+            else mii.slump();
+          }
+        }
+      }
+      mii.setStill(reduced.matches);
+      mii.group.position.set(at.x, 0, at.z);
+      mii.update(dt, dt > 0 ? moved / dt : 0, near ? ball : null);
+    }
   }
 
   function draw(game: Game) {
+    movePlayers(game, last);
     last = game;
-    for (const side of ["player", "ai"] as const) {
-      figures[side].group.position.set(game[side].x, 0, game[side].z);
-      placePaddle(side, game);
-    }
     const { x, y, z } = game.ball;
     ball.position.set(x, y + BALL_RADIUS, z);
     shadow.position.set(x, 0.06, z);
@@ -186,6 +204,7 @@ export async function createRallyView(stage: CourtStage): Promise<RallyView> {
 
   function dispose() {
     stage.release(guest);
+    for (const mii of Object.values(figures)) mii.dispose();
     group.traverse((object) => {
       if (object instanceof Mesh || object instanceof Points) {
         object.geometry.dispose();
