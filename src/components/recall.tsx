@@ -147,7 +147,7 @@ export function RecallName({ name, copy }: { name: string; copy: typeof recall }
           {channeling && (
             <svg
               aria-hidden="true"
-              className="pointer-events-none absolute -top-1.5 -left-2.5 h-[calc(100%+0.75rem)] w-[calc(100%+1.25rem)] overflow-visible text-cyan motion-safe:animate-[recall-glow_1s_ease-in-out_infinite]"
+              className="pointer-events-none absolute -top-1.5 -left-2.5 h-[calc(100%+0.75rem)] w-[calc(100%+1.25rem)] overflow-visible text-cyan motion-safe:animate-[recall-name-glow_1s_ease-in-out_infinite]"
             >
               <rect width="100%" height="100%" rx="8" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
               <rect

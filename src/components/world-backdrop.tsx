@@ -49,10 +49,13 @@ const MOTES = (() => {
  */
 export function WorldStill({
   name,
+  parallax,
   children,
 }: {
   /** Which still, and its data-backdrop. */
   name: StillName;
+  /** Opts into leaning toward the pointer (see globals.css): the 404 alone. */
+  parallax?: boolean;
   children?: ReactNode;
 }) {
   const stills = STILLS[name];
@@ -60,6 +63,7 @@ export function WorldStill({
     <div
       aria-hidden="true"
       data-backdrop={name}
+      data-parallax={parallax || undefined}
       className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-lvh overflow-hidden"
     >
       <picture>
@@ -89,9 +93,9 @@ export function WorldStill({
  * the valley, dimmed so the page reads over it, with motes drifting across
  * (none under reduced motion, where the still stands alone).
  */
-export function WorldBackdrop() {
+export function WorldBackdrop({ parallax }: { parallax?: boolean }) {
   return (
-    <WorldStill name="valley">
+    <WorldStill name="valley" parallax={parallax}>
       <div className="absolute inset-0 bg-linear-to-b from-night/80 via-night/70 to-night/85" />
       <div className="absolute inset-0 motion-reduce:hidden">
         {MOTES.map((mote) => (

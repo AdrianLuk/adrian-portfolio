@@ -93,7 +93,7 @@ test.describe("holding B", () => {
     await page.goto("/resume");
     await holdB(page);
     // With motion allowed, the ring's glow pulses.
-    expect(await glows(page)).toEqual(["recall-glow"]);
+    expect(await glows(page)).toEqual(["recall-name-glow"]);
     await page.waitForTimeout(1000);
     await page.keyboard.up("b");
     await expect(announcer(page)).toHaveText(recall.cancelled);
