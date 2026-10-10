@@ -536,6 +536,7 @@ export function createStructures(shared: SharedUniforms) {
       ...createSkylineMeshes(landmarks.solids, landmarks.rings, WINDOW_LIGHT, {
         haze: 1,
         insideRings: true,
+        strokes: landmarks.strokes,
       }),
       veils,
       createShields(landmarks.shields, shared),

@@ -97,7 +97,7 @@ The About page's scroll route: the camera moves from the court (pickleball) to t
 _Avoid_: About route, second route
 
 **Arena**:
-The concert arena built from light in the valley past the Diamond, inland of Victoria Harbour: an oval whose roof is only ribs of light, with a stage, its truss and screens at one end. Its floor holds the lightstick crowd. The Encore's frame and the Hobby route's last stop, seen from inside, behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
+The K-pop concert arena built from light, seated in the valley's right wall beside Victoria Harbour, past the Diamond: a horseshoe of tiers whose seats are lightsticks, a canopy over them, and a stage closing its open end, aimed at Hong Kong so the city stands behind the stage. Its back is cut into the wall; the rest stands out over the shore on lit braces, as Stark's house stands out over Malibu Point. Its floor holds the lightstick crowd. The Encore's frame and the Hobby route's last stop, seen from inside, up the back tiers behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
 _Avoid_: Stadium, stadium bowl (BT Cup's Landmark), venue, concert hall
 
 **About page**:
