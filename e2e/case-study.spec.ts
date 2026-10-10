@@ -643,14 +643,18 @@ test.describe("recordings", () => {
       const count = await videos.count();
       expect(count).toBeGreaterThanOrEqual(1);
       // Wait for React to take the recordings over (it tags their elements),
-      // so their effects are what is under test, not the server HTML.
+      // so their effects are what is under test, not the server HTML. On CI,
+      // software WebGL building the court's scene holds the main thread, so
+      // hydration can take longer than the default 5s.
       await expect
-        .poll(() =>
-          videos.evaluateAll((els) =>
-            els.every((el) =>
-              Object.keys(el).some((k) => k.startsWith("__reactFiber")),
+        .poll(
+          () =>
+            videos.evaluateAll((els) =>
+              els.every((el) =>
+                Object.keys(el).some((k) => k.startsWith("__reactFiber")),
+              ),
             ),
-          ),
+          { timeout: 15_000 },
         )
         .toBe(true);
       // Each on screen in turn (the stage's are not shown: nothing pins).
