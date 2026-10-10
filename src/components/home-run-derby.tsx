@@ -373,7 +373,7 @@ export function HomeRunDerby({
       )}
 
       <StepsAside away={filled}>
-        <div className={`${overPlace.diamond} flex flex-col items-start gap-5`}>
+        <div className={`${overPlace.diamond} flex flex-col items-center gap-5 text-center`}>
           {corners}
           {playing && hud.paused ? (
             <>
@@ -400,7 +400,7 @@ export function HomeRunDerby({
               {view === "unavailable" ? (
                 <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
               ) : (
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <div className="flex flex-col items-center gap-2">
                   <button
                     ref={actionRef}
                     type="button"
