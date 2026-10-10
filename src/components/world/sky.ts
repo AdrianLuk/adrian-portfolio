@@ -89,15 +89,19 @@ export function createSky(shared: SharedUniforms) {
           col = mix(col, mix(uHorizon, uMid, 0.55), range * 0.75);
 
           // Ripples: the haze lit violet round each, broken into drifts of
-          // cloud, under a ring of cyan.
-          vec2 drift = dir.xz / (abs(h) + 0.3) * 2.5;
-          float cloud = 0.25 + 0.75 * smoothstep(0.3, 0.75, 0.65 * noise(drift) + 0.35 * noise(drift * 2.3 + 7.0));
-          for (int i = 0; i < ${RIPPLE.rings}; i++) {
-            vec2 ring = uRings[i];
-            float a = acos(clamp(dot(dir, uRingDirs[i]), -1.0, 1.0));
-            float band = 1.0 - smoothstep(0.0, 0.018, abs(a - ring.x));
-            float glow = exp(-a * a / (0.01 + 0.5 * ring.x * ring.x));
-            col += ring.y * (uCyan * band * 0.9 + uViolet * glow * cloud * 0.7);
+          // cloud, under a ring of cyan. Skipped whole while none is lit.
+          float lit = 0.0;
+          for (int i = 0; i < ${RIPPLE.rings}; i++) lit += uRings[i].y;
+          if (lit > 0.0) {
+            vec2 drift = dir.xz / (abs(h) + 0.3) * 2.5;
+            float cloud = 0.25 + 0.75 * smoothstep(0.3, 0.75, 0.65 * noise(drift) + 0.35 * noise(drift * 2.3 + 7.0));
+            for (int i = 0; i < ${RIPPLE.rings}; i++) {
+              vec2 ring = uRings[i];
+              float a = acos(clamp(dot(dir, uRingDirs[i]), -1.0, 1.0));
+              float band = 1.0 - smoothstep(0.0, 0.018, abs(a - ring.x));
+              float glow = exp(-a * a / (0.01 + 0.5 * ring.x * ring.x));
+              col += ring.y * (uCyan * band * 0.9 + uViolet * glow * cloud * 0.7);
+            }
           }
           gl_FragColor = vec4(col, 1.0);
           #include <colorspace_fragment>

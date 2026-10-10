@@ -63,6 +63,7 @@ import { createStructures } from "./structures";
 import { createRipples } from "./ripples";
 import {
   createTerrain,
+  rippleReach,
   setTerrainRings,
   setTerrainWeather,
 } from "./terrain-mesh";
@@ -355,7 +356,7 @@ export async function createWorld(
   let { weather, view } = options;
   const wet = () => weather === "rain";
   const terrain = createTerrain(weather);
-  let ripples = createRipples<{ x: number; z: number }>();
+  let ripples = createRipples<{ x: number; z: number; reach: number }>();
   let skyRipples = createRipples<Vector3>();
   await nextTask();
 
@@ -947,9 +948,11 @@ export async function createWorld(
     // A building: the ring spreads from its foot, below where it was tapped.
     const [built] = raycaster.intersectObjects(solids, false);
     if (built && (!ground || built.distance < ground.distance)) {
-      ripples.start({ x: built.point.x, z: built.point.z }, now);
-    } else if (ground) ripples.start(ground, now);
-    else skyRipples.start(direction.clone(), now);
+      const { point, distance } = built;
+      ripples.start({ x: point.x, z: point.z, reach: rippleReach(distance) }, now);
+    } else if (ground) {
+      ripples.start({ ...ground, reach: rippleReach(ground.distance) }, now);
+    } else skyRipples.start(direction.clone(), now);
   }
 
   const court: CourtStage = {
