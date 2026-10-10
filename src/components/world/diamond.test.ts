@@ -110,12 +110,25 @@ describe("the baseball diamond", () => {
     expect(mound.x).toBeLessThan(home.x);
   });
 
-  it("raises the mound as a hill, above the field and ringed in light", () => {
+  it("is a major league park: 330 feet down the lines, 400 to centre field, so the infield is a small square in a big outfield", () => {
+    expect(DIAMOND.foulLine).toBe(330);
+    expect(DIAMOND.centreField).toBe(400);
+    // Second base is under a third of the way out to the centre field fence.
+    expect((DIAMOND.base * Math.SQRT2) / DIAMOND.centreField).toBeLessThan(0.33);
+  });
+
+  it("chalks its lines and raises its mound to life, near enough: lines 6 inches wide, the mound 10 inches high", () => {
+    const [firstLine] = diamond.lines;
+    expect(Math.min(firstLine.w, firstLine.d) / scale).toBeLessThanOrEqual(0.5 + 1e-9);
+    expect(diamond.mound.h / scale).toBeCloseTo(10 / 12);
+  });
+
+  it("raises the mound as a low hill, above the field and ringed in light", () => {
     const { mound } = diamond;
     expect(mound.shape).toBe("frustum");
     expect(mound.rBottom).toBeCloseTo(DIAMOND.moundRadius * scale);
     expect(mound.rTop).toBeLessThan(mound.rBottom);
-    expect(mound.y + mound.h).toBeGreaterThan(diamond.level + 0.4);
+    expect(mound.y + mound.h).toBeGreaterThan(diamond.level);
     expect(
       diamond.rings.some(
         (r) => r.x === mound.x && r.z === mound.z && r.r > mound.rBottom,
@@ -175,6 +188,26 @@ describe("the baseball diamond", () => {
       expect(x).toBeLessThanOrEqual(home.x + 1e-6);
       expect(z).toBeLessThanOrEqual(home.z + 1e-6);
     }
+  });
+
+  it("draws its bases and home plate life-size: bases 15 inches square, the plate 17 inches across its front and 12 along each edge to its point", () => {
+    for (const b of diamond.bases) {
+      expect(b.w / scale).toBeCloseTo(15 / 12);
+      expect(b.d / scale).toBeCloseTo(15 / 12);
+    }
+    const plate = outline(diamond.plate);
+    const edges = plate.map(([x, z], i) => {
+      const [nx, nz] = plate[(i + 1) % plate.length];
+      return Math.hypot(nx - x, nz - z) / scale;
+    });
+    expect(Math.max(...edges)).toBeCloseTo(17 / 12, 2);
+    expect(edges.filter((e) => Math.abs(e - 1) < 0.01)).toHaveLength(2);
+    // A slab, as are its outline's light and the bases: inches thick, not feet.
+    const [bottom, top] = diamond.plate.sections!;
+    expect((top.h - bottom.h) / scale).toBeLessThan(0.25);
+    const rim = diamond.rings.find((r) => r.outline?.length === 5)!;
+    expect(rim.h / scale).toBeLessThan(0.25);
+    for (const b of diamond.bases) expect(b.h / scale).toBeLessThan(0.25);
   });
 
   it("rings it with a stadium: a deck of seats in the outfield beyond the fence, light towers behind, foul ground open and nothing behind home", () => {

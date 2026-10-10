@@ -16,9 +16,9 @@ const gameRoot = (page: Page) => page.locator("[data-phase]");
 const court = (page: Page) => page.getByRole("application", { name: copy.label });
 const announcer = (page: Page) => page.getByRole("main").locator('[aria-live="polite"]');
 
-/** Opens /play and waits for the court to be drawn. */
+/** Opens /rally and waits for the court to be drawn. */
 async function openPlay(page: Page) {
-  await page.goto("/play");
+  await page.goto("/rally");
   await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
     timeout: SCENE_TIMEOUT,
   });
@@ -34,7 +34,7 @@ const focusRing = (page: Page) =>
 test("sets its title and description from the content module", async ({
   page,
 }) => {
-  await page.goto("/play");
+  await page.goto("/rally");
   await expect(page).toHaveTitle(rally.metaTitle);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     "content",
@@ -165,12 +165,12 @@ test("is played on the world's own court: the page's one canvas", async ({
   ).toBe(true);
 });
 
-test("?weather=snow lies on the ground at the court on /play too, and nothing falls", async ({
+test("?weather=snow lies on the ground at the court on /rally too, and nothing falls", async ({
   browser,
 }, testInfo) => {
   test.setTimeout(90_000);
   // The page's copy, all of it the game's.
-  const at = { path: "/play", copy: "[data-phase] > *" };
+  const at = { path: "/rally", copy: "[data-phase] > *" };
   const clear = await placeIn(browser, testInfo, { ...at, weather: "clear" });
   const snow = await placeIn(browser, testInfo, { ...at, weather: "snow" });
   expect(clear.perFrame).toBeGreaterThan(0);
@@ -182,7 +182,7 @@ test("without WebGL the court's still stays, and the game says it can't run here
   page,
 }) => {
   await withoutWorld(page);
-  await page.goto("/play");
+  await page.goto("/rally");
   await expect(gameRoot(page)).toHaveAttribute("data-world", "unavailable");
   await expect(page.locator('[data-backdrop="court"] img')).toBeVisible();
   await expect(page.getByText(copy.unavailable)).toBeVisible();

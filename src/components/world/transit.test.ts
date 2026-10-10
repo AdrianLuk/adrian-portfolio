@@ -104,9 +104,9 @@ const towers = [
 
 /**
  * The relaxed rule for the last metres into a pose off the route (the
- * court's, the Skyline's, /play's): within LANDING_REACH world units of it,
+ * court's, the Skyline's, /rally's): within LANDING_REACH world units of it,
  * the camera need only clear the ground by the pose's own margin, 2, not the
- * route's 8, and may rise off the floor's edge as /play's view does, over
+ * route's 8, and may rise off the floor's edge as /rally's view does, over
  * the valley's wall beside the court.
  */
 const LANDING_REACH = 60;
@@ -518,7 +518,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
       });
     });
 
-    describe("to and from /play's view of the court", () => {
+    describe("to and from /rally's view of the court", () => {
       const court = courtPose(aspect);
       const play = playView(aspect, landmarks.court).pose;
 
@@ -551,8 +551,8 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
 
       describe("between the court's two views", () => {
         const trips = {
-          "courtside to /play": transitWithin(court, play),
-          "/play to courtside": transitWithin(play, court),
+          "courtside to /rally": transitWithin(court, play),
+          "/rally to courtside": transitWithin(play, court),
         };
 
         for (const [way, trip] of Object.entries(trips)) {
@@ -600,7 +600,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
 
         it("turns round mid-flight from exactly where the camera is", () => {
           for (const t of [0.1, 0.5, 0.9]) {
-            const departure = trips["courtside to /play"].poseAt(t);
+            const departure = trips["courtside to /rally"].poseAt(t);
             const back = transitWithin(departure, court);
             expectSamePose(back.poseAt(0), departure);
             expectSamePose(back.poseAt(1), court);

@@ -45,11 +45,11 @@ The home page's fly-in on a first visit: the camera's flight down the canyon to 
 _Avoid_: Intro, fly-through
 
 **Place**:
-A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/play` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net) and the Skyline for the Resume page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/play`. A page without a Place, such as the 404, shows a still of the world instead.
+A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/rally` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net), the Diamond for the Home Run Derby (seen from behind home plate) and the Skyline for the Resume page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/rally`. A page without a Place, such as the 404, shows a still of the world instead.
 _Avoid_: Scene, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/play`: the camera moves round the court.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court or the Skyline (sweeping off the route across the Harbour, panning to face downtown), between the court and the Skyline, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court. Not yet to or from the Diamond: the Derby crossfades until its Transit is built.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
@@ -57,7 +57,7 @@ The one place that decides where the world's camera is and how the world is lit,
 _Avoid_: Rig, steer, pose source
 
 **Rally game**:
-The short pickleball game on `/play`: singles against an AI, Dinkbot, played in the world, on the Juice Bros court, side-out scoring to 11, win by 2.
+The short pickleball game on `/rally`: singles against an AI, Dinkbot, played in the world, on the Juice Bros court, side-out scoring to 11, win by 2.
 _Avoid_: Mini-game, minigame, Pong
 
 **Easter egg**:
@@ -81,7 +81,7 @@ The stretch of home past the closing bookend: the camera turns from the route's 
 _Avoid_: Outro, ending, concert
 
 **Home Run Derby**:
-The baseball game on a page of its own under `/play`: the visitor bats against Curvebot for ten pitches at the Diamond, each swing's timing deciding a home run, fly-out, foul or strike. "The Derby" for short.
+The baseball game on its own page, `/derby`: the visitor bats against Curvebot for ten pitches at the Diamond, each swing's timing deciding a home run, fly-out, foul or strike. "The Derby" for short.
 _Avoid_: Baseball game, batting game, mini-game
 
 **Curvebot**:

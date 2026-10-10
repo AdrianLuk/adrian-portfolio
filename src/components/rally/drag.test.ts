@@ -7,7 +7,7 @@ import type { Vec } from "./rules";
 
 const { court } = layoutLandmarks();
 
-/** The world's camera as it stands for /play on a screen of this shape. */
+/** The world's camera as it stands for /rally on a screen of this shape. */
 function cameraFor(aspect: number) {
   const { pose, fovY } = playView(aspect, court);
   const camera = new PerspectiveCamera(fovY, aspect, 0.5, 2600);

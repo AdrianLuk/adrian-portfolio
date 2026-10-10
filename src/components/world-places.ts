@@ -12,21 +12,23 @@ import type { CaseStudySlug } from "@/content/site";
  * A page's place in the world: home stands at the hero (the opening, the
  * settled view over the name plate, the scroll route), the Juice Bros Case
  * study and the Rally game at its court (Lit site 3's Landmark), the Resume
- * page at the Skyline (face to face with Toronto's skyline).
+ * page at the Skyline (face to face with Toronto's skyline), the Home Run
+ * Derby at the Diamond.
  */
-export type Place = "hero" | "court" | "skyline";
+export type Place = "hero" | "court" | "skyline" | "diamond";
 
 /**
  * A page's view of its Place, where the camera stands there: each Place's
  * own, but the court has one per page, courtside for the Juice Bros Case
- * study ("court") and behind the player's baseline for /play ("play"). A
- * navigation between two views of one Place is a Transit too.
+ * study ("court") and behind the player's baseline for /rally ("play"). A
+ * navigation between two views of one Place is a Transit too. The Diamond's
+ * one view is the Derby's ("derby"), behind home plate.
  */
-export type PlaceView = Place | "play";
+export type PlaceView = Exclude<Place, "diamond"> | "play" | "derby";
 
 /** The Place a view is of. */
 export const placeOfView = (view: PlaceView): Place =>
-  view === "play" ? "court" : view;
+  view === "play" ? "court" : view === "derby" ? "diamond" : view;
 
 /**
  * The Case study whose Place is the court: Juice Bros', whose Landmark it
@@ -56,7 +58,8 @@ export function viewOf(url: string): PlaceView | null {
   const page = pageOf(url);
   if (page === "/") return "hero";
   if (page === COURT_PAGE) return "court";
-  if (page === "/play") return "play";
+  if (page === "/rally") return "play";
+  if (page === "/derby") return "derby";
   if (page === "/resume") return "skyline";
   return null;
 }
@@ -68,15 +71,24 @@ export function placeOf(url: string): Place | null {
 }
 
 /**
+ * `view`, if the camera flies to and from it: every view but the Derby's,
+ * which crossfades until its Transit to the Diamond lands (#102).
+ */
+const flyable = (view: PlaceView | null) => (view === "derby" ? null : view);
+
+/** The view a Transit under way may turn to for `url`, if any. */
+export const transitTo = (url: string) => flyable(viewOf(url));
+
+/**
  * Where a navigation from the view `from` to `to` (a path or a URL) flies
  * the camera: between any two views, either way (the court's two
  * included), and nowhere else. Moving within a page never flies, nor does
- * any page with no place in the world.
+ * any page with no place in the world, nor (for now) the Derby's.
  */
 export function transitBetween(
   from: PlaceView | null,
   to: string,
 ): PlaceView | null {
-  const arriving = viewOf(to);
-  return from && arriving && from !== arriving ? arriving : null;
+  const arriving = transitTo(to);
+  return flyable(from) && arriving && from !== arriving ? arriving : null;
 }

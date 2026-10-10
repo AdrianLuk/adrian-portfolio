@@ -183,7 +183,7 @@ export default async function CaseStudyPage({
         <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-lg">
           {siteLinks.map((link) => (
             <li key={link.href}>
-              {/* Not prefetched: the only internal one is the Rally game, whose code loads only on /play. */}
+              {/* Not prefetched: the only internal one is the Rally game, whose code loads only on /rally. */}
               {link.href.startsWith("/") ? (
                 <Link href={link.href} prefetch={false} className={linkClass}>
                   {link.label}

@@ -55,7 +55,8 @@ export async function openOnFirstFrame(page, url, { timeout }) {
   // A page with no world (the Rally game's, the 404) never draws one.
   if ((await page.locator("[data-world]").count()) === 0) return false;
   try {
-    await page.locator('[data-world="drawn"]').waitFor({ timeout });
+    // .first(): a game's root carries data-world too, once it's on its field.
+    await page.locator('[data-world="drawn"]').first().waitFor({ timeout });
   } catch {
     return false;
   }

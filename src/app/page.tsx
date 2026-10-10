@@ -243,7 +243,8 @@ export default async function Home() {
                 {line.links?.map((link, i) => (
                   <Fragment key={link.href}>
                     {i > 0 ? " · " : " "}
-                    <Link href={link.href} className={textLink}>
+                    {/* Not prefetched: that would load the games' code on home. */}
+                    <Link href={link.href} prefetch={false} className={textLink}>
                       {link.label}
                     </Link>
                   </Fragment>

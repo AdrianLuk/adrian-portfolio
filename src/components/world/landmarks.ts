@@ -22,6 +22,7 @@ import {
   DIAMOND_AT,
   diamondFootprint,
   layoutDiamond,
+  type DiamondField,
 } from "./diamond";
 import type { Glow } from "./glow-points";
 import { fogChunk, fogUniforms, palette } from "./palette";
@@ -109,6 +110,8 @@ export type Landmarks = {
   bounds: Box[];
   /** The Diamond, whole: not a Lit site, so not among `bounds`. */
   diamond: Box;
+  /** The Diamond's field, where the Home Run Derby plays. */
+  field: DiamondField;
   /** The Arena, whole: not a Lit site either. */
   arena: Box;
   /**
@@ -133,7 +136,8 @@ function standing(
 
 export function layoutLandmarks(): Landmarks {
   let rally: RallyCourt | null = null;
-  const out: Omit<Landmarks, "court" | "diamond" | "arena"> = {
+  let field: DiamondField | null = null;
+  const out: Omit<Landmarks, "court" | "diamond" | "field" | "arena"> = {
     bodies: [],
     rooms: [],
     bands: [],
@@ -197,7 +201,8 @@ export function layoutLandmarks(): Landmarks {
     })),
   );
   if (!rally) throw new Error("No court among the Lit sites");
-  return { ...out, court: rally, diamond: diamondBounds, arena: arenaBounds };
+  if (!field) throw new Error("No field on the Diamond");
+  return { ...out, court: rally, diamond: diamondBounds, field, arena: arenaBounds };
 
   /**
    * Control D: a shield, a dome of hex cells of light, over a gate, a ring
@@ -525,6 +530,7 @@ export function layoutLandmarks(): Landmarks {
     const side = Math.sign(DIAMOND_AT.fromCentreLine) as 1 | -1;
     const d = layoutDiamond({ x, z, side, level, scale, color: palette.cyan });
     const { stands, bounds } = d;
+    field = d.field;
     out.bodies.push(d.plinth, ...stands.bodies);
     out.bands.push(
       ...d.surfaces,

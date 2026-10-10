@@ -28,14 +28,23 @@ export type CameraPaths = {
   skyline: Pose;
   /**
    * The camera's vertical field of view, in degrees: the world's own, the
-   * Skyline's for the screen's shape (wider on a narrow screen), /play's
-   * (the Rally game's framing of the court), and the Arena's inside view's.
+   * Skyline's for the screen's shape (wider on a narrow screen), /rally's
+   * (the Rally game's framing of the court), the Derby's (its framing of
+   * the Diamond) and the Arena's inside view's.
    */
-  fovY: { world: number; skyline: number; play: number; encore: number };
+  fovY: {
+    world: number;
+    skyline: number;
+    play: number;
+    derby: number;
+    encore: number;
+  };
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
-  /** /play's view of the court, for the screen's shape: raised behind the player's baseline. */
+  /** /rally's view of the court, for the screen's shape: raised behind the player's baseline. */
   play: Pose;
+  /** The Derby's view of the Diamond, for the screen's shape: raised behind home plate. */
+  derby: Pose;
   /** The court's stop on the route (Juice Bros' Lit site). */
   courtStop: number;
   transit(route: Route, departure: Departure, to: Arrival): Transit;
@@ -90,10 +99,11 @@ export type CameraLights = {
 type Looks = Pick<CameraLights, "court" | "skyline">;
 
 /**
- * How far each Place's look is in, and how far /play's view, whose field of
- * view is its own: blended alike through a Transit (see `looks`).
+ * How far each Place's look is in, and how far /rally's view and the
+ * Derby's, whose fields of view are their own: blended alike through a
+ * Transit (see `looks`).
  */
-type Blend = Looks & { play: number };
+type Blend = Looks & { play: number; derby: number };
 
 /**
  * Where the camera leans, toward the pointer: -1 to 1 each way from the
@@ -247,6 +257,7 @@ export function createCameraDirector({
     if (shown === "skyline") return paths?.skyline ?? null;
     if (shown === "court") return paths?.court ?? null;
     if (shown === "play") return paths?.play ?? null;
+    if (shown === "derby") return paths?.derby ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     if (!landed) return home.opening.poseAt(opening);
@@ -379,13 +390,14 @@ export function createCameraDirector({
    * How far each Place's look is in at `now`, 0 to 1: through a Transit,
    * from where it was as the camera left to where the view it flies to has
    * it, eased along with the camera; otherwise full at its own Place (in
-   * either of the court's views) and out elsewhere. /play's view blends the
+   * either of the court's views) and out elsewhere. /rally's view blends the
    * same way, for its field of view.
    */
   function looks(now: number): Blend {
-    /** Whether `view` is /play's view, or a view of the Place `key`. */
+    /** Whether `view` is /rally's view, the Derby's, or a view of the Place `key`. */
     const is = (view: PlaceView | null, key: keyof Blend) =>
-      view !== null && (key === "play" ? view : placeOfView(view)) === key;
+      view !== null &&
+      (key === "play" || key === "derby" ? view : placeOfView(view)) === key;
     const at = (key: keyof Blend) => {
       if (!trip) return is(shown, key) ? 1 : 0;
       const from = trip.looks[key];
@@ -394,7 +406,12 @@ export function createCameraDirector({
       const f = smoothstep(0, 1, progress(trip as Planned, now));
       return from + (to - from) * f;
     };
-    return { court: at("court"), skyline: at("skyline"), play: at("play") };
+    return {
+      court: at("court"),
+      skyline: at("skyline"),
+      play: at("play"),
+      derby: at("derby"),
+    };
   }
 
   /**
@@ -597,6 +614,7 @@ export function createCameraDirector({
           ? fov.world +
             (fov.skyline - fov.world) * blend.skyline +
             (fov.play - fov.world) * blend.play +
+            (fov.derby - fov.world) * blend.derby +
             (fov.encore - fov.world) * inside
           : null,
       };

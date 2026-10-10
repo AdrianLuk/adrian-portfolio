@@ -15,7 +15,8 @@ const routes = [
   { name: "home", path: "/" },
   { name: "Juice Bros case study", path: "/work/juice-bros" },
   { name: "Resume page", path: "/resume" },
-  { name: "Rally game", path: "/play" },
+  { name: "Rally game", path: "/rally" },
+  { name: "Home Run Derby", path: "/derby" },
   { name: "404", path: missingPath },
 ];
 

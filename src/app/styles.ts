@@ -37,12 +37,15 @@ export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";
  * The panel copy stands on over a live Place, so no line is lost to the
  * world's lights behind it: its glow in the Place's light (its corner
  * brackets too, by `PanelCorners`), or at the Skyline, whose magenta is the
- * world's alone, in the world's cyan. Written out in full, so Tailwind finds
- * the classes.
+ * world's alone, in the world's cyan, as at the Diamond, which burns it.
+ * Written out in full, so Tailwind finds the classes.
  */
+const inCyan =
+  "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8";
+
 export const overPlace = {
-  skyline:
-    "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8",
+  skyline: inCyan,
+  diamond: inCyan,
   court:
     "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8",
 } as const;
@@ -66,7 +69,7 @@ export const arrivesAtCourt =
   "in-data-[arriving=court]:invisible in-data-[arriving=court]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
 
 /**
- * /play's copy over the court, held back the same way while the world's
+ * /rally's copy over the court, held back the same way while the world's
  * root carries data-arriving="play" (the camera flying to the court's view
  * from behind the player's baseline), then faded in.
  */
