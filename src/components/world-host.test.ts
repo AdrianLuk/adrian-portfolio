@@ -24,10 +24,17 @@ vi.mock("./world/scene", () => ({
 
 describe("the world host", () => {
   let media: { listeners: Set<() => void>; matches: boolean };
+  /** The document's pointerup listeners: the world's taps. */
+  let taps: Set<unknown>;
 
   beforeEach(() => {
     media = { listeners: new Set(), matches: false };
-    vi.stubGlobal("document", { fonts: { ready: Promise.resolve() } });
+    taps = new Set();
+    vi.stubGlobal("document", {
+      fonts: { ready: Promise.resolve() },
+      addEventListener: (_: string, fn: unknown) => taps.add(fn),
+      removeEventListener: (_: string, fn: unknown) => taps.delete(fn),
+    });
     vi.stubGlobal("window", {
       matchMedia: () => ({
         get matches() {
@@ -45,11 +52,12 @@ describe("the world host", () => {
     vi.unstubAllGlobals();
   });
 
-  it("follows the reduced-motion preference once built, until disposed", async () => {
+  it("follows the reduced-motion preference and taps once built, until disposed", async () => {
     const host = createWorldHost();
     const canvas = {} as HTMLCanvasElement;
     host.attach(canvas, { kind: "skyline", weather: "clear" });
     expect(await host.start()).toBe(scene.world);
+    expect(taps.size).toBe(1);
 
     media.matches = true;
     for (const listener of media.listeners) listener();
@@ -59,6 +67,7 @@ describe("the world host", () => {
     host.subscribe(onChange);
     host.dispose();
     expect(media.listeners.size).toBe(0);
+    expect(taps.size).toBe(0);
     expect(scene.world.dispose).toHaveBeenCalledOnce();
     expect(host.live()).toBe(false);
     expect(host.intent()).toBe("none");

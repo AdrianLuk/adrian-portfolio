@@ -5,7 +5,7 @@ import {
   SCENE,
   SCENE_STATES,
 } from "../src/components/player-tools-markup";
-import { notFound } from "../src/content/site";
+import { notFound, recall } from "../src/content/site";
 
 const missingPath = "/this-page-does-not-exist";
 
@@ -32,6 +32,16 @@ for (const route of routes) {
 }
 
 test("a Recall channeling has no axe violations", async ({ page }) => {
+  // The channel's timer never fires: on a loaded runner axe can outlast its
+  // 3s, and the Recall would take the page home mid-audit. (Not the page's
+  // clock: axe runs on timers too.)
+  await page.addInitScript((channelMs) => {
+    const setTimeout = window.setTimeout;
+    window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) =>
+      delay === channelMs
+        ? 0
+        : setTimeout(handler, delay, ...args)) as typeof window.setTimeout;
+  }, recall.channelMs);
   await page.goto("/resume");
   // Held until the page has hydrated and the ring is up.
   const ring = page.locator("[data-recall-ring]");
@@ -42,6 +52,9 @@ test("a Recall channeling has no axe violations", async ({ page }) => {
   }).toPass();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+  // Still channeling on the Resume page: axe saw the ring, not a trip home.
+  await expect(ring).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/resume");
   await page.keyboard.up("b");
 });
 

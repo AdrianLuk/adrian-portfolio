@@ -8,8 +8,10 @@ import {
   Object3D,
   PerspectiveCamera,
   Points,
+  Raycaster,
   Scene,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -60,8 +62,14 @@ import { createSky } from "./sky";
 import { magentaWash } from "./skyline";
 import { skylineLook } from "./skyline-look";
 import { createStructures } from "./structures";
-import { createTerrain, setTerrainWeather } from "./terrain-mesh";
-import { valleyHeight } from "./terrain";
+import { createRipples } from "./ripples";
+import {
+  createTerrain,
+  rippleReach,
+  setTerrainRings,
+  setTerrainWeather,
+} from "./terrain-mesh";
+import { groundHit, valleyHeight } from "./terrain";
 import type { Weather } from "./weather";
 
 /** The canvas size and the headline's word boxes, in canvas pixels. */
@@ -206,6 +214,13 @@ export type World = View & {
   setView(view: WorldView | null): void;
   /** Changes the weather in place: the ground, the pools and what falls. */
   setWeather(weather: Weather): void;
+  /**
+   * A tap on the world at (clientX, clientY): sends a ring of light across
+   * the terrain from the spot under it (none from the sky). Only while the
+   * world moves on a GPU: under reduced motion, in software, or with the
+   * context lost, nothing.
+   */
+  ripple(clientX: number, clientY: number): void;
   /** The court, for the Rally game to play on. */
   court: CourtStage;
   /** The Diamond's field, for the Home Run Derby to play on. */
@@ -360,6 +375,8 @@ export async function createWorld(
   let { weather, view } = options;
   const wet = () => weather === "rain";
   const terrain = createTerrain(weather);
+  let ripples = createRipples<{ x: number; z: number; reach: number }>();
+  let skyRipples = createRipples<Vector3>();
   await nextTask();
 
   // The plate is the hero object, built whatever the view, so showing the
@@ -547,6 +564,8 @@ export async function createWorld(
     if (!view || !posed || !compiled || lost) return;
     pose();
     plate.sweep(shared.uTime.value);
+    setTerrainRings(terrain, ripples.lit(shared.uTime.value));
+    sky.setRings(skyRipples.lit(shared.uTime.value));
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
     // In software, with a game on its stage and the camera landed, only the
     // game (and the veils' light over it) draws each frame.
@@ -939,6 +958,32 @@ export async function createWorld(
     };
   }
 
+  const raycaster = new Raycaster();
+  /** What a tap can land on short of the ground: all but the light veils. */
+  const solids = structures.meshes.filter((mesh) => mesh !== structures.veils);
+  const ndc = new Vector2();
+
+  function ripple(clientX: number, clientY: number) {
+    if (!running || software || !posed) return;
+    const box = canvas.getBoundingClientRect();
+    ndc.set(
+      ((clientX - box.left) / box.width) * 2 - 1,
+      1 - ((clientY - box.top) / box.height) * 2,
+    );
+    raycaster.setFromCamera(ndc, camera);
+    const { origin, direction } = raycaster.ray;
+    const now = shared.uTime.value;
+    const ground = groundHit(origin, direction);
+    // A building: the ring spreads from its foot, below where it was tapped.
+    const [built] = raycaster.intersectObjects(solids, false);
+    if (built && (!ground || built.distance < ground.distance)) {
+      const { point, distance } = built;
+      ripples.start({ x: point.x, z: point.z, reach: rippleReach(distance) }, now);
+    } else if (ground) {
+      ripples.start({ ...ground, reach: rippleReach(ground.distance) }, now);
+    } else skyRipples.start(direction.clone(), now);
+  }
+
   /** A stage whose guests stand in `group`. */
   function stageOn(group: Group): Stage {
     const stage: Stage = {
@@ -973,6 +1018,7 @@ export async function createWorld(
     layout,
     placeCredit,
     placeSite,
+    ripple,
     setMotion(next) {
       motion = next;
       backdrop.invalidate();
@@ -980,6 +1026,9 @@ export async function createWorld(
       if (!motion) {
         shared.uTime.value = STILL_TIME;
         loopStart = null;
+        // The clock starts again: no ring stays lit, or waits to.
+        ripples = createRipples();
+        skyRipples = createRipples();
       }
       sync();
       if (!running) render();
