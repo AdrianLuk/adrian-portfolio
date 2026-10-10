@@ -1,5 +1,6 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { LIT_SITES, type LitSite } from "../lit-sites";
+import { ARENA, arenaAxes, STAGE, STRETCH } from "./arena";
 import type { RallyCourt } from "./court-look";
 import { diamondMiddle } from "./diamond";
 import type { Pose } from "./flight";
@@ -138,6 +139,75 @@ export function hongKongPose(aspect: number): Pose {
   const position = above(HONG_KONG_SHORE.z, SHORE_HEIGHT);
   const ndcX = aspect >= 1 ? siteScreenX(aspect) : 0;
   return { position, quaternion: framing(position, HONG_KONG, ndcX, aspect) };
+}
+
+/**
+ * Where the camera stands in the Arena, in its frame (./arena): up the back
+ * tiers on its axis, `back` from its middle and `height` over its floor,
+ * behind the crowd and over the seats, so the stage sits low in the frame
+ * and Hong Kong shows over it; aimed `aim` over the floor at the LED wall.
+ * Its field of view widens, from the world's, until the stage's truss fits
+ * within `fit` of the frame's edges. The way in climbs from the route's end
+ * to `over` above the Arena's open middle, clear of the canopy, then comes
+ * down to the view.
+ */
+const ARENA_VIEW = { back: 38, height: 15, aim: 9, fit: 0.9, over: 34 };
+
+/**
+ * The Arena's inside view, the Encore's frame and the Hobby route's last
+ * stop, for a screen of this shape: behind the crowd up the back tiers,
+ * facing the stage down the Arena's axis, with Hong Kong behind it across
+ * the water; on a narrow screen with a wider field of view (`fovY`, in
+ * degrees), so the whole stage fits.
+ */
+export function arenaView(aspect: number): { pose: Pose; fovY: number } {
+  const arena = arenaAxes();
+  const front = -ARENA.floor * STRETCH + STAGE.front;
+  const [x, z] = arena.toWorld(0, ARENA_VIEW.back);
+  const position = new Vector3(x, arena.level + ARENA_VIEW.height, z);
+  const [tx, tz] = arena.toWorld(0, front - STAGE.wall.back);
+  const screen = new Vector3(tx, arena.level + ARENA_VIEW.aim, tz);
+  const look = new Matrix4().lookAt(position, screen, UP);
+  // The truss's front frame, the stage's widest reach, nearest the camera.
+  const near = ARENA_VIEW.back - (front - 1);
+  const tanX = STAGE.width / 2 / near / ARENA_VIEW.fit;
+  const fovY = Math.max(
+    CAMERA.fovY,
+    (2 * Math.atan(tanX / aspect) * 180) / Math.PI,
+  );
+  return {
+    pose: { position, quaternion: new Quaternion().setFromRotationMatrix(look) },
+    fovY,
+  };
+}
+
+/**
+ * The way into the Arena from home's route's end (Hong Kong's view), for a
+ * screen of this shape: climbing from the shore to above the Arena's open
+ * middle, clear of its canopy, then down into it onto the inside view, the
+ * view turning from Hong Kong to the stage as it goes. `t` runs 0 to 1; its
+ * pace, and the widening of the field of view to the inside view's, are the
+ * Encore's.
+ */
+export function arenaWayIn(aspect: number) {
+  const from = hongKongPose(aspect);
+  const to = arenaView(aspect).pose;
+  const arena = arenaAxes();
+  const over = new Vector3(arena.x, arena.level + ARENA_VIEW.over, arena.z);
+  const climb = from.position.clone().lerp(over, 0.5).setY(over.y);
+  const curve = new CatmullRomCurve3(
+    [from.position, climb, over, to.position],
+    false,
+    "centripetal",
+  );
+  return {
+    poseAt(t: number): Pose {
+      return {
+        position: curve.getPointAt(t),
+        quaternion: from.quaternion.clone().slerp(to.quaternion, ease(t)),
+      };
+    },
+  };
 }
 
 /** Which of the Lit sites is Juice Bros' court, where the Case study stands. */

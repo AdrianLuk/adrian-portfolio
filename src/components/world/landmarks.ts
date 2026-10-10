@@ -13,6 +13,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { HighlightId } from "@/content/site";
+import { layoutArena } from "./arena";
 import { courtFootprint, layoutCourt } from "./court";
 import type { RallyCourt } from "./court-look";
 import { COURT } from "./court-size";
@@ -26,7 +27,13 @@ import type { Glow } from "./glow-points";
 import { fogChunk, fogUniforms, palette } from "./palette";
 import { SITES, type Site } from "./route";
 import type { SharedUniforms } from "./shared";
-import { hippedRoof, type Box, type Ring, type Solid } from "./skyline";
+import {
+  hippedRoof,
+  type Box,
+  type Ring,
+  type Solid,
+  type Stroke,
+} from "./skyline";
 import { groundUnder, valleyCentre, valleyHeight } from "./terrain";
 import type { Portal, Shield } from "./shield";
 import type { Veil } from "./veil";
@@ -83,6 +90,8 @@ export type Landmarks = {
   bands: Box[];
   solids: Solid[];
   rings: Ring[];
+  /** Lines of light: the Arena's ribs. */
+  strokes: Stroke[];
   veils: Veil[];
   shields: Shield[];
   portals: Portal[];
@@ -100,6 +109,8 @@ export type Landmarks = {
   bounds: Box[];
   /** The Diamond, whole: not a Lit site, so not among `bounds`. */
   diamond: Box;
+  /** The Arena, whole: not a Lit site either. */
+  arena: Box;
   /**
    * Every part as a box, for keeping the camera clear of them and under the
    * ridge (the ball is a light, as the glows are, not a part).
@@ -122,12 +133,13 @@ function standing(
 
 export function layoutLandmarks(): Landmarks {
   let rally: RallyCourt | null = null;
-  const out: Omit<Landmarks, "court" | "diamond"> = {
+  const out: Omit<Landmarks, "court" | "diamond" | "arena"> = {
     bodies: [],
     rooms: [],
     bands: [],
     solids: [],
     rings: [],
+    strokes: [],
     veils: [],
     shields: [],
     portals: [],
@@ -148,6 +160,7 @@ export function layoutLandmarks(): Landmarks {
     out.bounds.push(build[site.highlight](site, palette[site.light]));
   }
   const diamondBounds = diamond();
+  const arenaBounds = arena();
   out.parts.push(
     ...out.bodies,
     ...out.rooms,
@@ -184,7 +197,7 @@ export function layoutLandmarks(): Landmarks {
     })),
   );
   if (!rally) throw new Error("No court among the Lit sites");
-  return { ...out, court: rally, diamond: diamondBounds };
+  return { ...out, court: rally, diamond: diamondBounds, arena: arenaBounds };
 
   /**
    * Control D: a shield, a dome of hex cells of light, over a gate, a ring
@@ -543,6 +556,32 @@ export function layoutLandmarks(): Landmarks {
     const cz = (bounds.z0 + bounds.z1) / 2;
     const ground = groundUnder(cx, cz, w, dd);
     return standing(cx, cz, Math.min(low, ground.low) - 2, bounds.top, w, dd, palette.cyan);
+  }
+
+  /**
+   * The Arena: a horseshoe of lit seats under a canopy, its stage toward Hong
+   * Kong, standing out over the shore on lit braces (./arena).
+   */
+  function arena() {
+    const a = layoutArena();
+    out.solids.push(...a.solids);
+    out.rings.push(...a.rings);
+    out.strokes.push(...a.strokes);
+    out.bodies.push(...a.posts);
+    out.glows.push(...a.seats);
+    for (const [i, lamp] of a.stage.lamps.entries()) {
+      out.glows.push({ ...lamp, color: palette.ink, size: 2.2, seed: i / 8 });
+    }
+    for (const [i, lamp] of a.braceLights.entries()) {
+      out.glows.push({ ...lamp, color: palette.cyan, size: 2.6, seed: 0.5 + i / 16 });
+    }
+    const { bounds } = a;
+    const w = bounds.x1 - bounds.x0;
+    const d = bounds.z1 - bounds.z0;
+    const cx = (bounds.x0 + bounds.x1) / 2;
+    const cz = (bounds.z0 + bounds.z1) / 2;
+    const { low } = groundUnder(cx, cz, w, d);
+    return standing(cx, cz, low - 2, bounds.top, w, d, palette.violet);
   }
 
   /**
