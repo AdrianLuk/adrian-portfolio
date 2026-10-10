@@ -124,7 +124,8 @@ test("is played by keyboard through to Play again: Space swings, Escape and P pa
   await page.keyboard.press("Escape");
   await expect(gameRoot(page)).toHaveAttribute("data-paused", "true");
   await expect(page.getByRole("heading", { name: copy.paused.title })).toBeVisible();
-  await expect(page.getByText(copy.paused.line)).toBeVisible();
+  await expect(page.getByText(copy.paused.line, { exact: true })).toBeVisible();
+  await expect(announcer(page)).toHaveText(`${copy.paused.title}. ${copy.paused.line}`);
   await expect(page.getByRole("heading", { level: 2, name: derby.heading })).toBeVisible();
   const resume = page.getByRole("main").getByRole("button", { name: copy.resume }).last();
   await expect(resume).toBeFocused();
