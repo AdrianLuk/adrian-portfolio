@@ -1,7 +1,7 @@
 import { Quaternion } from "three";
 import type { FlightPath, Pose } from "./flight";
 import { TRANSIT_MAX_SECONDS } from "./rigs";
-import { COURT_SITE, ROUTE_STOPS, type Route } from "./route";
+import { COURT_SITE, DIAMOND_STOP, ROUTE_STOPS, type Route } from "./route";
 
 /**
  * A transit, as pure maths: the camera's flight between two Places (home,
@@ -271,25 +271,21 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   const reach = (off: number) => Math.max(JOIN_REACH, JOIN_SPREAD * off);
   let joinRoute = reach(offset.length());
   let landRoute = reach(landing.length());
-  // The route's glance turns at a scroll's pace, far too quick at a
-  // Transit's: one landing in its leg (the Derby's view, beside the Diamond)
-  // leaves the route where it enters the leg, and one leaving from it joins
-  // the route where it leaves the leg, so the camera pans once, never
-  // through the glance.
-  const glance = route.glanceAfter;
-  if (glance !== null) {
-    const ends = [glance, glance + 1].map((stop) =>
-      lookup(samples, "stop", stop, "length"),
-    );
-    // Down the valley, the camera enters the leg at its first stop.
-    const [entry, exit] = way > 0 ? ends : ends.reverse();
-    const inLeg = (stop: number) => stop > glance && stop < glance + 1;
-    if (inLeg(toStop)) {
-      landRoute = Math.max(landRoute, Math.abs(toLength - entry));
-    }
-    if (inLeg(fromStop)) {
-      joinRoute = Math.max(joinRoute, Math.abs(exit - fromLength));
-    }
+  // The route turns to frame the Diamond, and away again, at a scroll's
+  // pace, far too quick at a Transit's: one landing among those turns (the
+  // Derby's view, beside the Diamond) leaves the route where they start, and
+  // one leaving from among them joins the route where they end, so the
+  // camera pans once, never through them.
+  const turns = [DIAMOND_STOP - 1, DIAMOND_STOP + 1];
+  const ends = turns.map((stop) => lookup(samples, "stop", stop, "length"));
+  // Down the valley, the camera meets the turns at their first stop.
+  const [entry, exit] = way > 0 ? ends : ends.reverse();
+  const amongTurns = (stop: number) => stop > turns[0] && stop < turns[1];
+  if (amongTurns(toStop)) {
+    landRoute = Math.max(landRoute, Math.abs(toLength - entry));
+  }
+  if (amongTurns(fromStop)) {
+    joinRoute = Math.max(joinRoute, Math.abs(exit - fromLength));
   }
   if (joinRoute + landRoute > routeLength) {
     const fit = routeLength / (joinRoute + landRoute);
