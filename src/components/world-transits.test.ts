@@ -166,6 +166,22 @@ describe("transits between Places", () => {
     expect(director.flying()).toBe("play");
   });
 
+  it("flies home → the Derby, marking the world for the Derby's view and holding its copy, and Back flies home", () => {
+    const { host, world, director } = standInHost();
+    const transits = start(host);
+    expect(transits.navigate("/derby")).toBe(true);
+    expect(root.attributes.get("data-transit")).toBe("derby");
+    expect(root.attributes.get("data-arriving")).toBe("derby");
+    expect(world.weatherHeld).toBe(true);
+    world.intent = "derby";
+    director.show("derby");
+    vi.advanceTimersByTime(TRANSIT_MAX_SECONDS * 1000 + 200);
+    expect(director.flying()).toBeNull();
+    expect(root.attributes.size).toBe(0);
+    expect(transits.navigate("/")).toBe(true);
+    expect(director.flying()).toBe("hero");
+  });
+
   describe("landed", () => {
     it("resolves at once with no Transit under way", async () => {
       const { host } = standInHost();

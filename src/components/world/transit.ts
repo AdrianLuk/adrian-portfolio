@@ -5,7 +5,7 @@ import { COURT_SITE, ROUTE_STOPS, type Route } from "./route";
 
 /**
  * A transit, as pure maths: the camera's flight between two Places (home,
- * the court, the Skyline). Unit tested without WebGL.
+ * the court, the Skyline, the Diamond). Unit tested without WebGL.
  *
  * It runs along the scroll route at an accelerated, eased pace: down the
  * valley, or back up it. The camera joins the route at its own depth (the
@@ -271,6 +271,26 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   const reach = (off: number) => Math.max(JOIN_REACH, JOIN_SPREAD * off);
   let joinRoute = reach(offset.length());
   let landRoute = reach(landing.length());
+  // The route's glance turns at a scroll's pace, far too quick at a
+  // Transit's: one landing in its leg (the Derby's view, beside the Diamond)
+  // leaves the route where it enters the leg, and one leaving from it joins
+  // the route where it leaves the leg, so the camera pans once, never
+  // through the glance.
+  const glance = route.glanceAfter;
+  if (glance !== null) {
+    const ends = [glance, glance + 1].map((stop) =>
+      lookup(samples, "stop", stop, "length"),
+    );
+    // Down the valley, the camera enters the leg at its first stop.
+    const [entry, exit] = way > 0 ? ends : ends.reverse();
+    const inLeg = (stop: number) => stop > glance && stop < glance + 1;
+    if (inLeg(toStop)) {
+      landRoute = Math.max(landRoute, Math.abs(toLength - entry));
+    }
+    if (inLeg(fromStop)) {
+      joinRoute = Math.max(joinRoute, Math.abs(exit - fromLength));
+    }
+  }
   if (joinRoute + landRoute > routeLength) {
     const fit = routeLength / (joinRoute + landRoute);
     joinRoute *= fit;

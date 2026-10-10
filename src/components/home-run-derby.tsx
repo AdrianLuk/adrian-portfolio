@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { overPlace } from "@/app/styles";
+import { arrivesAtDerby, overPlace } from "@/app/styles";
 import type { derby } from "@/content/site";
 import { afterFirstPaint } from "./after-first-paint";
 import { earnAchievement } from "./achievements";
@@ -326,7 +326,7 @@ export function HomeRunDerby({
         }
       }}
     >
-      <StepsAside away={filled}>{intro}</StepsAside>
+      <StepsAside away={filled} arrives={arrivesAtDerby}>{intro}</StepsAside>
 
       {/* The count and Pause, pinned to the screen's top corners in play. */}
       <div
@@ -377,7 +377,7 @@ export function HomeRunDerby({
         </p>
       )}
 
-      <StepsAside away={filled}>
+      <StepsAside away={filled} arrives={arrivesAtDerby}>
         <div className={`${overPlace.diamond} flex flex-col items-center gap-5 text-center`}>
           {corners}
           {playing && hud.paused ? (
@@ -426,7 +426,7 @@ export function HomeRunDerby({
         </div>
       </StepsAside>
 
-      <StepsAside away={filled}>{outro}</StepsAside>
+      <StepsAside away={filled} arrives={arrivesAtDerby}>{outro}</StepsAside>
 
       <p aria-live="polite" className="sr-only">
         {announcement}

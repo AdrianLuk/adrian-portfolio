@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   caseStudies,
+  derby,
+  derbyLink,
   highlightAnchor,
   highlights,
   nav,
@@ -1105,15 +1107,22 @@ async function watchGame(page: Page) {
 }
 
 /**
- * Watches, from before the navigation, for /rally's Start to arrive under a
- * Transit: the moment it is in the page (in the mutation's own microtask,
- * before anything paints), whether its copy is held, and if so whether Start
+ * Watches, from before the navigation, for a game's Start (/rally's unless
+ * told otherwise) to arrive under a Transit to its view: the moment it is in
+ * the page (in the mutation's own microtask, before anything paints),
+ * whether its copy is held, and if so whether Start
  * could take focus and whether it shows. Returns a reader: undefined until
  * Start arrives; "late" if it arrived after the hold had already ended (a
  * page slower than TRANSIT_MAX_SECONDS, whose copy is never held).
  */
-async function watchHeldGame(page: Page) {
-  await page.evaluate((start) => {
+async function watchHeldGame(
+  page: Page,
+  { start, view }: { start: string; view: PlaceView } = {
+    start: rally.game.start.action,
+    view: "play",
+  },
+) {
+  await page.evaluate(({ start, view }) => {
     const w = window as unknown as { __heldGame?: unknown };
     w.__heldGame = undefined;
     const root = document.querySelector("[data-world-root]")!;
@@ -1123,7 +1132,7 @@ async function watchHeldGame(page: Page) {
       );
       if (!button) return;
       observer.disconnect();
-      if (root.getAttribute("data-arriving") !== "play") {
+      if (root.getAttribute("data-arriving") !== view) {
         w.__heldGame = "late";
         return;
       }
@@ -1140,7 +1149,7 @@ async function watchHeldGame(page: Page) {
       };
     });
     observer.observe(document.body, { subtree: true, childList: true });
-  }, rally.game.start.action);
+  }, { start, view });
   return async () => {
     let held: unknown;
     await expect
@@ -1349,6 +1358,163 @@ test.describe("Transits to and from /rally, the court seen from behind the playe
     await expect(page).toHaveURL(/\/rally$/);
     await expect(
       page.getByRole("heading", { level: 2, name: rally.heading }),
+    ).toBeVisible();
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await expect(gameRoot(page)).toHaveAttribute("data-slow", "true");
+    await expect(page.locator("canvas")).toHaveCount(1);
+
+    const seen = await transit();
+    expect(seen.seen).toEqual([]);
+    expect(seen.arriving).toEqual([]);
+    for (const durations of await transitions()) {
+      expect(durations.filter((d) => d > 0)).toEqual([]);
+    }
+    await page.context().close();
+  });
+});
+
+test.describe("Transits to and from the Derby, the Diamond seen from behind home plate", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  const derbyStart = (page: Page) =>
+    page.getByRole("button", { name: derby.game.start.action });
+  const heldDerby = (page: Page) =>
+    watchHeldGame(page, { start: derby.game.start.action, view: "derby" });
+
+  test("the camera flies home → the Derby, its copy and the game arriving once it lands, and Back flies home", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    let game: Awaited<ReturnType<typeof watchGame>> = async () => ({
+      landed: null,
+      drawn: null,
+    });
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+        game = await watchGame(page);
+      },
+    });
+    await tagCanvas(heroRoot(page).locator("canvas"));
+
+    // From Off the clock's baseball line: a Transit down the valley to the
+    // Diamond, not a crossfade.
+    const heldGame = await heldDerby(page);
+    await page.locator("#contact").getByRole("link", { name: derbyLink.label }).click();
+    const held = await heldGame();
+    // Held, out of sight and of focus's reach; or, on a page that took
+    // longer than the hold, never held at all.
+    if (held !== "late") expect(held).toEqual({ focusable: false, visible: false });
+    await expect(page).toHaveURL(/\/derby$/);
+    await flown(transit, page, "derby");
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+    await expect(page.locator("canvas")).toHaveCount(1);
+
+    // The game is built on the Diamond only once the camera has landed.
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    const { landed, drawn } = await game();
+    expect(landed).not.toBeNull();
+    expect(drawn!).toBeGreaterThanOrEqual(landed!);
+    await expect(derbyStart(page)).toBeVisible();
+    let seen = await transit();
+    expect(seen.seen.slice(0, 2)).toEqual(["derby", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+
+    // Back: the flight home, landing settled.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await flown(transit, page, "hero");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    expect(await canvasTag(heroRoot(page).locator("canvas"))).toBe("the world");
+    seen = await transit();
+    expect(seen.seen).toEqual(["derby", null, "hero", null]);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    for (const { ms, stall } of holds(seen)) {
+      expect(ms).toBeLessThanOrEqual(
+        TRANSIT_MAX_SECONDS * 1000 + stall + HOLD_GRACE,
+      );
+    }
+    await page.context().close();
+  });
+
+  test("the camera flies the Derby → /rally, and Back to the Diamond, its copy held until it lands", async ({
+    browser,
+  }, testInfo) => {
+    // A visit that starts at the Derby.
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const page = await context.newPage();
+    const transit = await watchTransit(page);
+    const transitions = await watchTransitions(page);
+    await page.goto("/derby");
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await expect(worldOf(page).locator("canvas")).toHaveCSS("opacity", "1");
+    await tagCanvas(worldOf(page).locator("canvas"));
+
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: derby.rallyLink.label })
+      .click();
+    await expect(page).toHaveURL(/\/rally$/);
+    await flown(transit, page, "play");
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+
+    const heldGame = await heldDerby(page);
+    await page.goBack();
+    const held = await heldGame();
+    if (held !== "late") expect(held).toEqual({ focusable: false, visible: false });
+    await expect(page).toHaveURL(/\/derby$/);
+    await flown(transit, page, "derby");
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+
+    const seen = await transit();
+    expect(seen.seen).toEqual(["play", null, "derby", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    await context.close();
+  });
+
+  test("under reduced motion, home → the Derby swaps at once to the Diamond: nothing flies, nothing is held, and the game starts slow", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      reducedMotion: "reduce",
+      until: "reduced",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    await page.locator("#contact").getByRole("link", { name: derbyLink.label }).click();
+    await expect(page).toHaveURL(/\/derby$/);
+    await expect(
+      page.getByRole("heading", { level: 2, name: derby.heading }),
     ).toBeVisible();
     await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,

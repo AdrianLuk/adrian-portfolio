@@ -75,3 +75,10 @@ export const arrivesAtCourt =
  */
 export const arrivesAtPlay =
   "in-data-[arriving=play]:invisible in-data-[arriving=play]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
+
+/**
+ * The Derby's copy over the Diamond, held back the same way while the
+ * world's root carries data-arriving="derby", then faded in.
+ */
+export const arrivesAtDerby =
+  "in-data-[arriving=derby]:invisible in-data-[arriving=derby]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
