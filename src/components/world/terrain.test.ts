@@ -197,6 +197,7 @@ describe("where a line of sight meets the ground", () => {
     const hit = groundHit({ x: 10, y: 40, z: -90 }, { x: 0, y: -1, z: 0 });
     expect(hit?.x).toBeCloseTo(10);
     expect(hit?.z).toBeCloseTo(-90);
+    expect(hit?.distance).toBeCloseTo(40 - valleyHeight(10, -90), 1);
   });
 
   it("is where the ground rises to meet a glancing look", () => {

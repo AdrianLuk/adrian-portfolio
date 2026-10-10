@@ -355,7 +355,8 @@ export async function createWorld(
   let { weather, view } = options;
   const wet = () => weather === "rain";
   const terrain = createTerrain(weather);
-  let ripples = createRipples();
+  let ripples = createRipples<{ x: number; z: number }>();
+  let skyRipples = createRipples<Vector3>();
   await nextTask();
 
   // The plate is the hero object, built whatever the view, so showing the
@@ -533,7 +534,8 @@ export async function createWorld(
     if (!view || !posed || !compiled || lost) return;
     pose();
     plate.sweep(shared.uTime.value);
-    setTerrainRings(terrain, ripples.at(shared.uTime.value));
+    setTerrainRings(terrain, ripples.lit(shared.uTime.value));
+    sky.setRings(skyRipples.lit(shared.uTime.value));
     sky.follow(camera.position.x, camera.position.y, camera.position.z);
     // In software, with the Rally game on the court and the camera landed,
     // only the game (and the veils' light over it) draws each frame.
@@ -927,6 +929,8 @@ export async function createWorld(
   }
 
   const raycaster = new Raycaster();
+  /** What a tap can land on short of the ground: all but the light veils. */
+  const solids = structures.meshes.filter((mesh) => mesh !== structures.veils);
   const ndc = new Vector2();
 
   function ripple(clientX: number, clientY: number) {
@@ -937,8 +941,15 @@ export async function createWorld(
       1 - ((clientY - box.top) / box.height) * 2,
     );
     raycaster.setFromCamera(ndc, camera);
-    const hit = groundHit(raycaster.ray.origin, raycaster.ray.direction);
-    if (hit) ripples.start(hit.x, hit.z, shared.uTime.value);
+    const { origin, direction } = raycaster.ray;
+    const now = shared.uTime.value;
+    const ground = groundHit(origin, direction);
+    // A building: the ring spreads from its foot, below where it was tapped.
+    const [built] = raycaster.intersectObjects(solids, false);
+    if (built && (!ground || built.distance < ground.distance)) {
+      ripples.start({ x: built.point.x, z: built.point.z }, now);
+    } else if (ground) ripples.start(ground, now);
+    else skyRipples.start(direction.clone(), now);
   }
 
   const court: CourtStage = {
@@ -980,6 +991,7 @@ export async function createWorld(
         loopStart = null;
         // The clock starts again: no ring stays lit, or waits to.
         ripples = createRipples();
+        skyRipples = createRipples();
       }
       sync();
       if (!running) render();

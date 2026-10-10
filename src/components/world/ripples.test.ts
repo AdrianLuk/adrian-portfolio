@@ -3,42 +3,45 @@ import { createRipples, RIPPLE, ringAt } from "./ripples";
 
 describe("the rings at once", () => {
   it("are at most four: the oldest drops as a fifth starts", () => {
-    const ripples = createRipples();
-    for (let i = 0; i < 5; i++) ripples.start(i, -i, i * 0.25);
-    const rings = ripples.at(1);
-    expect(rings.map((r) => r.x)).toEqual([1, 2, 3, 4]);
-    expect(rings[3]).toEqual({ x: 4, z: -4, radius: 0, strength: 1 });
-    expect(rings[0]).toEqual({ x: 1, z: -1, ...ringAt(0.75) });
+    const ripples = createRipples<string>();
+    for (const [i, at] of ["a", "b", "c", "d", "e"].entries()) {
+      ripples.start(at, i * 0.25);
+    }
+    const rings = ripples.lit(1);
+    expect(rings.map((r) => r.at)).toEqual(["b", "c", "d", "e"]);
+    expect(rings[3]).toEqual({ at: "e", spread: 0, strength: 1 });
+    expect(rings[0]).toEqual({ at: "b", ...ringAt(0.75) });
   });
 
   it("drop once they have faded out", () => {
-    const ripples = createRipples();
-    ripples.start(0, 0, 0);
-    ripples.start(5, 5, 1);
-    expect(ripples.at(RIPPLE.seconds).map((r) => r.x)).toEqual([5]);
-    expect(ripples.at(10)).toEqual([]);
+    const ripples = createRipples<string>();
+    ripples.start("first", 0);
+    ripples.start("second", 1);
+    expect(ripples.lit(RIPPLE.seconds).map((r) => r.at)).toEqual(["second"]);
+    expect(ripples.lit(10)).toEqual([]);
   });
 });
 
 describe("a ripple's ring over time", () => {
   it("starts as a point at full brightness", () => {
-    expect(ringAt(0)).toEqual({ radius: 0, strength: 1 });
+    expect(ringAt(0)).toEqual({ spread: 0, strength: 1 });
   });
 
-  it("spreads and fades out over about a second and a half", () => {
+  it("spreads all the way and fades out over about a second and a half", () => {
     const mid = ringAt(0.75);
-    expect(mid.radius).toBeGreaterThan(0);
+    expect(mid.spread).toBeGreaterThan(0.5);
+    expect(mid.spread).toBeLessThan(1);
     expect(mid.strength).toBeGreaterThan(0);
     expect(mid.strength).toBeLessThan(1);
-    expect(ringAt(1.5).strength).toBe(0);
-    expect(ringAt(4).strength).toBe(0);
+    expect(ringAt(1.5)).toEqual({ spread: 1, strength: 0 });
+    expect(ringAt(4)).toEqual({ spread: 1, strength: 0 });
   });
 
   it("only ever grows, and only ever fades: it never flashes", () => {
     let last = ringAt(0);
     for (let age = 0.05; age <= 2; age += 0.05) {
       const ring = ringAt(age);
-      expect(ring.radius).toBeGreaterThanOrEqual(last.radius);
+      expect(ring.spread).toBeGreaterThanOrEqual(last.spread);
       expect(ring.strength).toBeLessThanOrEqual(last.strength);
       last = ring;
     }

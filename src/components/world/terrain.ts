@@ -199,9 +199,8 @@ type Point = { x: number; y: number; z: number };
 
 /**
  * Where a line of sight from `from` along the unit `dir` first meets the
- * ground (or a harbour's surface), within `far` units; null if it never does
- * (it looks at the sky).
- * Marched in steps short of a facet, then narrowed down: far cheaper than
+ * ground (or a harbour's surface), and how far away, within `far` units;
+ * null if it never does (it looks at the sky). Marched in steps short of a facet, then narrowed down: far cheaper than
  * raycasting the terrain's triangles.
  */
 export function groundHit(from: Point, dir: Point, far = 1500) {
@@ -216,7 +215,7 @@ export function groundHit(from: Point, dir: Point, far = 1500) {
       if (below(mid)) past = mid;
       else near = mid;
     }
-    return { x: from.x + dir.x * past, z: from.z + dir.z * past };
+    return { x: from.x + dir.x * past, z: from.z + dir.z * past, distance: past };
   }
   return null;
 }

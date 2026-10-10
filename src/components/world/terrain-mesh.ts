@@ -8,6 +8,8 @@ const WIDTH = 1100;
 /** From behind the opening flight's start (+z) to the far end of the valley. */
 const DEPTH = WORLD_BACK - WORLD_FRONT;
 const NEAR_Z = WORLD_BACK;
+/** How far a ripple spreads across the valley, in world units. */
+const RIPPLE_REACH = 45;
 
 /**
  * The valley as a low-poly mesh: faceted (flat-shaded from screen-space
@@ -120,12 +122,16 @@ export function setTerrainWeather(terrain: Mesh, weather: Weather) {
 }
 
 /** Lights `rings` on the valley (see ./ripples), and leaves the rest unlit. */
-export function setTerrainRings(terrain: Mesh, rings: readonly Ring[]) {
+export function setTerrainRings(
+  terrain: Mesh,
+  rings: readonly Ring<{ x: number; z: number }>[],
+) {
   const slots: Vector4[] = (terrain.material as ShaderMaterial).uniforms.uRings
     .value;
   slots.forEach((slot, i) => {
     const ring = rings[i];
-    if (ring) slot.set(ring.x, ring.z, ring.radius, ring.strength);
-    else slot.setW(0);
+    if (ring) {
+      slot.set(ring.at.x, ring.at.z, ring.spread * RIPPLE_REACH, ring.strength);
+    } else slot.setW(0);
   });
 }
