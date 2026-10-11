@@ -311,7 +311,7 @@ test("under reduced motion each route stop stands behind its stretch of the page
       }),
     ).toEqual(["fixed", expect.stringMatching(/^inset\(/)]);
   }
-  const bookend = page.getByText(contact.bookend);
+  const bookend = page.getByText(contact.bookend.text);
   const box = (await bookend.locator("..").boundingBox())!;
   expect(box.height).toBeLessThan(page.viewportSize()!.height / 4);
 });
