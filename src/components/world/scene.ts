@@ -68,6 +68,7 @@ import { STILL_TIME, trafficTime, type SharedUniforms } from "./shared";
 import { createSky } from "./sky";
 import { magentaWash } from "./skyline";
 import { skylineLook } from "./skyline-look";
+import { createLine, createStreetcars } from "./streetcars";
 import { createStructures } from "./structures";
 import { createRipples } from "./ripples";
 import {
@@ -426,6 +427,8 @@ export async function createWorld(
     { x: 0, y: 0, z: 0, r: RALLY_BALL.radius, color: palette.violet },
   ]);
   rally.visible = false;
+  /** The Streetcars, placed each frame from the traffic's clock (see ./streetcars). */
+  const streetcars = createStreetcars(shared);
   /**
    * The court's look and the Skyline's, as the director last blended them
    * (see ./court-look, ./skyline-look).
@@ -470,6 +473,8 @@ export async function createWorld(
     rally,
     crowd.points,
     beams.mesh,
+    streetcars.mesh,
+    ...createLine(),
     ...sites.map((s) => s.points),
     ...createMist(shared),
     plate.group,
@@ -604,6 +609,7 @@ export async function createWorld(
     if (!view || !posed || !compiled || lost) return;
     shared.uTraffic.value = trafficTime(shared.uTime.value, { motion, software });
     pose();
+    streetcars.update();
     plate.sweep(shared.uTime.value);
     setTerrainRings(terrain, ripples.lit(shared.uTime.value));
     sky.setRings(skyRipples.lit(shared.uTime.value));
