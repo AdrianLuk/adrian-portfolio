@@ -123,7 +123,10 @@ export default async function AboutPage() {
           // The Hobby route frames the court and the Diamond as home's does.
           still="route-juice-bros"
         >
-          <p className="mt-6">
+          <div className="mt-6">
+            <Recording recording={pickleball.clip} />
+          </div>
+          <p className="mt-4">
             <PlayButton link={pickleball.play} light="violet" />
           </p>
           <p className="mt-4">

@@ -244,7 +244,7 @@ export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/ral
 /** Into the Home Run Derby, from the About page's baseball section. Says it's a game, as `rallyLink` does. */
 export const derbyLink = { label: "Bat against Curvebot", href: "/derby" } as const;
 
-/** A rally in the Rally game, over its link in the Juice Bros Highlight. */
+/** A rally in the Rally game, over its link in the Juice Bros Highlight and on the About page. */
 export const rallyClip: Recording = {
   label: "A rally in the Rally game: the player and Dinkbot trading shots across the floodlit court.",
   poster: `${mediaBase}/rally-game-poster.webp`,
@@ -819,6 +819,7 @@ export const about = {
     id: "pickleball",
     heading: "Pickleball",
     lines: ["Pickleball has been my main hobby since 2023."],
+    clip: rallyClip,
     play: rallyLink,
     caseStudy: { label: "Juice Bros case study", href: "/work/juice-bros" },
   },

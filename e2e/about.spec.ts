@@ -63,6 +63,7 @@ test("pickleball links into the Rally game and the Case study; baseball into the
   await expect(
     pickleball.getByRole("link", { name: about.pickleball.caseStudy.label }),
   ).toHaveAttribute("href", about.pickleball.caseStudy.href);
+  await expect(pickleball.locator("video, img").first()).toBeAttached();
   const baseball = page.locator(`#${about.baseball.id}`);
   await expect(baseball.getByRole("link", { name: derbyLink.label })).toHaveAttribute("href", "/derby");
   await expect(baseball.locator("video, img").first()).toBeAttached();
