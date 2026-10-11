@@ -17,6 +17,10 @@
 // - public/world/arena-*.webp: the Encore's backdrop where the world isn't
 //   live behind it: home scrolled to the Encore, the camera landed in the
 //   Arena and its floor filled.
+// - public/world/route-*.webp: home's scroll route under reduced motion
+//   (and the About page's, which shares the court and the Diamond): each
+//   stop after the settled view, the four Lit sites, the Diamond and Hong
+//   Kong, as the camera holds it there.
 //
 // Run against the production build, on a machine with a GPU:
 //
@@ -25,7 +29,7 @@
 //
 // Re-run it whenever the world or the share cards change. Name sets to draw
 // only those: `--share`, `--valley`, `--court`, `--skyline`, `--diamond`,
-// `--arena` (for example
+// `--arena`, `--route` (for example
 // `node scripts/share-stills.mjs http://localhost:3300 --court`).
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
@@ -35,8 +39,11 @@ import {
   courtStills,
   diamondStills,
   credits,
+  diamondPanel,
+  encore,
   highlightAnchor,
   highlights,
+  routeStills,
   shareCards,
   skylineStills,
   valleyStills,
@@ -49,7 +56,7 @@ import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
-const SETS = ["share", "valley", "court", "skyline", "diamond", "arena"];
+const SETS = ["share", "valley", "court", "skyline", "diamond", "arena", "route"];
 const named = SETS.filter((set) => args.includes(`--${set}`));
 const unknown = args.filter(
   (a) => a.startsWith("--") && !SETS.includes(a.slice(2)),
@@ -208,6 +215,57 @@ async function drawArena(browser) {
 }
 
 /**
+ * Home's scroll route under reduced motion: each stop after the settled view
+ * as the camera holds it there, the weather held clear. Each is reached as
+ * the scroll route reaches it (routeAnchors in route-anchors.ts): a site's
+ * and the Diamond's as its panel is centred in the viewport, Hong Kong at the
+ * route's end, the Encore's top at the foot of the screen.
+ */
+async function drawRoute(browser) {
+  mkdirSync("public/world", { recursive: true });
+  // The Lit sites stand in the Highlights' order (lit-sites.ts).
+  const panels = [...highlights.map((h) => highlightAnchor(h.id)), diamondPanel.id];
+  const names = [
+    ...highlights.map((h) => `route-${h.id}`),
+    "route-diamond",
+    "route-hong-kong",
+  ];
+  // Every still has the same shapes: the valley's stand for them all.
+  for (const { shape, viewport } of stillShots(valleyStills)) {
+    const page = await openHome(browser, { viewport, motion: true, query: "?weather=clear" });
+    const anchors = await page.evaluate(
+      ([ids, encoreId]) => {
+        const max = document.documentElement.scrollHeight - innerHeight;
+        const encoreTop =
+          document.getElementById(encoreId).getBoundingClientRect().top + scrollY;
+        const end = Math.min(max, encoreTop - innerHeight);
+        const out = [];
+        for (const id of ids) {
+          const panel = document.getElementById(id);
+          if (!panel) throw new Error(`No panel #${id} on home`);
+          const top = panel.getBoundingClientRect().top + scrollY;
+          const centred = top + panel.offsetHeight / 2 - innerHeight / 2;
+          out.push(Math.min(end, Math.max(out.at(-1) ?? 0, centred)));
+        }
+        out.push(end);
+        return out.map(Math.round);
+      },
+      [panels, encore.id],
+    );
+    for (const [stop, scroll] of anchors.entries()) {
+      await page.evaluate((y) => window.scrollTo(0, y), scroll);
+      // The camera eases on after the scroll stops.
+      await page.waitForTimeout(5000);
+      const worldOnly = await page.addStyleTag({ content: WORLD_ONLY });
+      await page.waitForTimeout(300);
+      await writeStills(await page.screenshot(), routeStills[names[stop]][shape]);
+      await worldOnly.evaluate((el) => el.remove());
+    }
+    await page.context().close();
+  }
+}
+
+/**
  * A Place's still: its page's world on its first frame, with motion (so at
  * the court the rally ball is in, where the live world starts it) and the
  * weather held clear.
@@ -245,6 +303,7 @@ try {
   if (sets.has("diamond"))
     await drawPlace(browser, DIAMOND_PAGE, diamondStills);
   if (sets.has("arena")) await drawArena(browser);
+  if (sets.has("route")) await drawRoute(browser);
 } finally {
   await browser.close();
 }

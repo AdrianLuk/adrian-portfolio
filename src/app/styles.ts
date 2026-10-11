@@ -89,3 +89,14 @@ export const arrivesAtHobby =
  */
 export const arrivesAtDerby =
   "in-data-[arriving=derby]:invisible in-data-[arriving=derby]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
+
+/**
+ * A route stop's stretch of the page under reduced motion: it clips its
+ * `StopStill` (world-backdrop.tsx) to its own height and the screen's full
+ * width. `clipsStopAfterGap` reaches up over the 4rem gap above it too
+ * (space-y-16, pb-16), so the world never breaks between two stops. With
+ * motion allowed it clips nothing, and the live world shows instead.
+ */
+export const clipsStop = "motion-reduce:[clip-path:inset(0_-100vmax)]";
+export const clipsStopAfterGap =
+  "motion-reduce:[clip-path:inset(-4rem_-100vmax_0)]";

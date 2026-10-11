@@ -268,6 +268,53 @@ test.describe("with motion allowed", () => {
       });
     }
   });
+
+  test("the route's stills stand aside, never loaded", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const stills = page.locator('[data-backdrop^="route-"]');
+    await expect(stills).toHaveCount(routeStops.length + 1);
+    for (const still of await stills.all()) await expect(still).toBeHidden();
+    await page.locator("#contact").scrollIntoViewIfNeeded();
+    for (const img of await stills.locator("img").all()) {
+      expect(await img.evaluate((el: HTMLImageElement) => el.currentSrc)).toBe("");
+    }
+  });
+});
+
+/** Home's route stops after the settled view, each with its still under reduced motion. */
+const routeStops = [
+  ...highlights.map((h) => ({ still: `route-${h.id}`, at: `#${highlightAnchor(h.id)}` })),
+  { still: "route-diamond", at: `#${diamondPanel.id}` },
+  { still: "route-hong-kong", at: "#contact" },
+];
+
+test("under reduced motion each route stop stands behind its stretch of the page as a still, and the bookend simply follows the copy", async ({
+  page,
+}) => {
+  await page.goto("/");
+  for (const { still, at } of routeStops) {
+    await page.locator(at).scrollIntoViewIfNeeded();
+    // The first site's still also stands behind the Work label: the last is its panel's.
+    const img = page.locator(`[data-backdrop="${still}"] img`).last();
+    await expect(img).toBeVisible();
+    await expect
+      .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth), {
+        message: still,
+      })
+      .toBeGreaterThan(0);
+    // Held over the screen, shown only through its stretch.
+    expect(
+      await img.evaluate((el) => {
+        const backdrop = el.closest("[data-backdrop]")!;
+        return [getComputedStyle(backdrop).position, getComputedStyle(backdrop.parentElement!).clipPath];
+      }),
+    ).toEqual(["fixed", expect.stringMatching(/^inset\(/)]);
+  }
+  const bookend = page.getByText(contact.bookend);
+  const box = (await bookend.locator("..").boundingBox())!;
+  expect(box.height).toBeLessThan(page.viewportSize()!.height / 4);
 });
 
 test.describe("every Highlight link", () => {
@@ -465,6 +512,8 @@ test.describe("the closing view", () => {
       test("is the screen the route ends on, short of the Encore: clear of copy but the bookend over its lower half", async ({
         page,
       }) => {
+        // The camera's screen: under reduced motion the bookend simply follows the copy.
+        await page.emulateMedia({ reducedMotion: "no-preference" });
         await page.goto("/");
         // The bookend at the foot of the screen, the Encore just past it.
         await page.evaluate((id) => {

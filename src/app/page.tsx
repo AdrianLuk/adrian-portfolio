@@ -5,6 +5,7 @@ import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
 import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
 import { PLATE_ECHO, PLATE_WORD } from "@/components/plate-measure";
+import { StopStill } from "@/components/world-backdrop";
 import {
   contact,
   credits,
@@ -19,7 +20,14 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { shareMetadata } from "./share";
 import { homeJsonLd, jsonLdScript } from "./structured-data";
-import { metaLine, primaryAction, sectionLabel, textLink } from "./styles";
+import {
+  clipsStop,
+  clipsStopAfterGap,
+  metaLine,
+  primaryAction,
+  sectionLabel,
+  textLink,
+} from "./styles";
 import { torontoWeather } from "./toronto-weather";
 
 // Rebuilt at most hourly, for the weather (WEATHER_REVALIDATE): segment
@@ -179,32 +187,43 @@ export default async function Home() {
         </div>
       </HeroWorld>
 
+      {/* Under reduced motion the world stays the hero's still frame, so each
+        stop on the route stands behind its stretch of the page as a still
+        (StopStill): the first site's from the Work label on. */}
       <section
         id="work"
         aria-labelledby="work-heading"
-        className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6"
+        className={`mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 ${clipsStop}`}
       >
+        <StopStill name={`route-${highlights[0].id}`} />
         <h2 id="work-heading" className={sectionLabel}>
           {work.heading}
         </h2>
         <div className="mt-8 space-y-16">
           {highlights.map((highlight) => (
-            <HighlightPanel key={highlight.id} highlight={highlight} />
+            <div key={highlight.id} className={clipsStopAfterGap}>
+              <StopStill name={`route-${highlight.id}`} />
+              <HighlightPanel highlight={highlight} />
+            </div>
           ))}
         </div>
       </section>
 
       {/* The route's stop at the Diamond, after the Highlights: the way into
         the Derby. */}
-      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      <div
+        className={`mx-auto max-w-6xl px-4 pb-16 sm:px-6 ${clipsStopAfterGap}`}
+      >
+        <StopStill name="route-diamond" />
         <DiamondPanel />
       </div>
 
       <section
         id="contact"
         aria-labelledby="contact-heading"
-        className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6"
+        className={`mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 ${clipsStop}`}
       >
+        <StopStill name="route-hong-kong" />
         <h2 id="contact-heading" className={sectionLabel}>
           {contact.heading}
         </h2>
@@ -273,8 +292,10 @@ export default async function Home() {
         {/* The closing view: the page's last screen, where the camera reaches
           the route's last stop, Hong Kong whole in its upper half and
           Victoria Harbour across its lower. Clear of copy but the bookend,
-          over the water, with no panel behind it. */}
-        <div className="flex min-h-svh flex-col justify-end [text-shadow:0_1px_14px_var(--color-night)]">
+          over the water, with no panel behind it. Under reduced motion no
+          camera comes, and Hong Kong's still stands behind the whole section
+          already: the bookend simply follows the copy. */}
+        <div className="flex min-h-svh flex-col justify-end [text-shadow:0_1px_14px_var(--color-night)] motion-reduce:mt-12 motion-reduce:min-h-0">
           <p className="font-display text-2xl font-bold [font-stretch:120%]">
             {contact.bookend}
           </p>
