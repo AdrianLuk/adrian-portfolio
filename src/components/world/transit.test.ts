@@ -68,6 +68,13 @@ const STEP_LIMIT = 12;
  */
 const PAN_LIMIT = 150;
 
+/**
+ * The fastest any Transit may turn on a phone, in degrees a second: its
+ * frame is about 19° wide against desktop's 60°, so this sweeps a similar
+ * share of the screen a second as PAN_LIMIT does on desktop.
+ */
+const PHONE_PAN_LIMIT = 70;
+
 /** The most the camera may turn in one of `along`'s steps. */
 const TURN_LIMIT = (3 * Math.PI) / 180;
 
@@ -750,13 +757,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
     });
 
     describe("along the whole trip", () => {
-      /**
-       * The fastest a Transit may turn anywhere along it: a medium-speed pan
-       * on desktop, and on a phone, whose frame is a third as wide (about 19°
-       * against 60°), as many frame widths a second, give or take, so the
-       * camera never whips the scene across a narrow screen.
-       */
-      const limit = aspect >= 1 ? PAN_LIMIT : 70;
+      const limit = aspect >= 1 ? PAN_LIMIT : PHONE_PAN_LIMIT;
       const places = {
         home: settled,
         "the court": courtPose(aspect),
@@ -781,9 +782,12 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         }
       }
 
-      // Once the outlier: it lands on a route stop, which no landing pan slowed.
-      it(`the Skyline to home's scroll at the route's end turns once, straight round, no faster than ${limit}°/s`, () => {
-        expectOneTurn(transitPath(route, skylineView, ROUTE_STOPS - 1), limit);
+      it(`home's scroll at the route's end and the Skyline or the Derby, either way, turn once, straight round, no faster than ${limit}°/s`, () => {
+        const end = ROUTE_STOPS - 1;
+        for (const place of [skylineView, places["the Derby"]]) {
+          expectOneTurn(transitPath(route, place, end), limit);
+          expectOneTurn(transitPath(route, route.poseAt(end), place), limit);
+        }
       });
     });
   });

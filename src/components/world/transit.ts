@@ -126,10 +126,9 @@ const JOIN_REACH = 50;
 const JOIN_SPREAD = 0.5;
 
 /**
- * World units of the trip, per radian, that panning onto the route's view
- * (or off it, onto a pose's) takes at least: a big turn, as the Skyline's
- * across the harbour, slows its leg to a medium-speed pan. It adds time, never
- * route: the camera still leaves the route where JOIN_REACH says.
+ * World units of the trip, per radian of turn, that a leg takes at least: a
+ * big turn, as the Skyline's across the harbour, slows its leg. It adds time,
+ * never route: the camera still leaves the route where JOIN_REACH says.
  */
 const TURN_REACH = 400;
 
@@ -259,7 +258,7 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   // The trip in three legs, each as long as the way it flies: leaving (easing
   // onto the route from the departure, over `joinRoute` of it), along the
   // route, and landing (easing off it onto the pose, over `landRoute` of it).
-  // A turn sets a floor on its leg's length, so it is never a whip round.
+  // A turn sets a floor on its leg's length.
   const routeLength = Math.abs(toLength - fromLength);
   const way = Math.sign(toLength - fromLength);
   /** The route's own view `travelled` units along it from the departure. */
@@ -290,10 +289,10 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
     joinRoute *= fit;
     landRoute *= fit;
   }
-  // The turn from the departure's view to the route's where it joins it, and
-  // from the route's where it leaves it to the pose's, still sets each leg's
-  // length, so a trip keeps its pace (the camera itself turns once, in
-  // `along`).
+  // A leg's length, and so the trip's pace, allows for the turn from the
+  // departure's view to the route's where it joins it, and from the route's
+  // where it leaves it to the pose's, though the camera itself turns once,
+  // over the whole trip (see `along`).
   const joined = viewAt(joinRoute);
   const left = viewAt(routeLength - landRoute);
   const leaving = Math.max(
