@@ -151,6 +151,7 @@ describe("the city", () => {
     const { meshes } = createStructures({
       uTime: { value: 0 },
       uPixelRatio: { value: 1 },
+      uTraffic: { value: 0 },
     });
     for (const mesh of meshes) {
       if (mesh instanceof InstancedMesh) {

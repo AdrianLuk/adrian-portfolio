@@ -24,19 +24,20 @@ import {
 import { layoutArena } from "./arena";
 import type { DiamondField } from "./diamond";
 import { createBackdrop } from "./backdrop";
+import { createAirliners } from "./airliners";
 import { createBeams } from "./beams";
 import { bakePlateEnvironment } from "./environment";
+import { createFerries } from "./ferries";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
 import { createGroundPools, type Pool } from "./ground-pools";
 import { createMist } from "./mist";
-import { createNamePlate, type PlacedWord } from "./name-plate";
+import { createNamePlate } from "./name-plate";
 import { createPrecipitation } from "./precipitation";
-import { nameGlyphs } from "./name-glyphs";
 import { createBalls } from "./landmarks";
 import { FOG_DENSITY, fogColor, palette, tintFog } from "./palette";
-import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
-import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
+import type { PxRect } from "./plate-fit";
+import { CAMERA, settle } from "./pose";
 import type { CameraDirector, CameraLean } from "../camera-director";
 import { nominalRoute } from "./nominal-route";
 import {
@@ -65,10 +66,11 @@ import {
   tierFor,
 } from "./quality";
 import { seededRandom } from "./noise";
-import type { SharedUniforms } from "./shared";
+import { STILL_TIME, trafficTime, type SharedUniforms } from "./shared";
 import { createSky } from "./sky";
 import { magentaWash } from "./skyline";
 import { skylineLook } from "./skyline-look";
+import { createLine, createStreetcars } from "./streetcars";
 import { createStructures } from "./structures";
 import { createRipples } from "./ripples";
 import {
@@ -270,9 +272,6 @@ function inSoftware(gl: WebGLRenderingContext | WebGL2RenderingContext) {
 /** Lets the browser paint and handle input before the next setup step. */
 const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-/** The moment the still frame shows: beams crossed, motes mid-rise. */
-const STILL_TIME = 11.5;
-
 /**
  * How far the camera turns toward the pointer at the screen's edge, in
  * radians (under two degrees across, half that up and down), and how long it
@@ -382,6 +381,7 @@ export async function createWorld(
   const shared: SharedUniforms = {
     uTime: { value: STILL_TIME },
     uPixelRatio: { value: 1 },
+    uTraffic: { value: STILL_TIME },
   };
 
   const scene = new Scene();
@@ -454,6 +454,8 @@ export async function createWorld(
     { x: 0, y: 0, z: 0, r: RALLY_BALL.radius, color: palette.violet },
   ]);
   rally.visible = false;
+  /** The Streetcars, placed each frame from the traffic's clock (see ./streetcars). */
+  const streetcars = createStreetcars(shared);
   /**
    * The court's look and the Skyline's, as the director last blended them
    * (see ./court-look, ./skyline-look).
@@ -483,6 +485,7 @@ export async function createWorld(
     structures.court.z,
   );
   courtGroup.scale.setScalar(structures.court.scale);
+  const ferries = createFerries(shared, structures.waters);
   const pools = createGroundPools(structures.pools.length + 3, poolIntensity());
   function poolIntensity() {
     return wet() ? WET_POOLS.intensity : POOL_INTENSITY;
@@ -493,14 +496,19 @@ export async function createWorld(
     terrain,
     pools.mesh,
     ...structures.meshes,
+    ferries.mesh,
     lights.points,
     floodlights.points,
     rally,
     crowd.points,
     beams.mesh,
+    streetcars.mesh,
+    ...createLine(),
     projections,
     ...sites.map((s) => s.points),
     ...createMist(shared),
+    // Flown in their shader off `uTraffic`, set each frame in `render`.
+    createAirliners(shared),
     plate.group,
     courtGroup,
     fieldGroup,
@@ -634,7 +642,10 @@ export async function createWorld(
 
   function render() {
     if (!view || !posed || !compiled || lost) return;
+    shared.uTraffic.value = trafficTime(shared.uTime.value, { motion, software });
     pose();
+    streetcars.update();
+    ferries.update();
     plate.sweep(shared.uTime.value);
     setTerrainRings(terrain, ripples.lit(shared.uTime.value));
     sky.setRings(skyRipples.lit(shared.uTime.value));
@@ -810,34 +821,19 @@ export async function createWorld(
     width: number,
     height: number,
   ) {
-    const perPx = unitsPerPixel(CAMERA.fovY, CAMERA.plateDepth, height);
-    const shown = words.filter((w) => w.rect.width > 0);
-    const placed: PlacedWord[] = [];
-    for (const { text, rect } of shown) {
-      const glyphs = nameGlyphs.words[text as keyof typeof nameGlyphs.words];
-      if (!glyphs) continue;
-      placed.push({
-        text,
-        advance: glyphs.advance,
-        fit: fitWord(
-          rect,
-          glyphs.advance,
-          nameGlyphs,
-          { width, height },
-          perPx,
-        ),
-      });
-    }
     // A partial plate is worse than none: keep the DOM headline instead.
-    if (placed.length === 0 || placed.length !== shown.length) return false;
+    const layout = settle(
+      words.filter((w) => w.rect.width > 0),
+      { width, height },
+    );
+    if (!layout) return false;
 
     // The plate stands where the settled camera sees the headline; the flight
     // is planned back from that pose.
-    const yaw = settledYaw(camera.aspect);
-    camera.position.set(0, settledCameraHeight(placed, yaw), 0);
-    camera.rotation.set(-CAMERA.pitch, -yaw, 0, "YXZ");
-    plate.place(placed, camera);
-    const centre = plate.centre();
+    camera.position.copy(layout.pose.position);
+    camera.quaternion.copy(layout.pose.quaternion);
+    plate.place(layout.placed, camera);
+    const { centre } = layout;
     const key = [
       camera.position.y,
       centre.x,
