@@ -72,7 +72,7 @@ test.describe("with motion allowed, the world live", () => {
       const next = contactSection.nextElementSibling?.id;
       return { last, next: next === id };
     }, encore.id);
-    expect(order).toEqual({ last: contact.bookend, next: true });
+    expect(order).toEqual({ last: contact.bookend.text, next: true });
     // The wall reads from the first paint, before it's reached.
     await expect(wall(page).getByRole("listitem")).toHaveText(
       encore.tickets.map((t) => new RegExp(`${t.group}\\s*${t.year}`)),

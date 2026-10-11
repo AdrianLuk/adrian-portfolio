@@ -41,7 +41,12 @@ test.describe("under prefers-reduced-motion, on a 2x screen 2560px wide", () => 
   test("never flies: the credits stay as static captions, Skip among them", async () => {
     await expect(
       page.locator(`ul[aria-label="${credits.label}"] > li`),
-    ).toHaveText([...credits.lines, credits.skip]);
+    ).toHaveText([...credits.lines, credits.skip], {
+      useInnerText: true, // (as shown: uppercase)
+      ignoreCase: true,
+    });
+    // Nothing to skip: a caption, not a button.
+    await expect(page.getByRole("button", { name: credits.skip })).toHaveCount(0);
     const shown = await page
       .locator(`ul[aria-label="${credits.label}"] > li`)
       .evaluateAll((els) => els.every((el) => el.checkVisibility()));
