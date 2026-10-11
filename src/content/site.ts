@@ -219,6 +219,8 @@ export const hero = {
   titleLine: "Senior frontend engineer",
   backendLine: "React and TypeScript, plus the back end when it needs building.",
   primaryAction: { label: "See the work", href: `#${highlightAnchor("control-d")}` },
+  /** The cue at the settled hero's foot on a phone. */
+  scrollHint: "Scroll",
 } as const;
 
 export const credits = {
@@ -657,17 +659,19 @@ export const resume = {
   download: { pdf: "Download PDF", docx: "Download Word version (.docx)" },
 } as const;
 
+const email = {
+  id: "email",
+  label: "Email",
+  text: "adrianluk618@gmail.com",
+  href: "mailto:adrianluk618@gmail.com",
+} as const satisfies ContactChannel;
+
 export const contact = {
   heading: "Contact",
   lead: "The full history is on the resume. For anything else, write to me.",
   resume: { label: "Resume", href: "/resume" },
   channels: [
-    {
-      id: "email",
-      label: "Email",
-      text: "adrianluk618@gmail.com",
-      href: "mailto:adrianluk618@gmail.com",
-    },
+    email,
     {
       id: "linkedin",
       label: "LinkedIn",
@@ -719,7 +723,11 @@ export const contact = {
       href: "https://github.com/AdrianLuk/adrian-portfolio",
     },
   },
-  bookend: "The end. (Hire me.)",
+  /** The last word; its "Hire me" links to the Email channel. */
+  bookend: {
+    text: "The end. (Hire me.)",
+    link: { label: "Hire me", href: email.href },
+  },
 } as const satisfies {
   heading: string;
   lead: string;
@@ -737,7 +745,7 @@ export const contact = {
     facts: readonly string[];
     source: { label: string; href: string };
   };
-  bookend: string;
+  bookend: { text: string; link: { label: string; href: string } };
 };
 
 /**

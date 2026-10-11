@@ -58,6 +58,8 @@ const contactPanel =
 
 export default async function Home() {
   const weather = await torontoWeather();
+  // The bookend's text either side of its "Hire me" link.
+  const [before, after] = contact.bookend.text.split(contact.bookend.link.label);
   return (
     // Its own stacking context: once the camera flies, the world's canvas is
     // held at the back of it, behind the whole page and over the body's sky.
@@ -140,6 +142,22 @@ export default async function Home() {
               {hero.primaryAction.label}
             </a>
           </p>
+        </div>
+        {/* On a phone the settled hero's foot is bare night, the credits
+          gone, so a cue to scroll lands with the copy. Wherever the credits
+          stay (reduced motion, no script) they fill the foot and it stays
+          out; wider, the first Highlight is the cue. Decoration only:
+          scrolling is native. The left pad offsets the tracking after the
+          last letter, so the word centres on the line. */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-x-0 bottom-8 flex flex-col items-center text-cyan/80 group-not-data-[state=settled]:invisible md:hidden ${landsAfterFlight} group-data-[state=settled]:delay-300`}
+        >
+          <span className="pl-[0.3em] font-display text-[11px] tracking-[0.3em] uppercase [font-stretch:75%]">
+            {hero.scrollHint}
+          </span>
+          <span className="mt-2 h-11 w-px bg-linear-to-b from-current to-transparent" />
+          <span className="-mt-1.5 size-2 rotate-45 border-r border-b border-current" />
         </div>
         {/* The credits as opening titles, big in the scene: the hero anchors
           each in the world, dissolves it in and out in turn, and lets it drift
@@ -276,7 +294,11 @@ export default async function Home() {
           over the water, with no panel behind it. */}
         <div className="flex min-h-svh flex-col justify-end [text-shadow:0_1px_14px_var(--color-night)]">
           <p className="font-display text-2xl font-bold [font-stretch:120%]">
-            {contact.bookend}
+            {before}
+            <a href={contact.bookend.link.href} className={textLink}>
+              {contact.bookend.link.label}
+            </a>
+            {after}
           </p>
         </div>
       </section>
