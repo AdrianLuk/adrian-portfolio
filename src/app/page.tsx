@@ -1,10 +1,9 @@
 import { ContactPortrait } from "@/components/contact-portrait";
-import { DiamondPanel } from "@/components/diamond-panel";
-import { Encore } from "@/components/encore";
 import { HeroWorld } from "@/components/hero-world";
-import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
+import { HighlightPanel, PanelCorners, PlayButton } from "@/components/highlight-panel";
 import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
 import { PLATE_ECHO, PLATE_WORD } from "@/components/plate-measure";
+import { Recording } from "@/components/recording";
 import { StopStill } from "@/components/world-backdrop";
 import {
   contact,
@@ -24,6 +23,7 @@ import {
   clipsStop,
   clipsStopAfterGap,
   metaLine,
+  pillButton,
   primaryAction,
   sectionLabel,
   textLink,
@@ -236,15 +236,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* The route's stop at the Diamond, after the Highlights: the way into
-        the Derby. */}
-      <div
-        className={`mx-auto max-w-6xl px-4 pb-16 sm:px-6 ${clipsStopAfterGap}`}
-      >
-        <StopStill name="route-diamond" />
-        <DiamondPanel />
-      </div>
-
       <section
         id="contact"
         aria-labelledby="contact-heading"
@@ -266,7 +257,7 @@ export default async function Home() {
           </p>
           <div className="[grid-area:links]">
             <p className="text-lg">
-              <Link href={contact.resume.href} className={textLink}>
+              <Link href={contact.resume.href} className={pillButton.cyan}>
                 {contact.resume.label}
               </Link>
             </p>
@@ -284,16 +275,25 @@ export default async function Home() {
             </ul>
           </div>
         </div>
-        <div className={`mt-12 ${contactPanel}`}>
+        {/* The scroll route's stop at the Diamond: the camera turns to the
+          park as this passes, its way into the Derby beside it. */}
+        <div
+          id={contact.offClock.id}
+          className={`mt-12 ${contactPanel}`}
+        >
           <PanelCorners className="border-cyan md:hidden" />
           <h3 className="font-display text-xl font-bold [font-stretch:115%]">
             {contact.offClock.heading}
           </h3>
-          <p className="mt-4 text-lg text-ink/90">
-            {contact.offClock.text}{" "}
-            <Link href={contact.offClock.link.href} className={textLink}>
+          <p className="mt-4 text-lg text-ink/90">{contact.offClock.text}</p>
+          <div className="mt-6 max-w-xl">
+            <Recording recording={contact.offClock.clip} />
+          </div>
+          <p className="mt-5 flex flex-wrap gap-3">
+            <Link href={contact.offClock.link.href} className={pillButton.cyan}>
               {contact.offClock.link.label}
             </Link>
+            <PlayButton link={contact.offClock.derby} light="cyan" />
           </p>
         </div>
         {/* The site as its own evidence, each fact one the source bears out. */}
@@ -310,8 +310,8 @@ export default async function Home() {
               <li key={fact}>{fact}</li>
             ))}
           </ul>
-          <p className="mt-5 text-lg">
-            <a href={contact.built.source.href} className={textLink}>
+          <p className="mt-5">
+            <a href={contact.built.source.href} className={pillButton.cyan}>
               {contact.built.source.label}
             </a>
           </p>
@@ -332,8 +332,6 @@ export default async function Home() {
           </p>
         </div>
       </section>
-      {/* Past the bookend, the Contact section's last word: the Encore. */}
-      <Encore />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(homeJsonLd) }}

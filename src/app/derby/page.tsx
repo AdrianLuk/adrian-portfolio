@@ -6,7 +6,7 @@ import { PlaceWorld } from "@/components/place-world";
 import { WorldStill } from "@/components/world-backdrop";
 import { derby, shareCards } from "@/content/site";
 import { shareMetadata } from "../share";
-import { overPlace, textLink } from "../styles";
+import { overPlace, pillButton } from "../styles";
 import { torontoWeather } from "../toronto-weather";
 
 // Rebuilt at most hourly, for the Diamond's weather (WEATHER_REVALIDATE):
@@ -57,11 +57,9 @@ export default async function DerbyPage() {
           </header>
         }
         outro={
-          <p className="inline-block rounded-sm bg-dusk/80 px-4 py-2">
-            <Link href={derby.rallyLink.href} className={textLink}>
-              {derby.rallyLink.label}
-            </Link>
-          </p>
+          <Link href={derby.rallyLink.href} className={pillButton.violet}>
+            {derby.rallyLink.label}
+          </Link>
         }
       />
     </article>

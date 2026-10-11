@@ -27,6 +27,17 @@ export const entryTitle = "font-display text-2xl font-bold [font-stretch:115%]";
 export const primaryAction =
   "inline-block rounded-full bg-ember px-6 py-3 font-display font-bold tracking-wide text-night uppercase [font-stretch:110%]";
 
+/**
+ * An outlined pill in a Place's light, for a link that is the next step
+ * rather than a word in a sentence: a secondary action, as ember is the
+ * page's one primary. Written out in full, so Tailwind finds the classes.
+ */
+const pillShape = `inline-flex min-h-11 items-center gap-2 rounded-full border-2 bg-night/60 px-5 py-2.5 font-display text-sm font-bold tracking-widest text-ink uppercase [font-stretch:90%] ${glowsLit}`;
+export const pillButton = {
+  cyan: `${pillShape} border-cyan/80 hover:border-cyan hover:bg-cyan/20`,
+  violet: `${pillShape} border-violet/80 hover:border-violet hover:bg-violet/20`,
+} as const;
+
 /** A cyan link that brightens, glowing, on hover and on keyboard focus. */
 export const textLink = `font-semibold text-cyan underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan focus-visible:decoration-cyan ${glowsLit}`;
 

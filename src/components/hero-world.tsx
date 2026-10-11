@@ -11,7 +11,7 @@ import {
 import { afterFirstPaint } from "./after-first-paint";
 import type { ScrollRoute } from "./scroll-route";
 // Plain data only: Three.js and GSAP load after the first paint.
-import { routeEnd, routePanels } from "./home-panels";
+import { routePanels } from "./home-panels";
 import { HOME_SCROLL_ROUTE } from "./lit-sites";
 import {
   createOpening,
@@ -187,7 +187,6 @@ export function HeroWorld({
         panels,
         route: HOME_SCROLL_ROUTE,
         locateSite: () => world()?.placeSite ?? null,
-        end: routeEnd,
       });
     }
 

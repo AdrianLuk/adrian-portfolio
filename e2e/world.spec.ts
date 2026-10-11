@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { credits, diamondPanel, highlightAnchor, highlights, person } from "../src/content/site";
+import { contact, credits, highlightAnchor, highlights, person } from "../src/content/site";
 import { countFrames, heroRoot, openHome, watched, timedAnimations } from "./hero";
 
 test("the H1 and the hero's root are in the initial HTML, before any script", async ({
@@ -34,8 +34,8 @@ test.describe("under prefers-reduced-motion, on a 2x screen 2560px wide", () => 
   });
   test.afterAll(() => page?.context().close());
 
-  /** The route's panels: the Highlights', then the Diamond's (as in route.spec). */
-  const panelIds = [...highlights.map((h) => highlightAnchor(h.id)), diamondPanel.id];
+  /** The route's panels: the Highlights', then the Diamond's, Off the clock (as in route.spec). */
+  const panelIds = [...highlights.map((h) => highlightAnchor(h.id)), contact.offClock.id];
   const panel = (i: number) => page.locator(`#${panelIds[i]}`);
 
   test("never flies: the credits stay as static captions, Skip among them", async () => {

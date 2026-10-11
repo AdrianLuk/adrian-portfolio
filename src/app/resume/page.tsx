@@ -17,6 +17,7 @@ import {
   metaLine,
   overPlace,
   panel,
+  pillButton,
   primaryAction,
   sectionLabel,
   textLink,
@@ -60,7 +61,7 @@ export default async function ResumePage() {
           <a href={resume.pdfHref} download className={primaryAction}>
             {resume.download.pdf}
           </a>
-          <a href={resume.docxHref} download className={textLink}>
+          <a href={resume.docxHref} download className={pillButton.cyan}>
             {resume.download.docx}
           </a>
         </p>

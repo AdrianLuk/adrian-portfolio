@@ -1,4 +1,4 @@
-import { diamondPanel, encore, highlightAnchor } from "@/content/site";
+import { contact, highlightAnchor } from "@/content/site";
 import { pageLayout, routeAnchors, stopAt } from "./route-anchors";
 import { LIT_SITES } from "./lit-sites";
 
@@ -11,14 +11,15 @@ import { LIT_SITES } from "./lit-sites";
 /**
  * Home's panels in the route's order, one per stop after the first: each
  * Lit site's, found by its Highlight id, in the Lit sites' order whatever
- * the page's, then the Diamond's; or null if any is missing, so no panel can
+ * the page's, then the Diamond's (Off the clock's, in the Contact section);
+ * or null if any is missing, so no panel can
  * stand for the wrong stop. `find` looks a panel up by its anchor id.
  */
 export function findPanels<P>(find: (id: string) => P | null): P[] | null {
   const panels: P[] = [];
   for (const id of [
     ...LIT_SITES.map((site) => highlightAnchor(site.highlight)),
-    diamondPanel.id,
+    contact.offClock.id,
   ]) {
     const panel = find(id);
     if (panel === null) return null;
@@ -40,19 +41,6 @@ export function routePanels() {
 export function scrolledStop() {
   const panels = routePanels();
   if (!panels) return 0;
-  return stopAt(window.scrollY, routeAnchors(pageLayout(panels, routeEnd())));
-}
-
-/**
- * The furthest home's scroll route runs, in scroll pixels: the closing view,
- * the bookend at the foot of the screen, short of the Encore past it (the
- * camera's way into the Arena is the Encore's own, not the route's).
- */
-export function routeEnd(
-  maxScroll = document.documentElement.scrollHeight - window.innerHeight,
-) {
-  const stretch = document.getElementById(encore.id);
-  if (!stretch) return maxScroll;
-  const top = stretch.getBoundingClientRect().top + window.scrollY;
-  return Math.min(maxScroll, top - window.innerHeight);
+  const end = document.documentElement.scrollHeight - window.innerHeight;
+  return stopAt(window.scrollY, routeAnchors(pageLayout(panels, end)));
 }

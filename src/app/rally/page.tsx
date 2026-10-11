@@ -6,7 +6,7 @@ import { PlaceWorld } from "@/components/place-world";
 import { RallyGame } from "@/components/rally-game";
 import { rally, shareCards } from "@/content/site";
 import { shareMetadata } from "../share";
-import { overPlace, textLink } from "../styles";
+import { overPlace, pillButton } from "../styles";
 import { torontoWeather } from "../toronto-weather";
 
 // Rebuilt at most hourly, for the court's weather (WEATHER_REVALIDATE):
@@ -57,11 +57,9 @@ export default async function PlayPage() {
           </header>
         }
         outro={
-          <p className="inline-block rounded-sm bg-dusk/80 px-4 py-2">
-            <Link href={rally.caseStudyLink.href} className={textLink}>
-              {rally.caseStudyLink.label}
-            </Link>
-          </p>
+          <Link href={rally.caseStudyLink.href} className={pillButton.violet}>
+            {rally.caseStudyLink.label}
+          </Link>
         }
       />
     </article>

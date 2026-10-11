@@ -8,7 +8,6 @@ import { CAMERA } from "./world/pose";
 import { TRANSIT_MAX_SECONDS } from "./world/rigs";
 import { layoutLandmarks } from "./world/landmarks";
 import {
-  arenaWayIn,
   courtPose,
   hobbyRoute,
   createRoute,
@@ -56,7 +55,6 @@ function standInHost() {
     courtStop: COURT_STOP,
     transit,
     within: transitWithin,
-    encore: (from) => arenaWayIn(aspect, from),
   });
   director.show("hero");
   director.openingLands();

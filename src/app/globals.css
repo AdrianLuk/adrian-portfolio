@@ -9,8 +9,8 @@
   --color-fog: #1e2b5c;
   --color-cyan: #3df2e6;
   --color-violet: #9b6cff;
-  --color-magenta: #ff6fd8; /* data motes and the Encore's tickets only */
-  --color-green: #7cff63; /* the Encore's show and tickets only */
+  --color-magenta: #ff6fd8; /* data motes and the K-pop tickets only */
+  --color-green: #7cff63; /* the Arena's show and the K-pop tickets only */
   --color-neon-red: #ff4d5e; /* Hong Kong's, in the world only: never UI text */
   --color-ember: #ffb347; /* the primary action only */
   --color-ink: #eaf2ff; /* text */
@@ -391,9 +391,8 @@ body > :is(header, footer) {
 }
 
 /* The ticket wall (src/components/ticket-wall.tsx): each ticket a stub of
-   light in its group's colour (or two), dim until the Encore is reached (or,
-   on the About page, the scroll route lights the K-pop panel), then
-   lit, one after another with motion allowed and all at once without. Only
+   light in its group's colour (or two), dim until the About page's scroll
+   route lights the K-pop panel, then lit, one after another with motion allowed and all at once without. Only
    its light changes: the text reads from the first paint. */
 .ticket {
   position: relative;
@@ -417,14 +416,14 @@ body > :is(header, footer) {
   opacity: 0.35;
 }
 
-:is([data-reached], [data-lit]) .ticket {
+[data-lit] .ticket {
   border-color: var(--ticket);
   box-shadow:
     0 0 18px -4px var(--ticket),
     inset 0 0 14px -6px var(--ticket-2);
 }
 
-:is([data-reached], [data-lit]) .ticket::before {
+[data-lit] .ticket::before {
   opacity: 1;
 }
 
@@ -443,11 +442,11 @@ body > :is(header, footer) {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :is([data-reached], [data-lit]) .ticket {
+  [data-lit] .ticket {
     animation: ticket-on 700ms ease-out calc(var(--i) * 150ms) backwards;
   }
 
-  :is([data-reached], [data-lit]) .ticket::before {
+  [data-lit] .ticket::before {
     animation: ticket-stub-on 700ms ease-out calc(var(--i) * 150ms) backwards;
   }
 }

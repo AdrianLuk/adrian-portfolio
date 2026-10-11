@@ -42,7 +42,6 @@ import type { CameraDirector, CameraLean } from "../camera-director";
 import { nominalRoute } from "./nominal-route";
 import {
   arenaView,
-  arenaWayIn,
   courtPose,
   createRoute,
   derbyView,
@@ -776,7 +775,6 @@ export async function createWorld(
       courtStop: COURT_STOP,
       transit,
       within: transitWithin,
-      encore: (from) => arenaWayIn(camera.aspect, from),
     });
     // The motes rise round where the camera stands.
     const { x, z } = camera.position;

@@ -29,7 +29,7 @@ const EDGE = 16;
  * The scroll route: ScrollTrigger scrubs the camera along the route as the
  * page scrolls natively (nothing pinned, nothing snapped, scroll behaviour
  * untouched), each panel lighting as it enters, and with it its Lit site, if
- * it has one (the Diamond's panel has none). The panels stay in the
+ * it has one (the Diamond's stop has none). The panels stay in the
  * page's flow, so they read, tab and scroll as usual; each drifts a little
  * sideways with its site as the camera passes, and stands where the page put
  * it when the camera is at its stop.
@@ -39,12 +39,11 @@ export function createScrollRoute({
   panels,
   route,
   locateSite,
-  end = (max) => max,
 }: {
   /** Told the stop the scroll puts the camera at, and how lit each site is. */
   director: Pick<
     CameraDirector,
-    "scrolled" | "scrollStopped" | "stop" | "encore"
+    "scrolled" | "scrollStopped" | "stop"
   >;
   /** The panels, one per stop after the first, in the route's order. */
   panels: readonly HTMLElement[];
@@ -59,28 +58,17 @@ export function createScrollRoute({
    * pixels.
    */
   locateSite: () => World["placeSite"] | null;
-  /**
-   * The furthest the route runs, given how far the page scrolls: short of
-   * it on home, whose Encore lies past the route's end. Scrolling past the
-   * end reaches the Encore.
-   */
-  end?: (maxScroll: number) => number;
 }) {
   /** The scroll position the camera is at: the page's, smoothed by the scrub. */
   const scroll = { y: 0 };
   let boxes: PanelBox[] = [];
   let anchors: number[] = [0];
   let viewport = 1;
-  /** The scroll at which the Encore is reached: its stretch's top past the screen's middle. */
-  let encoreFrom = Infinity;
   const shifts = panels.map(() => 0);
 
   function measure() {
-    const max = ScrollTrigger.maxScroll(window);
-    const last = end(max);
-    const layout = pageLayout(panels, last);
+    const layout = pageLayout(panels, ScrollTrigger.maxScroll(window));
     viewport = layout.viewport;
-    encoreFrom = last < max ? last + viewport / 2 : Infinity;
     boxes = [...layout.panels];
     anchors = routeAnchors(layout);
   }
@@ -128,7 +116,6 @@ export function createScrollRoute({
       return amount;
     });
     director.scrolled(stopAt(scroll.y, anchors), lit, route.name);
-    director.encore(scroll.y >= encoreFrom, performance.now());
     placePanels();
   }
 
