@@ -20,7 +20,7 @@ import {
   type Highlight,
 } from "../src/content/site";
 import { litSite } from "../src/components/lit-sites";
-import { withoutWorld } from "./hero";
+import { heroRoot, watchHero, withoutWorld } from "./hero";
 
 // Content and navigation, not the opening or the world (flight, world and
 // route specs cover those): the still hero, without WebGL, loads at once,
@@ -348,8 +348,15 @@ test("the Contact section has a lead, the resume link, the contact channels and 
       section.getByRole("link", { name: channel.text }),
     ).toHaveAttribute("href", channel.href);
   }
-  await expect(page.getByText(contact.bookend)).toHaveCount(1);
-  await expect(section.getByText(contact.bookend)).toBeVisible();
+  await expect(page.getByText(contact.bookend.text)).toHaveCount(1);
+  await expect(section.getByText(contact.bookend.text)).toBeVisible();
+  // Its "Hire me" writes, as the Email channel does.
+  await expect(
+    section.getByRole("link", { name: contact.bookend.link.label, exact: true }),
+  ).toHaveAttribute(
+    "href",
+    contact.channels.find((channel) => channel.id === "email")!.href,
+  );
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });
 
@@ -435,9 +442,54 @@ test("the Contact section says how the site is built and links its source, befor
   // The bookend stays the last word.
   const [sourceBox, bookendBox] = await Promise.all([
     source.boundingBox(),
-    section.getByText(contact.bookend).boundingBox(),
+    section.getByText(contact.bookend.text).boundingBox(),
   ]);
   expect(sourceBox!.y).toBeLessThan(bookendBox!.y);
+});
+
+test.describe("the scroll cue", () => {
+  for (const viewport of [
+    { width: 412, height: 915 },
+    { width: 360, height: 740 },
+  ]) {
+    test(`stands at the settled hero's foot on a phone, ${viewport.width} by ${viewport.height}, clear of See the work`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.setViewportSize(viewport);
+      await watchHero(page, { skip: true });
+      await page.goto("/");
+      await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+      const cue = page.getByText(hero.scrollHint, { exact: true });
+      await expect(cue).toBeVisible();
+      await expect(cue).toBeInViewport({ ratio: 1 });
+      const action = page.getByRole("link", { name: hero.primaryAction.label });
+      const [cueBox, actionBox] = await Promise.all([
+        cue.boundingBox(),
+        action.boundingBox(),
+      ]);
+      expect(cueBox!.y).toBeGreaterThan(actionBox!.y + actionBox!.height);
+    });
+  }
+
+  test("stays out where the static credits fill the foot, under reduced motion", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 412, height: 915 });
+    await page.goto("/");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "reduced");
+    await expect(page.getByText(hero.scrollHint, { exact: true })).toBeHidden();
+  });
+
+  test("is left out wider, where the first Highlight is the cue", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await watchHero(page, { skip: true });
+    await page.goto("/");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    await expect(page.getByText(hero.scrollHint, { exact: true })).toBeHidden();
+  });
 });
 
 test.describe("the closing view", () => {
@@ -453,13 +505,12 @@ test.describe("the closing view", () => {
       }) => {
         await page.goto("/");
         const section = page.locator("#contact");
-        // Nothing in the section follows the bookend.
-        const last = await section.evaluate((root) => {
-          let el: Element = root;
-          while (el.lastElementChild) el = el.lastElementChild;
-          return el.textContent?.trim();
-        });
-        expect(last).toBe(contact.bookend);
+        // Nothing in the section follows the bookend: its last block holds
+        // the bookend alone (its "Hire me" link inside it).
+        const last = await section.evaluate((root) =>
+          root.lastElementChild?.textContent?.trim(),
+        );
+        expect(last).toBe(contact.bookend.text);
       });
 
       test("is the screen the route ends on, short of the Encore: clear of copy but the bookend over its lower half", async ({
@@ -473,7 +524,7 @@ test.describe("the closing view", () => {
           window.scrollTo(0, top - window.innerHeight);
         }, encore.id);
         const section = page.locator("#contact");
-        const bookend = section.getByText(contact.bookend, { exact: true });
+        const bookend = section.getByText(contact.bookend.text, { exact: true });
         await expect(bookend).toBeInViewport({ ratio: 1 });
         const box = (await bookend.boundingBox())!;
         expect(box.y).toBeGreaterThan(viewport.height / 2);
