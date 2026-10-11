@@ -748,5 +748,64 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         }
       });
     });
+
+    describe("along the whole trip", () => {
+      /**
+       * The fastest a Transit may turn anywhere along it: a medium-speed pan
+       * on desktop, and on a phone, whose frame is a third as wide (about 19°
+       * against 60°), as many frame widths a second, give or take, so the
+       * camera never whips the scene across a narrow screen.
+       */
+      const limit = aspect >= 1 ? PAN_LIMIT : 70;
+      const places = {
+        home: settled,
+        "the court": courtPose(aspect),
+        "/rally": playView(aspect, landmarks.court).pose,
+        "the Skyline": skylineView,
+        "the Derby": derbyView(aspect, landmarks.field).pose,
+      };
+      const arrival = (pose: Pose) => (pose === settled ? SETTLED_STOP : pose);
+
+      for (const [from, departure] of Object.entries(places)) {
+        for (const [to, destination] of Object.entries(places)) {
+          // The court's two views have their own Transit (transitWithin).
+          if (from === to || [from, to].sort().join() === "/rally,the court") {
+            continue;
+          }
+          it(`${from} to ${to} turns once, straight round, no faster than ${limit}°/s`, () => {
+            expectOneTurn(
+              transitPath(route, departure, arrival(destination)),
+              limit,
+            );
+          });
+        }
+      }
+
+      // Once the outlier: it lands on a route stop, which no landing pan slowed.
+      it(`the Skyline to home's scroll at the route's end turns once, straight round, no faster than ${limit}°/s`, () => {
+        expectOneTurn(transitPath(route, skylineView, ROUTE_STOPS - 1), limit);
+      });
+    });
   });
+}
+
+/**
+ * The transit turns no further than straight from its first view to its
+ * last, never swinging away and back, and never faster than `limit` degrees
+ * a second.
+ */
+function expectOneTurn(trip: Transit, limit: number) {
+  const poses = along(trip);
+  const step = trip.duration / (poses.length - 1);
+  let turned = 0;
+  for (let i = 1; i < poses.length; i++) {
+    const degrees =
+      (poses[i].quaternion.angleTo(poses[i - 1].quaternion) * 180) / Math.PI;
+    expect(degrees / step).toBeLessThan(limit);
+    turned += degrees;
+  }
+  const straight =
+    (poses[0].quaternion.angleTo(poses[poses.length - 1].quaternion) * 180) /
+    Math.PI;
+  expect(turned).toBeLessThan(straight + 0.5);
 }
