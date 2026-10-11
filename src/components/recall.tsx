@@ -118,7 +118,7 @@ export function RecallName({ name, copy }: { name: string; copy: typeof recall }
 
   return (
     <>
-      <h1 className="font-display text-lg font-bold tracking-wide uppercase [font-stretch:125%]">
+      <h1 className="font-display text-base font-bold tracking-wide whitespace-nowrap uppercase [font-stretch:125%] sm:text-lg">
         <Link
           href="/"
           // The iPhone's link preview would steal the hold: here only.

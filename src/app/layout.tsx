@@ -43,10 +43,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="sticky top-0 z-10 border-b border-fog bg-night/90 backdrop-blur">
           <nav
             aria-label="Main"
-            className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6"
+            className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:gap-x-6 sm:px-6"
           >
             <RecallName name={person.name} copy={recall} />
-            <ul className="flex gap-5 font-display text-sm tracking-widest uppercase [font-stretch:75%]">
+            <ul className="flex gap-3 font-display text-sm tracking-wider whitespace-nowrap uppercase [font-stretch:75%] sm:gap-5 sm:tracking-widest">
               {nav.map((item) => (
                 <li key={item.href}>
                   <Link
