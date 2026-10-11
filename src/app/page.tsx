@@ -89,14 +89,19 @@ export default async function Home() {
                 </li>
               ))}
               <li {...CREDIT_SKIP.props} className={skipCard}>
-                {/* Under reduced motion there is no flight to skip: it stays as
-                  the last caption, the joke intact. */}
+                {/* A button only while there is a flight to skip (and through
+                  its fade once settled, the list hidden by then). Under
+                  reduced motion, or without scripts, it never flies: the
+                  last caption, the joke intact, and no dead button. */}
                 <button
                   type="button"
-                  className="cursor-pointer text-center uppercase underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan"
+                  className="hidden cursor-pointer text-center uppercase underline decoration-cyan/40 underline-offset-4 opening:inline group-data-[state=settled]:inline hover:decoration-cyan"
                 >
                   {credits.skip}
                 </button>
+                <span className="opening:hidden group-data-[state=settled]:hidden">
+                  {credits.skip}
+                </span>
               </li>
             </ul>
           </div>

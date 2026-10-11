@@ -144,15 +144,14 @@ async function tabTo(page: Page): Promise<Stop> {
 }
 
 test.describe("a keyboard walk", () => {
-  // The credits are static captions here, so Skip is a stop however long the
-  // walk takes.
+  // The credits are static captions here: nothing flies, so there is no Skip
+  // to stop at.
   test("reaches every stop in order with visible focus", async ({ page }) => {
     await page.goto("/");
 
     const expected = [
       "/",
       ...nav.map((n) => n.href),
-      null, // the Skip control: a button, so no href
       hero.primaryAction.href,
       ...highlights.flatMap((h: Highlight) =>
         h.secondLink ? [hrefFor(h.link), h.secondLink.href] : [hrefFor(h.link)],
@@ -320,18 +319,19 @@ test.describe("every Highlight link", () => {
   });
 });
 
-test("the opening has five credit lines, the last being the Skip control", async ({
+test("the opening has five credit lines, the last Skip's joke as a caption: never flying, there's no button", async ({
   page,
 }) => {
   await page.goto("/");
-  // (Hidden once the opening settles, but still in the DOM.)
   const items = page
-    .getByRole("list", { name: credits.label, includeHidden: true })
-    .getByRole("listitem", { includeHidden: true });
-  await expect(items).toHaveText([...credits.lines, credits.skip]);
-  await expect(
-    items.last().getByRole("button", { includeHidden: true }),
-  ).toHaveText(credits.skip);
+    .getByRole("list", { name: credits.label })
+    .getByRole("listitem");
+  // As read: the Skip control, though in the markup, is not shown.
+  await expect(items).toHaveText([...credits.lines, credits.skip], {
+    useInnerText: true, // (as shown: uppercase)
+    ignoreCase: true,
+  });
+  await expect(items.last().getByRole("button")).toHaveCount(0);
 });
 
 test("the Contact section has a lead, the resume link, the contact channels and one bookend", async ({

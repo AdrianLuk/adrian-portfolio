@@ -48,8 +48,12 @@ export async function generateMetadata({
 const linkClass =
   "font-semibold text-cyan underline decoration-cyan/40 underline-offset-4 hover:decoration-cyan";
 
+/**
+ * Violet lifted toward ink and shadowed in the night, as the section labels
+ * are: plain violet fell under 4.5:1 over the court's lit ridges and fog.
+ */
 const eyebrowClass =
-  "font-display text-sm tracking-[0.3em] text-violet uppercase [font-stretch:75%]";
+  "font-display text-sm tracking-[0.3em] text-[color-mix(in_srgb,var(--color-violet)_60%,var(--color-ink))] uppercase [font-stretch:75%] [text-shadow:0_0_12px_var(--color-night),0_1px_3px_var(--color-night)]";
 
 function Shot({
   image,
