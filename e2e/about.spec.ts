@@ -9,9 +9,20 @@ import { SCENE_TIMEOUT, withoutWorld } from "./hero";
 const world = (page: Page) => page.locator("[data-world]:has(> canvas)");
 const sections = [about.pickleball, about.baseball, about.kpop, about.gaming];
 
+/**
+ * Waits for the world to have drawn: it compiles on the page's main thread
+ * (in software WebGL on CI), which holds up any look at the page meanwhile.
+ */
+const settled = (page: Page) =>
+  expect(world(page)).toHaveAttribute("data-world", "drawn", {
+    timeout: SCENE_TIMEOUT,
+  });
+
 test("the header links to the About page, which opens on the roots line, then each hobby in order, its lines as bullets", async ({
   page,
 }) => {
+  // Home's world, then the About page's: two compiles in software on CI.
+  test.setTimeout(90_000);
   await page.goto("/");
   const link = page
     .getByRole("navigation", { name: "Main" })
@@ -20,6 +31,7 @@ test("the header links to the About page, which opens on the roots line, then ea
   expect(nav.map((item) => item.href)).toContain("/about");
   await link.click();
   await expect(page).toHaveURL(/\/about$/);
+  await settled(page);
 
   const heading = page.getByRole("heading", { level: 2, name: about.heading });
   await expect(heading).toBeVisible();
@@ -45,6 +57,7 @@ test("pickleball links into the Rally game and the Case study; baseball into the
   page,
 }) => {
   await page.goto("/about");
+  await settled(page);
   const pickleball = page.locator(`#${about.pickleball.id}`);
   await expect(pickleball.getByRole("link", { name: rallyLink.label })).toHaveAttribute("href", "/rally");
   await expect(
@@ -120,6 +133,7 @@ test("under reduced motion the page is whole and still, and axe-clean", async ({
   const context = await browser.newContext({ reducedMotion: "reduce" });
   const page = await context.newPage();
   await page.goto("/about");
+  await settled(page);
   for (const section of sections) {
     await expect(page.locator(`#${section.id}`)).toBeVisible();
   }
