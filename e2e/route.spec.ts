@@ -82,6 +82,17 @@ test.describe("with motion allowed, the opening skipped", () => {
       viewport: { width: 960, height: 600 },
       skip: true,
       until: "settled",
+      // Every panel surface's flicker from the first byte, by panel.
+      prepare: (page) =>
+        page.addInitScript(() => {
+          const flickers: string[] = [];
+          Object.assign(window, { flickers });
+          document.addEventListener("animationstart", (event) => {
+            if (event.animationName === "holo-flicker") {
+              flickers.push((event.target as HTMLElement).id);
+            }
+          });
+        }),
     });
   });
   test.afterAll(() => page?.context().close());
@@ -141,6 +152,52 @@ test.describe("with motion allowed, the opening skipped", () => {
       .toEqual({ y: y + 300, terms: before });
   });
 
+  test("each panel's surface stutters on once as it first lights (at most three flashes, under a second), and never again", async () => {
+    // Back down the route a second time: every panel lights again.
+    for (let i = 0; i < panels.length; i++) {
+      expect((await visitPanel(page, i)).lit, panels[i].name).toBe(true);
+    }
+    // Polled: the last panel's flicker starts a frame after it lights.
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (window as unknown as { flickers: string[] }).flickers.toSorted(),
+        ),
+      )
+      .toEqual(panels.map((p) => p.id).toSorted());
+
+    const flicker = await panel(page, 0).evaluate((el) => {
+      const s = getComputedStyle(el, "::before");
+      const rule = Array.from(document.styleSheets)
+        .flatMap((sheet) => Array.from(sheet.cssRules))
+        .find(
+          (r): r is CSSKeyframesRule =>
+            r instanceof CSSKeyframesRule && r.name === "holo-flicker",
+        )!;
+      // The surface's opacity at each keyframe, in order.
+      const opacities = Array.from(rule.cssRules)
+        .map((r) => r as CSSKeyframeRule)
+        .flatMap((k) =>
+          k.keyText
+            .split(",")
+            .map((at) => [parseFloat(at), Number(k.style.opacity)]),
+        )
+        .sort((a, b) => a[0] - b[0])
+        .map(([, opacity]) => opacity);
+      return {
+        duration: parseFloat(s.animationDuration),
+        repeats: s.animationIterationCount,
+        // A flash: the surface coming up full from dim.
+        flashes: opacities.filter((o, i) => o === 1 && opacities[i - 1] < 1)
+          .length,
+      };
+    });
+    expect(flicker.duration).toBeLessThan(1);
+    expect(flicker.repeats).toBe("1");
+    expect(flicker.flashes).toBeGreaterThan(0);
+    expect(flicker.flashes).toBeLessThanOrEqual(3);
+  });
+
   test("home stays axe-clean mid-route", async () => {
     expect((await visitPanel(page, 2)).lit).toBe(true);
     const results = await new AxeBuilder({ page }).analyze();
@@ -192,6 +249,19 @@ test.describe("with motion allowed, the opening skipped", () => {
         await expect.poll(focused).toEqual(want);
       }
     }
+  });
+
+  test("a lit panel focused from the keyboard still pulses its scanning ring", async () => {
+    // As "See the work" moves focus there, after the keyboard walk above.
+    const pulse = await panel(page, 0).evaluate((el) => {
+      el.focus();
+      return {
+        lit: el.hasAttribute("data-lit-once"),
+        ring: el.matches(":focus-visible"),
+        pulse: getComputedStyle(el).animationName,
+      };
+    });
+    expect(pulse).toEqual({ lit: true, ring: true, pulse: "scan-pulse" });
   });
 });
 

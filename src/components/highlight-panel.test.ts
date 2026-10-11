@@ -26,7 +26,7 @@ describe("a Highlight panel's look", () => {
       it("burns its Lit site's light", () => {
         expect(look.bracket).toBe(`border-${light}`);
         expect(look.glow).toBe(
-          `shadow-${light}/10 data-lit:shadow-${light}/25`,
+          `[--holo:var(--color-${light})] shadow-${light}/10 data-lit:shadow-${light}/25`,
         );
       });
     });

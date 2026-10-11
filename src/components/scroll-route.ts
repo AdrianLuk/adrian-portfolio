@@ -122,6 +122,8 @@ export function createScrollRoute({
     const lit = boxes.map((box, i) => {
       const amount = litAt(scroll.y, box, viewport);
       panels[i].toggleAttribute("data-lit", amount >= 0.5);
+      // Never taken away (not even by kill), so the surface's light-up flicker plays once.
+      if (amount >= 0.5) panels[i].toggleAttribute("data-lit-once", true);
       return amount;
     });
     director.scrolled(stopAt(scroll.y, anchors), lit, route.name);

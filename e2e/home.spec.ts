@@ -207,6 +207,35 @@ test("each panel shows its two key numbers, and Juice Bros none", async ({
   }
 });
 
+test("without WebGL and under reduced motion, each panel keeps its hologram surface in its site's light, behind the copy, lit and steady", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const lights = { cyan: "rgb(61, 242, 230)", violet: "rgb(155, 108, 255)" };
+  for (const highlight of highlights) {
+    const surface = await page
+      .locator(`#${highlightAnchor(highlight.id)}`)
+      .evaluate((el) => {
+        // Even marked as having lit, it never flickers.
+        el.toggleAttribute("data-lit-once", true);
+        const s = getComputedStyle(el, "::before");
+        return {
+          scanlines: s.backgroundImage.startsWith("repeating-linear-gradient"),
+          // Under the copy, yet above the panel's own fill.
+          behind: [s.zIndex, getComputedStyle(el).isolation],
+          edge: s.borderTopColor,
+          flicker: s.animationName,
+        };
+      });
+    expect(surface, highlight.id).toEqual({
+      scanlines: true,
+      behind: ["-1", "isolate"],
+      edge: lights[highlight.id === "juice-bros" ? "violet" : "cyan"],
+      flicker: "none",
+    });
+  }
+});
+
 test.describe("every Highlight link", () => {
   for (const highlight of highlights) {
     test(`${highlight.title} responds 200 and lands on a heading that names it`, async ({

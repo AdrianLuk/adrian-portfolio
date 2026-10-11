@@ -42,8 +42,9 @@ export function PlayButton({
 
 /**
  * Each panel's accent is its Lit site's light, and glows brighter once the
- * scroll route has lit the site. Ember stays the primary action's alone.
- * Written out in full, so Tailwind finds the classes.
+ * scroll route has lit the site; `--holo` hands the light to its hologram
+ * surface (globals.css). Ember stays the primary action's alone. Written out
+ * in full, so Tailwind finds the classes.
  */
 export const accents: Record<
   LitSite["light"],
@@ -51,11 +52,11 @@ export const accents: Record<
 > = {
   cyan: {
     bracket: "border-cyan",
-    glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+    glow: "[--holo:var(--color-cyan)] shadow-cyan/10 data-lit:shadow-cyan/25",
   },
   violet: {
     bracket: "border-violet",
-    glow: "shadow-violet/10 data-lit:shadow-violet/25",
+    glow: "[--holo:var(--color-violet)] shadow-violet/10 data-lit:shadow-violet/25",
   },
 };
 
@@ -70,11 +71,12 @@ export function panelLook(id: HighlightId) {
 }
 
 /**
- * A holographic panel on the scroll route: its glow eases up as the route
- * lights it, and it tilts toward the pointer (pointer-motion.ts).
+ * A holographic panel on the scroll route: scanlines and an edge in its light
+ * under the copy (`holo`, globals.css), its glow eases up as the route lights
+ * it, and it tilts toward the pointer (pointer-motion.ts).
  */
 export const holoPanel =
-  "relative max-w-3xl scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:[transition:box-shadow_700ms,transform_300ms_ease-out]";
+  "holo relative max-w-3xl scroll-mt-20 rounded-sm bg-dusk/80 p-6 shadow-2xl sm:p-8 motion-safe:[transition:box-shadow_700ms,transform_300ms_ease-out]";
 
 const corners = [
   "top-0 left-0 border-t-2 border-l-2",
