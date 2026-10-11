@@ -242,6 +242,12 @@ export function HeroWorld({
     const resize = new ResizeObserver(() => {
       world()?.layout();
       opening.place();
+      // Where the hero starts on the page (under a header that can wrap),
+      // so the scroll cue can find the screen's foot.
+      root.style.setProperty(
+        "--hero-top",
+        `${root.getBoundingClientRect().top + window.scrollY}px`,
+      );
     });
     resize.observe(root);
     // The canvas too: it fills the hero, or the viewport once it is held

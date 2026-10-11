@@ -162,13 +162,13 @@ export default async function Home() {
           out; wider, the first Highlight is the cue. Decoration only:
           scrolling is native. The left pad offsets the tracking after the
           last letter, so the word centres on the line. Where the hero runs
-          past the screen by O (100% + 3rem for the header - 100svh), the
-          cue rises to the screen's foot; where that would take it into the
-          button (O past 4.75rem), it drops below the hero, clipped whole
-          rather than cut. */}
+          past the screen by O (100% + --hero-top - 100svh; the header above
+          it can wrap, so the hero measures its top), the cue rises to the
+          screen's foot; where that would take it into the button (O past
+          4.75rem), it drops below the hero, clipped whole rather than cut. */}
         <div
           aria-hidden="true"
-          className={`pointer-events-none absolute inset-x-0 bottom-[calc(clamp(2rem,100%_+_4.25rem_-_100svh,6rem)_-_clamp(0px,(100%_-_1.75rem_-_100svh)*10000,10rem))] flex flex-col items-center text-cyan/80 group-not-data-[state=settled]:invisible md:hidden ${landsAfterFlight} group-data-[state=settled]:delay-300`}
+          className={`pointer-events-none absolute inset-x-0 bottom-[calc(clamp(2rem,100%_+_var(--hero-top,3rem)_+_1.25rem_-_100svh,6rem)_-_clamp(0px,(100%_+_var(--hero-top,3rem)_-_4.75rem_-_100svh)*10000,10rem))] flex flex-col items-center text-cyan/80 group-not-data-[state=settled]:invisible md:hidden ${landsAfterFlight} group-data-[state=settled]:delay-300`}
         >
           <span className="pl-[0.3em] font-display text-[11px] tracking-[0.3em] uppercase [font-stretch:75%]">
             {hero.scrollHint}
