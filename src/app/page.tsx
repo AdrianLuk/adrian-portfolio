@@ -3,6 +3,7 @@ import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel, PanelCorners, PlayButton } from "@/components/highlight-panel";
 import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
 import { PLATE_ECHO, PLATE_WORD } from "@/components/plate-measure";
+import { Recording } from "@/components/recording";
 import { StopStill } from "@/components/world-backdrop";
 import {
   contact,
@@ -277,10 +278,15 @@ export default async function Home() {
           className={`mt-12 ${contactPanel}`}
         >
           <PanelCorners className="border-cyan md:hidden" />
-          <h3 className="font-display text-xl font-bold [font-stretch:115%]">
+          {/* In capitals: at this width Anybody's capital O is barely taller
+            than its lowercase, so "Off" read as "off". */}
+          <h3 className="font-display text-xl font-bold uppercase [font-stretch:115%]">
             {contact.offClock.heading}
           </h3>
           <p className="mt-4 text-lg text-ink/90">{contact.offClock.text}</p>
+          <div className="mt-6 max-w-xl">
+            <Recording recording={contact.offClock.clip} />
+          </div>
           <p className="mt-5 flex flex-wrap gap-3">
             <Link href={contact.offClock.link.href} className={pillButton.cyan}>
               {contact.offClock.link.label}

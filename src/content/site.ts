@@ -707,8 +707,9 @@ export const contact = {
   },
   /**
    * Off the clock lives on the About page: here, one line pointing there, and
-   * the way into the Derby. Its panel is the scroll route's stop at the
-   * Diamond (src/components/home-panels.ts).
+   * the way into the Derby, its clip first. Its panel is the scroll route's
+   * stop at the Diamond (src/components/home-panels.ts): the clip lengthens
+   * it, so the camera holds on the park a little longer.
    */
   offClock: {
     id: "off-the-clock",
@@ -716,6 +717,7 @@ export const contact = {
     text: "Pickleball, baseball, K-pop concerts and games.",
     link: { label: "More on the About page", href: "/about" },
     derby: { label: "Bat in the Home Run Derby", href: derbyLink.href },
+    clip: derbyClip,
   },
   /**
    * How the site itself is built: each fact one the public repo bears out,
@@ -753,6 +755,7 @@ export const contact = {
     text: string;
     link: { label: string; href: string };
     derby: { label: string; href: string };
+    clip: Recording;
   };
   built: {
     heading: string;

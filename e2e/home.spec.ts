@@ -399,6 +399,11 @@ test("the Off the clock block links to the About page, where its lines now live,
   await expect(
     section.getByRole("link", { name: contact.offClock.link.label }),
   ).toHaveAttribute("href", "/about");
+  // The Derby's clip, holding on its poster and loading nothing until it plays.
+  const clip = section.locator(`#${contact.offClock.id} video`);
+  await expect(clip).toHaveAttribute("aria-label", contact.offClock.clip.label);
+  await expect(clip).toHaveAttribute("poster", contact.offClock.clip.poster);
+  await expect(clip).toHaveAttribute("preload", "none");
   // Home's one way into the Derby; the scroll route's stop at the Diamond.
   await expect(
     section.locator(`#${contact.offClock.id}`).getByRole("link", { name: contact.offClock.derby.label }),
