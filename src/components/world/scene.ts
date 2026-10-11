@@ -24,6 +24,7 @@ import {
 import { layoutArena } from "./arena";
 import type { DiamondField } from "./diamond";
 import { createBackdrop } from "./backdrop";
+import { createAirliners } from "./airliners";
 import { createBeams } from "./beams";
 import { bakePlateEnvironment } from "./environment";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
@@ -472,6 +473,8 @@ export async function createWorld(
     beams.mesh,
     ...sites.map((s) => s.points),
     ...createMist(shared),
+    // Flown in their shader off `uTraffic`, set each frame in `render`.
+    createAirliners(shared),
     plate.group,
     courtGroup,
     fieldGroup,
