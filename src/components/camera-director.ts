@@ -464,7 +464,7 @@ export function createCameraDirector({
           const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
           return waiting + SITE_LIGHT.lit * lit[i];
         }),
-        projections: LIT_SITES.map((_, i) => lit[i]),
+        projections: [...lit],
         ...look,
         encore: smoothstep(0, 1, encoreAt(now)),
         fill: fillAt(now),

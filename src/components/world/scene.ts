@@ -48,8 +48,8 @@ import {
   HOBBY_PANEL_STOPS,
   hobbyRoute,
   PANEL_STOPS,
-  projectionBeam,
   playView,
+  projectionBeam,
   SITES,
   skylineView,
   type Route,
@@ -435,8 +435,15 @@ export async function createWorld(
       mesh.geometry.dispose();
       (mesh.material as Material).dispose();
     }
+    const worldFrame = 0;
+    const noSweep = 0;
     projecting = SITES.map((site, i) =>
-      createBeams([projectionBeam(site, on.poseAt(i + 1), camera.aspect)], 0, shared, 0),
+      createBeams(
+        [projectionBeam(site, on.poseAt(i + 1), camera.aspect)],
+        worldFrame,
+        shared,
+        noSweep,
+      ),
     );
     projections.clear().add(...projecting.map((p) => p.mesh));
   }

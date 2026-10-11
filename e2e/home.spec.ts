@@ -19,6 +19,7 @@ import {
   roles,
   type Highlight,
 } from "../src/content/site";
+import { litSite } from "../src/components/lit-sites";
 import { withoutWorld } from "./hero";
 
 // Content and navigation, not the opening or the world (flight, world and
@@ -207,11 +208,12 @@ test("each panel shows its two key numbers, and Juice Bros none", async ({
   }
 });
 
+const lights = { cyan: "rgb(61, 242, 230)", violet: "rgb(155, 108, 255)" };
+
 test("without WebGL and under reduced motion, each panel keeps its hologram surface in its site's light, behind the copy, lit and steady", async ({
   page,
 }) => {
   await page.goto("/");
-  const lights = { cyan: "rgb(61, 242, 230)", violet: "rgb(155, 108, 255)" };
   for (const highlight of highlights) {
     const surface = await page
       .locator(`#${highlightAnchor(highlight.id)}`)
@@ -230,10 +232,42 @@ test("without WebGL and under reduced motion, each panel keeps its hologram surf
     expect(surface, highlight.id).toEqual({
       scanlines: true,
       behind: ["-1", "isolate"],
-      edge: lights[highlight.id === "juice-bros" ? "violet" : "cyan"],
+      edge: lights[litSite(highlight.id).light],
       flicker: "none",
     });
   }
+});
+
+test.describe("with motion allowed", () => {
+  test.use({ reducedMotion: "no-preference" });
+
+  test("without WebGL each panel keeps its hologram surface: scanlines, and an edge that lights in its site's light, behind the copy", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    for (const highlight of highlights) {
+      const surface = await page
+        .locator(`#${highlightAnchor(highlight.id)}`)
+        .evaluate((el) => {
+          // Lit as the scroll route would, its edge's ease-up and flicker played out.
+          el.toggleAttribute("data-lit", true);
+          el.toggleAttribute("data-lit-once", true);
+          void getComputedStyle(el, "::before").borderTopColor;
+          for (const a of el.getAnimations({ subtree: true })) a.finish();
+          const s = getComputedStyle(el, "::before");
+          return {
+            scanlines: s.backgroundImage.startsWith("repeating-linear-gradient"),
+            behind: [s.zIndex, getComputedStyle(el).isolation],
+            edge: s.borderTopColor,
+          };
+        });
+      expect(surface, highlight.id).toEqual({
+        scanlines: true,
+        behind: ["-1", "isolate"],
+        edge: lights[litSite(highlight.id).light],
+      });
+    }
+  });
 });
 
 test.describe("every Highlight link", () => {

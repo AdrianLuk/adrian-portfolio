@@ -195,7 +195,6 @@ describe("the Camera director", () => {
       sweep: 0,
       sites: [1, 0.35, 0.35, 0.35],
       projections: [0, 0, 0, 0],
-
       court: 0,
       skyline: 0,
       encore: 0,
@@ -247,7 +246,6 @@ describe("the Camera director", () => {
       sweep: 0,
       sites: [0, 0, 0, 0],
       projections: [0, 0, 0, 0],
-
       court: 0,
       skyline: 1,
       encore: 0,
@@ -265,7 +263,6 @@ describe("the Camera director", () => {
       sweep: 0,
       sites: [0, 0, 0, 0],
       projections: [0, 0, 0, 0],
-
       court: 1,
       skyline: 0,
       encore: 0,
@@ -284,7 +281,6 @@ describe("the Camera director", () => {
       sweep: 0,
       sites: [0, 0, 0, 0],
       projections: [0, 0, 0, 0],
-
       court: 0,
       skyline: 0,
       encore: 0,
@@ -328,7 +324,6 @@ describe("the Camera director", () => {
       sweep: 0,
       sites: [0, 0, 0, 0],
       projections: [0, 0, 0, 0],
-
       court: 1,
       skyline: 0,
       encore: 0,

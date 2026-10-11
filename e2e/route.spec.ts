@@ -152,19 +152,24 @@ test.describe("with motion allowed, the opening skipped", () => {
       .toEqual({ y: y + 300, terms: before });
   });
 
-  test("each panel's surface stutters on once as it first lights (at most three flashes, under a second), and never again", async () => {
+  test("each Highlight's surface stutters on once as it first lights (at most three flashes, under a second), and never again; the Diamond's panel has no surface", async () => {
     // Back down the route a second time: every panel lights again.
     for (let i = 0; i < panels.length; i++) {
       expect((await visitPanel(page, i)).lit, panels[i].name).toBe(true);
     }
-    // Polled: the last panel's flicker starts a frame after it lights.
+    // Polled: a panel's flicker starts a frame after it lights.
     await expect
       .poll(() =>
         page.evaluate(() =>
           (window as unknown as { flickers: string[] }).flickers.toSorted(),
         ),
       )
-      .toEqual(panels.map((p) => p.id).toSorted());
+      .toEqual(highlights.map((h) => highlightAnchor(h.id)).toSorted());
+    expect(
+      await page
+        .locator(`#${diamondPanel.id}`)
+        .evaluate((el) => getComputedStyle(el, "::before").content),
+    ).toBe("none");
 
     const flicker = await panel(page, 0).evaluate((el) => {
       const s = getComputedStyle(el, "::before");
