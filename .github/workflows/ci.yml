@@ -34,12 +34,16 @@ jobs:
 
       - uses: ./.github/actions/build
 
-  # The browser tests, alongside the checks.
+  # The browser tests, alongside the checks, split across three runners with
+  # one worker each (playwright.config.ts): no runner draws two worlds at once.
   e2e:
     runs-on: ubuntu-latest
-    # The suite runs 17 to 24 minutes (each Place's world compiles in
-    # software), so a retry or two on a slow runner would otherwise cancel it.
-    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    # A shard runs about a third of the suite, with room for a slow runner.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -66,12 +70,12 @@ jobs:
         run: npx playwright install --only-shell chromium
 
       - name: Playwright
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
 
       - name: Upload the Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright
+          name: playwright-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 14
