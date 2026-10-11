@@ -156,7 +156,15 @@ const copyOf = ({ position, quaternion }: Pose): Pose => ({
  * runs down the canyon behind the plate, where the route can't reach).
  */
 export type Departure =
-  | { pose: Pose }
+  | {
+      pose: Pose;
+      /**
+       * A way out the camera retraces first, back along `route` from stop
+       * `from` to stop `to`: out of the Arena, the way the Hobby route came
+       * in, never through its tiers.
+       */
+      back?: { route: Route; from: number; to: number };
+    }
   | {
       opening: FlightPath;
       /** How far along the opening's path, 0 to 1 (`FlightPath.travel`). */
@@ -174,9 +182,51 @@ export type Arrival = number | Pose;
 
 /** A transit from `departure` to `to`. */
 export function transit(route: Route, departure: Departure, to: Arrival) {
-  return "pose" in departure
-    ? transitPath(route, departure.pose, to)
-    : fromOpening(route, departure, to);
+  if (!("pose" in departure)) return fromOpening(route, departure, to);
+  return departure.back
+    ? backOut(route, departure.back, to)
+    : transitPath(route, departure.pose, to);
+}
+
+/**
+ * A transit that first retraces `back` (out of the Arena, up the Hobby
+ * route's last leg), then flies on from its end along `route` without
+ * stopping, the whole trip eased as one and within the cap, as one leaving
+ * the opening does.
+ */
+function backOut(
+  route: Route,
+  back: NonNullable<Extract<Departure, { pose: Pose }>["back"]>,
+  to: Arrival,
+) {
+  const stopAt = (f: number) => back.from + (back.to - back.from) * f;
+  /** World units of the way back, measured along it. */
+  let lead = 0;
+  for (let i = 1, last = back.route.poseAt(back.from).position; i <= 40; i++) {
+    const next = back.route.poseAt(stopAt(i / 40)).position;
+    lead += next.distanceTo(last);
+    last = next;
+  }
+  const rest = transitPath(route, back.route.poseAt(back.to), to);
+  const distance = lead + rest.distance;
+  const at = (t: number) => ease(Math.min(1, Math.max(0, t))) * distance;
+  const poseAt = (t: number): Pose => {
+    const d = at(t);
+    return d < lead
+      ? back.route.poseAt(stopAt(d / lead))
+      : rest.along((d - lead) / Math.max(rest.distance, 1e-9));
+  };
+  return {
+    duration: durationFor(distance),
+    distance,
+    poseAt,
+    departureAt(t: number): Departure {
+      const d = at(t);
+      return d < lead
+        ? { pose: poseAt(t), back: { ...back, from: stopAt(d / lead) } }
+        : { pose: poseAt(t) };
+    },
+  };
 }
 
 /**

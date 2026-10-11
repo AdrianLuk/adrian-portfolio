@@ -55,6 +55,16 @@ export const HOME_SCROLL_ROUTE = {
   sides: [...LIT_SITES.map((s) => s.side), DIAMOND_SIDE],
 } as const;
 
+/**
+ * The About page's Hobby route: its name, and which side each panel's stop
+ * stands, in the panels' order: the court's (Juice Bros' Lit site), the
+ * Diamond's, the Arena's (seated in the valley's right wall).
+ */
+export const HOBBY_SCROLL_ROUTE = {
+  name: "hobby",
+  sides: [litSite("juice-bros").side, DIAMOND_SIDE, 1],
+} as const;
+
 /** The Lit site that stands for a Highlight. */
 export function litSite(id: HighlightId): LitSite {
   const site = LIT_SITES.find((s) => s.highlight === id);

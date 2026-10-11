@@ -290,7 +290,7 @@ test("the Contact section has a lead, the resume link, the contact channels and 
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });
 
-test("the Off the clock block has its four lines and their links: pickleball's, and the baseball line's into the Derby", async ({
+test("the Off the clock block links to the About page, where its lines now live", async ({
   page,
 }) => {
   await page.goto("/");
@@ -298,25 +298,12 @@ test("the Off the clock block has its four lines and their links: pickleball's, 
   await expect(
     section.getByRole("heading", { level: 3, name: contact.offClock.heading }),
   ).toBeVisible();
-  for (const line of contact.offClock.lines) {
-    await expect(
-      section.getByRole("listitem").filter({ hasText: line.text }),
-    ).toBeVisible();
-  }
-  for (const line of contact.offClock.lines) {
-    for (const link of line.links) {
-      await expect(
-        section.getByRole("link", { name: link.label }),
-      ).toHaveAttribute("href", link.href);
-    }
-  }
-  const baseball = contact.offClock.lines.find((line) => line.id === "baseball")!;
+  await expect(section.getByText(contact.offClock.text)).toBeVisible();
   await expect(
-    section
-      .getByRole("listitem")
-      .filter({ hasText: baseball.text })
-      .getByRole("link", { name: derbyLink.label }),
-  ).toHaveAttribute("href", "/derby");
+    section.getByRole("link", { name: contact.offClock.link.label }),
+  ).toHaveAttribute("href", "/about");
+  // The Diamond's panel is home's one way into the Derby now.
+  await expect(section.getByRole("link", { name: derbyLink.label })).toHaveCount(0);
   // Ahead of the built block, which keeps its place before the bookend.
   const [offBox, builtBox] = await Promise.all([
     section.getByRole("heading", { level: 3, name: contact.offClock.heading }).boundingBox(),

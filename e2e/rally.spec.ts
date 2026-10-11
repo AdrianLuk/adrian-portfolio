@@ -5,7 +5,7 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
-import { highlightAnchor, hrefFor, rally, rallyLink } from "../src/content/site";
+import { about, highlightAnchor, hrefFor, rally, rallyLink } from "../src/content/site";
 import { FRAME_RATE, heroRoot, SCENE_TIMEOUT, withoutWorld } from "./hero";
 import { placeIn } from "./place";
 
@@ -398,6 +398,17 @@ test("the home page never asks for the game's code, even with its link on screen
     .locator(`#${highlightAnchor("juice-bros")}`)
     .getByRole("link", { name: rallyLink.label })
     .scrollIntoViewIfNeeded();
+  await expectNoGameCode(page, request);
+});
+
+test("the About page never asks for the game's code, though pickleball's play button is on screen", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/about");
+  const play = page.locator(`#${about.pickleball.id}`).getByRole("link", { name: rallyLink.label });
+  await play.scrollIntoViewIfNeeded();
+  await expect(play).toBeInViewport();
   await expectNoGameCode(page, request);
 });
 

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  about,
   caseStudies,
   derby,
   meta,
@@ -48,6 +49,7 @@ const routes = [
   { path: "/resume", card: shareCards.resume, title: resume.metaTitle },
   { path: "/rally", card: shareCards.play, title: rally.metaTitle },
   { path: "/derby", card: shareCards.derby, title: derby.metaTitle },
+  { path: "/about", card: shareCards.about, title: about.metaTitle },
   ...caseStudies.map((study) => ({
     path: `/work/${study.slug}`,
     card: shareCards[study.slug],

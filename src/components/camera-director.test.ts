@@ -23,6 +23,7 @@ import {
   courtPose,
   createRoute,
   derbyView,
+  hobbyRoute,
   hongKongPose,
   playView,
   ROUTE_STOPS,
@@ -73,6 +74,7 @@ function setup() {
       encore: arenaView(aspect).fovY,
     },
     court: courtPose(aspect),
+    hobby: hobbyRoute(aspect),
     play: play.pose,
     derby: derby.pose,
     courtStop: COURT_STOP,
@@ -1148,5 +1150,100 @@ describe("the Camera director", () => {
     const director = createCameraDirector({ homeStop: () => 0 });
     expect(director.fly("skyline", 0)).toBe(false);
     expect(director.flying()).toBeNull();
+  });
+});
+
+describe("the About page's Hobby route", () => {
+  const hobby = hobbyRoute(aspect);
+  const inside = arenaView(aspect);
+  const sites = [0, 0, 0, 0];
+
+  it("stands at its first stop until its scroll route reports, home's sites dark", () => {
+    const { director } = setup();
+    director.show("hobby");
+    const { pose, lights, fovY } = director.frame(0);
+    expectSamePose(pose!, hobby.poseAt(0));
+    expect(lights!.sites).toEqual(sites);
+    expect(fovY).toBe(CAMERA.fovY);
+  });
+
+  it("follows its scroll from the court to the Diamond, the Arena dark, in the world's field of view", () => {
+    const { director } = setup();
+    director.show("hobby");
+    for (const stop of [1, 1.5, 2]) {
+      director.scrolled(stop, [1, 1, 0], "hobby");
+      const { pose, lights, fovY } = director.frame(0);
+      expectSamePose(pose!, hobby.poseAt(stop));
+      expect(lights).toMatchObject({ sites, encore: 0, fill: 0 });
+      expect(fovY).toBe(CAMERA.fovY);
+    }
+  });
+
+  it("switches the Arena's show on as it comes into K-pop's stop: lightsticks up, in the inside view's field of view", () => {
+    const { director, paths } = setup();
+    // A phone's, wider than the world's.
+    director.layout({ ...paths, fovY: { ...paths.fovY, encore: 60 } });
+    director.show("hobby");
+    director.scrolled(2.5, [1, 1, 0.5], "hobby");
+    const half = director.frame(0);
+    expect(half.lights!.encore).toBeGreaterThan(0);
+    expect(half.lights!.encore).toBeLessThan(1);
+    expect(half.fovY).toBeGreaterThan(CAMERA.fovY);
+    expect(half.fovY).toBeLessThan(60);
+    director.scrolled(4, [1, 1, 1], "hobby");
+    const there = director.frame(0);
+    expectSamePose(there.pose!, inside.pose);
+    expect(there.lights).toMatchObject({ encore: 1, fill: 1 });
+    expect(there.fovY).toBeCloseTo(60);
+  });
+
+  it("is over once its scroll route stops: the first stop again, the Arena dark", () => {
+    const { director } = setup();
+    director.show("hobby");
+    director.scrolled(3, [1, 1, 1], "hobby");
+    director.scrollStopped();
+    expectSamePose(director.frame(0).pose!, hobby.poseAt(0));
+    expect(director.frame(0).lights).toMatchObject({ encore: 0, fill: 0 });
+  });
+
+  it("flies in from home to its first stop, and back home, without a jump", () => {
+    const { director } = setup();
+    director.show("hero");
+    director.openingLands();
+    const there = flyTo(director, "hobby", 0);
+    expectNoJump(there.poses);
+    expectSamePose(there.poses.at(-1)!, hobby.poseAt(0));
+    const back = flyTo(director, "hero", there.landedAt + 1000);
+    expectNoJump(back.poses);
+  });
+
+  it("leaves K-pop's stop back out of the Arena the way the route came in, never through its tiers", () => {
+    const { director } = setup();
+    director.show("hobby");
+    director.scrolled(3, [1, 1, 1], "hobby");
+    expect(director.fly("skyline", 0)).toBe(true);
+    const poses = film(director, 0, 300);
+    expectNoJump(poses);
+    // Partway out, it stands on the route's last leg, short of the Arena.
+    const out = poses.at(-1)!;
+    // Samples about a quarter of a unit apart.
+    const along = Array.from({ length: 1001 }, (_, i) => hobby.poseAt(2 + i / 1000));
+    const nearest = Math.min(...along.map((p) => p.position.distanceTo(out.position)));
+    expect(nearest).toBeLessThan(0.2);
+    expect(out.position.distanceTo(inside.pose.position)).toBeGreaterThan(1);
+  });
+
+  it("flies out of the Arena easing its field of view back to the world's, its show off as it lands", () => {
+    const { director } = setup();
+    director.show("hobby");
+    director.scrolled(3, [1, 1, 1], "hobby");
+    director.fly("skyline", 0);
+    director.scrollStopped();
+    director.show("skyline");
+    let now = 0;
+    for (; director.flying() && now < 10_000; now += FRAME) director.advance(now);
+    const landed = director.frame(now);
+    expect(landed.fovY).toBeCloseTo(CAMERA.fovY);
+    expect(landed.lights).toMatchObject({ encore: 0, fill: 0 });
   });
 });

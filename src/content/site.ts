@@ -210,6 +210,7 @@ export type ShareCard = {
 export const nav = [
   { label: "Work", href: "/#work" },
   { label: "Resume", href: "/resume" },
+  { label: "About", href: "/about" },
   { label: "Contact", href: "/#contact" },
 ] as const;
 
@@ -238,7 +239,7 @@ const mediaBase = "/case-studies/juice-bros";
 /** Into the Rally game, from the Juice Bros Highlight and Case study. Says it's a game; the jokes stay inside it. */
 export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/rally" } as const;
 
-/** Into the Home Run Derby, from Off the clock's baseball line. Says it's a game, as `rallyLink` does. */
+/** Into the Home Run Derby, from the Diamond's panel and the About page's baseball section. Says it's a game, as `rallyLink` does. */
 export const derbyLink = { label: "Bat against Curvebot", href: "/derby" } as const;
 
 /** A rally in the Rally game, over its link in the Juice Bros Highlight. */
@@ -693,34 +694,11 @@ export const contact = {
       (width) => `/contact/adrian-luk-${width}.webp`,
     ),
   },
-  /** Four plain lines about Adrian outside work, after the channels. */
+  /** Off the clock lives on the About page: here, one line pointing there. */
   offClock: {
     heading: "Off the clock",
-    lines: [
-      {
-        id: "pickleball",
-        text: "Pickleball has been my main hobby since 2023.",
-        links: [
-          rallyLink,
-          { label: "Juice Bros case study", href: "/work/juice-bros" },
-        ],
-      },
-      {
-        id: "baseball",
-        text: "Played competitively for 15 years: pitcher, middle infield and center field.",
-        links: [derbyLink],
-      },
-      {
-        id: "gaming",
-        text: "Overwatch and League of Legends. Some habits stick: try recalling.",
-        links: [],
-      },
-      {
-        id: "kpop",
-        text: "I go to K-pop concerts regularly. Keep going past the end of this page to see some of the ones I've been to.",
-        links: [],
-      },
-    ],
+    text: "Pickleball, baseball, K-pop concerts and games.",
+    link: { label: "More on the About page", href: "/about" },
   },
   /**
    * How the site itself is built: each fact one the public repo bears out,
@@ -750,11 +728,8 @@ export const contact = {
   portrait: { alt: string; stills: readonly Still[] };
   offClock: {
     heading: string;
-    lines: readonly {
-      id: string;
-      text: string;
-      links?: readonly { label: string; href: string }[];
-    }[];
+    text: string;
+    link: { label: string; href: string };
   };
   built: {
     heading: string;
@@ -807,6 +782,49 @@ export const encore = {
   replay: string;
   tickets: readonly { group: string; year: number; colors: readonly string[] }[];
 };
+
+/**
+ * The About page, along the Hobby route: roots first, then Off the clock's
+ * lines (Personal facts, docs/HANDOFF.md), each section's as bullets in a
+ * panel beside its stop: pickleball at the court, baseball at the Diamond,
+ * K-pop in the Arena with the ticket wall, then the gaming line. The first
+ * three panels' ids are the route's stops (src/components/hobby-scroll.tsx).
+ */
+export const about = {
+  path: "/about",
+  eyebrow: "About",
+  heading: "Off the clock",
+  roots: "Born and raised in Canada. My parents are from Hong Kong.",
+  pickleball: {
+    id: "pickleball",
+    heading: "Pickleball",
+    lines: ["Pickleball has been my main hobby since 2023."],
+    play: rallyLink,
+    caseStudy: { label: "Juice Bros case study", href: "/work/juice-bros" },
+  },
+  baseball: {
+    id: "baseball",
+    heading: "Baseball",
+    lines: ["Played competitively for 15 years: pitcher, middle infield and center field."],
+    clip: derbyClip,
+    play: derbyLink,
+  },
+  kpop: {
+    id: "kpop",
+    heading: "K-pop",
+    lines: ["I go to K-pop concerts regularly."],
+    // The Encore's own ticket wall, under its lead.
+    wallLead: encore.lead,
+  },
+  gaming: {
+    id: "gaming",
+    heading: "Gaming",
+    lines: ["Overwatch and League of Legends. Some habits stick: try recalling."],
+  },
+  metaTitle: "Off the clock: Adrian Luk",
+  metaDescription:
+    "Adrian Luk outside work: pickleball since 2023, 15 years of competitive baseball, K-pop concerts, Overwatch and League of Legends.",
+} as const;
 
 /** Adrian's profiles elsewhere: every contact channel but email. */
 export const profiles = contact.channels.filter(
@@ -1081,8 +1099,16 @@ export const shareCards = {
     imageAlt: `${settledFrameAlt} Captioned "${derby.eyebrow}: ${derby.heading}".`,
     caption: { eyebrow: derby.eyebrow, title: derby.heading },
   },
+  about: {
+    path: about.path,
+    title: about.metaTitle,
+    description: about.metaDescription,
+    image: "/share/about.png",
+    imageAlt: `${settledFrameAlt} Captioned "${about.eyebrow}: ${about.heading}".`,
+    caption: { eyebrow: about.eyebrow, title: about.heading },
+  },
 } as const satisfies Record<
-  "home" | "resume" | "play" | "derby" | CaseStudySlug,
+  "home" | "resume" | "play" | "derby" | "about" | CaseStudySlug,
   ShareCard
 >;
 

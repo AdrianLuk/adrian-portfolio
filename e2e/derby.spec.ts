@@ -15,7 +15,7 @@ import {
   WINDUP,
 } from "../src/components/derby/rules";
 import {
-  contact,
+  about,
   derby,
   derbyLink,
   diamondPanel,
@@ -399,13 +399,12 @@ async function expectNoDerbyCode(page: Page, request: APIRequestContext) {
   }
 }
 
-test("the home page never asks for the Derby's code, even with the Diamond panel's link and Off the clock's on screen", async ({
+test("the home page never asks for the Derby's code, even with the Diamond panel's link on screen", async ({
   page,
   request,
 }) => {
-  // The world compiles in software on CI, then the scrolls to the Diamond
-  // and Contact and every script's fetch: more than the default 30s on a
-  // loaded runner.
+  // The world compiles in software on CI, then the scroll to the Diamond
+  // and every script's fetch: more than the default 30s on a loaded runner.
   test.setTimeout(60_000);
   await page.goto("/");
   await expect(heroRoot(page)).toHaveAttribute("data-world", "drawn", {
@@ -416,13 +415,19 @@ test("the home page never asks for the Derby's code, even with the Diamond panel
     .getByRole("link", { name: derbyLink.label });
   await play.scrollIntoViewIfNeeded();
   await expect(play).toBeInViewport();
-  await page
-    .locator("#contact")
-    .getByRole("heading", { level: 3, name: contact.offClock.heading })
-    .scrollIntoViewIfNeeded();
-  await expect(
-    page.locator("#contact").getByRole("link", { name: derbyLink.label }),
-  ).toBeInViewport();
+  await expectNoDerbyCode(page, request);
+});
+
+test("the About page never asks for the Derby's code, even with baseball's play button on screen", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/about");
+  const play = page
+    .locator(`#${about.baseball.id}`)
+    .getByRole("link", { name: derbyLink.label });
+  await play.scrollIntoViewIfNeeded();
+  await expect(play).toBeInViewport();
   await expectNoDerbyCode(page, request);
 });
 
