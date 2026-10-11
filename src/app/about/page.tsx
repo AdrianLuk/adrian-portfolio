@@ -19,7 +19,7 @@ import {
   arrivesAtHobby,
   clipsStopAfterGap,
   overPlace,
-  textLink,
+  pillButton,
 } from "../styles";
 import { torontoWeather } from "../toronto-weather";
 
@@ -127,7 +127,7 @@ export default async function AboutPage() {
             <PlayButton link={pickleball.play} light="violet" />
           </p>
           <p className="mt-4">
-            <Link href={pickleball.caseStudy.href} className={textLink}>
+            <Link href={pickleball.caseStudy.href} className={pillButton.violet}>
               {pickleball.caseStudy.label}
             </Link>
           </p>

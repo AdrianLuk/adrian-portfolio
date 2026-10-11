@@ -6,23 +6,15 @@ import {
   type Highlight,
   type HighlightId,
 } from "@/content/site";
-import { glowsLit, metaLine, textLink } from "@/app/styles";
+import { metaLine, pillButton } from "@/app/styles";
 import { litSite, type LitSite } from "./lit-sites";
 import { Recording } from "./recording";
 
 /**
- * A play button, into a game: one shape in its Place's light, the court's
- * violet for the Rally game and the Diamond's cyan for the Derby, as ember
- * is the page's primary action's alone. Written out in full, so Tailwind
- * finds the classes.
+ * A play button into a game: a pill in its Place's light, the court's violet
+ * for the Rally game and the Diamond's cyan for the Derby, with a play mark.
+ * Not prefetched: that would load the game's code on home.
  */
-const playShape = `inline-flex items-center gap-2 rounded-full border-2 bg-night/60 px-5 py-2.5 font-display text-sm font-bold tracking-widest text-ink uppercase [font-stretch:90%] ${glowsLit}`;
-const playButtons: Record<LitSite["light"], string> = {
-  cyan: `${playShape} border-cyan/80 hover:border-cyan hover:bg-cyan/20`,
-  violet: `${playShape} border-violet/80 hover:border-violet hover:bg-violet/20`,
-};
-
-/** A play button into a game, in `light`. Not prefetched: that would load the game's code on home. */
 export function PlayButton({
   link,
   light,
@@ -31,7 +23,7 @@ export function PlayButton({
   light: LitSite["light"];
 }) {
   return (
-    <Link href={link.href} prefetch={false} className={playButtons[light]}>
+    <Link href={link.href} prefetch={false} className={pillButton[light]}>
       <svg aria-hidden="true" viewBox="0 0 10 12" className="size-3 fill-current">
         <path d="M0 0 10 6 0 12z" />
       </svg>
@@ -163,7 +155,7 @@ export function HighlightPanel({
       )}
 
       <p className="mt-6">
-        <Link href={hrefFor(highlight.link)} className={textLink}>
+        <Link href={hrefFor(highlight.link)} className={pillButton[look.light]}>
           {linkLabelFor(highlight)}
         </Link>
       </p>

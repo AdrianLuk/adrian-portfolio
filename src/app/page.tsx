@@ -1,6 +1,6 @@
 import { ContactPortrait } from "@/components/contact-portrait";
 import { HeroWorld } from "@/components/hero-world";
-import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
+import { HighlightPanel, PanelCorners, PlayButton } from "@/components/highlight-panel";
 import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
 import { PLATE_ECHO, PLATE_WORD } from "@/components/plate-measure";
 import { StopStill } from "@/components/world-backdrop";
@@ -22,6 +22,7 @@ import {
   clipsStop,
   clipsStopAfterGap,
   metaLine,
+  pillButton,
   primaryAction,
   sectionLabel,
   textLink,
@@ -251,7 +252,7 @@ export default async function Home() {
           </p>
           <div className="[grid-area:links]">
             <p className="text-lg">
-              <Link href={contact.resume.href} className={textLink}>
+              <Link href={contact.resume.href} className={pillButton.cyan}>
                 {contact.resume.label}
               </Link>
             </p>
@@ -279,20 +280,12 @@ export default async function Home() {
           <h3 className="font-display text-xl font-bold [font-stretch:115%]">
             {contact.offClock.heading}
           </h3>
-          <p className="mt-4 text-lg text-ink/90">
-            {contact.offClock.text}{" "}
-            <Link href={contact.offClock.link.href} className={textLink}>
+          <p className="mt-4 text-lg text-ink/90">{contact.offClock.text}</p>
+          <p className="mt-5 flex flex-wrap gap-3">
+            <Link href={contact.offClock.link.href} className={pillButton.cyan}>
               {contact.offClock.link.label}
             </Link>
-          </p>
-          <p className="mt-3 text-lg">
-            <Link
-              href={contact.offClock.derby.href}
-              prefetch={false}
-              className={textLink}
-            >
-              {contact.offClock.derby.label}
-            </Link>
+            <PlayButton link={contact.offClock.derby} light="cyan" />
           </p>
         </div>
         {/* The site as its own evidence, each fact one the source bears out. */}
@@ -309,8 +302,8 @@ export default async function Home() {
               <li key={fact}>{fact}</li>
             ))}
           </ul>
-          <p className="mt-5 text-lg">
-            <a href={contact.built.source.href} className={textLink}>
+          <p className="mt-5">
+            <a href={contact.built.source.href} className={pillButton.cyan}>
               {contact.built.source.label}
             </a>
           </p>

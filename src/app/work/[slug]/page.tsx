@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { stageToggle, toolCopy } from "@/components/player-tools-markup";
 import { EARLY_PIN_SCRIPT } from "@/components/player-tools-pinning";
@@ -8,7 +7,7 @@ import { Recording } from "@/components/recording";
 import { isSideways, Screenshot } from "@/components/screenshot";
 import { ToolStage } from "@/components/tool-stage";
 import { CourtStill } from "@/components/court-still";
-import { PanelCorners } from "@/components/highlight-panel";
+import { PanelCorners, PlayButton } from "@/components/highlight-panel";
 import { PlaceWorld } from "@/components/place-world";
 import { WorldBackdrop } from "@/components/world-backdrop";
 import { placeOf } from "@/components/world-places";
@@ -22,7 +21,7 @@ import {
   type Showcase,
 } from "@/content/site";
 import { shareMetadata } from "../../share";
-import { arrivesAtCourt, overPlace } from "../../styles";
+import { arrivesAtCourt, overPlace, pillButton } from "../../styles";
 import { torontoWeather } from "../../toronto-weather";
 
 // Rebuilt at most hourly, for the court's weather (WEATHER_REVALIDATE):
@@ -184,16 +183,14 @@ export default async function CaseStudyPage({
         >
           {study.title}
         </h2>
-        <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-lg">
+        <ul className="mt-6 flex flex-wrap gap-3">
           {siteLinks.map((link) => (
             <li key={link.href}>
-              {/* Not prefetched: the only internal one is the Rally game, whose code loads only on /rally. */}
+              {/* The only internal one is the Rally game. */}
               {link.href.startsWith("/") ? (
-                <Link href={link.href} prefetch={false} className={linkClass}>
-                  {link.label}
-                </Link>
+                <PlayButton link={link} light="violet" />
               ) : (
-                <a href={link.href} className={linkClass}>
+                <a href={link.href} className={pillButton.violet}>
                   {link.label}
                 </a>
               )}
