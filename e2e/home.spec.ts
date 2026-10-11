@@ -495,11 +495,15 @@ test("the Contact section says how the site is built and links its source, befor
 });
 
 test.describe("the scroll cue", () => {
-  for (const viewport of [
-    { width: 412, height: 915 },
+  for (const { onScreen, ...viewport } of [
+    { width: 412, height: 915, onScreen: true },
     { width: 360, height: 740 },
+    // An Android phone with Chrome's address bar showing.
+    { width: 377, height: 706 },
+    // An iPhone in Safari, where See the work reaches the screen's foot.
+    { width: 390, height: 664 },
   ]) {
-    test(`stands at the settled hero's foot on a phone, ${viewport.width} by ${viewport.height}, clear of See the work`, async ({
+    test(`on a settled phone hero, ${viewport.width} by ${viewport.height}, stands whole on screen clear of See the work, or wholly out of sight`, async ({
       page,
     }) => {
       await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -507,15 +511,24 @@ test.describe("the scroll cue", () => {
       await watchHero(page, { skip: true });
       await page.goto("/");
       await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
-      const cue = page.getByText(hero.scrollHint, { exact: true });
-      await expect(cue).toBeVisible();
-      await expect(cue).toBeInViewport({ ratio: 1 });
+      // The word and its arrow, once landed.
+      const cue = page.getByText(hero.scrollHint, { exact: true }).locator("..");
+      await cue.evaluate((el) =>
+        Promise.all(el.getAnimations().map((a) => a.finished)),
+      );
       const action = page.getByRole("link", { name: hero.primaryAction.label });
       const [cueBox, actionBox] = await Promise.all([
         cue.boundingBox(),
         action.boundingBox(),
       ]);
-      expect(cueBox!.y).toBeGreaterThan(actionBox!.y + actionBox!.height);
+      const whole = cueBox!.y + cueBox!.height <= viewport.height;
+      if (onScreen) expect(whole).toBe(true);
+      if (whole) {
+        await expect(cue).toBeVisible();
+        expect(cueBox!.y).toBeGreaterThan(actionBox!.y + actionBox!.height);
+      } else {
+        expect(cueBox!.y).toBeGreaterThanOrEqual(viewport.height);
+      }
     });
   }
 
