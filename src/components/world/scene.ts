@@ -64,7 +64,7 @@ import {
   tierFor,
 } from "./quality";
 import { seededRandom } from "./noise";
-import type { SharedUniforms } from "./shared";
+import { STILL_TIME, trafficTime, type SharedUniforms } from "./shared";
 import { createSky } from "./sky";
 import { magentaWash } from "./skyline";
 import { skylineLook } from "./skyline-look";
@@ -269,9 +269,6 @@ function inSoftware(gl: WebGLRenderingContext | WebGL2RenderingContext) {
 /** Lets the browser paint and handle input before the next setup step. */
 const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-/** The moment the still frame shows: beams crossed, motes mid-rise. */
-const STILL_TIME = 11.5;
-
 /**
  * How far the camera turns toward the pointer at the screen's edge, in
  * radians (under two degrees across, half that up and down), and how long it
@@ -378,6 +375,7 @@ export async function createWorld(
   const shared: SharedUniforms = {
     uTime: { value: STILL_TIME },
     uPixelRatio: { value: 1 },
+    uTraffic: { value: STILL_TIME },
   };
 
   const scene = new Scene();
@@ -604,6 +602,7 @@ export async function createWorld(
 
   function render() {
     if (!view || !posed || !compiled || lost) return;
+    shared.uTraffic.value = trafficTime(shared.uTime.value, { motion, software });
     pose();
     plate.sweep(shared.uTime.value);
     setTerrainRings(terrain, ripples.lit(shared.uTime.value));

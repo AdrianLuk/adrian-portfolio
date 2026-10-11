@@ -40,6 +40,22 @@ _Avoid_: Downtown, waterfront
 Toronto's water: the water on the valley floor in front of downtown, as Lake Ontario's is in front of Toronto: the valley opens out on its left into a bay, and the skyline's lights streak across it. Home's scroll route flies along it; the Skyline stands on its far shore.
 _Avoid_: Lake, bay (the bay is the part of the valley it fills), waterfront
 
+**Streetcar**:
+One of the three TTC Flexity streetcars running down the valley on two tracks either side of the light path, under an overhead wire: TTC red, five sections, an amber route sign (501 Queen, 504 King, 505 Dundas), and no TTC logo. They cross the Harbour on a low bridge of light and go underground at a Portal at each end. Like all the world's traffic, they stand still under reduced motion and in software.
+_Avoid_: Train, tram, light rail, LRT
+
+**Portal**:
+The mouth of a Streetcar's tunnel: a lit opening in a headwall standing on the valley floor, with a low berm over the tunnel's first stretch. One stands past the name plate, one short of the Diamond; a Streetcar is hidden once it is deeper in than the berm covers.
+_Avoid_: Tunnel, station
+
+**Airliner**:
+One of the three planes over the valley, in Air Canada's 2017 scheme: the red maple leaf on its black tail, with no ring round it and no wordmark. Steady magenta and cyan wingtip lights, and a white strobe flashing under three times a second. Two fly along the valley, one across it.
+_Avoid_: Plane (unqualified), jet, aircraft
+
+**Ferry**:
+One of the boats crossing a harbour, two on each, resting at each pier: Toronto's cross the Harbour's bay, Hong Kong's cross Victoria Harbour from Tsim Sha Tsui to Central. A dark hull with a lit cabin band, its light streaking across the water toward the camera.
+_Avoid_: Boat, ship
+
 **Opening**:
 The home page's fly-in on a first visit: the camera's flight down the canyon to the name plate, with the opening credits. "Flight" alone means the opening. The Opening owns its credits and Skip, and every way it ends; once it has settled, the scroll route takes the camera on.
 _Avoid_: Intro, fly-through
