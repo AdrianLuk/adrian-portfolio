@@ -80,6 +80,8 @@ export type CameraLights = {
   sweep: number;
   /** Each Lit site's light, as a share of a beacon's full intensity. */
   sites: number[];
+  /** Each Lit site's projection beam, 0 to 1: as lit as its panel. */
+  projections: number[];
   /**
    * The court's look (its floodlights up, the fog violet, the rally ball),
    * 0 to 1: full at the court, blended in through a Transit there and out
@@ -462,6 +464,7 @@ export function createCameraDirector({
           const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
           return waiting + SITE_LIGHT.lit * lit[i];
         }),
+        projections: LIT_SITES.map((_, i) => lit[i]),
         ...look,
         encore: smoothstep(0, 1, encoreAt(now)),
         fill: fillAt(now),
@@ -472,6 +475,7 @@ export function createCameraDirector({
       beams: 0,
       sweep: 0,
       sites: LIT_SITES.map(() => 0),
+      projections: LIT_SITES.map(() => 0),
       ...look,
       // The Hobby route into the Arena: its show comes up as the camera does.
       encore: smoothstep(0, 1, arena),
