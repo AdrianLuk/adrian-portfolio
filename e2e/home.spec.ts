@@ -498,6 +498,8 @@ test.describe("the scroll cue", () => {
   for (const viewport of [
     { width: 412, height: 915 },
     { width: 360, height: 740 },
+    // An Android phone with Chrome's address bar showing.
+    { width: 377, height: 706 },
   ]) {
     test(`stands at the settled hero's foot on a phone, ${viewport.width} by ${viewport.height}, clear of See the work`, async ({
       page,
@@ -507,7 +509,8 @@ test.describe("the scroll cue", () => {
       await watchHero(page, { skip: true });
       await page.goto("/");
       await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
-      const cue = page.getByText(hero.scrollHint, { exact: true });
+      // The word and its arrow, whole.
+      const cue = page.getByText(hero.scrollHint, { exact: true }).locator("..");
       await expect(cue).toBeVisible();
       await expect(cue).toBeInViewport({ ratio: 1 });
       const action = page.getByRole("link", { name: hero.primaryAction.label });

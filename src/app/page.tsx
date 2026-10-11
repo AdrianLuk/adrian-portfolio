@@ -161,15 +161,17 @@ export default async function Home() {
           stay (reduced motion, no script) they fill the foot and it stays
           out; wider, the first Highlight is the cue. Decoration only:
           scrolling is native. The left pad offsets the tracking after the
-          last letter, so the word centres on the line. */}
+          last letter, so the word centres on the line. Where the hero runs
+          past the screen (the 3rem is the header above it), the cue rises to
+          the screen's foot, but never into the button. */}
         <div
           aria-hidden="true"
-          className={`pointer-events-none absolute inset-x-0 bottom-8 flex flex-col items-center text-cyan/80 group-not-data-[state=settled]:invisible md:hidden ${landsAfterFlight} group-data-[state=settled]:delay-300`}
+          className={`pointer-events-none absolute inset-x-0 bottom-[clamp(2rem,calc(100%+3rem-100svh+1.25rem),6rem)] flex flex-col items-center text-cyan/80 group-not-data-[state=settled]:invisible md:hidden ${landsAfterFlight} group-data-[state=settled]:delay-300`}
         >
           <span className="pl-[0.3em] font-display text-[11px] tracking-[0.3em] uppercase [font-stretch:75%]">
             {hero.scrollHint}
           </span>
-          <span className="mt-2 h-11 w-px bg-linear-to-b from-current to-transparent" />
+          <span className="mt-2 h-8 w-px bg-linear-to-b from-current to-transparent" />
           <span className="-mt-1.5 size-2 rotate-45 border-r border-b border-current" />
         </div>
         {/* The credits as opening titles, big in the scene: the hero anchors
