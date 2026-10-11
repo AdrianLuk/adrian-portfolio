@@ -28,6 +28,7 @@ describe("a Highlight panel's look", () => {
         expect(look.glow).toBe(
           `shadow-${light}/10 data-lit:shadow-${light}/25`,
         );
+        expect(look.holo).toBe(`[--holo:var(--color-${light})]`);
       });
     });
   }

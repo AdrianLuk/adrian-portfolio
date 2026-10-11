@@ -194,9 +194,11 @@ describe("the Camera director", () => {
       beams: 1,
       sweep: 0,
       sites: [1, 0.35, 0.35, 0.35],
+      projections: [0, 0, 0, 0],
       court: 0,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
   });
@@ -210,10 +212,13 @@ describe("the Camera director", () => {
     expectSamePose(pose!, route.poseAt(1.5));
     expect(lights!.sites[0]).toBeCloseTo(1.9);
     expect(lights!.sites[1]).toBeCloseTo(0.35 + 0.45);
+    // Each site's projection beam, as lit as its panel: none while waiting.
+    expect(lights!.projections).toEqual([1, 0.5, 0, 0]);
 
     director.scrollStopped();
     expectSamePose(director.frame(16).pose!, route.poseAt(0));
     expect(director.frame(32).lights!.sites).toEqual([1, 0.35, 0.35, 0.35]);
+    expect(director.frame(48).lights!.projections).toEqual([0, 0, 0, 0]);
   });
 
   it("knows while a Transit waits for its page: until that page shows, and never once landed", () => {
@@ -241,9 +246,11 @@ describe("the Camera director", () => {
       beams: 0,
       sweep: 0,
       sites: [0, 0, 0, 0],
+      projections: [0, 0, 0, 0],
       court: 0,
       skyline: 1,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
   });
@@ -257,9 +264,11 @@ describe("the Camera director", () => {
       beams: 0,
       sweep: 0,
       sites: [0, 0, 0, 0],
+      projections: [0, 0, 0, 0],
       court: 1,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
@@ -274,9 +283,11 @@ describe("the Camera director", () => {
       beams: 0,
       sweep: 0,
       sites: [0, 0, 0, 0],
+      projections: [0, 0, 0, 0],
       court: 0,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
@@ -316,9 +327,11 @@ describe("the Camera director", () => {
       beams: 0,
       sweep: 0,
       sites: [0, 0, 0, 0],
+      projections: [0, 0, 0, 0],
       court: 1,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
@@ -1076,6 +1089,24 @@ describe("the Camera director", () => {
       expectSamePose(poses.at(-1)!, inside.pose);
       expect(director.frame(SECONDS + 200).fovY).toBeCloseTo(60);
       expect(director.frame(SECONDS / 2).fovY).toBeCloseTo((CAMERA.fovY + 60) / 2);
+    });
+
+    it("lights the Arena's spotlights along the scroll route: off at the hero, full from the first Highlight on, the lightsticks waiting for the Encore", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.scrolled(0, [0, 0, 0, 0]);
+      expect(director.frame(0).lights).toMatchObject({ spotlights: 0, encore: 0 });
+      director.scrolled(0.5, [0.5, 0, 0, 0]);
+      const half = director.frame(0).lights!.spotlights;
+      expect(half).toBeGreaterThan(0);
+      expect(half).toBeLessThan(1);
+      for (const stop of [1, 2.5, LAST]) {
+        director.scrolled(stop, [1, 1, 1, 1]);
+        expect(director.frame(0).lights).toMatchObject({ spotlights: 1, encore: 0, fill: 0 });
+      }
+      director.scrollStopped();
+      expect(director.frame(0).lights).toMatchObject({ spotlights: 0 });
     });
 
     it("switches the show on as the camera comes in, fills the floor once it lands, and fills it again for one more song", () => {

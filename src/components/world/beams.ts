@@ -26,6 +26,8 @@ export function createBeams(
   /** The Arena's turn (./arena): beams' headings are in its frame. */
   turn: number,
   shared: SharedUniforms,
+  /** How far they sweep about their aims: all the way, or (0) not at all. */
+  sweep = 1,
 ) {
   const geometry = mergeGeometries(
     beams.map((b) => {
@@ -55,12 +57,14 @@ export function createBeams(
     uniforms: {
       uTime: shared.uTime,
       uTurn: { value: turn },
+      uSweep: { value: sweep },
       uIntensity: { value: 0 },
       ...fogUniforms(),
     },
     vertexShader: /* glsl */ `
       uniform float uTime;
       uniform float uTurn;
+      uniform float uSweep;
       attribute vec3 aApex;
       attribute vec2 aShape;
       attribute vec3 aAim;
@@ -74,8 +78,8 @@ export function createBeams(
       mat3 yaw(float a) { float c = cos(a), s = sin(a); return mat3(c, 0, -s, 0, 1, 0, s, 0, c); }
       void main() {
         // The show's slow sweep: about a quarter-minute a pass.
-        float heading = aAim.x + 0.35 * sin(uTime * 0.4 + aAim.z);
-        float lean = aAim.y + 0.12 * sin(uTime * 0.31 + aAim.z * 1.3);
+        float heading = aAim.x + uSweep * 0.35 * sin(uTime * 0.4 + aAim.z);
+        float lean = aAim.y + uSweep * 0.12 * sin(uTime * 0.31 + aAim.z * 1.3);
         mat3 aim = yaw(uTurn) * yaw(heading) * tilt(lean);
         vec3 local = vec3(position.x * aShape.x, position.y * aShape.y, position.z * aShape.x);
         vec4 world = modelMatrix * vec4(aApex + aim * local, 1.0);

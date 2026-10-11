@@ -80,6 +80,8 @@ export type CameraLights = {
   sweep: number;
   /** Each Lit site's light, as a share of a beacon's full intensity. */
   sites: number[];
+  /** Each Lit site's projection beam, 0 to 1: as lit as its panel. */
+  projections: number[];
   /**
    * The court's look (its floodlights up, the fog violet, the rally ball),
    * 0 to 1: full at the court, blended in through a Transit there and out
@@ -97,6 +99,12 @@ export type CameraLights = {
    * as it leaves; none anywhere else, so off, the Arena is as it stands.
    */
   encore: number;
+  /**
+   * The Arena's six spotlights, 0 to 1: on home they come up off the hero
+   * as the scroll route reaches the first Highlight and burn the whole way
+   * along it, so the path sees them; elsewhere they are the Encore's show.
+   */
+  spotlights: number;
   /** How much of the Arena's floor the lightsticks have filled, 0 to 1. */
   fill: number;
 };
@@ -454,6 +462,8 @@ export function createCameraDirector({
     const look = { court, skyline };
     if (shown === "hero" && homePaths()) {
       const { beams, sweep, beacon } = opening;
+      const encore = smoothstep(0, 1, encoreAt(now));
+      const onRoute = scrolling && running === "home" && landed;
       return {
         beams,
         sweep,
@@ -462,8 +472,10 @@ export function createCameraDirector({
           const waiting = i === 0 ? beacon : beacon * SITE_LIGHT.waiting;
           return waiting + SITE_LIGHT.lit * lit[i];
         }),
+        projections: [...lit],
         ...look,
-        encore: smoothstep(0, 1, encoreAt(now)),
+        encore,
+        spotlights: Math.max(encore, onRoute ? smoothstep(0, 1, routeStop) : 0),
         fill: fillAt(now),
       };
     }
@@ -472,9 +484,11 @@ export function createCameraDirector({
       beams: 0,
       sweep: 0,
       sites: LIT_SITES.map(() => 0),
+      projections: LIT_SITES.map(() => 0),
       ...look,
       // The Hobby route into the Arena: its show comes up as the camera does.
       encore: smoothstep(0, 1, arena),
+      spotlights: smoothstep(0, 1, arena),
       fill: arena,
     };
   }
