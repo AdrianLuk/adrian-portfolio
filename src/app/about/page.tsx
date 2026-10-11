@@ -119,7 +119,8 @@ export default async function AboutPage() {
 
         <HobbyPanel section={kpop} light="violet" data-wall>
           <p className="mt-6 text-ink/90">{kpop.wallLead}</p>
-          <TicketWall className="mt-3" />
+          {/* One column on a phone: the panel's padding leaves two too narrow for the longest names. */}
+          <TicketWall className="mt-3 max-sm:grid-cols-1" />
           <p className="mt-4">
             <Link href={kpop.egg.href} className={textLink}>
               {kpop.egg.label}
