@@ -104,8 +104,8 @@ export type Highlight = {
    * of Windscribe, not a product of it. Never derive it by trimming `byline`.
    */
   organization?: string;
-  /** One paragraph, or (Control D, the whole role) exactly three lines. */
-  paragraph: string | readonly [string, string, string];
+  /** One paragraph, or short lines a phone visitor can scan (shown as a list). */
+  paragraph: string | readonly string[];
   /** Two verified numbers; Juice Bros has none (no stable figures, and usage numbers are never claimed). */
   keyNumbers: readonly [] | readonly [KeyNumber, KeyNumber];
   link: HighlightLink;
@@ -515,8 +515,12 @@ export const highlights = [
     id: "life-house",
     title: "Life House",
     byline: "Guest-facing booking widget",
-    paragraph:
-      "Primary frontend engineer on the guest-facing booking widget, an embeddable React and TypeScript booking flow hotels dropped onto their own sites with one script tag. Scoped every generated CSS rule to the widget container with a custom Emotion stylis plugin, avoiding both Shadow DOM and an iframe. Retrofitted five languages and multi-currency support onto a UI that had already shipped: 88 files, 22 i18next namespaces, served from Contentful over GraphQL. Built bulk rate editing for hotel operators.",
+    paragraph: [
+      "Primary frontend engineer on the guest-facing booking widget, an embeddable React and TypeScript booking flow hotels dropped onto their own sites with one script tag.",
+      "Scoped every generated CSS rule to the widget container with a custom Emotion stylis plugin, avoiding both Shadow DOM and an iframe.",
+      "Retrofitted five languages and multi-currency support onto a UI that had already shipped: 88 files, 22 i18next namespaces, served from Contentful over GraphQL.",
+      "Built bulk rate editing for hotel operators.",
+    ],
     keyNumbers: [
       { value: "1", label: "script tag to embed it" },
       { value: "5", label: "languages retrofitted" },
@@ -538,8 +542,11 @@ export const highlights = [
     id: "bt-cup",
     title: "BT Cup",
     byline: "Elite Digital Agency for PepsiCo Canada",
-    paragraph:
-      "BT Cup was a contest platform PepsiCo Canada used to run retail display-execution competitions for its field sales force, with 11,750 employees provisioned and roughly 2,000 enrolled per contest. On a 14-contributor codebase (Laravel 5.8 and React 16), I designed the domain schema, wrote about 91% of the REST API and about half of the front end, and made the call to move the front end from Vue to React.",
+    paragraph: [
+      "BT Cup was a contest platform PepsiCo Canada used to run retail display-execution competitions for its field sales force, with 11,750 employees provisioned and roughly 2,000 enrolled per contest.",
+      "On a 14-contributor codebase (Laravel 5.8 and React 16), I designed the domain schema and wrote about 91% of the REST API and about half of the front end.",
+      "I made the call to move the front end from Vue to React.",
+    ],
     keyNumbers: [
       { value: "11,750", label: "employees provisioned" },
       { value: "~2,000", label: "enrolled per contest" },
