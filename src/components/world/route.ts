@@ -1,5 +1,5 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
-import { DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
+import { ARENA_SIDE, DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
 import { ARENA, arenaAxes, STAGE, STRETCH } from "./arena";
 import type { RallyCourt } from "./court-look";
 import { diamondMiddle, type DiamondField } from "./diamond";
@@ -669,7 +669,7 @@ const ARENA_STAGE = (() => {
 export const HOBBY_PANEL_STOPS: readonly { position: Vector3; side: 1 | -1 }[] = [
   SITES[COURT_SITE],
   { position: DIAMOND_MIDDLE, side: DIAMOND_SIDE },
-  { position: ARENA_STAGE, side: 1 },
+  { position: ARENA_STAGE, side: ARENA_SIDE },
 ];
 
 /**

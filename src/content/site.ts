@@ -813,8 +813,9 @@ export const about = {
     id: "kpop",
     heading: "K-pop",
     lines: ["I go to K-pop concerts regularly."],
-    // The Encore's own ticket wall, under its lead.
+    // The Encore's own ticket wall, under its lead; and the way to its Easter egg.
     wallLead: encore.lead,
+    egg: { label: "Keep going past the end of the home page", href: `/#${encore.id}` },
   },
   gaming: {
     id: "gaming",

@@ -120,6 +120,11 @@ export default async function AboutPage() {
         <HobbyPanel section={kpop} light="violet" data-wall>
           <p className="mt-6 text-ink/90">{kpop.wallLead}</p>
           <TicketWall className="mt-3" />
+          <p className="mt-4">
+            <Link href={kpop.egg.href} className={textLink}>
+              {kpop.egg.label}
+            </Link>
+          </p>
         </HobbyPanel>
 
         <HobbyPanel section={gaming} light="cyan" />

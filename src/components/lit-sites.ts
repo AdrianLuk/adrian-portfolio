@@ -55,14 +55,17 @@ export const HOME_SCROLL_ROUTE = {
   sides: [...LIT_SITES.map((s) => s.side), DIAMOND_SIDE],
 } as const;
 
+/** Which side the Arena stands: seated in the valley's right wall (./world/terrain's ARENA_SITE). */
+export const ARENA_SIDE: 1 | -1 = 1;
+
 /**
  * The About page's Hobby route: its name, and which side each panel's stop
  * stands, in the panels' order: the court's (Juice Bros' Lit site), the
- * Diamond's, the Arena's (seated in the valley's right wall).
+ * Diamond's, the Arena's.
  */
 export const HOBBY_SCROLL_ROUTE = {
   name: "hobby",
-  sides: [litSite("juice-bros").side, DIAMOND_SIDE, 1],
+  sides: [litSite("juice-bros").side, DIAMOND_SIDE, ARENA_SIDE],
 } as const;
 
 /** The Lit site that stands for a Highlight. */

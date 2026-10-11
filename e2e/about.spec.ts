@@ -83,6 +83,37 @@ test("without WebGL the court's still stays, every section reads, and the scroll
   await expect(kpop).toHaveAttribute("data-lit", "", { timeout: 10_000 });
 });
 
+test("a lost GPU context falls back to the court's still, and a restored one draws again", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 600 });
+  await page.goto("/about");
+  await expect(world(page)).toHaveAttribute("data-world", "drawn", {
+    timeout: SCENE_TIMEOUT,
+  });
+  /** Loses or restores the canvas's context, as a GPU reset would (as skyline.spec.ts does). */
+  const context = (action: "loseContext" | "restoreContext") =>
+    world(page)
+      .locator("canvas")
+      .evaluate((canvas: HTMLCanvasElement, action) => {
+        const w = window as unknown as { __lose?: WEBGL_lose_context | null };
+        const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+        w.__lose ??= gl?.getExtension("WEBGL_lose_context");
+        w.__lose?.[action]();
+      }, action);
+
+  await context("loseContext");
+  await expect(world(page)).toHaveAttribute("data-world", "pending");
+  await expect
+    .poll(() => world(page).locator("canvas").evaluate((c) => getComputedStyle(c).opacity))
+    .toBe("0");
+  await expect(page.locator('[data-backdrop="court"] img')).toBeVisible();
+  await context("restoreContext");
+  await expect(world(page)).toHaveAttribute("data-world", "drawn", {
+    timeout: SCENE_TIMEOUT,
+  });
+});
+
 test("under reduced motion the page is whole and still, and axe-clean", async ({
   browser,
 }) => {

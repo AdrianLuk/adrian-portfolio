@@ -550,6 +550,8 @@ describe("the Hobby route", () => {
 
   it("tells the panels which side each of their stops stands: the court's, the Diamond's, the Arena's", () => {
     expect(HOBBY_SCROLL_ROUTE.sides).toEqual([SITES[COURT_SITE].side, DIAMOND_SIDE, 1]);
+    // The Arena stands right of the valley's centre line.
+    expect(Math.sign(arena.x - valleyCentre(arena.z))).toBe(1);
     expect(HOBBY_PANEL_STOPS.map((s) => s.side)).toEqual(HOBBY_SCROLL_ROUTE.sides);
     expect(HOBBY_PANEL_STOPS[0].position).toEqual(court);
     expect(HOBBY_PANEL_STOPS[1].position).toEqual(DIAMOND_MIDDLE);
