@@ -522,6 +522,19 @@ test.describe("the scroll cue", () => {
     });
   }
 
+  test("stays out of sight, never cut, where it can't fit under See the work, 390 by 664", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 390, height: 664 });
+    await watchHero(page, { skip: true });
+    await page.goto("/");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    await expect(
+      page.getByText(hero.scrollHint, { exact: true }).locator(".."),
+    ).not.toBeInViewport();
+  });
+
   test("stays out where the static credits fill the foot, under reduced motion", async ({
     page,
   }) => {
