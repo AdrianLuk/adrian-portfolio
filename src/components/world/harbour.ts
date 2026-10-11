@@ -31,8 +31,14 @@ export type Reflected = {
   relit: boolean;
 };
 
-/** The most points of light the water's shader takes. */
+/** The most points of light the water's shader takes from its city. */
 export const MAX_REFLECTED = 24;
+
+/**
+ * The water's slots past its city's lights, one for each of its ferries'
+ * lights (./ferries), which move them each frame.
+ */
+export const FERRY_SLOTS = 2;
 
 /** The points of light the Harbour throws back, from the skyline's layout. */
 export function reflectedLights(
@@ -108,7 +114,7 @@ export function createHarbour(
   geometry.translate(minX + width / 2, harbour.level, far + depth / 2);
 
   const padded = [...lights];
-  while (padded.length < MAX_REFLECTED) {
+  while (padded.length < MAX_REFLECTED + FERRY_SLOTS) {
     padded.push({ ...lights[0], power: 0, relit: false });
   }
   const material = new ShaderMaterial({
@@ -134,7 +140,7 @@ export function createHarbour(
       }
     `,
     fragmentShader: /* glsl */ `
-      #define LIGHTS ${MAX_REFLECTED}
+      #define LIGHTS ${MAX_REFLECTED + FERRY_SLOTS}
       uniform float uTime, uMagentaWash;
       uniform vec3 uDeep, uSky, uMoon, uMagenta;
       uniform vec3 uLights[LIGHTS];
