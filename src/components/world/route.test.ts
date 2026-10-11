@@ -11,6 +11,7 @@ import { homeRunFlight, type Point } from "../derby/swing";
 import { DIAMOND_SIDE, HOME_SCROLL_ROUTE } from "../lit-sites";
 import { courtFootprint } from "./court";
 import type { Pose } from "./flight";
+import { palette } from "./palette";
 import { CAMERA } from "./pose";
 import {
   BATTER,
@@ -29,6 +30,7 @@ import {
   PANEL_STOPS,
   PLAY_FRAME,
   playView,
+  projectionBeam,
   ROUTE_STOPS,
   SITES,
   skylineView,
@@ -126,6 +128,24 @@ describe("the scroll route", () => {
             );
           }
           expect(clearView(pose.position, site.position)).toBe(true);
+        });
+      });
+
+      it("projects each site's beam from its light up toward its panel's side at its stop: across the middle on a wide screen, toward the middle on a narrow one, where the panel spans it", () => {
+        SITES.forEach((site, i) => {
+          const pose = route.poseAt(i + 1);
+          const beam = projectionBeam(site, pose, aspect);
+          const from = onScreen(pose, new Vector3(...beam.from), aspect);
+          const top = onScreen(pose, new Vector3(...beam.top), aspect);
+          expect(from.toArray()).toEqual(onScreen(pose, site.position, aspect).toArray());
+          expect(top.z, "in front of the camera").toBeLessThan(1);
+          expect(Math.abs(top.x), "on screen").toBeLessThan(0.95);
+          expect(top.y, "rising").toBeGreaterThan(from.y + 0.1);
+          expect(top.y, "on screen").toBeLessThan(0.95);
+          // The panel stands opposite its site on a wide screen.
+          if (aspect >= 1) expect(site.side * top.x).toBeLessThan(-0.1);
+          else expect(site.side * top.x).toBeLessThan(site.side * from.x - 0.15);
+          expect(beam.color.equals(palette[site.light])).toBe(true);
         });
       });
 
