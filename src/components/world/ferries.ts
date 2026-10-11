@@ -9,6 +9,7 @@ import {
   Vector3,
 } from "three";
 import { MAX_REFLECTED } from "./harbour";
+import { smoothstep } from "./noise";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
 import type { SharedUniforms } from "./shared";
 import type { Box } from "./structures";
@@ -76,6 +77,7 @@ export const ferryCycle = (ferry: Ferry) => 2 * (crossing(ferry) + FERRY.dwell);
 /**
  * Where a ferry is at traffic time `t`: x and z, and its heading (a turn
  * about the vertical from facing +z), bow toward the pier it makes for next.
+ * At each pier it comes about through its rest, from the bow it came in on.
  */
 export function ferryAt(ferry: Ferry, t: number) {
   const travel = crossing(ferry);
@@ -83,14 +85,14 @@ export function ferryAt(ferry: Ferry, t: number) {
   const s = (((t + ferry.phase * cycle) % cycle) + cycle) % cycle;
   const leg = s < travel + FERRY.dwell ? 0 : 1;
   const into = s - leg * (travel + FERRY.dwell) - FERRY.dwell;
-  const u = Math.min(Math.max(into / travel, 0), 1);
-  const eased = u * u * (3 - 2 * u);
+  const eased = smoothstep(0, travel, into);
   const from = ferry.ends[leg];
   const to = ferry.ends[1 - leg];
+  const turned = smoothstep(-FERRY.dwell, 0, into);
   return {
     x: from.x + (to.x - from.x) * eased,
     z: from.z + (to.z - from.z) * eased,
-    heading: Math.atan2(to.x - from.x, to.z - from.z),
+    heading: Math.atan2(to.x - from.x, to.z - from.z) + Math.PI * (1 - turned),
   };
 }
 
@@ -212,8 +214,11 @@ export function createFerries(shared: SharedUniforms, waters: readonly Mesh[]) {
   const one = new Quaternion();
   const scale = new Vector3();
   const centre = new Vector3();
+  let placedAt: number | null = null;
   function update() {
     const t = shared.uTraffic.value;
+    if (t === placedAt) return;
+    placedAt = t;
     const at = FERRIES.map((ferry) => ferryAt(ferry, t));
     pieces.forEach(({ ferry, size, at: [x, y, z] }, i) => {
       const { x: fx, z: fz, heading } = at[FERRIES.indexOf(ferry)];

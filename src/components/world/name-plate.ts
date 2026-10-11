@@ -318,8 +318,6 @@ export function createNamePlate(
 
   /** Light the beams and the plate's lit edge throw onto the ground. */
   let pools: Pool[] = [];
-  /** The middle of the letterforms' face, in world space. */
-  const centre = new Vector3();
   /** Radians added to the beams' swing: they sweep across the letters on arrival. */
   let sweepOffset = 0;
   function poolAt(
@@ -384,9 +382,6 @@ export function createNamePlate(
       );
       const base = Math.min(...placed.map((p) => p.fit.y));
       const scale = Math.max(...placed.map((p) => p.fit.scale));
-      const top = Math.max(
-        ...placed.map((p) => p.fit.y + nameGlyphs.capHeight * p.fit.scale),
-      );
       const behind = -TOTAL_DEPTH * scale - 2;
       const span = right - left;
       const origins = [left + span * 0.2, left + span * 0.8];
@@ -401,11 +396,6 @@ export function createNamePlate(
 
       group.updateMatrixWorld();
       toPlate.copy(group.matrixWorld).invert();
-      centre.copy(
-        group.localToWorld(
-          new Vector3((left + right) / 2, (base + top) / 2, 0),
-        ),
-      );
 
       const edgeLight = palette.cyan.clone().lerp(palette.violet, 0.35);
       pools = [
@@ -418,8 +408,6 @@ export function createNamePlate(
     },
 
     pools: () => pools,
-
-    centre: () => centre,
 
     /** Lights the arrival: the beams' brightness and their sweep's offset. */
     setArrival(level: number, sweep: number) {

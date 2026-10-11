@@ -5,10 +5,8 @@ import {
   Color,
   CylinderGeometry,
   Euler,
-  Float32BufferAttribute,
   InstancedBufferAttribute,
   InstancedMesh,
-  LineBasicMaterial,
   LineSegments,
   Matrix4,
   Mesh,
@@ -17,6 +15,8 @@ import {
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { each, piece } from "./attributes";
+import { smoothstep } from "./noise";
 import { fogChunk, fogUniforms, MOON, palette } from "./palette";
 import type { SharedUniforms } from "./shared";
 import { valleyCentre, valleyHeight } from "./terrain";
@@ -53,11 +53,14 @@ const POLE_SPACING = 30;
 
 export const ROUTES = ["501 QUEEN", "504 KING", "505 DUNDAS"] as const;
 
-/** Two cars down the valley on the left-hand track, one back up on the right. */
+/**
+ * Two cars down the valley on the left-hand track, one back up on the
+ * right: that one on the bridge, in the Skyline's sight, in the still frame.
+ */
 export const STREETCARS = [
   { dir: -1, side: -1, phase: 0, route: 0 },
   { dir: -1, side: -1, phase: 0.5, route: 1 },
-  { dir: 1, side: 1, phase: 0.27, route: 2 },
+  { dir: 1, side: 1, phase: 0.44, route: 2 },
 ] as const;
 
 /** Each section's middle, measured back from the car's nose. */
@@ -73,10 +76,18 @@ export const CYCLE = (RUN.start - RUN.end + CAR_LENGTH) / TRACK.speed;
 
 export const trackX = (z: number, side: number) =>
   valleyCentre(z) + side * TRACK.offset;
-const onBridge = (z: number) => z <= BRIDGE.from && z >= BRIDGE.to;
-/** The rails' height: the bridge's deck over the Harbour, else the floor. */
-export const railHeight = (x: number, z: number) =>
-  (onBridge(z) ? BRIDGE.deck : valleyHeight(x, z)) + 0.15;
+/** How far in from each end of the bridge its deck climbs from the floor to its height. */
+const RAMP = 10;
+/**
+ * The rails' height: the bridge's deck over the Harbour, else the floor,
+ * eased from one to the other over each end's ramp, so nothing on the line
+ * steps at the bridge's ends.
+ */
+export const railHeight = (x: number, z: number) => {
+  const floor = valleyHeight(x, z);
+  const onDeck = smoothstep(0, RAMP, Math.min(BRIDGE.from - z, z - BRIDGE.to));
+  return floor + (BRIDGE.deck - floor) * onDeck + 0.15;
+};
 /** The heading of something on the line at depth z, facing down the valley. */
 const heading = (z: number) =>
   Math.atan2(valleyCentre(z - 1) - valleyCentre(z + 1), -2);
@@ -141,15 +152,15 @@ const LOOK = {
 const m = new Matrix4();
 const q = new Quaternion();
 const e = new Euler();
-/** `g` stood at `at` turned `yaw`, inside a frame at `frame`. */
+/** `g` stood at `at` turned `yaw`, then tilted `pitch` about x, inside a frame at `frame`. */
 function placed(
   g: BufferGeometry,
   frame: Matrix4,
   at: Vector3,
   yaw = 0,
-  roll = 0,
+  pitch = 0,
 ) {
-  q.setFromEuler(e.set(roll, yaw, 0));
+  q.setFromEuler(e.set(pitch, yaw, 0));
   return g.applyMatrix4(
     frame.clone().multiply(m.compose(at, q, new Vector3(1, 1, 1))),
   );
@@ -248,20 +259,28 @@ function poles(): LinePart[] {
   return parts;
 }
 
-/** The bridge of light: a low deck along the path's line over the Harbour, its edges lit. */
+/**
+ * The bridge of light: a low deck along the path's line over the Harbour,
+ * its edges lit, its top under the rails from one end to the other.
+ */
 function bridge(): LinePart[] {
   const parts: LinePart[] = [];
   const id = new Matrix4();
   const STEP = 5;
+  const top = (x: number, z: number) => railHeight(x, z) - 0.15;
   for (let z = BRIDGE.from; z > BRIDGE.to; z -= STEP) {
+    const z2 = Math.max(z - STEP, BRIDGE.to);
     const x = valleyCentre(z);
-    const x2 = valleyCentre(z - STEP);
-    const yaw = Math.atan2(x - x2, STEP);
-    const along = Math.hypot(x - x2, STEP);
-    const mid = new Vector3((x + x2) / 2, BRIDGE.deck - 0.2, z - STEP / 2);
+    const x2 = valleyCentre(z2);
+    const yaw = Math.atan2(x - x2, z - z2);
+    const along = Math.hypot(x - x2, z - z2);
+    // Tilted up or down the ramps at the ends (a turn about x lowers its +z end).
+    const pitch = Math.atan2(top(x2, z2) - top(x, z), along);
+    const y = (top(x, z) + top(x2, z2)) / 2;
+    const mid = new Vector3((x + x2) / 2, y - 0.2, (z + z2) / 2);
     parts.push({
       name: "bridge",
-      geometry: placed(new BoxGeometry(8, 0.4, along + 0.3), id, mid, yaw),
+      geometry: placed(new BoxGeometry(8, 0.4, along + 0.3), id, mid, yaw, pitch),
       color: LOOK.deck,
       lit: false,
     });
@@ -271,7 +290,7 @@ function bridge(): LinePart[] {
         .add(new Vector3(Math.cos(yaw) * 4 * s, 0.25, -Math.sin(yaw) * 4 * s));
       parts.push({
         name: "bridge",
-        geometry: placed(new BoxGeometry(0.3, 0.3, along + 0.3), id, edge, yaw),
+        geometry: placed(new BoxGeometry(0.3, 0.3, along + 0.3), id, edge, yaw, pitch),
         color: palette.cyan,
         lit: true,
       });
@@ -304,15 +323,6 @@ export function layoutLine() {
     ],
     wire,
   };
-}
-
-/** A per-vertex attribute holding `value` for each of `g`'s vertices. */
-export function each(g: BufferGeometry, value: number[]) {
-  const n = g.getAttribute("position").count;
-  return new Float32BufferAttribute(
-    Array.from({ length: n }, () => value).flat(),
-    value.length,
-  );
 }
 
 /**
@@ -364,10 +374,26 @@ export function createLine() {
   });
   const wires = new LineSegments(
     new BufferGeometry().setFromPoints(wire),
-    new LineBasicMaterial({
-      color: palette.ink,
+    new ShaderMaterial({
       transparent: true,
-      opacity: 0.4,
+      uniforms: { ...fogUniforms(), uColor: { value: palette.ink } },
+      vertexShader: /* glsl */ `
+        varying vec3 vWorld;
+        void main() {
+          vec4 world = modelMatrix * vec4(position, 1.0);
+          vWorld = world.xyz;
+          gl_Position = projectionMatrix * viewMatrix * world;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uColor;
+        varying vec3 vWorld;
+        ${fogChunk}
+        void main() {
+          gl_FragColor = vec4(mix(uColor, uFogColor, fogAmount(vWorld)), 0.4);
+          #include <colorspace_fragment>
+        }
+      `,
     }),
   );
   return [new Mesh(geometry, material), wires] as const;
@@ -402,10 +428,6 @@ function routeSigns() {
  * middle one.
  */
 export function createStreetcars(shared: SharedUniforms) {
-  const piece = (g: BufferGeometry, part: number) => {
-    g.setAttribute("aPart", each(g, [part]));
-    return g;
-  };
   const geometry = mergeGeometries([
     // The body: its length is set per section in the shader.
     piece(new BoxGeometry(CAR.width, CAR.height, 1), 0),

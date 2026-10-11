@@ -3,8 +3,8 @@ import type { Pose } from "./flight";
 import { layoutHongKong } from "./hong-kong";
 import { layoutLandmarks } from "./landmarks";
 import { nameGlyphs } from "./name-glyphs";
-import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
-import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
+import type { PxRect } from "./plate-fit";
+import { CAMERA, settle } from "./pose";
 import { createRoute, DIAMOND_STOP, SITES } from "./route";
 import type { Box } from "./structures";
 
@@ -100,16 +100,19 @@ export function cameraAt(pose: Pose, aspect: number, fovY: number = CAMERA.fovY)
 }
 
 /**
- * The screen rectangle a point or box covers for a camera at `pose`, from
- * its corners in front of the camera; null if none of it is.
+ * A point, or a box's corners, on the screen (NDC) for a camera at `pose`:
+ * those in front of the camera, and where each of the box's edges crosses
+ * its near plane, so a box running back past the camera reaches the
+ * screen's edge.
  */
-export function onScreen(
+export function screenPoints(
   pose: Pose,
   aspect: number,
   target: Vector3 | Box,
   fovY: number = CAMERA.fovY,
-): ScreenRect | null {
+): Vector3[] {
   const camera = cameraAt(pose, aspect, fovY);
+  // A box's corners, the k-th at x, y, z's sides by k's bits 4, 2 and 1.
   const corners =
     target instanceof Vector3
       ? [target.clone()]
@@ -125,7 +128,35 @@ export function onScreen(
             ),
           ),
         );
-  const seen = corners.map((p) => p.project(camera)).filter((p) => p.z < 1);
+  const view = corners.map((p) => p.applyMatrix4(camera.matrixWorldInverse));
+  const near = -camera.near;
+  const ahead = (p: Vector3) => p.z <= near;
+  const kept = view.filter(ahead);
+  for (let k = 0; k < view.length; k++) {
+    for (const bit of [1, 2, 4]) {
+      const a = view[k];
+      const b = view[k ^ bit];
+      if (b && k < (k ^ bit) && ahead(a) !== ahead(b)) {
+        kept.push(a.clone().lerp(b, (near - a.z) / (b.z - a.z)));
+      }
+    }
+  }
+  return kept
+    .map((p) => p.applyMatrix4(camera.projectionMatrix))
+    .filter((p) => p.z < 1);
+}
+
+/**
+ * The screen rectangle a point or box covers for a camera at `pose` (see
+ * `screenPoints`); null if none of it is in front of the camera.
+ */
+export function onScreen(
+  pose: Pose,
+  aspect: number,
+  target: Vector3 | Box,
+  fovY: number = CAMERA.fovY,
+): ScreenRect | null {
+  const seen = screenPoints(pose, aspect, target, fovY);
   if (seen.length === 0) return null;
   const xs = seen.map((p) => p.x);
   const ys = seen.map((p) => p.y);
@@ -144,43 +175,25 @@ export function apart(a: ScreenRect, b: ScreenRect) {
 
 /**
  * The settled view as home lays it out on this screen (as scene.ts places
- * the plate): the camera's pose, the plate's centre, home's route from there,
- * and the screen rectangle the plate's words cover.
+ * the plate, by `settle`): the camera's pose, the plate's centre, home's
+ * route from there, and the screen rectangle the plate's words cover.
  */
 export function settledView(shape: Shape) {
   const { width, height, words } = SCREENS[shape];
   const aspect = width / height;
-  const perPx = unitsPerPixel(CAMERA.fovY, CAMERA.plateDepth, height);
-  const placed = words.map(({ text, rect }) => {
-    const { advance } = nameGlyphs.words[text];
-    return { advance, fit: fitWord(rect, advance, nameGlyphs, { width, height }, perPx) };
-  });
+  const { placed, pose, onPlate, plate, centre: plateCentre } = settle(words, {
+    width,
+    height,
+  })!;
+  const camera = cameraAt(pose, aspect);
 
-  const yaw = settledYaw(aspect);
-  const camera = new PerspectiveCamera(CAMERA.fovY, aspect, 0.5, 2600);
-  camera.position.set(0, settledCameraHeight(placed, yaw), 0);
-  camera.rotation.set(-CAMERA.pitch, -yaw, 0, "YXZ");
-  camera.updateMatrixWorld();
-  const pose: Pose = {
-    position: camera.position.clone(),
-    quaternion: camera.quaternion.clone(),
-  };
-  /** A point on the plate, in its own plane's frame (name-plate.ts). */
-  const onPlate = (x: number, y: number) =>
-    camera.localToWorld(new Vector3(x, y, -CAMERA.plateDepth));
-
-  const { ascender, descender, capHeight } = nameGlyphs;
-  const left = Math.min(...placed.map((p) => p.fit.x));
-  const right = Math.max(...placed.map((p) => p.fit.x + p.advance * p.fit.scale));
-  const base = Math.min(...placed.map((p) => p.fit.y));
-  const capTop = Math.max(...placed.map((p) => p.fit.y + capHeight * p.fit.scale));
   // Each word's line box, as the DOM's.
+  const { ascender, descender } = nameGlyphs;
   const bottom = Math.min(...placed.map((p) => p.fit.y + descender * p.fit.scale));
   const top = Math.max(...placed.map((p) => p.fit.y + ascender * p.fit.scale));
-  const box = [onPlate(left, bottom), onPlate(right, top)];
+  const box = [onPlate(plate.left, bottom), onPlate(plate.right, top)];
   const ends = box.map((p) => p.project(camera));
 
-  const plateCentre = onPlate((left + right) / 2, (base + capTop) / 2);
   return {
     aspect,
     pose,

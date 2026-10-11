@@ -1,4 +1,4 @@
-import { Box3, Vector3 } from "three";
+import { Box3, ShaderMaterial, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import {
   cameraAt,
@@ -7,12 +7,14 @@ import {
   landsIn,
   onScreen,
   SCREENS,
+  screenPoints,
   settledView,
   type Shape,
 } from "./clearance";
 import { layoutHongKong } from "./hong-kong";
 import { layoutLandmarks } from "./landmarks";
-import { palette } from "./palette";
+import { fogColor, palette } from "./palette";
+import { STILL_TIME } from "./shared";
 import { courtPose, SITES, skylineView } from "./route";
 import {
   ROGERS_CENTRE,
@@ -21,12 +23,16 @@ import {
 } from "./skyline";
 import { layoutStructures, type Box } from "./structures";
 import {
+  BRIDGE,
   CAR,
   COVERED,
+  createLine,
   CYCLE,
   layoutLine,
   PORTALS,
+  railHeight,
   streetcarSections,
+  trackX,
   type Section,
 } from "./streetcars";
 import { valleyCentre } from "./terrain";
@@ -118,41 +124,28 @@ type Point = readonly [number, number];
 const ROUND = new Set(["bt-cup"]);
 
 /**
- * A box's (or a point's) corners in front of the camera at the area's pose,
- * on the screen; for a round box, points round the circle inside it.
+ * A box (or a point) on the screen at the area's pose, as `screenPoints`
+ * finds it; for a round box (a Landmark, well ahead), points round the
+ * circle inside it, those in front of the camera.
  */
 function outline(
   target: Box | Vector3,
   area: KeepClear,
   round = false,
 ): Point[] {
+  if (!round || target instanceof Vector3) {
+    return screenPoints(area.pose, area.aspect, target).map((p) => [p.x, p.y] as const);
+  }
   const camera = cameraAt(area.pose, area.aspect);
-  const corners =
-    target instanceof Vector3
-      ? [target.clone()]
-      : round
-        ? Array.from({ length: 48 }, (_, i) => {
-            const a = (i / 24) * Math.PI * 2;
-            const v = i < 24 ? -1 : 1;
-            return new Vector3(
-              target.x + (Math.cos(a) * target.w) / 2,
-              target.y + (v * target.h) / 2,
-              target.z + (Math.sin(a) * target.d) / 2,
-            );
-          })
-        : [-1, 1].flatMap((u) =>
-            [-1, 1].flatMap((v) =>
-              [-1, 1].map(
-                (w) =>
-                  new Vector3(
-                    target.x + (u * target.w) / 2,
-                    target.y + (v * target.h) / 2,
-                    target.z + (w * target.d) / 2,
-                  ),
-              ),
-            ),
-          );
-  return corners
+  return Array.from({ length: 48 }, (_, i) => {
+    const a = (i / 24) * Math.PI * 2;
+    const v = i < 24 ? -1 : 1;
+    return new Vector3(
+      target.x + (Math.cos(a) * target.w) / 2,
+      target.y + (v * target.h) / 2,
+      target.z + (Math.sin(a) * target.d) / 2,
+    );
+  })
     .map((p) => p.project(camera))
     .filter((p) => p.z < 1)
     .map((p) => [p.x, p.y] as const);
@@ -319,6 +312,68 @@ describe("the Streetcars", () => {
         1e-9,
       );
     }
+  });
+
+  it("climb on and off the bridge of light without a step, deck and all", () => {
+    // A car's height, a twentieth of a unit at a time, down both tracks past the bridge's ends.
+    for (const side of [-1, 1]) {
+      let steepest = 0;
+      for (let z = BRIDGE.from + 20; z > BRIDGE.to - 20; z -= 0.05) {
+        const a = railHeight(trackX(z, side), z);
+        const b = railHeight(trackX(z - 0.05, side), z - 0.05);
+        steepest = Math.max(steepest, Math.abs(b - a) / 0.05);
+      }
+      expect(steepest).toBeLessThan(0.25);
+    }
+    // The deck ends where the rails leave it: no piece of it past an end
+    // (a piece's corners swing out past its middle as it turns with the valley).
+    const deck = layoutLine().parts.filter((p) => p.name === "bridge");
+    deck.forEach((p) => p.geometry.computeBoundingBox());
+    // The deck's own pieces, not its lit edges either side.
+    const middles = deck
+      .filter((p) => !p.lit)
+      .map((p) => p.geometry.boundingBox!.getCenter(new Vector3()).z);
+    expect(Math.max(...middles)).toBeLessThanOrEqual(BRIDGE.from);
+    expect(Math.max(...middles)).toBeGreaterThan(BRIDGE.from - 3);
+    expect(Math.min(...middles)).toBeGreaterThanOrEqual(BRIDGE.to);
+    expect(Math.min(...middles)).toBeLessThan(BRIDGE.to + 3);
+    // Its top under the rails, all the way across.
+    const top = (z: number) =>
+      Math.max(
+        ...deck
+          .map((p) => p.geometry.boundingBox!)
+          .filter((b) => b.min.z <= z && b.max.z >= z)
+          .map((b) => b.max.y),
+      );
+    for (let z = BRIDGE.from - 1; z > BRIDGE.to + 1; z -= 3) {
+      const rails = railHeight(valleyCentre(z), z);
+      expect(Math.abs(rails - 0.15 - top(z)), `deck at z ${z}`).toBeLessThan(0.5);
+    }
+  });
+
+  it("stand one on the bridge in the still frame, seen from the Skyline", () => {
+    const onBridge = (s: Section) => s.shown && s.z <= BRIDGE.from && s.z >= BRIDGE.to;
+    const sections = streetcarSections(STILL_TIME);
+    const car = [0, 1, 2].find((c) => sections.filter((s) => s.car === c).every(onBridge));
+    expect(car).toBeDefined();
+    for (const shape of SHAPES) {
+      const aspect = SCREENS[shape].width / SCREENS[shape].height;
+      const { pose, fovY } = skylineView(aspect);
+      for (const s of sections.filter((s) => s.car === car)) {
+        const r = onScreen(pose, aspect, new Vector3(s.x, s.y, s.z), fovY);
+        expect(r, `${shape}, section ${s.k}`).not.toBeNull();
+        expect(Math.abs(r!.x0), `${shape}, section ${s.k}`).toBeLessThan(0.95);
+        expect(Math.abs(r!.y0), `${shape}, section ${s.k}`).toBeLessThan(0.95);
+      }
+    }
+  });
+
+  it("hang their wire in the world's fog, the ground haze and all", () => {
+    const [, wires] = createLine();
+    const material = wires.material as ShaderMaterial;
+    expect(material).toBeInstanceOf(ShaderMaterial);
+    expect(material.uniforms.uFogColor.value).toBe(fogColor);
+    expect(material.fragmentShader).toContain("fogAmount(");
   });
 
   it("stand still at a given traffic time", () => {

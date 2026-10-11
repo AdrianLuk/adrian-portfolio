@@ -1,4 +1,13 @@
-import type { WordFit } from "./plate-fit";
+import { Euler, Matrix4, Quaternion, Vector3 } from "three";
+import type { Pose } from "./flight";
+import { nameGlyphs } from "./name-glyphs";
+import {
+  fitWord,
+  unitsPerPixel,
+  type PxRect,
+  type Viewport,
+  type WordFit,
+} from "./plate-fit";
 import { valleyHeight } from "./terrain";
 
 /**
@@ -45,4 +54,56 @@ export function settledCameraHeight(
     fit.y * Math.cos(pitch) +
     plateDepth * Math.sin(pitch)
   );
+}
+
+/**
+ * Home's settled view, for the headline's words where the page set them
+ * (canvas pixels, on a canvas `viewport` in size): each word's fit on the
+ * plate, the settled camera's pose, `onPlate` (a point in the plate's own
+ * frame, x right and y up from the view's axis, in the world), the plate's
+ * extent in that frame (its ends, lowest baseline and highest cap), and its
+ * centre in the world. Null if there are no words, or one the plate can't set.
+ */
+export function settle(
+  words: readonly { text: string; rect: PxRect }[],
+  viewport: Viewport,
+) {
+  const perPx = unitsPerPixel(CAMERA.fovY, CAMERA.plateDepth, viewport.height);
+  const placed: { text: string; advance: number; fit: WordFit }[] = [];
+  for (const { text, rect } of words) {
+    const glyphs = nameGlyphs.words[text as keyof typeof nameGlyphs.words];
+    if (!glyphs) return null;
+    const fit = fitWord(rect, glyphs.advance, nameGlyphs, viewport, perPx);
+    placed.push({ text, advance: glyphs.advance, fit });
+  }
+  if (placed.length === 0) return null;
+
+  const yaw = settledYaw(viewport.width / viewport.height);
+  const position = new Vector3(0, settledCameraHeight(placed, yaw), 0);
+  const quaternion = new Quaternion().setFromEuler(
+    new Euler(-CAMERA.pitch, -yaw, 0, "YXZ"),
+  );
+  const frame = new Matrix4().compose(position, quaternion, new Vector3(1, 1, 1));
+  const onPlate = (x: number, y: number) =>
+    new Vector3(x, y, -CAMERA.plateDepth).applyMatrix4(frame);
+
+  const plate = {
+    left: Math.min(...placed.map((p) => p.fit.x)),
+    right: Math.max(...placed.map((p) => p.fit.x + p.advance * p.fit.scale)),
+    base: Math.min(...placed.map((p) => p.fit.y)),
+    capTop: Math.max(
+      ...placed.map((p) => p.fit.y + nameGlyphs.capHeight * p.fit.scale),
+    ),
+  };
+  const pose: Pose = { position, quaternion };
+  return {
+    placed,
+    pose,
+    onPlate,
+    plate,
+    centre: onPlate(
+      (plate.left + plate.right) / 2,
+      (plate.base + plate.capTop) / 2,
+    ),
+  };
 }

@@ -77,6 +77,19 @@ describe("the ferries' crossings", () => {
     }
   });
 
+  it("turns round at each pier smoothly, never a jump from one frame to the next", () => {
+    for (const ferry of FERRIES) {
+      const cycle = ferryCycle(ferry);
+      let sharpest = 0;
+      for (let t = 0; t < cycle; t += 1 / 60) {
+        const turn = ferryAt(ferry, t + 1 / 60).heading - ferryAt(ferry, t).heading;
+        sharpest = Math.max(sharpest, Math.abs(Math.atan2(Math.sin(turn), Math.cos(turn))));
+      }
+      // Under 1.5 degrees a frame at 60 a second: a 90-degree-a-second turn.
+      expect(sharpest).toBeLessThan((1.5 * Math.PI) / 180);
+    }
+  });
+
   it("rests at each pier, then crosses at about 4 a second", () => {
     const ferry = FERRIES[0];
     const at = (t: number) => ferryAt(ferry, t);
@@ -199,6 +212,14 @@ describe("the ferries' draw", () => {
     const { x, z } = ferryAt(first, shared.uTraffic.value);
     expect(hull(0).x).toBeCloseTo(x);
     expect(hull(0).z).toBeCloseTo(z);
+  });
+
+  it("re-uploads nothing while the traffic's clock holds", () => {
+    shared.uTraffic.value = STILL_TIME + 1;
+    ferries.update();
+    const version = ferries.mesh.instanceMatrix.version;
+    ferries.update();
+    expect(ferries.mesh.instanceMatrix.version).toBe(version);
   });
 
   it("streaks each ferry's light across its own harbour's water, past the Landmarks' lights", () => {

@@ -1,6 +1,7 @@
-import { Vector3 } from "three";
+import { Quaternion, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { keepClear, landsIn, SCREENS, settledView } from "./clearance";
+import { keepClear, landsIn, onScreen, SCREENS, settledView } from "./clearance";
+import { palette } from "./palette";
 import { layoutHongKong } from "./hong-kong";
 import { layoutLandmarks } from "./landmarks";
 import { DIAMOND_MIDDLE, DIAMOND_STOP, ROUTE_STOPS } from "./route";
@@ -24,6 +25,19 @@ describe("the settled view's keep-clear areas", () => {
       expect(Math.abs(plate.y1 - (1 - (top / height) * 2))).toBeLessThan(px.y);
     });
   }
+});
+
+describe("what a box covers on the screen", () => {
+  it("reaches the screen's edge where the box runs back past the camera", () => {
+    // A rail from 50 ahead to 50 behind, 2 under a camera looking down -z:
+    // near the camera it runs off the bottom of the screen.
+    const pose = { position: new Vector3(), quaternion: new Quaternion() };
+    const rail = { x: 0, y: -2, z: 0, w: 0.2, h: 0.2, d: 100, color: palette.ink };
+    const rect = onScreen(pose, 1, rail)!;
+    expect(rect.y0).toBeLessThan(-1);
+    expect(rect.y1).toBeLessThan(0);
+    expect(rect.x0).toBeCloseTo(-rect.x1);
+  });
 });
 
 describe("each Landmark's keep-clear area at its stop", () => {

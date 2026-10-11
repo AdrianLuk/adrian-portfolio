@@ -32,13 +32,12 @@ import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
 import { createGroundPools, type Pool } from "./ground-pools";
 import { createMist } from "./mist";
-import { createNamePlate, type PlacedWord } from "./name-plate";
+import { createNamePlate } from "./name-plate";
 import { createPrecipitation } from "./precipitation";
-import { nameGlyphs } from "./name-glyphs";
 import { createBalls } from "./landmarks";
 import { FOG_DENSITY, fogColor, palette, tintFog } from "./palette";
-import { fitWord, unitsPerPixel, type PxRect } from "./plate-fit";
-import { CAMERA, settledCameraHeight, settledYaw } from "./pose";
+import type { PxRect } from "./plate-fit";
+import { CAMERA, settle } from "./pose";
 import type { CameraDirector, CameraLean } from "../camera-director";
 import { nominalRoute } from "./nominal-route";
 import {
@@ -792,34 +791,19 @@ export async function createWorld(
     width: number,
     height: number,
   ) {
-    const perPx = unitsPerPixel(CAMERA.fovY, CAMERA.plateDepth, height);
-    const shown = words.filter((w) => w.rect.width > 0);
-    const placed: PlacedWord[] = [];
-    for (const { text, rect } of shown) {
-      const glyphs = nameGlyphs.words[text as keyof typeof nameGlyphs.words];
-      if (!glyphs) continue;
-      placed.push({
-        text,
-        advance: glyphs.advance,
-        fit: fitWord(
-          rect,
-          glyphs.advance,
-          nameGlyphs,
-          { width, height },
-          perPx,
-        ),
-      });
-    }
     // A partial plate is worse than none: keep the DOM headline instead.
-    if (placed.length === 0 || placed.length !== shown.length) return false;
+    const layout = settle(
+      words.filter((w) => w.rect.width > 0),
+      { width, height },
+    );
+    if (!layout) return false;
 
     // The plate stands where the settled camera sees the headline; the flight
     // is planned back from that pose.
-    const yaw = settledYaw(camera.aspect);
-    camera.position.set(0, settledCameraHeight(placed, yaw), 0);
-    camera.rotation.set(-CAMERA.pitch, -yaw, 0, "YXZ");
-    plate.place(placed, camera);
-    const centre = plate.centre();
+    camera.position.copy(layout.pose.position);
+    camera.quaternion.copy(layout.pose.quaternion);
+    plate.place(layout.placed, camera);
+    const { centre } = layout;
     const key = [
       camera.position.y,
       centre.x,
