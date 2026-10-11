@@ -27,6 +27,22 @@ describe("which navigations are transits", () => {
     expect(placeOf("/resume/")).toBe("skyline");
   });
 
+  it("flies to the About page's Hobby route from home or any other Place, and back", () => {
+    expect(placeOf("/about")).toBe("hobby");
+    expect(placeOf("/about/")).toBe("hobby");
+    for (const [view, page] of [
+      ["hero", "/"],
+      ["court", "/work/juice-bros"],
+      ["play", "/rally"],
+      ["derby", "/derby"],
+      ["skyline", "/resume"],
+    ] as const) {
+      expect(transitBetween(view, "/about")).toBe("hobby");
+      expect(transitBetween("hobby", page)).toBe(view);
+    }
+    expect(transitBetween("hobby", "/about#kpop")).toBeNull();
+  });
+
   it("never flies within a page (an anchor on home is the scroll route's)", () => {
     expect(transitBetween("hero", "/#work")).toBeNull();
     expect(transitBetween("skyline", "/resume#control-d")).toBeNull();

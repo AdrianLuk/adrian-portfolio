@@ -321,8 +321,9 @@ body > :is(header, footer) {
   }
 }
 
-/* The Encore's ticket wall (src/components/encore.tsx): each ticket a stub of
-   light in its group's colour (or two), dim until the Encore is reached, then
+/* The ticket wall (src/components/ticket-wall.tsx): each ticket a stub of
+   light in its group's colour (or two), dim until the Encore is reached (or,
+   on the About page, the scroll route lights the K-pop panel), then
    lit, one after another with motion allowed and all at once without. Only
    its light changes: the text reads from the first paint. */
 .ticket {
@@ -347,23 +348,37 @@ body > :is(header, footer) {
   opacity: 0.35;
 }
 
-[data-reached] .ticket {
+:is([data-reached], [data-lit]) .ticket {
   border-color: var(--ticket);
   box-shadow:
     0 0 18px -4px var(--ticket),
     inset 0 0 14px -6px var(--ticket-2);
 }
 
-[data-reached] .ticket::before {
+:is([data-reached], [data-lit]) .ticket::before {
   opacity: 1;
 }
 
+/* Under reduced motion no scroll route lights the About page's wall: it is lit as it stands. */
+@media (prefers-reduced-motion: reduce) {
+  [data-wall] .ticket {
+    border-color: var(--ticket);
+    box-shadow:
+      0 0 18px -4px var(--ticket),
+      inset 0 0 14px -6px var(--ticket-2);
+  }
+
+  [data-wall] .ticket::before {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  [data-reached] .ticket {
+  :is([data-reached], [data-lit]) .ticket {
     animation: ticket-on 700ms ease-out calc(var(--i) * 150ms) backwards;
   }
 
-  [data-reached] .ticket::before {
+  :is([data-reached], [data-lit]) .ticket::before {
     animation: ticket-stub-on 700ms ease-out calc(var(--i) * 150ms) backwards;
   }
 }

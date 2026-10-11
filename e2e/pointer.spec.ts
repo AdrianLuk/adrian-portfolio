@@ -65,9 +65,9 @@ test.describe("with motion allowed and a mouse", () => {
       .locator("#contact")
       .getByRole("link", { name: contact.built.source.label });
     await link.scrollIntoViewIfNeeded();
-    await expect(link).toHaveCSS("text-shadow", "none");
+    await expectLive(link).toHaveCSS("text-shadow", "none");
     await link.hover();
-    await expect
+    await expectLive
       .poll(() => link.evaluate((el) => getComputedStyle(el).textShadow))
       .toMatch(/14px/);
   });

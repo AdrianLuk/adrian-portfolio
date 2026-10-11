@@ -137,6 +137,21 @@ test("the Home Run Derby's first paint comes before any of Three.js is asked for
   await libraryStarts(page, request, ["three"]);
 });
 
+test("the About page's first paint comes before any of Three.js or GSAP is asked for", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 960, height: 600 });
+  await page.goto("/about");
+  // In by then: the Hobby route has drawn.
+  await expect(page.locator("[data-world]").first()).toHaveAttribute(
+    "data-world",
+    "drawn",
+    { timeout: SCENE_TIMEOUT },
+  );
+  await libraryStarts(page, request, ["three", "gsap"]);
+});
+
 test("the Case study's first paint comes before any of GSAP is asked for", async ({
   page,
   request,

@@ -1,8 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  about,
   caseStudies,
   derby,
   derbyLink,
+  diamondPanel,
   highlightAnchor,
   highlights,
   nav,
@@ -1406,10 +1408,10 @@ test.describe("Transits to and from the Derby, the Diamond seen from behind home
     });
     await tagCanvas(heroRoot(page).locator("canvas"));
 
-    // From Off the clock's baseball line: a Transit down the valley to the
-    // Diamond, not a crossfade.
+    // From the Diamond's panel: a Transit down the valley to the Diamond,
+    // not a crossfade.
     const heldGame = await heldDerby(page);
-    await page.locator("#contact").getByRole("link", { name: derbyLink.label }).click();
+    await page.locator(`#${diamondPanel.id}`).getByRole("link", { name: derbyLink.label }).click();
     const held = await heldGame();
     // Held, out of sight and of focus's reach; or, on a page that took
     // longer than the hold, never held at all.
@@ -1511,7 +1513,7 @@ test.describe("Transits to and from the Derby, the Diamond seen from behind home
         transitions = await watchTransitions(page);
       },
     });
-    await page.locator("#contact").getByRole("link", { name: derbyLink.label }).click();
+    await page.locator(`#${diamondPanel.id}`).getByRole("link", { name: derbyLink.label }).click();
     await expect(page).toHaveURL(/\/derby$/);
     await expect(
       page.getByRole("heading", { level: 2, name: derby.heading }),
@@ -1521,6 +1523,204 @@ test.describe("Transits to and from the Derby, the Diamond seen from behind home
     });
     await expect(gameRoot(page)).toHaveAttribute("data-slow", "true");
     await expect(page.locator("canvas")).toHaveCount(1);
+
+    const seen = await transit();
+    expect(seen.seen).toEqual([]);
+    expect(seen.arriving).toEqual([]);
+    for (const durations of await transitions()) {
+      expect(durations.filter((d) => d > 0)).toEqual([]);
+    }
+    await page.context().close();
+  });
+});
+
+test.describe("Transits to and from the About page, on the Hobby route", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  const aboutLink = (page: Page) =>
+    page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "About" });
+  const panel = (page: Page, id: string) => page.locator(`#${id}`);
+  /** Scrolls panel `id` to the middle of the screen: its stop on the route. */
+  const scrollTo = (page: Page, id: string) =>
+    page.evaluate((id) => {
+      const box = document.getElementById(id)!.getBoundingClientRect();
+      window.scrollTo(0, window.scrollY + box.top + box.height / 2 - innerHeight / 2);
+    }, id);
+
+  /**
+   * Once the About page is in under a Transit and its copy held: whether
+   * pickleball's play button could take focus, and whether it shows. "late"
+   * if the copy was never seen held (a page slower than the hold).
+   */
+  const heldAbout = (page: Page) =>
+    page.evaluate(async (id) => {
+      const root = document.querySelector("[data-world-root]")!;
+      const until = performance.now() + 5000;
+      while (performance.now() < until) {
+        const link = document.querySelector<HTMLAnchorElement>(`#${id} a`);
+        if (link && root.getAttribute("data-arriving") === "hobby") {
+          link.focus();
+          return {
+            focusable: document.activeElement === link,
+            visible: link.checkVisibility({ visibilityProperty: true }),
+          };
+        }
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      return "late" as const;
+    }, about.pickleball.id);
+
+  test("the camera flies home → the About page from the header, its copy arriving as it lands; the scroll lights each stop's panel; Back flies home", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      skip: true,
+      until: "settled",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    await tagCanvas(heroRoot(page).locator("canvas"));
+
+    const navigating = aboutLink(page).click();
+    const held = await heldAbout(page);
+    await navigating;
+    if (held !== "late") expect(held).toEqual({ focusable: false, visible: false });
+    await expect(page).toHaveURL(/\/about$/);
+    await flown(transit, page, "hobby");
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+    await expect(page.locator("canvas")).toHaveCount(1);
+    await expect(
+      page.getByRole("heading", { level: 2, name: about.heading }),
+    ).toBeVisible();
+    await expect(page.getByText(about.roots)).toBeVisible();
+
+    // Down the Hobby route: each panel lights as the scroll reaches its stop.
+    const stops = [about.pickleball.id, about.baseball.id, about.kpop.id];
+    for (const [i, id] of stops.entries()) {
+      await scrollTo(page, id);
+      await expect(panel(page, id)).toHaveAttribute("data-lit", "");
+      for (const later of stops.slice(i + 1)) {
+        await expect(panel(page, later)).not.toHaveAttribute("data-lit");
+      }
+    }
+
+    // Back: the flight home, out of the Arena, landing settled.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await flown(transit, page, "hero");
+    await expect(heroRoot(page)).toHaveAttribute("data-state", "settled");
+    expect(await canvasTag(heroRoot(page).locator("canvas"))).toBe("the world");
+    const seen = await transit();
+    expect(seen.seen).toEqual(["hobby", null, "hero", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    for (const { ms, stall } of holds(seen)) {
+      expect(ms).toBeLessThanOrEqual(
+        TRANSIT_MAX_SECONDS * 1000 + stall + HOLD_GRACE,
+      );
+    }
+    await page.context().close();
+  });
+
+  test("pickleball's play button flies into the Rally game, and Back to the Hobby route", async ({
+    browser,
+  }, testInfo) => {
+    // A visit that starts at the About page.
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const page = await context.newPage();
+    const transit = await watchTransit(page);
+    const transitions = await watchTransitions(page);
+    await page.goto("/about");
+    await expect(worldOf(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await expect(worldOf(page).locator("canvas")).toHaveCSS("opacity", "1");
+    await tagCanvas(worldOf(page).locator("canvas"));
+
+    await panel(page, about.pickleball.id)
+      .getByRole("link", { name: rallyLink.label })
+      .click();
+    await expect(page).toHaveURL(/\/rally$/);
+    await flown(transit, page, "play");
+    await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/about$/);
+    await flown(transit, page, "hobby");
+    expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
+    const seen = await transit();
+    expect(seen.seen).toEqual(["play", null, "hobby", null]);
+    expect(seen.bare).toBe(0);
+    expect((await transitions()).flat().filter((d) => d > 0)).toEqual([]);
+    await context.close();
+  });
+
+  test("from K-pop's stop in the Arena, the Resume page is a Transit out to the Skyline", async ({
+    browser,
+  }, testInfo) => {
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL,
+      viewport: { width: 960, height: 600 },
+    });
+    const page = await context.newPage();
+    const transit = await watchTransit(page);
+    await page.goto("/about");
+    await expect(worldOf(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await scrollTo(page, about.kpop.id);
+    await expect(panel(page, about.kpop.id)).toHaveAttribute("data-lit", "");
+    await page
+      .getByRole("navigation", { name: "Main" })
+      .getByRole("link", { name: "Resume" })
+      .click();
+    await expect(page).toHaveURL(/\/resume$/);
+    await flown(transit, page, "skyline");
+    expect((await transit()).seen).toEqual(["skyline", null]);
+    await context.close();
+  });
+
+  test("under reduced motion, home → the About page swaps at once: nothing flies, nothing is held, and no scroll route runs", async ({
+    browser,
+  }, testInfo) => {
+    let transit: Awaited<ReturnType<typeof watchTransit>> = async () =>
+      noTransits;
+    let transitions: Awaited<ReturnType<typeof watchTransitions>> =
+      async () => [];
+    const page = await openHome(browser, testInfo, {
+      viewport: { width: 960, height: 600 },
+      reducedMotion: "reduce",
+      until: "reduced",
+      prepare: async (page) => {
+        transit = await watchTransit(page);
+        transitions = await watchTransitions(page);
+      },
+    });
+    await aboutLink(page).click();
+    await expect(page).toHaveURL(/\/about$/);
+    await expect(
+      page.getByRole("heading", { level: 2, name: about.heading }),
+    ).toBeVisible();
+    await expect(worldOf(page)).toHaveAttribute("data-world", "drawn", {
+      timeout: SCENE_TIMEOUT,
+    });
+    await scrollTo(page, about.kpop.id);
+    // The page reads in full, but nothing lights: the camera holds its first stop.
+    await expect(panel(page, about.kpop.id).getByRole("listitem").first()).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-lit]")).toHaveCount(0);
 
     const seen = await transit();
     expect(seen.seen).toEqual([]);

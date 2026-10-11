@@ -2,8 +2,9 @@
 
 import { encore } from "@/content/site";
 import { sectionLabel } from "@/app/styles";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { earnAchievement } from "./achievements";
+import { TicketWall } from "./ticket-wall";
 import { useWorldState } from "./use-world-state";
 import { WorldStill } from "./world-backdrop";
 import { worldHost } from "./world-host";
@@ -67,30 +68,7 @@ export function Encore() {
         <p className="mt-3 text-lg text-ink/90 [text-shadow:0_1px_14px_var(--color-night)]">
           {encore.lead}
         </p>
-        <ul
-          key={song}
-          aria-label={encore.wallLabel}
-          className="mt-4 grid grid-cols-2 gap-1.5 md:max-w-md"
-        >
-          {encore.tickets.map((ticket, i) => (
-            <li
-              key={`${ticket.group}-${ticket.year}`}
-              className="ticket"
-              style={
-                {
-                  "--ticket": ticket.colors[0],
-                  "--ticket-2": ticket.colors.at(-1),
-                  "--i": i,
-                } as CSSProperties
-              }
-            >
-              <span className="font-display text-sm font-bold [font-stretch:110%]">
-                {ticket.group}
-              </span>{" "}
-              <span className="text-sm text-ink/80">{ticket.year}</span>
-            </li>
-          ))}
-        </ul>
+        <TicketWall key={song} className="mt-4" />
         {/* Nothing moves under reduced motion, so there is nothing to replay. */}
         <p className="mt-4 motion-reduce:hidden">
           <button

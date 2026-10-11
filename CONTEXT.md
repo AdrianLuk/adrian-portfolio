@@ -45,7 +45,7 @@ The home page's fly-in on a first visit: the camera's flight down the canyon to 
 _Avoid_: Intro, fly-through
 
 **Place**:
-A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/rally` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net), the Diamond for the Home Run Derby (seen from behind home plate) and the Skyline for the Resume page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/rally`. A page without a Place, such as the 404, shows a still of the world instead.
+A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/rally` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net), the Diamond for the Home Run Derby (seen from behind home plate), the Skyline for the Resume page and the Hobby route for the About page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/rally`. A page without a Place, such as the 404, shows a still of the world instead.
 _Avoid_: Scene, stop, destination
 
 **Transit**:
@@ -69,7 +69,7 @@ One of six milestones a visitor earns by finding or playing an Easter egg: First
 _Avoid_: Badge, trophy (the trophy is BT Cup's hologram), award
 
 **Off the clock**:
-The four plain lines about Adrian outside work (pickleball, baseball, gaming, K-pop), each linking to its Easter egg. In the Contact section until the About page ships, then on the About page.
+The four plain lines about Adrian outside work (pickleball, baseball, gaming, K-pop), each linking to its Easter egg. On the About page, as bullets in each hobby's panel; the Contact section links there.
 _Avoid_: Hobbies, personal section, About me
 
 **Recall**:

@@ -1,5 +1,5 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
-import { DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
+import { ARENA_SIDE, DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
 import { ARENA, arenaAxes, STAGE, STRETCH } from "./arena";
 import type { RallyCourt } from "./court-look";
 import { diamondMiddle, type DiamondField } from "./diamond";
@@ -650,6 +650,59 @@ export function createRoute(
   );
 }
 
+/** The Hobby route's stops: the court's approach, the court, the Diamond, the Arena. */
+export const HOBBY_ROUTE_STOPS = 4;
+
+/** The Arena's LED wall, mid-stage: what K-pop's stop faces. */
+const ARENA_STAGE = (() => {
+  const arena = arenaAxes();
+  const [x, z] = arena.toWorld(0, -ARENA.floor * STRETCH + STAGE.front - STAGE.wall.back);
+  return new Vector3(x, arena.level + ARENA_VIEW.aim, z);
+})();
+
+/**
+ * What the Hobby route frames at each stop with a panel, in the panels'
+ * order (panel i at stop i + 1): the court's light (pickleball), the
+ * Diamond's middle (baseball), the Arena's stage (K-pop); and the side of
+ * the valley each stands (+1 = right).
+ */
+export const HOBBY_PANEL_STOPS: readonly { position: Vector3; side: 1 | -1 }[] = [
+  SITES[COURT_SITE],
+  { position: DIAMOND_MIDDLE, side: DIAMOND_SIDE },
+  { position: ARENA_STAGE, side: ARENA_SIDE },
+];
+
+/**
+ * The Hobby route's first stop: how far up the valley from the court's own
+ * stop, and how high, looking down the valley at the court, centred: just
+ * past the second gate's masts and over the towers lining the valley
+ * (about 35 high there), so nothing stands between the camera and the court.
+ */
+const HOBBY_START = { back: 45, height: 44 };
+
+/**
+ * The About page's Hobby route, for a screen of this shape: from up the
+ * valley, looking down it at the court, to the court (pickleball's stop,
+ * framed as home's route frames it), the Diamond (baseball's, likewise),
+ * then up over the Arena's canopy and down into its inside view (K-pop's),
+ * behind the crowd. Forward down the valley the whole way, never doubling
+ * back. It doesn't depend on the layout, so it needs no headline to find.
+ */
+export function hobbyRoute(aspect: number): Route {
+  const { position: light, side } = SITES[COURT_SITE];
+  const aim = light.clone().setY(light.y - AIM_BELOW);
+  const court = stopPose(aim, side * siteScreenX(aspect), aspect);
+  const startAt = above(court.position.z + HOBBY_START.back, HOBBY_START.height);
+  const start = { position: startAt, quaternion: framing(startAt, aim, 0, aspect) };
+  const diamond = diamondPose(aspect);
+  const inside = arenaView(aspect).pose;
+  // Over the canopy, then down onto the inside view from just up the valley.
+  const overY = arenaAxes().level + ARENA_VIEW.over;
+  const climb = diamond.position.clone().lerp(inside.position, 0.5).setY(overY);
+  const over = diamond.position.clone().lerp(inside.position, 0.92).setY(overY);
+  return routeThrough([start, court, diamond, { ...inside, via: [climb, over] }]);
+}
+
 /**
  * How far short of the Diamond's middle, down the valley, the route stops to
  * frame it, and how high: over the stands round it, so nothing stands in
@@ -675,7 +728,7 @@ function diamondPose(aspect: number): Pose {
  * next stop. It is measured in stops: 0 is the first, 1 the next, and so on.
  */
 export function routeThrough(
-  stops: readonly Pose[],
+  stops: readonly (Pose & { via?: readonly Vector3[] })[],
   climb: readonly Vector3[] = [],
 ) {
   const points: Vector3[] = [stops[0].position.clone(), ...climb];
@@ -684,9 +737,10 @@ export function routeThrough(
   const views: Quaternion[] = [stops[0].quaternion.clone()];
   let from = points[points.length - 1].z;
 
-  /** Cruises on down the valley to a stop. */
-  function stopAt({ position, quaternion }: Pose) {
-    for (let z = from - SPACING; z > position.z + SPACING / 2; z -= SPACING) {
+  /** Cruises on down the valley to a stop, or flies its own way there (`via`). */
+  function stopAt({ position, quaternion, via }: (typeof stops)[number]) {
+    if (via) points.push(...via);
+    else for (let z = from - SPACING; z > position.z + SPACING / 2; z -= SPACING) {
       points.push(above(z, CRUISE_HEIGHT));
     }
     stopPoints.push(points.length);

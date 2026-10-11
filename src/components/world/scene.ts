@@ -45,6 +45,8 @@ import {
   courtPose,
   createRoute,
   derbyView,
+  HOBBY_PANEL_STOPS,
+  hobbyRoute,
   PANEL_STOPS,
   playView,
   SITES,
@@ -109,15 +111,17 @@ export type ViewOptions = {
  * camera raised behind the Diamond's home plate, looking out to centre
  * field, the game played on it. skyline: the Resume
  * page's, the camera still and low down the valley from downtown, looking
- * back up at Toronto's skyline. Away from the hero, the plate and the lit
- * sites are out of sight.
+ * back up at Toronto's skyline. hobby: the About page's, the camera on the
+ * Hobby route, from the court to the Diamond and into the Arena as its page
+ * scrolls. Away from the hero, the plate and the lit sites are out of sight.
  */
 export type WorldView =
   | { kind: "hero"; measure: () => Measurement }
   | { kind: "court" }
   | { kind: "play" }
   | { kind: "derby" }
-  | { kind: "skyline" };
+  | { kind: "skyline" }
+  | { kind: "hobby" };
 
 /**
  * The world: one scene, which any of its views can show, so changing view
@@ -501,6 +505,8 @@ export async function createWorld(
   let lost = false;
   let path: FlightPath | null = null;
   let route: Route | null = null;
+  /** The About page's Hobby route, and the screen shape it was planned for. */
+  let hobby: { aspect: number; route: Route } | null = null;
   /** The settled pose (and screen shape) the paths were planned from. */
   let pathFor = "";
   const canvasSize = { width: 1, height: 1 };
@@ -693,8 +699,15 @@ export async function createWorld(
     const inside = arenaView(camera.aspect);
     const derby = derbyView(camera.aspect, structures.field);
     const court = { pose: courtPose(camera.aspect), fovY: CAMERA.fovY };
+    if (hobby?.aspect !== camera.aspect) {
+      hobby = { aspect: camera.aspect, route: hobbyRoute(camera.aspect) };
+    }
+    // The Hobby route's first stop: where the camera stands until it scrolls on.
+    const about = { pose: hobby.route.poseAt(0), fovY: CAMERA.fovY };
     const still =
-      view.kind === "hero" ? null : { court, play, derby, skyline }[view.kind];
+      view.kind === "hero"
+        ? null
+        : { court, play, derby, skyline, hobby: about }[view.kind];
     // The view's own field of view; the plate is measured in the world's.
     setFov(still?.fovY ?? CAMERA.fovY);
     posed = still
@@ -716,6 +729,7 @@ export async function createWorld(
         encore: inside.fovY,
       },
       court: court.pose,
+      hobby: hobby.route,
       play: play.pose,
       derby: derby.pose,
       courtStop: COURT_STOP,
@@ -819,7 +833,8 @@ export async function createWorld(
   const holds = () =>
     holdsFrame({
       software,
-      atStillPlace: view !== null && view.kind !== "hero",
+      // Home's camera and the Hobby route's move with the scroll.
+      atStillPlace: view !== null && view.kind !== "hero" && view.kind !== "hobby",
       flying: options.director.flying() !== null,
       landed,
       awaitingPage: options.director.awaitingPage(),
@@ -989,9 +1004,17 @@ export async function createWorld(
    * camera.
    */
   function placeSite(index: number, at = options.director.stop()) {
-    if (!posed || !route || view?.kind !== "hero") return null;
-    aimProbe(route.poseAt(at));
-    const ndc = PANEL_STOPS[index].position.clone().project(probe);
+    if (!posed || !view) return null;
+    // Home's route and its stops, or the About page's.
+    const [on, stops] =
+      view.kind === "hero"
+        ? [route, PANEL_STOPS]
+        : view.kind === "hobby"
+          ? [hobby?.route ?? null, HOBBY_PANEL_STOPS]
+          : [null, PANEL_STOPS];
+    if (!on) return null;
+    aimProbe(on.poseAt(at));
+    const ndc = stops[index].position.clone().project(probe);
     if (ndc.z >= 1) return null;
     return {
       x: ((ndc.x + 1) / 2) * canvasSize.width,

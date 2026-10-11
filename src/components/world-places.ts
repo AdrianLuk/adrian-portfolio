@@ -13,9 +13,10 @@ import type { CaseStudySlug } from "@/content/site";
  * settled view over the name plate, the scroll route), the Juice Bros Case
  * study and the Rally game at its court (Lit site 3's Landmark), the Resume
  * page at the Skyline (face to face with Toronto's skyline), the Home Run
- * Derby at the Diamond.
+ * Derby at the Diamond, the About page on the Hobby route (the court, the
+ * Diamond, then the Arena, as its scroll goes).
  */
-export type Place = "hero" | "court" | "skyline" | "diamond";
+export type Place = "hero" | "court" | "skyline" | "diamond" | "hobby";
 
 /**
  * A page's view of its Place, where the camera stands there: each Place's
@@ -61,6 +62,7 @@ export function viewOf(url: string): PlaceView | null {
   if (page === "/rally") return "play";
   if (page === "/derby") return "derby";
   if (page === "/resume") return "skyline";
+  if (page === "/about") return "hobby";
   return null;
 }
 

@@ -10,6 +10,7 @@ import { layoutLandmarks } from "./world/landmarks";
 import {
   arenaWayIn,
   courtPose,
+  hobbyRoute,
   createRoute,
   derbyView,
   playView,
@@ -49,6 +50,7 @@ function standInHost() {
       derby: CAMERA.fovY,
     },
     court: courtPose(aspect),
+    hobby: hobbyRoute(aspect),
     play: playView(aspect, layoutLandmarks().court).pose,
     derby: derbyView(aspect, layoutLandmarks().field).pose,
     courtStop: COURT_STOP,

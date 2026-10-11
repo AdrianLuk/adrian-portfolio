@@ -14,15 +14,20 @@ import {
 import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE } from "./hong-kong";
 import { nominalRoute } from "./nominal-route";
+import { DIAMOND_SIDE, HOBBY_SCROLL_ROUTE } from "../lit-sites";
 import { FOG_DENSITY } from "./palette";
 import { ENCORE_SECONDS } from "./rigs";
 import { CAMERA } from "./pose";
 import {
   arenaView,
   arenaWayIn,
+  COURT_SITE,
   courtPose,
   DIAMOND_MIDDLE,
   DIAMOND_STOP,
+  HOBBY_PANEL_STOPS,
+  HOBBY_ROUTE_STOPS,
+  hobbyRoute,
   hongKongPose,
   PANEL_STOPS,
   playView,
@@ -40,7 +45,7 @@ import {
   valleyHeight,
   waterAt,
 } from "./terrain";
-import { transitPath, transitWithin } from "./transit";
+import { transit, transitPath, transitWithin } from "./transit";
 
 const arena = layoutArena();
 const { level } = arena;
@@ -526,6 +531,117 @@ describe("the Arena's inside view", () => {
         expect(Math.abs(p.x)).toBeLessThan(0.3);
         expect(Math.abs(p.y)).toBeLessThan(1);
         expect(position.distanceTo(city)).toBeGreaterThan(position.distanceTo(mid));
+      });
+    });
+  }
+});
+
+describe("the Hobby route", () => {
+  /** What the camera must clear: every tower, the skyline, Hong Kong, and each Landmark's part outside the Arena. */
+  const towers = [
+    ...buildings,
+    ...masts,
+    ...skyline.bounds,
+    ...hongKong.bounds,
+    ...landmarks.parts.filter((b) => !near(new Vector3(b.x, b.y, b.z), arenaBox, 0)),
+  ];
+  const court = SITES[COURT_SITE].position;
+  const bowl = SITES.find((s) => s.highlight === "bt-cup")!.position;
+
+  it("tells the panels which side each of their stops stands: the court's, the Diamond's, the Arena's", () => {
+    expect(HOBBY_SCROLL_ROUTE.sides).toEqual([SITES[COURT_SITE].side, DIAMOND_SIDE, 1]);
+    // The Arena stands right of the valley's centre line.
+    expect(Math.sign(arena.x - valleyCentre(arena.z))).toBe(1);
+    expect(HOBBY_PANEL_STOPS.map((s) => s.side)).toEqual(HOBBY_SCROLL_ROUTE.sides);
+    expect(HOBBY_PANEL_STOPS[0].position).toEqual(court);
+    expect(HOBBY_PANEL_STOPS[1].position).toEqual(DIAMOND_MIDDLE);
+  });
+
+  for (const [name, aspect] of Object.entries(shapes)) {
+    describe(name, () => {
+      const route = hobbyRoute(aspect);
+      const last = HOBBY_ROUTE_STOPS - 1;
+      /** Poses every hundredth of a stop, the whole way. */
+      const poses = Array.from({ length: last * 100 + 1 }, (_, i) => route.poseAt(i / 100));
+
+      it("starts up the valley from the court, looking down it at the court, which stands in frame", () => {
+        const start = route.poseAt(0);
+        expect(start.position.z).toBeGreaterThan(route.poseAt(1).position.z);
+        const at = project(start, aspect, court);
+        expect(at.z).toBeLessThan(1);
+        expect(Math.abs(at.x)).toBeLessThan(0.5);
+        expect(Math.abs(at.y)).toBeLessThan(0.6);
+        expect(hidden(start.position, court)).toBe(false);
+        // Nothing built stands between the camera and the court's net.
+        const net = court.clone().setY(valleyHeight(court.x, court.z) + 1);
+        for (let k = 1; k < 100; k++) {
+          const p = start.position.clone().lerp(net, k / 100);
+          expect(towers.find((b) => near(p, b, 0)), `at ${k}%`).toBeUndefined();
+        }
+      });
+
+      it("frames the court beside pickleball's panel, then the Diamond beside baseball's, as home's route does", () => {
+        const home = nominalRoute(aspect);
+        for (const [stop, homeStop] of [[1, COURT_SITE + 1], [2, DIAMOND_STOP]]) {
+          const [p, q] = [route.poseAt(stop), home.poseAt(homeStop)];
+          expect(p.position.distanceTo(q.position)).toBeLessThan(1e-6);
+          expect(p.quaternion.angleTo(q.quaternion)).toBeLessThan(1e-6);
+        }
+      });
+
+      it("ends at K-pop's stop: the Arena's inside view, behind the crowd, with none of BT Cup's bowl in frame", () => {
+        const end = route.poseAt(last);
+        const { pose, fovY } = arenaView(aspect);
+        expect(end.position.distanceTo(pose.position)).toBeLessThan(1e-6);
+        expect(end.quaternion.angleTo(pose.quaternion)).toBeLessThan(1e-6);
+        // Past the last panel, the gaming line at the page's foot, it holds there.
+        expect(route.poseAt(last + 1).position.distanceTo(pose.position)).toBeLessThan(1e-6);
+        const at = project(end, aspect, bowl, fovY);
+        expect(at.z < 1 && Math.abs(at.x) < 1 && Math.abs(at.y) < 1).toBe(false);
+      });
+
+      it("only ever moves on down the valley, never doubling back", () => {
+        for (let i = 1; i < poses.length; i++) {
+          expect(poses[i].position.z, `at stop ${i / 100}`).toBeLessThanOrEqual(poses[i - 1].position.z + 1e-6);
+        }
+      });
+
+      it("clears the ground and water by 3, every tower and Landmark by 3, and the Arena's tiers, canopy and stage by 2", () => {
+        for (const [i, { position: p }] of poses.entries()) {
+          const at = `at stop ${i / 100}`;
+          expect(p.y - surfaceHeight(p.x, p.z), at).toBeGreaterThan(3);
+          expect(towers.find((b) => near(p, b, 3)), at).toBeUndefined();
+          expect(clearOfArena(p), at).toBeGreaterThan(2);
+          expect(nearStage(p, 2), at).toBe(false);
+        }
+      });
+
+      it("leaves anywhere along it, K-pop's stop inside the Arena included, by Transit clear of the Arena, every tower and Landmark", () => {
+        const home = nominalRoute(aspect);
+        const places = [courtPose(aspect), skylinePose(aspect), playView(aspect, landmarks.court).pose];
+        for (let from = 0; from <= last; from += 0.5) {
+          // In the Arena's leg, as the Camera director leaves: back out up it first.
+          const pose = route.poseAt(from);
+          const departure = from > last - 1 ? { pose, back: { route, from, to: last - 1 } } : { pose };
+          for (const to of [0, COURT_SITE + 1, ROUTE_STOPS - 1, ...places]) {
+            const trip = transit(home, departure, to);
+            expect(trip.poseAt(0).position.distanceTo(pose.position)).toBeLessThan(1e-6);
+            for (let t = 0; t <= 1; t += 1 / 200) {
+              const p = trip.poseAt(t).position;
+              const at = `from ${from} at ${t.toFixed(3)}`;
+              expect(clearOfArena(p), at).toBeGreaterThan(2);
+              expect(towers.find((b) => near(p, b, 2)), at).toBeUndefined();
+              expect(p.y - surfaceHeight(p.x, p.z), at).toBeGreaterThan(2);
+            }
+          }
+        }
+      });
+
+      it("moves without a jump and turns without a jolt", () => {
+        for (let i = 1; i < poses.length; i++) {
+          expect(poses[i].position.distanceTo(poses[i - 1].position)).toBeLessThan(6);
+          expect(poses[i].quaternion.angleTo(poses[i - 1].quaternion)).toBeLessThan((2 * Math.PI) / 180);
+        }
       });
     });
   }

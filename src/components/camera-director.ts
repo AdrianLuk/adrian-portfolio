@@ -1,6 +1,6 @@
 // No Three.js here: the director is made with the world host, before the
 // first paint. The paths the world hands it do the maths.
-import { LIT_SITES } from "./lit-sites";
+import { HOBBY_SCROLL_ROUTE, LIT_SITES } from "./lit-sites";
 import { placeOfView, type PlaceView } from "./world-places";
 import type { FlightPath, Pose } from "./world/flight";
 import { smoothstep } from "./world/noise";
@@ -41,6 +41,8 @@ export type CameraPaths = {
   };
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
+  /** The About page's Hobby route, for the screen's shape: the court, the Diamond, the Arena. */
+  hobby: Route;
   /** /rally's view of the court, for the screen's shape: raised behind the player's baseline. */
   play: Pose;
   /** The Derby's view of the Diamond, for the screen's shape: raised behind home plate. */
@@ -59,11 +61,15 @@ export type CameraPaths = {
 
 /**
  * The scroll routes the director can run, each by its route in the world's
- * paths: home's alone, until the About page's Hobby route joins it.
+ * paths: home's, and the About page's Hobby route.
  */
 const SCROLL_ROUTES = {
   home: (p: CameraPaths) => p.route,
+  hobby: (p: CameraPaths) => p.hobby,
 };
+
+/** The Hobby route's last stop, K-pop's, inside the Arena: its last panel's. */
+const ARENA_STOP = HOBBY_SCROLL_ROUTE.sides.length;
 
 export type ScrollRouteName = keyof typeof SCROLL_ROUTES;
 
@@ -100,10 +106,11 @@ type Looks = Pick<CameraLights, "court" | "skyline">;
 
 /**
  * How far each Place's look is in, and how far /rally's view and the
- * Derby's, whose fields of view are their own: blended alike through a
- * Transit (see `looks`).
+ * Derby's, whose fields of view are their own, and how far into the Arena
+ * the Hobby route has the camera (its show, and its field of view):
+ * blended alike through a Transit (see `looks`).
  */
-type Blend = Looks & { play: number; derby: number };
+type Blend = Looks & { play: number; derby: number; arena: number };
 
 /**
  * Where the camera leans, toward the pointer: -1 to 1 each way from the
@@ -260,6 +267,7 @@ export function createCameraDirector({
     if (shown === "court") return paths?.court ?? null;
     if (shown === "play") return paths?.play ?? null;
     if (shown === "derby") return paths?.derby ?? null;
+    if (shown === "hobby") return paths?.hobby.poseAt(hobbyStop()) ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
     if (!landed) return home.opening.poseAt(opening);
@@ -267,6 +275,9 @@ export function createCameraDirector({
     const e = encoreAt(now);
     return base && e > 0 ? encorePose(base, e) : base;
   }
+
+  /** The Hobby route's stop: where its scroll has it, or its first until that reports. */
+  const hobbyStop = () => (scrolling && running === "hobby" ? routeStop : 0);
 
   /** How far through its Transit `t` is at `now`, 0 to 1. */
   function progress(t: Planned, now: number) {
@@ -304,6 +315,10 @@ export function createCameraDirector({
       to = court;
     } else if (t.to === "skyline" || t.to === "derby") {
       to = paths[t.to];
+    } else if (t.to === "hobby") {
+      // Its first stop, however its page is scrolled: its scroll route
+      // carries the camera on from there.
+      to = paths.hobby.poseAt(0);
     } else {
       // Where the page is, not where its scroll route has eased to so far.
       t.stop = homeStop();
@@ -339,7 +354,14 @@ export function createCameraDirector({
       };
     }
     const pose = viewPose(now) ?? last;
-    return pose && { held: copyOf(pose), departure: { pose: copyOf(pose) } };
+    if (!pose) return null;
+    // In the Arena's leg of the Hobby route: back out up it first.
+    const stop = hobbyStop();
+    if (shown === "hobby" && paths && stop > ARENA_STOP - 1) {
+      const back = { route: paths.hobby, from: stop, to: ARENA_STOP - 1 };
+      return { held: copyOf(pose), departure: { pose: copyOf(pose), back } };
+    }
+    return { held: copyOf(pose), departure: { pose: copyOf(pose) } };
   }
 
   /** Ends the Transit: home holds the stop it landed at until the scroll route reports. */
@@ -400,11 +422,16 @@ export function createCameraDirector({
     const is = (view: PlaceView | null, key: keyof Blend) =>
       view !== null &&
       (key === "play" || key === "derby" ? view : placeOfView(view)) === key;
+    /** How far into the Arena the Hobby route has the camera; no Transit lands there. */
+    const arena = () =>
+      shown === "hobby"
+        ? Math.min(1, Math.max(0, hobbyStop() - (ARENA_STOP - 1)))
+        : 0;
     const at = (key: keyof Blend) => {
-      if (!trip) return is(shown, key) ? 1 : 0;
+      if (!trip) return key === "arena" ? arena() : is(shown, key) ? 1 : 0;
       const from = trip.looks[key];
       if (!trip.transit) return from;
-      const to = is(trip.to, key) ? 1 : 0;
+      const to = key !== "arena" && is(trip.to, key) ? 1 : 0;
       const f = smoothstep(0, 1, progress(trip as Planned, now));
       return from + (to - from) * f;
     };
@@ -413,6 +440,7 @@ export function createCameraDirector({
       skyline: at("skyline"),
       play: at("play"),
       derby: at("derby"),
+      arena: at("arena"),
     };
   }
 
@@ -422,7 +450,7 @@ export function createCameraDirector({
    * and only the Places' looks change.
    */
   function lights(now: number): CameraLights | null {
-    const { court, skyline } = looks(now);
+    const { court, skyline, arena } = looks(now);
     const look = { court, skyline };
     if (shown === "hero" && homePaths()) {
       const { beams, sweep, beacon } = opening;
@@ -445,8 +473,9 @@ export function createCameraDirector({
       sweep: 0,
       sites: LIT_SITES.map(() => 0),
       ...look,
-      encore: 0,
-      fill: 0,
+      // The Hobby route into the Arena: its show comes up as the camera does.
+      encore: smoothstep(0, 1, arena),
+      fill: arena,
     };
   }
 
@@ -623,7 +652,8 @@ export function createCameraDirector({
           (fov.skyline - fov.world) * blend.skyline +
           (fov.play - fov.world) * blend.play +
           (fov.derby - fov.world) * blend.derby +
-          (fov.encore - fov.world) * inside
+          (fov.encore - fov.world) *
+            Math.max(inside, smoothstep(0, 1, blend.arena))
         : null;
       return {
         pose,

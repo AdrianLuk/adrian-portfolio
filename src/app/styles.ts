@@ -77,6 +77,13 @@ export const arrivesAtPlay =
   "in-data-[arriving=play]:invisible in-data-[arriving=play]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
 
 /**
+ * The About page's copy over the Hobby route, held back the same way while
+ * the world's root carries data-arriving="hobby", then faded in.
+ */
+export const arrivesAtHobby =
+  "in-data-[arriving=hobby]:invisible in-data-[arriving=hobby]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
+
+/**
  * The Derby's copy over the Diamond, held back the same way while the
  * world's root carries data-arriving="derby", then faded in.
  */
