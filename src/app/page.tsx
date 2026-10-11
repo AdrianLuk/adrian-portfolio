@@ -278,9 +278,7 @@ export default async function Home() {
           className={`mt-12 ${contactPanel}`}
         >
           <PanelCorners className="border-cyan md:hidden" />
-          {/* In capitals: at this width Anybody's capital O is barely taller
-            than its lowercase, so "Off" read as "off". */}
-          <h3 className="font-display text-xl font-bold uppercase [font-stretch:115%]">
+          <h3 className="font-display text-xl font-bold [font-stretch:115%]">
             {contact.offClock.heading}
           </h3>
           <p className="mt-4 text-lg text-ink/90">{contact.offClock.text}</p>
