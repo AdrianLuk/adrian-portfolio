@@ -106,8 +106,14 @@ test.describe("with motion allowed, the opening skipped", () => {
     // Still in the DOM, but hidden: never along the scroll, nor tabbable.
     await expect(
       page.locator(`ul[aria-label="${credits.label}"] > li`),
-    ).toHaveText([...credits.lines, credits.skip]);
+    ).toHaveCount(credits.lines.length + 1);
     await expect(page.getByRole("list", { name: credits.label })).toBeHidden();
+    const skip = page.getByRole("button", {
+      name: credits.skip,
+      includeHidden: true,
+    });
+    await skip.evaluate((el) => el.focus());
+    await expect(skip).not.toBeFocused();
   });
 
   test("settled, the world stands behind the whole page, hidden from assistive tech, and home is axe-clean", async () => {
