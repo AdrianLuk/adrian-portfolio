@@ -526,6 +526,10 @@ export function createStructures(shared: SharedUniforms) {
   });
 
   const veils = createVeils(landmarks.veils);
+  const waters = [
+    createHarbour(shared, HARBOUR, reflectedLights(skyline)),
+    createHarbour(shared, VICTORIA_HARBOUR, hongKong.reflected),
+  ];
   return {
     meshes: [
       ...meshes,
@@ -543,11 +547,12 @@ export function createStructures(shared: SharedUniforms) {
       createPortals(landmarks.portals),
       ...createTrophies(landmarks.trophies, shared),
       ...createBalls(landmarks.balls),
-      createHarbour(shared, HARBOUR, reflectedLights(skyline)),
-      createHarbour(shared, VICTORIA_HARBOUR, hongKong.reflected),
+      ...waters,
     ],
     /** The veils' one draw (among `meshes`): the court's net among them. */
     veils,
+    /** The harbours' water (among `meshes`), in HARBOURS' order. */
+    waters,
     glows,
     floodlights: landmarks.floodlights,
     court: landmarks.court,

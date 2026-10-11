@@ -27,6 +27,7 @@ import { createBackdrop } from "./backdrop";
 import { createAirliners } from "./airliners";
 import { createBeams } from "./beams";
 import { bakePlateEnvironment } from "./environment";
+import { createFerries } from "./ferries";
 import { createFlightPath, type FlightPath, type Pose } from "./flight";
 import { createGlowPoints, type Glow } from "./glow-points";
 import { createGroundPools, type Pool } from "./ground-pools";
@@ -456,6 +457,7 @@ export async function createWorld(
     structures.court.z,
   );
   courtGroup.scale.setScalar(structures.court.scale);
+  const ferries = createFerries(shared, structures.waters);
   const pools = createGroundPools(structures.pools.length + 3, poolIntensity());
   function poolIntensity() {
     return wet() ? WET_POOLS.intensity : POOL_INTENSITY;
@@ -466,6 +468,7 @@ export async function createWorld(
     terrain,
     pools.mesh,
     ...structures.meshes,
+    ferries.mesh,
     lights.points,
     floodlights.points,
     rally,
@@ -607,6 +610,7 @@ export async function createWorld(
     if (!view || !posed || !compiled || lost) return;
     shared.uTraffic.value = trafficTime(shared.uTime.value, { motion, software });
     pose();
+    ferries.update();
     plate.sweep(shared.uTime.value);
     setTerrainRings(terrain, ripples.lit(shared.uTime.value));
     sky.setRings(skyRipples.lit(shared.uTime.value));
