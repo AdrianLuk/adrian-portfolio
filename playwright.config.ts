@@ -8,6 +8,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // On CI the world compiles and draws in software WebGL on each page's main
+  // thread, which can hold up one look at the page for seconds, and a page
+  // with a Place for longer: the defaults (30s a test, 5s a look) timed out a
+  // different world-heavy test each run. A test that sets its own keeps it.
+  timeout: process.env.CI ? 60_000 : 30_000,
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,
