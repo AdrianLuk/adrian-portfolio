@@ -42,20 +42,23 @@ export function PlayButton({
 
 /**
  * Each panel's accent is its Lit site's light, and glows brighter once the
- * scroll route has lit the site. Ember stays the primary action's alone.
+ * scroll route has lit the site; `holo` hands the light to a Highlight's
+ * hologram surface (globals.css). Ember stays the primary action's alone.
  * Written out in full, so Tailwind finds the classes.
  */
 export const accents: Record<
   LitSite["light"],
-  { bracket: string; glow: string }
+  { bracket: string; glow: string; holo: string }
 > = {
   cyan: {
     bracket: "border-cyan",
     glow: "shadow-cyan/10 data-lit:shadow-cyan/25",
+    holo: "[--holo:var(--color-cyan)]",
   },
   violet: {
     bracket: "border-violet",
     glow: "shadow-violet/10 data-lit:shadow-violet/25",
+    holo: "[--holo:var(--color-violet)]",
   },
 };
 
@@ -101,6 +104,8 @@ export function PanelCorners({ className }: { className: string }) {
  * With motion allowed, the scroll route lights its site as it enters (and
  * marks it data-lit), and sets it beside the site as the camera passes; and
  * with a mouse, it tilts toward the pointer over it (pointer-motion.ts).
+ * Only a Highlight's panel is a hologram: scanlines and an edge in its light
+ * under the copy (`holo`, globals.css), stuttering on as it first lights.
  */
 export function HighlightPanel({
   highlight,
@@ -118,7 +123,7 @@ export function HighlightPanel({
       id={id}
       aria-labelledby={`${id}-heading`}
       tabIndex={-1}
-      className={`${holoPanel} ${look.glow} ${look.align} ${className}`}
+      className={`holo ${holoPanel} ${look.holo} ${look.glow} ${look.align} ${className}`}
     >
       <PanelCorners className={look.bracket} />
       <h3

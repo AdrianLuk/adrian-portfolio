@@ -1,10 +1,11 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { ARENA_SIDE, DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
-import { ARENA, arenaAxes, STAGE, STRETCH } from "./arena";
+import { ARENA, arenaAxes, STAGE, STRETCH, type Beam } from "./arena";
 import type { RallyCourt } from "./court-look";
 import { diamondMiddle, type DiamondField } from "./diamond";
 import type { Pose } from "./flight";
 import { HONG_KONG_CENTRE, HONG_KONG_SHORE } from "./hong-kong";
+import { palette } from "./palette";
 import { CAMERA } from "./pose";
 import {
   CN_TOWER,
@@ -130,11 +131,16 @@ function siteScreenX(aspect: number) {
 
 const UP = new Vector3(0, 1, 0);
 
+/** The tangent of half a vertical field of view, given in degrees. */
+function tanHalf(fovY: number) {
+  return Math.tan(((fovY / 2) * Math.PI) / 180);
+}
+
 /** Looking from `from` at `at`, turned so `at` sits `ndcX` across the screen. */
 function framing(from: Vector3, at: Vector3, ndcX: number, aspect: number) {
   const look = new Matrix4().lookAt(from, at, UP);
   const quaternion = new Quaternion().setFromRotationMatrix(look);
-  const tanX = Math.tan(((CAMERA.fovY / 2) * Math.PI) / 180) * aspect;
+  const tanX = tanHalf(CAMERA.fovY) * aspect;
   // Turning the view left moves what it sees right.
   const yaw = Math.atan(ndcX * tanX);
   return new Quaternion().setFromAxisAngle(UP, yaw).multiply(quaternion);
@@ -147,6 +153,46 @@ function framing(from: Vector3, at: Vector3, ndcX: number, aspect: number) {
 function stopPose(target: Vector3, ndcX: number, aspect: number): Pose {
   const position = above(target.z + STOP_LEAD, STOP_HEIGHT);
   return { position, quaternion: framing(position, target, ndcX, aspect) };
+}
+
+/**
+ * Where a site's projection beam reaches, in normalised device coordinates
+ * seen from its stop (x toward its panel's side, the site's opposite), and
+ * how wide its mouth is for its length.
+ */
+const PROJECTION = { x: 0.3, y: 0.6, spread: 0.22 };
+
+/**
+ * A Lit site's projection beam: a cone of its light rising from its light,
+ * atop its Landmark, toward the side of the screen its panel stands on, seen
+ * from `pose` (its stop) on a screen of this shape. Aimed in the screen's
+ * terms, so it reaches toward the panel on every shape of screen: across
+ * the middle on a wide one, toward it on a narrow one, where the panel
+ * spans the screen. Still: it doesn't sweep.
+ */
+export function projectionBeam(site: Site, pose: Pose, aspect: number): Beam {
+  const tanY = tanHalf(CAMERA.fovY);
+  const forward = new Vector3(0, 0, -1).applyQuaternion(pose.quaternion);
+  const depth = site.position.clone().sub(pose.position).dot(forward);
+  const top = new Vector3(
+    -site.side * PROJECTION.x * tanY * aspect * depth,
+    PROJECTION.y * tanY * depth,
+    -depth,
+  )
+    .applyQuaternion(pose.quaternion)
+    .add(pose.position);
+  const along = top.clone().sub(site.position);
+  const length = along.length();
+  return {
+    from: site.position.toArray(),
+    top: top.toArray(),
+    length,
+    radius: PROJECTION.spread * length,
+    heading: Math.atan2(along.x, along.z),
+    tilt: Math.acos(along.y / length),
+    phase: 0,
+    color: palette[site.light],
+  };
 }
 
 /**
@@ -265,7 +311,7 @@ export function courtPose(aspect: number): Pose {
   const position = new Vector3(x, valleyHeight(x, z) + view.height, z);
   const net = light.clone().setY(light.y - SITE_HEIGHT);
   const look = new Matrix4().lookAt(position, net, UP);
-  const tanY = Math.tan(((CAMERA.fovY / 2) * Math.PI) / 180);
+  const tanY = tanHalf(CAMERA.fovY);
   // Tilting the view up moves what it sees down the screen.
   const tilt = new Quaternion().setFromAxisAngle(
     new Vector3(1, 0, 0),
@@ -317,7 +363,7 @@ function ndc(pose: Pose, point: Vector3, fovY: number, aspect: number) {
     .clone()
     .sub(pose.position)
     .applyQuaternion(pose.quaternion.clone().invert());
-  const tanY = Math.tan(((fovY / 2) * Math.PI) / 180);
+  const tanY = tanHalf(fovY);
   const depth = -local.z;
   return {
     x: local.x / (depth * tanY * aspect),
@@ -512,7 +558,7 @@ export function homeRunView(
       (Math.min(...seen.map((s) => s[axis])) +
         Math.max(...seen.map((s) => s[axis]))) /
       2;
-    const tanY = Math.tan(((view.fovY / 2) * Math.PI) / 180);
+    const tanY = tanHalf(view.fovY);
     centre = new Vector3(middle("x") * tanY * aspect, middle("y") * tanY, -1)
       .multiplyScalar(depth)
       .applyQuaternion(view.pose.quaternion)
@@ -597,7 +643,7 @@ export function skylineView(aspect: number): { pose: Pose; fovY: number } {
     );
     quaternion = new Quaternion().setFromAxisAngle(UP, (left + right) / 2);
   }
-  const tanY = Math.tan(((fovY / 2) * Math.PI) / 180);
+  const tanY = tanHalf(fovY);
   // Tilting the view up moves what it sees down the screen.
   const rise = Math.atan(
     (CN_TOWER_TOP.y - position.y) / position.distanceTo(level),

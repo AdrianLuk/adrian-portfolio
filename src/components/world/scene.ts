@@ -49,6 +49,7 @@ import {
   hobbyRoute,
   PANEL_STOPS,
   playView,
+  projectionBeam,
   SITES,
   skylineView,
   type Route,
@@ -295,6 +296,9 @@ const CREDIT_PARALLAX = 0.3;
 /** A beacon's full intensity: each site burns at the share the director says. */
 const BEACON_INTENSITY = 3;
 
+/** A projection beam's full intensity, once its panel is lit. */
+const PROJECTION_INTENSITY = 1.5;
+
 /** How far the Encore's lightsticks sway each way, in world units. */
 const ENCORE_SWAY = 0.35;
 
@@ -423,6 +427,27 @@ export async function createWorld(
   const crowd = createGlowPoints(arena.crowd, shared, { sway: ENCORE_SWAY });
   crowd.points.visible = false;
   const beams = createBeams(arena.beams, arena.turn, shared);
+  // Each Lit site's projection beam toward its panel, aimed from its stop on
+  // home's route (so re-aimed with the route), dark until its panel lights.
+  const projections = new Group();
+  let projecting: ReturnType<typeof createBeams>[] = [];
+  function aimProjections(on: Route) {
+    for (const { mesh } of projecting) {
+      mesh.geometry.dispose();
+      (mesh.material as Material).dispose();
+    }
+    const worldFrame = 0;
+    const noSweep = 0;
+    projecting = SITES.map((site, i) =>
+      createBeams(
+        [projectionBeam(site, on.poseAt(i + 1), camera.aspect)],
+        worldFrame,
+        shared,
+        noSweep,
+      ),
+    );
+    projections.clear().add(...projecting.map((p) => p.mesh));
+  }
   // The rally ball, in the scene from the start (hidden, so it compiles with
   // the rest) and shown only by the court's look.
   const [rally] = createBalls([
@@ -473,6 +498,7 @@ export async function createWorld(
     rally,
     crowd.points,
     beams.mesh,
+    projections,
     ...sites.map((s) => s.points),
     ...createMist(shared),
     plate.group,
@@ -563,6 +589,9 @@ export async function createWorld(
     plate.setArrival(lights.beams, lights.sweep);
     sites.forEach((site, i) =>
       site.setIntensity(BEACON_INTENSITY * lights.sites[i]),
+    );
+    projecting.forEach((beam, i) =>
+      beam.setIntensity(PROJECTION_INTENSITY * lights.projections[i]),
     );
     look = courtLook(lights.court);
     skyline = skylineLook(lights.skyline);
@@ -823,6 +852,7 @@ export async function createWorld(
       };
       path = createFlightPath(settled, centre.clone());
       route = createRoute(settled, centre.clone(), camera.aspect);
+      aimProjections(route);
       pathFor = key;
     }
     credits.clear();
