@@ -3,6 +3,7 @@ import {
   arenaStills,
   courtStills,
   diamondStills,
+  routeStills,
   skylineStills,
   srcSet,
   valleyStills,
@@ -15,6 +16,7 @@ const STILLS = {
   skyline: skylineStills,
   arena: arenaStills,
   diamond: diamondStills,
+  ...routeStills,
 } as const;
 
 /** A small seeded generator (mulberry32), so every render scatters the same. */
@@ -96,6 +98,24 @@ export function WorldStill({
       </picture>
       {children}
     </div>
+  );
+}
+
+/**
+ * A scroll route's stop under reduced motion, where the camera never flies
+ * there: the stop's still, fixed over the screen as the live world is, shown
+ * only through its parent's stretch of the page. The parent clips it
+ * (`clipsStop` or `clipsStopAfterGap`, app/styles.ts), so each stop's frame
+ * takes over as its stretch scrolls in. Hidden, and never loaded, with
+ * motion allowed.
+ */
+export function StopStill({ name }: { name: StillName }) {
+  return (
+    <WorldStill
+      name={name}
+      lazy
+      className="fixed inset-x-0 top-0 h-lvh motion-safe:hidden"
+    />
   );
 }
 

@@ -137,6 +137,22 @@ test("under reduced motion the page is whole and still, and axe-clean", async ({
   for (const section of sections) {
     await expect(page.locator(`#${section.id}`)).toBeVisible();
   }
+  // The camera's gaps close up, and each stop stands behind its panel as a still.
+  const stills = ["route-juice-bros", "route-diamond", "arena", "arena"];
+  for (const [i, section] of sections.entries()) {
+    const panel = page.locator(`#${section.id}`);
+    await panel.scrollIntoViewIfNeeded();
+    const img = panel.locator(`xpath=../div[@data-backdrop="${stills[i]}"]/picture/img`);
+    await expect
+      .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth))
+      .toBeGreaterThan(0);
+    if (i === 0) continue;
+    const [above, box] = await Promise.all([
+      page.locator(`#${sections[i - 1].id}`).boundingBox(),
+      panel.boundingBox(),
+    ]);
+    expect(box!.y - (above!.y + above!.height)).toBeLessThan(100);
+  }
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
   await context.close();

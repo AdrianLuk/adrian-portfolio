@@ -11,10 +11,15 @@ import {
 import { PlaceWorld } from "@/components/place-world";
 import { Recording } from "@/components/recording";
 import { TicketWall } from "@/components/ticket-wall";
-import { WorldStill } from "@/components/world-backdrop";
-import { about, shareCards } from "@/content/site";
+import { StopStill, WorldStill } from "@/components/world-backdrop";
+import { about, shareCards, type StillName } from "@/content/site";
 import { shareMetadata } from "../share";
-import { arrivesAtHobby, overPlace, textLink } from "../styles";
+import {
+  arrivesAtHobby,
+  clipsStopAfterGap,
+  overPlace,
+  textLink,
+} from "../styles";
 import { torontoWeather } from "../toronto-weather";
 
 // Rebuilt at most hourly, for the weather (WEATHER_REVALIDATE): segment
@@ -23,22 +28,30 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = shareMetadata(shareCards.about);
 
-/** One section's panel on the Hobby route, in its stop's light, its lines as bullets. */
+/**
+ * One section's panel on the Hobby route, in its stop's light, its lines as
+ * bullets; under reduced motion, where the camera holds the route's first
+ * stop, `still` (the stop as the camera frames it) stands behind it.
+ */
 function HobbyPanel({
   section,
   light,
+  still,
   children,
   ...rest
 }: {
   section: { id: string; heading: string; lines: readonly string[] };
   light: keyof typeof accents;
+  still: StillName;
   children?: ReactNode;
   "data-wall"?: true;
 }) {
   const { id, heading, lines } = section;
   const { bracket, glow } = accents[light];
   return (
-    <section
+    <div className={clipsStopAfterGap}>
+      <StopStill name={still} />
+      <section
       id={id}
       aria-labelledby={`${id}-heading`}
       className={`${holoPanel} ${glow}`}
@@ -57,7 +70,8 @@ function HobbyPanel({
         ))}
       </ul>
       {children}
-    </section>
+      </section>
+    </div>
   );
 }
 
@@ -82,7 +96,12 @@ export default async function AboutPage() {
         <WorldStill name="court" />
       </PlaceWorld>
       <HobbyScroll />
-      <div className={`space-y-[60svh] pb-[40svh] ${arrivesAtHobby}`}>
+      {/* The gaps are the camera's, to fly between stops: under reduced motion
+        it holds still, each panel's stop stands behind it as a still, and
+        they close up. */}
+      <div
+        className={`space-y-[60svh] pb-[40svh] motion-reduce:space-y-16 motion-reduce:pb-0 ${arrivesAtHobby}`}
+      >
         <header className={`max-w-3xl ${overPlace.court}`}>
           <PanelCorners className="border-violet" />
           <p className="font-display text-sm tracking-[0.3em] text-cyan uppercase [font-stretch:75%]">
@@ -97,7 +116,12 @@ export default async function AboutPage() {
           <p className="mt-4 text-lg text-ink/90">{about.roots}</p>
         </header>
 
-        <HobbyPanel section={pickleball} light="violet">
+        <HobbyPanel
+          section={pickleball}
+          light="violet"
+          // The Hobby route frames the court and the Diamond as home's does.
+          still="route-juice-bros"
+        >
           <p className="mt-6">
             <PlayButton link={pickleball.play} light="violet" />
           </p>
@@ -108,7 +132,7 @@ export default async function AboutPage() {
           </p>
         </HobbyPanel>
 
-        <HobbyPanel section={baseball} light="cyan">
+        <HobbyPanel section={baseball} light="cyan" still="route-diamond">
           <div className="mt-6">
             <Recording recording={baseball.clip} />
           </div>
@@ -117,7 +141,8 @@ export default async function AboutPage() {
           </p>
         </HobbyPanel>
 
-        <HobbyPanel section={kpop} light="violet" data-wall>
+        {/* The Arena's inside view, as the Encore's still shows it. */}
+        <HobbyPanel section={kpop} light="violet" still="arena" data-wall>
           <p className="mt-6 text-ink/90">{kpop.wallLead}</p>
           {/* One column on a phone: the panel's padding leaves two too narrow for the longest names. */}
           <TicketWall className="mt-3 max-sm:grid-cols-1" />
@@ -128,7 +153,7 @@ export default async function AboutPage() {
           </p>
         </HobbyPanel>
 
-        <HobbyPanel section={gaming} light="cyan" />
+        <HobbyPanel section={gaming} light="cyan" still="arena" />
       </div>
     </article>
   );

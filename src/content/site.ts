@@ -1134,7 +1134,17 @@ export const shareCards = {
  * phones and tablets, each in the shape of the screen it is shot at. A
  * still's name is also its `data-backdrop` on the page.
  */
-export type StillName = "valley" | "court" | "skyline" | "diamond" | "arena";
+export type StillName =
+  | "valley"
+  | "court"
+  | "skyline"
+  | "diamond"
+  | "arena"
+  | RouteStillName;
+
+/** A stop on home's scroll route after the settled view: each Lit site's (by its Highlight), the Diamond's, Hong Kong's. */
+export type RouteStop = HighlightId | "diamond" | "hong-kong";
+export type RouteStillName = `route-${RouteStop}`;
 
 function worldStills(name: StillName) {
   return {
@@ -1178,6 +1188,18 @@ export const diamondStills = worldStills("diamond");
  * or under reduced motion): the Arena from inside, its show on.
  */
 export const arenaStills = worldStills("arena");
+
+/**
+ * Home's scroll route under reduced motion, where the world stays the hero's
+ * still frame: each stop as the camera holds it there, behind that stop's
+ * stretch of the page.
+ */
+export const routeStills = Object.fromEntries(
+  [...highlights.map((h) => h.id), "diamond", "hong-kong"].map((stop) => {
+    const name = `route-${stop}` as RouteStillName;
+    return [name, worldStills(name)];
+  }),
+) as Record<RouteStillName, ReturnType<typeof worldStills>>;
 
 /** The id of a Highlight's panel on the home page, and its in-page anchor. */
 export function highlightAnchor(id: HighlightId): string {
