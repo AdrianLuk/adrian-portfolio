@@ -18,7 +18,7 @@ import {
   about,
   derby,
   derbyLink,
-  diamondPanel,
+  contact,
   hrefFor,
   rallyLink,
 } from "../src/content/site";
@@ -399,7 +399,7 @@ async function expectNoDerbyCode(page: Page, request: APIRequestContext) {
   }
 }
 
-test("the home page never asks for the Derby's code, even with the Diamond panel's link on screen", async ({
+test("the home page never asks for the Derby's code, even with Off the clock's Derby link on screen", async ({
   page,
   request,
 }) => {
@@ -411,8 +411,8 @@ test("the home page never asks for the Derby's code, even with the Diamond panel
     timeout: SCENE_TIMEOUT,
   });
   const play = page
-    .locator(`#${diamondPanel.id}`)
-    .getByRole("link", { name: derbyLink.label });
+    .locator(`#${contact.offClock.id}`)
+    .getByRole("link", { name: contact.offClock.derby.label });
   await play.scrollIntoViewIfNeeded();
   await expect(play).toBeInViewport();
   await expectNoDerbyCode(page, request);

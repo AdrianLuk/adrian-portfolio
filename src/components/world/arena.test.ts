@@ -16,11 +16,9 @@ import { HONG_KONG_CENTRE } from "./hong-kong";
 import { nominalRoute } from "./nominal-route";
 import { DIAMOND_SIDE, HOBBY_SCROLL_ROUTE } from "../lit-sites";
 import { FOG_DENSITY } from "./palette";
-import { ENCORE_SECONDS } from "./rigs";
 import { CAMERA } from "./pose";
 import {
   arenaView,
-  arenaWayIn,
   COURT_SITE,
   courtPose,
   DIAMOND_MIDDLE,
@@ -641,64 +639,6 @@ describe("the Hobby route", () => {
         for (let i = 1; i < poses.length; i++) {
           expect(poses[i].position.distanceTo(poses[i - 1].position)).toBeLessThan(6);
           expect(poses[i].quaternion.angleTo(poses[i - 1].quaternion)).toBeLessThan((2 * Math.PI) / 180);
-        }
-      });
-    });
-  }
-});
-
-describe("the way into the Arena from home's route's end", () => {
-  for (const [name, aspect] of Object.entries(shapes)) {
-    describe(name, () => {
-      const way = arenaWayIn(aspect);
-      const samples = Array.from({ length: 401 }, (_, i) => way.poseAt(i / 400));
-
-      it("leaves from the route's end, Hong Kong's view, and lands on the inside view, without a jump", () => {
-        const end = hongKongPose(aspect);
-        expect(samples[0].position.distanceTo(end.position)).toBeCloseTo(0);
-        expect(samples[0].quaternion.angleTo(end.quaternion)).toBeCloseTo(0);
-        const inside = arenaView(aspect).pose;
-        expect(samples.at(-1)!.position.distanceTo(inside.position)).toBeCloseTo(0);
-        expect(samples.at(-1)!.quaternion.angleTo(inside.quaternion)).toBeCloseTo(0);
-        for (let i = 1; i < samples.length; i++) {
-          expect(samples[i].position.distanceTo(samples[i - 1].position)).toBeLessThan(1);
-          expect(samples[i].quaternion.angleTo(samples[i - 1].quaternion)).toBeLessThan(0.02);
-        }
-      });
-
-      it("eases off and lands, turning at a medium-speed pan over the Encore's time", () => {
-        const step = ENCORE_SECONDS / (samples.length - 1);
-        let fastest = 0;
-        for (let i = 1; i < samples.length; i++) {
-          const degrees = (samples[i].quaternion.angleTo(samples[i - 1].quaternion) * 180) / Math.PI;
-          fastest = Math.max(fastest, degrees / step);
-        }
-        expect(fastest).toBeLessThan(150);
-        // Still at both ends, not dashing off or braking hard.
-        expect(samples[1].position.distanceTo(samples[0].position)).toBeLessThan(0.05);
-        expect(samples.at(-1)!.position.distanceTo(samples.at(-2)!.position)).toBeLessThan(0.05);
-      });
-
-      it("leaves from wherever the camera is: a pose up the route lands on the inside view all the same", () => {
-        const from = nominalRoute(aspect).poseAt(ROUTE_STOPS - 1.5);
-        const out = arenaWayIn(aspect, from);
-        expect(out.poseAt(0).position.distanceTo(from.position)).toBeCloseTo(0);
-        expect(out.poseAt(1).position.distanceTo(arenaView(aspect).pose.position)).toBeCloseTo(0);
-      });
-
-      it("keeps 2 clear of the tiers, the canopy and the stage, coming down into the open middle", () => {
-        for (const [i, { position }] of samples.entries()) {
-          expect(clearOfArena(position), `at ${i}`).toBeGreaterThan(2);
-          expect(nearStage(position, 2), `at ${i}`).toBe(false);
-        }
-      });
-
-      it("keeps 2 clear of the Diamond, every Landmark and tower, and the ground and water", () => {
-        for (const { position } of samples) {
-          for (const b of [landmarks.diamond, ...landmarks.parts, ...buildings, ...masts, ...hongKong.bounds]) {
-            expect(near(position, b, 2)).toBe(false);
-          }
-          expect(position.y - surfaceHeight(position.x, position.z)).toBeGreaterThan(2);
         }
       });
     });

@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import {
+  contact,
   credits,
-  diamondPanel,
   hero,
   highlightAnchor,
   highlights,
@@ -16,10 +16,10 @@ import { heroRoot, openHome, SCENE_TIMEOUT, watched } from "./hero";
 // check is made in as few round trips as it can be.
 test.describe.configure({ mode: "serial", timeout: 60_000 });
 
-/** The route's panels, one per stop after the first: the Highlights', then the Diamond's. */
+/** The route's panels, one per stop after the first: the Highlights', then the Diamond's (Off the clock's). */
 const panels = [
   ...highlights.map((h) => ({ id: highlightAnchor(h.id), name: h.title })),
-  { id: diamondPanel.id, name: diamondPanel.heading },
+  { id: contact.offClock.id, name: contact.offClock.heading },
 ];
 
 const panel = (page: Page, i: number) => page.locator(`#${panels[i].id}`);
@@ -124,7 +124,7 @@ test.describe("with motion allowed, the opening skipped", () => {
     expect(results.violations).toEqual([]);
   });
 
-  test("each site lights as its panel enters, and the Diamond's panel as it enters, at native scroll, nothing pinned or snapped", async () => {
+  test("each site lights as its panel enters, and the Diamond's stop (Off the clock) as it enters, at native scroll, nothing pinned or snapped", async () => {
     const { terms: before } = await scrollState(page);
     expect(before.snapping).toEqual([]);
     expect(before.pinned).toBe(0);
@@ -158,7 +158,7 @@ test.describe("with motion allowed, the opening skipped", () => {
       .toEqual({ y: y + 300, terms: before });
   });
 
-  test("each Highlight's surface stutters on once as it first lights (at most three flashes, under a second), and never again; the Diamond's panel has no surface", async () => {
+  test("each Highlight's surface stutters on once as it first lights (at most three flashes, under a second), and never again; Off the clock has no surface", async () => {
     // Back down the route a second time: every panel lights again.
     for (let i = 0; i < panels.length; i++) {
       expect((await visitPanel(page, i)).lit, panels[i].name).toBe(true);
@@ -173,7 +173,7 @@ test.describe("with motion allowed, the opening skipped", () => {
       .toEqual(highlights.map((h) => highlightAnchor(h.id)).toSorted());
     expect(
       await page
-        .locator(`#${diamondPanel.id}`)
+        .locator(`#${contact.offClock.id}`)
         .evaluate((el) => getComputedStyle(el, "::before").content),
     ).toBe("none");
 

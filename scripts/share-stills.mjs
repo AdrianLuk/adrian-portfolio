@@ -14,8 +14,8 @@
 //   the Skyline as the camera holds it there.
 // - public/world/diamond-*.webp: the Home Run Derby's first paint, likewise:
 //   the Diamond as the camera holds it behind home plate.
-// - public/world/arena-*.webp: the Encore's backdrop where the world isn't
-//   live behind it: home scrolled to the Encore, the camera landed in the
+// - public/world/arena-*.webp: the About page's K-pop stop where the world
+//   isn't live behind it: the page scrolled to its foot, the camera in the
 //   Arena and its floor filled.
 // - public/world/route-*.webp: home's scroll route under reduced motion
 //   (and the About page's, which shares the court and the Diamond): each
@@ -35,12 +35,12 @@ import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
 import {
+  about,
   arenaStills,
   courtStills,
   diamondStills,
   credits,
-  diamondPanel,
-  encore,
+  contact,
   highlightAnchor,
   highlights,
   routeStills,
@@ -48,10 +48,6 @@ import {
   skylineStills,
   valleyStills,
 } from "../src/content/site.ts";
-import {
-  ENCORE_FILL_SECONDS,
-  ENCORE_SECONDS,
-} from "../src/components/world/rigs.ts";
 import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
@@ -195,22 +191,32 @@ async function drawValley(browser) {
 }
 
 /**
- * The Arena as the Encore shows it: home scrolled to its foot, the camera
- * flown in and the lightsticks filled, the weather held clear.
+ * The Arena as the About page's K-pop stop shows it: the page scrolled to
+ * its foot, the Hobby route's camera in the Arena and its floor filled (the
+ * fill follows the scroll there), the weather held clear.
  */
 async function drawArena(browser) {
   mkdirSync("public/world", { recursive: true });
   for (const { viewport, sizes } of stillShots(arenaStills)) {
-    const page = await openHome(browser, { viewport, motion: true, query: "?weather=clear" });
+    const context = await browser.newContext({
+      viewport,
+      deviceScaleFactor: 1.5,
+      reducedMotion: "no-preference",
+    });
+    const page = await context.newPage();
+    const drawn = await openOnFirstFrame(page, `${base}${about.path}?weather=clear`, {
+      timeout: SCENE_TIMEOUT,
+    });
+    if (!drawn) throw new Error(`The world never drew at ${about.path}`);
     await page.evaluate(() =>
       window.scrollTo(0, document.documentElement.scrollHeight),
     );
-    // The way in, then the floor filling, and a moment for the scroll's ease.
-    await page.waitForTimeout((ENCORE_SECONDS + ENCORE_FILL_SECONDS + 2) * 1000);
+    // The camera eases on after the scroll stops.
+    await page.waitForTimeout(5000);
     await page.addStyleTag({ content: WORLD_ONLY });
     await page.waitForTimeout(300);
     await writeStills(await page.screenshot(), sizes);
-    await page.context().close();
+    await context.close();
   }
 }
 
@@ -218,13 +224,13 @@ async function drawArena(browser) {
  * Home's scroll route under reduced motion: each stop after the settled view
  * as the camera holds it there, the weather held clear. Each is reached as
  * the scroll route reaches it (routeAnchors in route-anchors.ts): a site's
- * and the Diamond's as its panel is centred in the viewport, Hong Kong at the
- * route's end, the Encore's top at the foot of the screen.
+ * and the Diamond's (Off the clock's) as its panel is centred in the
+ * viewport, Hong Kong at the route's end, the page's foot.
  */
 async function drawRoute(browser) {
   mkdirSync("public/world", { recursive: true });
   // The Lit sites stand in the Highlights' order (lit-sites.ts).
-  const panels = [...highlights.map((h) => highlightAnchor(h.id)), diamondPanel.id];
+  const panels = [...highlights.map((h) => highlightAnchor(h.id)), contact.offClock.id];
   const names = [
     ...highlights.map((h) => `route-${h.id}`),
     "route-diamond",
@@ -234,11 +240,8 @@ async function drawRoute(browser) {
   for (const { shape, viewport } of stillShots(valleyStills)) {
     const page = await openHome(browser, { viewport, motion: true, query: "?weather=clear" });
     const anchors = await page.evaluate(
-      ([ids, encoreId]) => {
-        const max = document.documentElement.scrollHeight - innerHeight;
-        const encoreTop =
-          document.getElementById(encoreId).getBoundingClientRect().top + scrollY;
-        const end = Math.min(max, encoreTop - innerHeight);
+      (ids) => {
+        const end = document.documentElement.scrollHeight - innerHeight;
         const out = [];
         for (const id of ids) {
           const panel = document.getElementById(id);
@@ -250,7 +253,7 @@ async function drawRoute(browser) {
         out.push(end);
         return out.map(Math.round);
       },
-      [panels, encore.id],
+      panels,
     );
     for (const [stop, scroll] of anchors.entries()) {
       await page.evaluate((y) => window.scrollTo(0, y), scroll);

@@ -2,9 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   about,
   caseStudies,
+  contact,
   derby,
-  derbyLink,
-  diamondPanel,
   highlightAnchor,
   highlights,
   nav,
@@ -198,10 +197,9 @@ test.describe("the night backdrop", () => {
   test("home has the world itself, not the backdrop", async ({ page }) => {
     await withoutWorld(page);
     await page.goto("/");
-    // The Encore's still of the Arena, past the bookend, is its own, as are
-    // the route's stills, shown only under reduced motion.
+    // The route's stills are its own, shown only under reduced motion.
     await expect(
-      page.locator('[data-backdrop]:not([data-backdrop="arena"]):not([data-backdrop^="route-"])'),
+      page.locator('[data-backdrop]:not([data-backdrop^="route-"])'),
     ).toHaveCount(0);
   });
 });
@@ -371,10 +369,10 @@ async function watchTransit(page: Page) {
       lastFrame = now;
       if (w.__transit.seen.length > 0) {
         w.__transit.frames++;
-        // A page's backdrop: the Encore's still, at home's foot, is its own,
-        // as are the route's, shown only under reduced motion.
+        // A page's backdrop: the route's stills are home's own, shown only
+        // under reduced motion.
         const backdrop = document.querySelector(
-          '[data-backdrop]:not([data-backdrop="arena"]):not([data-backdrop^="route-"])',
+          '[data-backdrop]:not([data-backdrop^="route-"])',
         );
         const canvas = document.querySelector<HTMLCanvasElement>(
           "[data-world] canvas",
@@ -1412,10 +1410,10 @@ test.describe("Transits to and from the Derby, the Diamond seen from behind home
     });
     await tagCanvas(heroRoot(page).locator("canvas"));
 
-    // From the Diamond's panel: a Transit down the valley to the Diamond,
+    // From Off the clock's Derby link: a Transit down the valley to the Diamond,
     // not a crossfade.
     const heldGame = await heldDerby(page);
-    await page.locator(`#${diamondPanel.id}`).getByRole("link", { name: derbyLink.label }).click();
+    await page.locator(`#${contact.offClock.id}`).getByRole("link", { name: contact.offClock.derby.label }).click();
     const held = await heldGame();
     // Held, out of sight and of focus's reach; or, on a page that took
     // longer than the hold, never held at all.
@@ -1517,7 +1515,7 @@ test.describe("Transits to and from the Derby, the Diamond seen from behind home
         transitions = await watchTransitions(page);
       },
     });
-    await page.locator(`#${diamondPanel.id}`).getByRole("link", { name: derbyLink.label }).click();
+    await page.locator(`#${contact.offClock.id}`).getByRole("link", { name: contact.offClock.derby.label }).click();
     await expect(page).toHaveURL(/\/derby$/);
     await expect(
       page.getByRole("heading", { level: 2, name: derby.heading }),

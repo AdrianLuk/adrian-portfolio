@@ -1,6 +1,4 @@
 import { ContactPortrait } from "@/components/contact-portrait";
-import { DiamondPanel } from "@/components/diamond-panel";
-import { Encore } from "@/components/encore";
 import { HeroWorld } from "@/components/hero-world";
 import { HighlightPanel, PanelCorners } from "@/components/highlight-panel";
 import { CREDIT_CARD, CREDIT_SKIP, HERO_ACTION } from "@/components/opening";
@@ -232,15 +230,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* The route's stop at the Diamond, after the Highlights: the way into
-        the Derby. */}
-      <div
-        className={`mx-auto max-w-6xl px-4 pb-16 sm:px-6 ${clipsStopAfterGap}`}
-      >
-        <StopStill name="route-diamond" />
-        <DiamondPanel />
-      </div>
-
       <section
         id="contact"
         aria-labelledby="contact-heading"
@@ -280,7 +269,12 @@ export default async function Home() {
             </ul>
           </div>
         </div>
-        <div className={`mt-12 ${contactPanel}`}>
+        {/* The scroll route's stop at the Diamond: the camera turns to the
+          park as this passes, its way into the Derby beside it. */}
+        <div
+          id={contact.offClock.id}
+          className={`mt-12 ${contactPanel}`}
+        >
           <PanelCorners className="border-cyan md:hidden" />
           <h3 className="font-display text-xl font-bold [font-stretch:115%]">
             {contact.offClock.heading}
@@ -289,6 +283,15 @@ export default async function Home() {
             {contact.offClock.text}{" "}
             <Link href={contact.offClock.link.href} className={textLink}>
               {contact.offClock.link.label}
+            </Link>
+          </p>
+          <p className="mt-3 text-lg">
+            <Link
+              href={contact.offClock.derby.href}
+              prefetch={false}
+              className={textLink}
+            >
+              {contact.offClock.derby.label}
             </Link>
           </p>
         </div>
@@ -328,8 +331,6 @@ export default async function Home() {
           </p>
         </div>
       </section>
-      {/* Past the bookend, the Contact section's last word: the Encore. */}
-      <Encore />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(homeJsonLd) }}

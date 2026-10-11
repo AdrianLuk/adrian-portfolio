@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { about, derbyLink, nav, rallyLink } from "../src/content/site";
+import { about, achievements, derbyLink, nav, rallyLink } from "../src/content/site";
 import { SCENE_TIMEOUT, withoutWorld } from "./hero";
 
 // The About page: Adrian outside work, along the Hobby route (the court, the
@@ -68,6 +68,17 @@ test("pickleball links into the Rally game and the Case study; baseball into the
   await expect(baseball.locator("video, img").first()).toBeAttached();
   const kpop = page.locator(`#${about.kpop.id}`);
   await expect(kpop.getByRole("list", { name: "Concert tickets" }).getByRole("listitem")).toHaveCount(10);
+});
+
+test("reaching the K-pop panel earns Encore!, without WebGL and under reduced motion too", async ({
+  page,
+}) => {
+  await withoutWorld(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/about");
+  await page.locator(`#${about.kpop.id}`).scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, window.innerHeight / 2));
+  await expect(page.getByRole("status")).toContainText(achievements.names.encore);
 });
 
 test("the world draws live behind the page, held fixed as it scrolls, over the court's still", async ({

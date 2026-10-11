@@ -65,7 +65,7 @@ A page's spot in the one world, with its own look, that the camera flies to: hom
 _Avoid_: Scene, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court, the Skyline or the Diamond (sweeping off the route across the Harbour, panning to face downtown; or leaving it at the stadium bowl, past which home's route glances at the Diamond, to come down behind home plate), between any two of them, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court, the Skyline or the Diamond (sweeping off the route across the Harbour, panning to face downtown; or leaving it at the Diamond's stop to come down behind home plate), between any two of them, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
@@ -93,7 +93,7 @@ The Easter egg borrowed from League of Legends: holding `B`, or holding Adrian's
 _Avoid_: Teleport, B-hold
 
 **Encore**:
-The stretch of home past the closing bookend: the camera turns from the route's end into the Arena, which fills with lightsticks, and a wall of light tickets lists the K-pop concerts Adrian has been to. The bookend stays the Contact section's last word.
+The Arena's show at the About page's K-pop stop: as the Hobby route brings the camera in, the stage's beams come up and the floor fills with lightsticks, and a wall of light tickets lists the K-pop concerts Adrian has been to. Reaching it earns Encore!. Home ends on the closing bookend; nothing follows it.
 _Avoid_: Outro, ending, concert
 
 **Home Run Derby**:
@@ -109,7 +109,7 @@ The Home Run Derby's pitcher, an AI, as Dinkbot is the Rally game's opponent. It
 _Avoid_: Pitcher (unqualified), Knucklebot
 
 **Diamond**:
-The baseball stadium built from light, a diamond with a deck of seats in its outfield from pole to pole and light towers behind, home plate nearest the route, in the valley past the stadium bowl, right of the light path (the bowl stands left), well inland of Victoria Harbour: the Home Run Derby's Place, a stop on the Hobby route, and a stop on home's scroll route, with a panel, between the bowl's stop and the closing view. It may show down the valley behind the court and bowl stops, never over their Landmarks. It is not a Lit site: its panel lights, but nothing in the world lights for it.
+The baseball stadium built from light, a diamond with a deck of seats in its outfield from pole to pole and light towers behind, home plate nearest the route, in the valley past the stadium bowl, right of the light path (the bowl stands left), well inland of Victoria Harbour: the Home Run Derby's Place, a stop on the Hobby route, and a stop on home's scroll route, between the bowl's stop and the closing view, whose panel is the Contact section's Off the clock block (with home's one link into the Derby). It may show down the valley behind the court and bowl stops, never over their Landmarks. It is not a Lit site: nothing in the world lights for it.
 _Avoid_: Ballpark, field
 
 **Hobby route**:
@@ -117,7 +117,7 @@ The About page's scroll route: the camera moves from the court (pickleball) to t
 _Avoid_: About route, second route
 
 **Arena**:
-The K-pop concert arena built from light, seated in the valley's right wall beside Victoria Harbour, past the Diamond: a horseshoe of tiers whose seats are lightsticks, a canopy over them, and a stage closing its open end, aimed at Hong Kong so the city stands behind the stage. Its back is cut into the wall; the rest stands out over the shore on lit braces, as Stark's house stands out over Malibu Point. Its floor holds the lightstick crowd. The Encore's frame and the Hobby route's last stop, seen from inside, up the back tiers behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
+The K-pop concert arena built from light, seated in the valley's right wall beside Victoria Harbour, past the Diamond: a horseshoe of tiers whose seats are lightsticks, a canopy over them, and a stage closing its open end, aimed at Hong Kong so the city stands behind the stage. Its back is cut into the wall; the rest stands out over the shore on lit braces, as Stark's house stands out over Malibu Point. Its floor holds the lightstick crowd. The Encore's frame, the Hobby route's last stop, seen from inside, up the back tiers behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
 _Avoid_: Stadium, stadium bowl (BT Cup's Landmark), venue, concert hall
 
 **Sky glow**:

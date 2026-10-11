@@ -214,15 +214,14 @@ export function hongKongPose(aspect: number): Pose {
  * behind the crowd and over the seats, so the stage sits low in the frame
  * and Hong Kong shows over it; aimed `aim` over the floor at the LED wall.
  * Its field of view widens, from the world's, until the stage's truss fits
- * within `fit` of the frame's edges. The way in climbs from the route's end
- * to `over` above the Arena's open middle, clear of the canopy, then comes
+ * within `fit` of the frame's edges. The Hobby route's way in climbs to
+ * `over` above the Arena's open middle, clear of the canopy, then comes
  * down to the view.
  */
 const ARENA_VIEW = { back: 38, height: 15, aim: 9, fit: 0.9, over: 34 };
 
 /**
- * The Arena's inside view, the Encore's frame and the Hobby route's last
- * stop, for a screen of this shape: behind the crowd up the back tiers,
+ * The Arena's inside view, the Hobby route's last stop, for a screen of this shape: behind the crowd up the back tiers,
  * facing the stage down the Arena's axis, with Hong Kong behind it across
  * the water; on a narrow screen with a wider field of view (`fovY`, in
  * degrees), so the whole stage fits.
@@ -245,37 +244,6 @@ export function arenaView(aspect: number): { pose: Pose; fovY: number } {
   return {
     pose: { position, quaternion: new Quaternion().setFromRotationMatrix(look) },
     fovY,
-  };
-}
-
-/**
- * The way into the Arena from home's route's end (Hong Kong's view), for a
- * screen of this shape: climbing from the shore to above the Arena's open
- * middle, clear of its canopy, then down into it onto the inside view, the
- * view turning from Hong Kong to the stage as it goes. It may leave from
- * elsewhere (`from`): the route a little short of its end, say, as the
- * visitor scrolls back up while the camera is still on its way out. `t` runs
- * 0 to 1 through its `ENCORE_SECONDS` (./rigs), eased out of `from` and into the view;
- * the widening of the field of view to the inside view's is the Encore's.
- */
-export function arenaWayIn(aspect: number, from: Pose = hongKongPose(aspect)) {
-  const to = arenaView(aspect).pose;
-  const arena = arenaAxes();
-  const over = new Vector3(arena.x, arena.level + ARENA_VIEW.over, arena.z);
-  const climb = from.position.clone().lerp(over, 0.5).setY(over.y);
-  const curve = new CatmullRomCurve3(
-    [from.position, climb, over, to.position],
-    false,
-    "centripetal",
-  );
-  return {
-    poseAt(t: number): Pose {
-      const f = ease(Math.min(1, Math.max(0, t)));
-      return {
-        position: curve.getPointAt(f),
-        quaternion: from.quaternion.clone().slerp(to.quaternion, f),
-      };
-    },
   };
 }
 

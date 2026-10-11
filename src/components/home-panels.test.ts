@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diamondPanel, highlightAnchor, highlights } from "@/content/site";
+import { contact, highlightAnchor, highlights } from "@/content/site";
 import { findPanels } from "./home-panels";
 
 /** A stand-in panel: all the lookup needs of one is that it can be found. */
@@ -12,11 +12,11 @@ function pageOf(ids: readonly string[]) {
 }
 
 const inContentOrder = highlights.map((h) => highlightAnchor(h.id));
-const all = [...inContentOrder, diamondPanel.id];
+const all = [...inContentOrder, contact.offClock.id];
 
 describe("the scroll route's panels on home", () => {
-  it("are each Lit site's, in the Lit sites' order whatever the page's, then the Diamond's", () => {
-    const find = pageOf([diamondPanel.id, ...inContentOrder].reverse());
+  it("are each Lit site's, in the Lit sites' order whatever the page's, then the Diamond's (Off the clock's)", () => {
+    const find = pageOf([contact.offClock.id, ...inContentOrder].reverse());
     expect(findPanels(find)?.map((p) => p.id)).toEqual(all);
   });
 

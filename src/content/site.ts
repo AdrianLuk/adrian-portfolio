@@ -241,7 +241,7 @@ const mediaBase = "/case-studies/juice-bros";
 /** Into the Rally game, from the Juice Bros Highlight and Case study. Says it's a game; the jokes stay inside it. */
 export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/rally" } as const;
 
-/** Into the Home Run Derby, from the Diamond's panel and the About page's baseball section. Says it's a game, as `rallyLink` does. */
+/** Into the Home Run Derby, from the About page's baseball section. Says it's a game, as `rallyLink` does. */
 export const derbyLink = { label: "Bat against Curvebot", href: "/derby" } as const;
 
 /** A rally in the Rally game, over its link in the Juice Bros Highlight. */
@@ -705,11 +705,17 @@ export const contact = {
       (width) => `/contact/adrian-luk-${width}.webp`,
     ),
   },
-  /** Off the clock lives on the About page: here, one line pointing there. */
+  /**
+   * Off the clock lives on the About page: here, one line pointing there, and
+   * the way into the Derby. Its panel is the scroll route's stop at the
+   * Diamond (src/components/home-panels.ts).
+   */
   offClock: {
+    id: "off-the-clock",
     heading: "Off the clock",
     text: "Pickleball, baseball, K-pop concerts and games.",
     link: { label: "More on the About page", href: "/about" },
+    derby: { label: "Bat in the Home Run Derby", href: derbyLink.href },
   },
   /**
    * How the site itself is built: each fact one the public repo bears out,
@@ -742,9 +748,11 @@ export const contact = {
   channels: readonly ContactChannel[];
   portrait: { alt: string; stills: readonly Still[] };
   offClock: {
+    id: string;
     heading: string;
     text: string;
     link: { label: string; href: string };
+    derby: { label: string; href: string };
   };
   built: {
     heading: string;
@@ -756,8 +764,8 @@ export const contact = {
 };
 
 /**
- * The Encore, home's stretch past the closing bookend: the camera turns into
- * the Arena, and the ticket wall lists the K-pop concerts Adrian has been to
+ * The Encore, at the About page's K-pop stop: the camera comes into the
+ * Arena, and the ticket wall lists the K-pop concerts Adrian has been to
  * (Personal facts, docs/HANDOFF.md). Each ticket's light is its group's
  * colour where it has one (TWICE's apricot and neon magenta, per JYP), else
  * the world's palette. Text and colour only: no logos.
@@ -771,11 +779,8 @@ const world = {
 } as const;
 
 export const encore = {
-  id: "encore",
-  heading: "Encore",
   lead: "The K-pop concerts I've been to, so far.",
   wallLabel: "Concert tickets",
-  replay: "One more song",
   // Oldest first.
   tickets: [
     { group: "aespa", year: 2025, colors: [world.cyan] },
@@ -790,11 +795,8 @@ export const encore = {
     { group: "XG", year: 2026, colors: [world.green] },
   ],
 } as const satisfies {
-  id: string;
-  heading: string;
   lead: string;
   wallLabel: string;
-  replay: string;
   tickets: readonly { group: string; year: number; colors: readonly string[] }[];
 };
 
@@ -828,9 +830,8 @@ export const about = {
     id: "kpop",
     heading: "K-pop",
     lines: ["I go to K-pop concerts regularly."],
-    // The Encore's own ticket wall, under its lead; and the way to its Easter egg.
+    // The Encore's ticket wall, under its lead.
     wallLead: encore.lead,
-    egg: { label: "Keep going past the end of the home page", href: `/#${encore.id}` },
   },
   gaming: {
     id: "gaming",
@@ -1056,20 +1057,6 @@ export const derby = {
   },
 } as const;
 
-/**
- * The Diamond's panel on home, after the Highlights: the route's stop beside
- * the park, and a way into the Derby. Its eyebrow and heading are the
- * Derby's own.
- */
-export const diamondPanel = {
-  id: "derby",
-  eyebrow: derby.eyebrow,
-  heading: derby.heading,
-  line: "Ten pitches from Curvebot. Your timing decides where each one goes.",
-  clip: derbyClip,
-  link: derbyLink,
-} as const;
-
 const settledFrameAlt =
   "Adrian Luk's name in lit 3D letters on a night valley floor, between glowing towers, with Toronto's skyline and the CN Tower behind.";
 
@@ -1184,8 +1171,8 @@ export const skylineStills = worldStills("skyline");
 export const diamondStills = worldStills("diamond");
 
 /**
- * The Encore's backdrop where the world isn't live behind it (without WebGL,
- * or under reduced motion): the Arena from inside, its show on.
+ * The About page's K-pop stop where the world isn't live behind it (without
+ * WebGL, or under reduced motion): the Arena from inside, its show on.
  */
 export const arenaStills = worldStills("arena");
 

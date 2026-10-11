@@ -4,8 +4,8 @@ import { encore } from "@/content/site";
 /**
  * The wall of light tickets, one per K-pop concert Adrian has been to: a
  * plain list of text, there from the first paint, each ticket lit in its
- * group's colour once a `data-reached` (the Encore) or `data-lit` (the About
- * page's K-pop panel) is set round it (src/app/globals.css).
+ * group's colour once the About page's scroll route sets `data-lit` on the
+ * K-pop panel round it (src/app/globals.css).
  */
 export function TicketWall({ className = "" }: { className?: string }) {
   return (

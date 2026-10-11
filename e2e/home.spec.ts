@@ -4,8 +4,6 @@ import {
   contact,
   credits,
   derbyLink,
-  diamondPanel,
-  encore,
   footer,
   hero,
   highlightAnchor,
@@ -85,30 +83,14 @@ test.describe("before any script runs", () => {
     }
   });
 
-  test("the Diamond's panel stands between the Highlights and Contact: its eyebrow, heading, line and play button into the Derby", async ({
+  test("home is one path: the Highlights, then Contact, with nothing between them or after", async ({
     page,
   }) => {
     await page.goto("/");
-    const panel = page.getByRole("region", { name: diamondPanel.heading });
-    await expect(panel).toHaveAttribute("id", diamondPanel.id);
-    await expect(panel.getByRole("heading", { level: 2 })).toHaveText(
-      diamondPanel.heading,
-    );
-    await expect(panel).toContainText(diamondPanel.eyebrow);
-    await expect(panel).toContainText(diamondPanel.line);
-    // The clip, holding on its poster and loading nothing until it plays.
-    const clip = panel.locator("video");
-    await expect(clip).toHaveAttribute("aria-label", diamondPanel.clip.label);
-    await expect(clip).toHaveAttribute("poster", diamondPanel.clip.poster);
-    await expect(clip).toHaveAttribute("preload", "none");
-    const links = panel.getByRole("link");
-    await expect(links).toHaveCount(1);
-    await expect(links).toHaveText(derbyLink.label);
-    await expect(links).toHaveAttribute("href", derbyLink.href);
     const order = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("#work, #derby, #contact"), (el) => el.id),
+      Array.from(document.querySelectorAll("main section[id]:not(section section)"), (el) => el.id),
     );
-    expect(order).toEqual(["work", diamondPanel.id, "contact"]);
+    expect(order).toEqual(["work", "contact"]);
   });
 
   test("the opening credits, the Contact section and its resume link are in the markup", async ({
@@ -156,7 +138,6 @@ test.describe("a keyboard walk", () => {
       ...highlights.flatMap((h: Highlight) =>
         h.secondLink ? [hrefFor(h.link), h.secondLink.href] : [hrefFor(h.link)],
       ),
-      diamondPanel.link.href,
       contact.resume.href,
       ...contact.channels.map((c) => c.href),
     ];
@@ -285,7 +266,6 @@ test.describe("with motion allowed", () => {
 /** Home's route stops after the settled view, each with its still under reduced motion. */
 const routeStops = [
   ...highlights.map((h) => ({ still: `route-${h.id}`, at: `#${highlightAnchor(h.id)}` })),
-  { still: "route-diamond", at: `#${diamondPanel.id}` },
   { still: "route-hong-kong", at: "#contact" },
 ];
 
@@ -407,7 +387,7 @@ test("the Contact section has a lead, the resume link, the contact channels and 
   await expect(page.getByText("Fin.", { exact: false })).toHaveCount(0);
 });
 
-test("the Off the clock block links to the About page, where its lines now live", async ({
+test("the Off the clock block links to the About page, where its lines now live, and into the Derby", async ({
   page,
 }) => {
   await page.goto("/");
@@ -419,8 +399,10 @@ test("the Off the clock block links to the About page, where its lines now live"
   await expect(
     section.getByRole("link", { name: contact.offClock.link.label }),
   ).toHaveAttribute("href", "/about");
-  // The Diamond's panel is home's one way into the Derby now.
-  await expect(section.getByRole("link", { name: derbyLink.label })).toHaveCount(0);
+  // Home's one way into the Derby; the scroll route's stop at the Diamond.
+  await expect(
+    section.locator(`#${contact.offClock.id}`).getByRole("link", { name: contact.offClock.derby.label }),
+  ).toHaveAttribute("href", derbyLink.href);
   // Ahead of the built block, which keeps its place before the bookend.
   const [offBox, builtBox] = await Promise.all([
     section.getByRole("heading", { level: 3, name: contact.offClock.heading }).boundingBox(),
@@ -560,18 +542,16 @@ test.describe("the closing view", () => {
         expect(last).toBe(contact.bookend.text);
       });
 
-      test("is the screen the route ends on, short of the Encore: clear of copy but the bookend over its lower half", async ({
+      test("is the screen the route ends on, the page's foot: clear of copy but the bookend over its lower half", async ({
         page,
       }) => {
         // The camera's screen: under reduced motion the bookend simply follows the copy.
         await page.emulateMedia({ reducedMotion: "no-preference" });
         await page.goto("/");
-        // The bookend at the foot of the screen, the Encore just past it.
-        await page.evaluate((id) => {
-          const encore = document.getElementById(id)!;
-          const top = encore.getBoundingClientRect().top + window.scrollY;
-          window.scrollTo(0, top - window.innerHeight);
-        }, encore.id);
+        // The bookend at the foot of the screen, the page's last.
+        await page.evaluate(() =>
+          window.scrollTo(0, document.documentElement.scrollHeight),
+        );
         const section = page.locator("#contact");
         const bookend = section.getByText(contact.bookend.text, { exact: true });
         await expect(bookend).toBeInViewport({ ratio: 1 });

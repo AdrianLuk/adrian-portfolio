@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { EarnOnReach } from "@/components/earn-on-reach";
 import { HobbyScroll } from "@/components/hobby-scroll";
 import {
   accents,
@@ -141,16 +142,12 @@ export default async function AboutPage() {
           </p>
         </HobbyPanel>
 
-        {/* The Arena's inside view, as the Encore's still shows it. */}
+        {/* The Arena's inside view, its show on. Reaching it earns Encore!. */}
         <HobbyPanel section={kpop} light="violet" still="arena" data-wall>
           <p className="mt-6 text-ink/90">{kpop.wallLead}</p>
           {/* One column on a phone: the panel's padding leaves two too narrow for the longest names. */}
           <TicketWall className="mt-3 max-sm:grid-cols-1" />
-          <p className="mt-4">
-            <Link href={kpop.egg.href} className={textLink}>
-              {kpop.egg.label}
-            </Link>
-          </p>
+          <EarnOnReach target={kpop.id} achievement="encore" />
         </HobbyPanel>
 
         <HobbyPanel section={gaming} light="cyan" still="arena" />
