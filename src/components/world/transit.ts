@@ -1,4 +1,3 @@
-import { Quaternion } from "three";
 import type { FlightPath, Pose } from "./flight";
 import { TRANSIT_MAX_SECONDS } from "./rigs";
 import { COURT_SITE, DIAMOND_STOP, ROUTE_STOPS, type Route } from "./route";
@@ -127,10 +126,9 @@ const JOIN_REACH = 50;
 const JOIN_SPREAD = 0.5;
 
 /**
- * World units of the trip, per radian, that panning onto the route's view
- * (or off it, onto a pose's) takes at least: a big turn, as the Skyline's
- * across the harbour, slows its leg to a medium-speed pan. It adds time, never
- * route: the camera still leaves the route where JOIN_REACH says.
+ * World units of the trip, per radian of turn, that a leg takes at least: a
+ * big turn, as the Skyline's across the harbour, slows its leg. It adds time,
+ * never route: the camera still leaves the route where JOIN_REACH says.
  */
 const TURN_REACH = 400;
 
@@ -260,7 +258,7 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   // The trip in three legs, each as long as the way it flies: leaving (easing
   // onto the route from the departure, over `joinRoute` of it), along the
   // route, and landing (easing off it onto the pose, over `landRoute` of it).
-  // A turn sets a floor on its leg's length, so it is never a whip round.
+  // A turn sets a floor on its leg's length.
   const routeLength = Math.abs(toLength - fromLength);
   const way = Math.sign(toLength - fromLength);
   /** The route's own view `travelled` units along it from the departure. */
@@ -271,11 +269,10 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   const reach = (off: number) => Math.max(JOIN_REACH, JOIN_SPREAD * off);
   let joinRoute = reach(offset.length());
   let landRoute = reach(landing.length());
-  // The route turns to frame the Diamond, and away again, at a scroll's
-  // pace, far too quick at a Transit's: one landing among those turns (the
-  // Derby's view, beside the Diamond) leaves the route where they start, and
-  // one leaving from among them joins the route where they end, so the
-  // camera pans once, never through them.
+  // The route turns to frame the Diamond, and away again: one landing among
+  // those turns (the Derby's view, beside the Diamond) leaves the route where
+  // they start, and one leaving from among them joins the route where they
+  // end, so the camera flies straight across, never through them.
   const turns = [DIAMOND_STOP - 1, DIAMOND_STOP + 1];
   const ends = turns.map((stop) => lookup(samples, "stop", stop, "length"));
   // Down the valley, the camera meets the turns at their first stop.
@@ -292,9 +289,10 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
     joinRoute *= fit;
     landRoute *= fit;
   }
-  // The leaving leg pans from the departure's view to the route's where it
-  // joins it, and the landing leg from the route's where it leaves it to the
-  // pose's: each one clean pan, whatever the route's own view does meanwhile.
+  // A leg's length, and so the trip's pace, allows for the turn from the
+  // departure's view to the route's where it joins it, and from the route's
+  // where it leaves it to the pose's, though the camera itself turns once,
+  // over the whole trip (see `along`).
   const joined = viewAt(joinRoute);
   const left = viewAt(routeLength - landRoute);
   const leaving = Math.max(
@@ -319,7 +317,13 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
     return travel * u ** Math.max(1, leg / travel);
   }
 
-  /** The camera a fraction `f` (0 to 1) of the way along the distance. */
+  /**
+   * The camera a fraction `f` (0 to 1) of the way along the distance. It
+   * flies the route, but doesn't look where the route does: the route turns
+   * to frame each Lit site at a scroll's pace, a whip round at a Transit's.
+   * The view turns once, from the departure's to the landing's, over the
+   * whole trip.
+   */
   function along(f: number): Pose {
     if (f <= 0) return copyOf(departure);
     if (f >= 1) return copyOf(end);
@@ -327,28 +331,25 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
     let travelled: number;
     let off = 0;
     let on = 0;
-    let view: Quaternion | null = null;
     if (d < leaving) {
       const u = d / leaving;
       travelled = legPace(u, joinRoute, leaving);
       off = 1 - ease(u);
-      view = departure.quaternion.clone().slerp(joined, ease(u));
     } else if (d < leaving + cruise) {
       travelled = joinRoute + (d - leaving);
     } else {
       const u = Math.min(1, (d - leaving - cruise) / landingLeg);
       travelled = routeLength - legPace(1 - u, landRoute, landingLeg);
       on = ease(u);
-      view = left.clone().slerp(end.quaternion, on);
     }
-    const { position, quaternion } = route.poseAt(
+    const { position } = route.poseAt(
       lookup(samples, "length", fromLength + way * travelled, "stop"),
     );
     return {
       position: position
         .addScaledVector(offset, off)
         .addScaledVector(landing, on),
-      quaternion: view ?? quaternion,
+      quaternion: departure.quaternion.clone().slerp(end.quaternion, f),
     };
   }
 

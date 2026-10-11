@@ -68,6 +68,13 @@ const STEP_LIMIT = 12;
  */
 const PAN_LIMIT = 150;
 
+/**
+ * The fastest any Transit may turn on a phone, in degrees a second: its
+ * frame is about 19° wide against desktop's 60°, so this sweeps a similar
+ * share of the screen a second as PAN_LIMIT does on desktop.
+ */
+const PHONE_PAN_LIMIT = 70;
+
 /** The most the camera may turn in one of `along`'s steps. */
 const TURN_LIMIT = (3 * Math.PI) / 180;
 
@@ -748,5 +755,61 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         }
       });
     });
+
+    describe("along the whole trip", () => {
+      const limit = aspect >= 1 ? PAN_LIMIT : PHONE_PAN_LIMIT;
+      const places = {
+        home: settled,
+        "the court": courtPose(aspect),
+        "/rally": playView(aspect, landmarks.court).pose,
+        "the Skyline": skylineView,
+        "the Derby": derbyView(aspect, landmarks.field).pose,
+      };
+      const arrival = (pose: Pose) => (pose === settled ? SETTLED_STOP : pose);
+
+      for (const [from, departure] of Object.entries(places)) {
+        for (const [to, destination] of Object.entries(places)) {
+          // The court's two views have their own Transit (transitWithin).
+          if (from === to || [from, to].sort().join() === "/rally,the court") {
+            continue;
+          }
+          it(`${from} to ${to} turns once, straight round, no faster than ${limit}°/s`, () => {
+            expectOneTurn(
+              transitPath(route, departure, arrival(destination)),
+              limit,
+            );
+          });
+        }
+      }
+
+      it(`home's scroll at the route's end and the Skyline or the Derby, either way, turn once, straight round, no faster than ${limit}°/s`, () => {
+        const end = ROUTE_STOPS - 1;
+        for (const place of [skylineView, places["the Derby"]]) {
+          expectOneTurn(transitPath(route, place, end), limit);
+          expectOneTurn(transitPath(route, route.poseAt(end), place), limit);
+        }
+      });
+    });
   });
+}
+
+/**
+ * The transit turns no further than straight from its first view to its
+ * last, never swinging away and back, and never faster than `limit` degrees
+ * a second.
+ */
+function expectOneTurn(trip: Transit, limit: number) {
+  const poses = along(trip);
+  const step = trip.duration / (poses.length - 1);
+  let turned = 0;
+  for (let i = 1; i < poses.length; i++) {
+    const degrees =
+      (poses[i].quaternion.angleTo(poses[i - 1].quaternion) * 180) / Math.PI;
+    expect(degrees / step).toBeLessThan(limit);
+    turned += degrees;
+  }
+  const straight =
+    (poses[0].quaternion.angleTo(poses[poses.length - 1].quaternion) * 180) /
+    Math.PI;
+  expect(turned).toBeLessThan(straight + 0.5);
 }
