@@ -25,7 +25,7 @@ export function TicketWall({ className = "" }: { className?: string }) {
             } as CSSProperties
           }
         >
-          <span className="font-display text-sm font-bold [font-stretch:110%]">
+          <span className="font-display text-xs font-bold sm:text-sm sm:[font-stretch:110%]">
             {ticket.group}
           </span>{" "}
           <span className="text-sm text-ink/80">{ticket.year}</span>

@@ -421,7 +421,8 @@ export async function createWorld(
   const floodlights = createGlowPoints(structures.floodlights, shared);
   const sites = createSiteLights(shared);
   // The Encore's show in the Arena, off (and hidden) until the director
-  // switches it on: the lightsticks on its floor and its stage's beams.
+  // switches it on: the lightsticks on its floor and its stage's beams
+  // (which home's scroll route also lights, from the path).
   const arena = layoutArena();
   const crowd = createGlowPoints(arena.crowd, shared, { sway: ENCORE_SWAY });
   crowd.points.visible = false;
@@ -595,16 +596,16 @@ export async function createWorld(
     look = courtLook(lights.court);
     skyline = skylineLook(lights.skyline);
     showLook();
+    beams.setIntensity(lights.spotlights);
     showEncore(lights.encore, lights.fill);
   }
 
   /**
-   * The Encore's show, as far on as the director says: the beams and the
-   * lightsticks brightening together, the floor filled as far as `fill`
-   * (all of it at once while the world holds still).
+   * The Encore's lightsticks, as far on as the director says, the floor
+   * filled as far as `fill` (all of it at once while the world holds still).
+   * The spotlights have their own say (CameraLights.spotlights).
    */
   function showEncore(on: number, fill: number) {
-    beams.setIntensity(on);
     crowd.setIntensity(on);
     crowd.setFill(motion ? fill : 1);
     crowd.points.visible = on > 0;

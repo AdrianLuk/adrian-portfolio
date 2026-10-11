@@ -198,6 +198,7 @@ describe("the Camera director", () => {
       court: 0,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
   });
@@ -249,6 +250,7 @@ describe("the Camera director", () => {
       court: 0,
       skyline: 1,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
   });
@@ -266,6 +268,7 @@ describe("the Camera director", () => {
       court: 1,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
@@ -284,6 +287,7 @@ describe("the Camera director", () => {
       court: 0,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
@@ -327,6 +331,7 @@ describe("the Camera director", () => {
       court: 1,
       skyline: 0,
       encore: 0,
+      spotlights: 0,
       fill: 0,
     });
     expect(lean).toEqual({ x: 0, y: 0 });
@@ -1084,6 +1089,24 @@ describe("the Camera director", () => {
       expectSamePose(poses.at(-1)!, inside.pose);
       expect(director.frame(SECONDS + 200).fovY).toBeCloseTo(60);
       expect(director.frame(SECONDS / 2).fovY).toBeCloseTo((CAMERA.fovY + 60) / 2);
+    });
+
+    it("lights the Arena's spotlights along the scroll route: off at the hero, full from the first Highlight on, the lightsticks waiting for the Encore", () => {
+      const { director } = setup();
+      director.show("hero");
+      director.openingLands();
+      director.scrolled(0, [0, 0, 0, 0]);
+      expect(director.frame(0).lights).toMatchObject({ spotlights: 0, encore: 0 });
+      director.scrolled(0.5, [0.5, 0, 0, 0]);
+      const half = director.frame(0).lights!.spotlights;
+      expect(half).toBeGreaterThan(0);
+      expect(half).toBeLessThan(1);
+      for (const stop of [1, 2.5, LAST]) {
+        director.scrolled(stop, [1, 1, 1, 1]);
+        expect(director.frame(0).lights).toMatchObject({ spotlights: 1, encore: 0, fill: 0 });
+      }
+      director.scrollStopped();
+      expect(director.frame(0).lights).toMatchObject({ spotlights: 0 });
     });
 
     it("switches the show on as the camera comes in, fills the floor once it lands, and fills it again for one more song", () => {
