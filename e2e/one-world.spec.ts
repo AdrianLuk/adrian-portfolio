@@ -1601,7 +1601,7 @@ test.describe("Transits to and from the About page, on the Hobby route", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: about.heading }),
     ).toBeVisible();
-    await expect(page.getByText(about.roots)).toBeVisible();
+    await expect(page.getByText(about.intro[0])).toBeVisible();
 
     // Down the Hobby route: each panel lights as the scroll reaches its stop.
     const stops = [about.pickleball.id, about.baseball.id, about.kpop.id];

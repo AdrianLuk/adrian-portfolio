@@ -114,7 +114,11 @@ export default async function AboutPage() {
           >
             {about.heading}
           </h2>
-          <p className="mt-4 text-lg text-ink/90">{about.roots}</p>
+          {about.intro.map((paragraph) => (
+            <p key={paragraph} className="mt-4 text-lg text-ink/90">
+              {paragraph}
+            </p>
+          ))}
         </header>
 
         <HobbyPanel
