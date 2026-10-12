@@ -117,7 +117,7 @@ test("without WebGL the court's still stays, and nothing errors", async ({
   expect((await stillShown(page)).loaded).toBe(true);
   await expect(still(page)).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 2, name: study.title }),
+    page.getByRole("heading", { level: 1, name: study.title }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

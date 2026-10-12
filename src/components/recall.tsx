@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useRef, useState, type MouseEvent } from "react";
 import type { recall } from "@/content/site";
 import { earnAchievement } from "./achievements";
@@ -42,6 +42,8 @@ function startsRecall(event: KeyboardEvent) {
  */
 export function RecallName({ name, copy }: { name: string; copy: typeof recall }) {
   const router = useRouter();
+  // The H1 on home only: every other page names itself in its own H1.
+  const Name = usePathname() === "/" ? "h1" : "p";
   const [channeling, setChanneling] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   /** The channel under way: its timer. */
@@ -118,7 +120,7 @@ export function RecallName({ name, copy }: { name: string; copy: typeof recall }
 
   return (
     <>
-      <h1 className="font-display text-base font-bold tracking-wide whitespace-nowrap uppercase [font-stretch:125%] sm:text-lg">
+      <Name className="font-display text-base font-bold tracking-wide whitespace-nowrap uppercase [font-stretch:125%] sm:text-lg">
         <Link
           href="/"
           // The iPhone's link preview would steal the hold: here only.
@@ -165,8 +167,8 @@ export function RecallName({ name, copy }: { name: string; copy: typeof recall }
             </svg>
           )}
         </Link>
-      </h1>
-      {/* Outside the heading, so it's never part of its name. */}
+      </Name>
+      {/* Outside the name, so it's never part of its name. */}
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>

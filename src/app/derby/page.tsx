@@ -43,12 +43,12 @@ export default async function DerbyPage() {
             <p className="font-display text-sm tracking-[0.3em] text-cyan uppercase [font-stretch:75%]">
               {derby.eyebrow}
             </p>
-            <h2
+            <h1
               id="derby-heading"
               className="mt-3 font-display text-4xl sm:text-5xl font-extrabold uppercase [font-stretch:140%]"
             >
               {derby.heading}
-            </h2>
+            </h1>
             <div id={HINT_ID} className="mt-4 space-y-1 text-ink/85">
               <p>{derby.hint.timing}</p>
               <p>{derby.hint.keys}</p>

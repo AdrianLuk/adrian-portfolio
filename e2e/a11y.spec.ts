@@ -5,7 +5,7 @@ import {
   SCENE,
   SCENE_STATES,
 } from "../src/components/player-tools-markup";
-import { notFound, recall } from "../src/content/site";
+import { notFound, person, recall, resume } from "../src/content/site";
 
 const missingPath = "/this-page-does-not-exist";
 
@@ -31,6 +31,33 @@ for (const route of routes) {
     expect(results.violations).toEqual([]);
   });
 }
+
+// One H1 per page: the name on home, the page's own title everywhere else.
+for (const route of routes) {
+  test(`${route.name} has one H1, its own`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(route.path);
+    const h1 = page.getByRole("heading", { level: 1 });
+    await expect(h1).toHaveCount(1);
+    if (route.path === "/") await expect(h1).toHaveText(person.name);
+    else await expect(h1).not.toHaveText(person.name);
+  });
+}
+
+test("the name gives up the H1 on a client-side navigation from home", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Resume" })
+    .click();
+  await expect(page).toHaveURL(/\/resume$/);
+  const h1 = page.getByRole("heading", { level: 1 });
+  await expect(h1).toHaveCount(1);
+  await expect(h1).toHaveText(resume.heading);
+});
 
 test("a Recall channeling has no axe violations", async ({ page }) => {
   // The channel's timer never fires: on a loaded runner axe can outlast its

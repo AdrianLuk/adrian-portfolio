@@ -53,9 +53,9 @@ export default async function ResumePage() {
         className={`flex max-w-3xl flex-col items-start gap-4 ${overPlace.skyline} ${arrivesAtSkyline}`}
       >
         <PanelCorners className="border-cyan" />
-        <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
+        <h1 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
           {resume.heading}
-        </h2>
+        </h1>
         <p className="text-lg text-ink/85">{resume.intro}</p>
         <p className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <a href={resume.pdfHref} download className={primaryAction}>
@@ -71,9 +71,9 @@ export default async function ResumePage() {
         aria-labelledby="experience-heading"
         className={`mt-16 max-w-3xl ${arrivesAtSkyline}`}
       >
-        <h3 id="experience-heading" className={sectionLabel}>
+        <h2 id="experience-heading" className={sectionLabel}>
           {resume.rolesHeading}
-        </h3>
+        </h2>
         <ol className="mt-8 space-y-12 border-l border-fog pl-6 sm:pl-8">
           {roles.map((role) => (
             <li
@@ -87,9 +87,9 @@ export default async function ResumePage() {
                 aria-hidden="true"
                 className="absolute top-8 -left-[calc(1.5rem+4.5px)] size-2 rounded-full bg-cyan sm:top-10 sm:-left-[calc(2rem+4.5px)]"
               />
-              <h4 className={entryTitle}>
+              <h3 className={entryTitle}>
                 {role.title}, {role.company}
-              </h4>
+              </h3>
               <p className={`mt-1 ${metaLine}`}>
                 {role.start} to {role.end}
               </p>
@@ -104,13 +104,13 @@ export default async function ResumePage() {
         aria-labelledby="side-projects-heading"
         className={`mt-20 max-w-3xl ${arrivesAtSkyline}`}
       >
-        <h3 id="side-projects-heading" className={sectionLabel}>
+        <h2 id="side-projects-heading" className={sectionLabel}>
           {resume.sideProjectsHeading}
-        </h3>
+        </h2>
         <ul className="mt-8 space-y-10">
           {sideProjects.map((project) => (
             <li key={project.id} id={project.id} className={`scroll-mt-24 ${panel}`}>
-              <h4 className={entryTitle}>{project.name}</h4>
+              <h3 className={entryTitle}>{project.name}</h3>
               <p className={`mt-1 ${metaLine}`}>{project.year}</p>
               <Bullets items={project.bullets} />
               <p className="mt-6">

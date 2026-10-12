@@ -95,7 +95,7 @@ const backdropState = (page: Page, heading: string) =>
     const el = document.querySelector<HTMLElement>("[data-backdrop]")!;
     const box = el.getBoundingClientRect();
     const img = el.querySelector("img")!;
-    const title = Array.from(document.querySelectorAll("h2")).find(
+    const title = Array.from(document.querySelectorAll("h1")).find(
       (h) => h.textContent?.trim().toLowerCase() === heading.toLowerCase(),
     )!;
     const at = title.getBoundingClientRect();
@@ -265,7 +265,7 @@ test.describe("between routes", () => {
     await resumeLink(page).click();
     await expect(page).toHaveURL(/\/resume$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: resume.heading }),
+      page.getByRole("heading", { level: 1, name: resume.heading }),
     ).toBeVisible();
     await expect.poll(async () => (await transitions()).at(-1)?.length ?? 0)
       .toBeGreaterThan(0);
@@ -284,7 +284,7 @@ test.describe("between routes", () => {
     await resumeLink(page).click();
     await expect(page).toHaveURL(/\/resume$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: resume.heading }),
+      page.getByRole("heading", { level: 1, name: resume.heading }),
     ).toBeVisible();
     // Nothing takes any time, transition or not. (On a loaded machine React
     // can start a second transition and pin its groups with zero-length
@@ -427,7 +427,7 @@ const heldCopy = (page: Page, heading: string) =>
     // Bounded by time, not frames: a software renderer's frames can be slow.
     const until = performance.now() + 5000;
     while (performance.now() < until) {
-      const header = Array.from(document.querySelectorAll("h2"))
+      const header = Array.from(document.querySelectorAll("h1"))
         .find((h) => h.textContent === heading)
         ?.closest("header");
       if (header && root.hasAttribute("data-arriving")) {
@@ -491,7 +491,7 @@ test.describe("Transits between Places", () => {
     const skyline = page.locator("[data-world]");
     await expect(skyline).toHaveAttribute("data-world", "drawn");
     expect(await canvasTag(skyline.locator("canvas"))).toBe("the world");
-    const heading = page.getByRole("heading", { level: 2, name: resume.heading });
+    const heading = page.getByRole("heading", { level: 1, name: resume.heading });
     await expect(heading).toBeVisible();
     await expect
       .poll(() =>
@@ -676,7 +676,7 @@ test.describe("Transits between Places", () => {
     await caseStudyLink(page).click();
     await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
     await expect(
-      page.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+      page.getByRole("heading", { level: 1, name: caseStudies[0].title }),
     ).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
@@ -719,7 +719,7 @@ test.describe("Transits between Places", () => {
     await caseStudyLink(page).click();
     await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
     const heading = page.getByRole("heading", {
-      level: 2,
+      level: 1,
       name: caseStudies[0].title,
     });
     // The copy is there as the page is: never held back for a landing.
@@ -784,7 +784,7 @@ test.describe("Transits between Places", () => {
     await expect(skyline).toHaveAttribute("data-world", "pending");
     await expect(page.locator("[data-backdrop] img")).toBeVisible();
     await expect(
-      page.getByRole("heading", { level: 2, name: resume.heading }),
+      page.getByRole("heading", { level: 1, name: resume.heading }),
     ).toBeVisible();
     await page.context().close();
   });
@@ -826,7 +826,7 @@ test.describe("Transits between Places", () => {
     expect(await canvasTag(court.locator("canvas"))).toBe("the world");
     await expect(page.locator('[data-backdrop="court"]')).toHaveCount(1);
     const heading = page.getByRole("heading", {
-      level: 2,
+      level: 1,
       name: caseStudies[0].title,
     });
     await expect(heading).toBeVisible();
@@ -891,7 +891,7 @@ test.describe("Transits between Places", () => {
     await still.keyboard.press("Enter");
     await expect(still).toHaveURL(new RegExp(`${caseStudyPath}$`));
     await expect(
-      still.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+      still.getByRole("heading", { level: 1, name: caseStudies[0].title }),
     ).toBeVisible();
     expect(await focusedElement(still)).toEqual(focused);
     await plain.close();
@@ -970,7 +970,7 @@ test.describe("Transits between Places", () => {
     await flown(transit, page, "court");
     await expect(world).toHaveAttribute("data-world", "drawn");
     await expect(
-      page.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+      page.getByRole("heading", { level: 1, name: caseStudies[0].title }),
     ).toBeVisible();
 
     const seen = await transit();
@@ -1264,7 +1264,7 @@ test.describe("Transits to and from /rally, the court seen from behind the playe
     await expect(page).toHaveURL(/\/resume$/);
     await flown(transit, page, "skyline");
     await expect(
-      page.getByRole("heading", { level: 2, name: resume.heading }),
+      page.getByRole("heading", { level: 1, name: resume.heading }),
     ).toBeVisible();
 
     await page.goBack();
@@ -1328,7 +1328,7 @@ test.describe("Transits to and from /rally, the court seen from behind the playe
     await expect(page).toHaveURL(new RegExp(`${caseStudyPath}$`));
     await flown(transit, page, "court");
     await expect(
-      page.getByRole("heading", { level: 2, name: caseStudies[0].title }),
+      page.getByRole("heading", { level: 1, name: caseStudies[0].title }),
     ).toBeVisible();
     expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
 
@@ -1361,7 +1361,7 @@ test.describe("Transits to and from /rally, the court seen from behind the playe
       .click();
     await expect(page).toHaveURL(/\/rally$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: rally.heading }),
+      page.getByRole("heading", { level: 1, name: rally.heading }),
     ).toBeVisible();
     await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
@@ -1518,7 +1518,7 @@ test.describe("Transits to and from the Derby, the Diamond seen from behind home
     await page.locator(`#${contact.offClock.id}`).getByRole("link", { name: contact.offClock.derby.label }).click();
     await expect(page).toHaveURL(/\/derby$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: derby.heading }),
+      page.getByRole("heading", { level: 1, name: derby.heading }),
     ).toBeVisible();
     await expect(gameRoot(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,
@@ -1599,7 +1599,7 @@ test.describe("Transits to and from the About page, on the Hobby route", () => {
     expect(await canvasTag(worldOf(page).locator("canvas"))).toBe("the world");
     await expect(page.locator("canvas")).toHaveCount(1);
     await expect(
-      page.getByRole("heading", { level: 2, name: about.heading }),
+      page.getByRole("heading", { level: 1, name: about.heading }),
     ).toBeVisible();
     await expect(page.getByText(about.intro[0])).toBeVisible();
 
@@ -1713,7 +1713,7 @@ test.describe("Transits to and from the About page, on the Hobby route", () => {
     await aboutLink(page).click();
     await expect(page).toHaveURL(/\/about$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: about.heading }),
+      page.getByRole("heading", { level: 1, name: about.heading }),
     ).toBeVisible();
     await expect(worldOf(page)).toHaveAttribute("data-world", "drawn", {
       timeout: SCENE_TIMEOUT,

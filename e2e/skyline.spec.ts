@@ -99,7 +99,7 @@ test("without WebGL the Skyline's still stays, and nothing errors", async ({
   expect((await stillShown(page)).loaded).toBe(true);
   await expect(still(page)).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 2, name: resume.heading }),
+    page.getByRole("heading", { level: 1, name: resume.heading }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

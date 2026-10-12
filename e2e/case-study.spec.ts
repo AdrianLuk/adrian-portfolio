@@ -35,10 +35,10 @@ test("the main heading names the project and the four sections follow", async ({
 }) => {
   await page.goto(path);
   const main = page.getByRole("main");
-  await expect(main.getByRole("heading", { level: 2 })).toHaveText(
+  await expect(main.getByRole("heading", { level: 1 })).toHaveText(
     study.title,
   );
-  await expect(main.getByRole("heading", { level: 3 })).toHaveText(
+  await expect(main.getByRole("heading", { level: 2 })).toHaveText(
     study.sections.map((s) => s.heading),
   );
 });
@@ -130,7 +130,7 @@ const frame = (page: Page, name: string) =>
 async function readTool(page: Page, name: string) {
   const heading = page
     .getByRole("main")
-    .getByRole("heading", { level: 5, name, exact: true });
+    .getByRole("heading", { level: 4, name, exact: true });
   await heading.evaluate((el) => {
     const top = el.getBoundingClientRect().top + window.scrollY;
     window.scrollTo(0, top - window.innerHeight * 0.4);
@@ -219,7 +219,7 @@ test.describe("the Player tools scene on a wide screen with motion allowed", () 
 
     // Past the last tool, it scrolls away with the page.
     await page
-      .getByRole("heading", { level: 3, name: study.sections.at(-1)!.heading })
+      .getByRole("heading", { level: 2, name: study.sections.at(-1)!.heading })
       .evaluate((el) => el.scrollIntoView({ block: "start" }));
     await frames(page);
     expect((await stage(page).boundingBox())!.y).toBeLessThan(pinned - 50);
@@ -516,7 +516,7 @@ test.describe("with scripting off", () => {
       .click();
     await expect(page).toHaveURL(rallyLink.href);
     await expect(
-      page.getByRole("main").getByRole("heading", { level: 2 }),
+      page.getByRole("main").getByRole("heading", { level: 1 }),
     ).toHaveText(rally.heading);
   });
 });

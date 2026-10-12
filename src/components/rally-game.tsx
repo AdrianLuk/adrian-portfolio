@@ -473,7 +473,7 @@ export function RallyGame({
           {corners}
           {playing && hud.paused ? (
             <>
-              <h3 className={overlayTitle}>{copy.paused.title}</h3>
+              <h2 className={overlayTitle}>{copy.paused.title}</h2>
               <p className="text-ink/85">{copy.paused.line}</p>
               <button ref={resumeRef} type="button" className={gamePrimary} onClick={resume}>
                 {copy.resume}
@@ -483,16 +483,16 @@ export function RallyGame({
             <>
               {hud.phase === "over" ? (
                 <>
-                  <h3 className={overlayTitle}>
+                  <h2 className={overlayTitle}>
                     {hud.winner === "player" ? copy.over.won : copy.over.lost}
-                  </h3>
+                  </h2>
                   <p className="font-display text-5xl font-extrabold tabular-nums">
                     {finalScore(hud.score)}
                   </p>
                 </>
               ) : (
                 <>
-                  <h3 className={overlayTitle}>{copy.start.title}</h3>
+                  <h2 className={overlayTitle}>{copy.start.title}</h2>
                   <p className="text-ink/85">{copy.start.line}</p>
                 </>
               )}

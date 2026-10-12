@@ -41,7 +41,7 @@ test("sets its title and description from the content module", async ({
     rally.metaDescription,
   );
   await expect(
-    page.getByRole("main").getByRole("heading", { level: 2 }),
+    page.getByRole("main").getByRole("heading", { level: 1 }),
   ).toHaveText(rally.heading);
   await expect(
     page.getByRole("link", { name: rally.caseStudyLink.label }),
@@ -221,7 +221,7 @@ for (const [width, viewport] of Object.entries({
   }) => {
     await page.setViewportSize(viewport);
     await openPlay(page);
-    const heading = page.getByRole("heading", { level: 2, name: rally.heading });
+    const heading = page.getByRole("heading", { level: 1, name: rally.heading });
     const caseStudy = page.getByRole("link", { name: rally.caseStudyLink.label });
     const nav = page.getByRole("navigation", { name: "Main" });
     const footer = page.getByRole("contentinfo");

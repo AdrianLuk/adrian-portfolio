@@ -474,7 +474,7 @@ export function HomeRunDerby({
           {corners}
           {playing && hud.paused ? (
             <>
-              <h3 className={overlayTitle}>{copy.paused.title}</h3>
+              <h2 className={overlayTitle}>{copy.paused.title}</h2>
               <p className="text-ink/85">{copy.paused.line}</p>
               <button ref={resumeRef} type="button" className={gamePrimary} onClick={resume}>
                 {copy.resume}
@@ -484,12 +484,12 @@ export function HomeRunDerby({
             <>
               {hud.phase === "over" ? (
                 <>
-                  <h3 className={overlayTitle}>{copy.over.title}</h3>
+                  <h2 className={overlayTitle}>{copy.over.title}</h2>
                   <p className="font-display text-2xl font-bold">{hud.call}</p>
                 </>
               ) : (
                 <>
-                  <h3 className={overlayTitle}>{copy.start.title}</h3>
+                  <h2 className={overlayTitle}>{copy.start.title}</h2>
                   <p className="text-ink/85">{copy.start.line}</p>
                 </>
               )}

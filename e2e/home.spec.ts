@@ -316,7 +316,7 @@ test.describe("every Highlight link", () => {
         const { slug } = highlight.link;
         const study = caseStudies.find((c) => c.slug === slug)!;
         await expect(
-          page.getByRole("main").getByRole("heading", { level: 2 }),
+          page.getByRole("main").getByRole("heading", { level: 1 }),
         ).toHaveText(study.title);
       } else {
         const { roleId } = highlight.link;
@@ -341,7 +341,7 @@ test.describe("every Highlight link", () => {
       .click();
     await expect(page).toHaveURL(rallyLink.href);
     await expect(
-      page.getByRole("main").getByRole("heading", { level: 2 }),
+      page.getByRole("main").getByRole("heading", { level: 1 }),
     ).toHaveText(rally.heading);
   });
 });
