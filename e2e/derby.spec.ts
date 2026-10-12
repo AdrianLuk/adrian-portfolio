@@ -96,7 +96,7 @@ test("sets its title and description from the content module", async ({
     "content",
     derby.metaDescription,
   );
-  await expect(page.getByRole("heading", { level: 2 })).toHaveText(derby.heading);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(derby.heading);
   for (const line of Object.values(derby.hint)) {
     await expect(page.getByText(line)).toBeVisible();
   }
@@ -129,7 +129,7 @@ test("is played by keyboard through to Play again: Space swings, Escape and P pa
   await expect(field(page)).toBeFocused();
   expect(await focusRing(page)).toBe(true);
   await expect(gameRoot(page)).toHaveAttribute("data-phase", /windup|pitch/);
-  await expect(page.getByRole("heading", { level: 2, name: derby.heading })).toBeHidden();
+  await expect(page.getByRole("heading", { level: 1, name: derby.heading })).toBeHidden();
   await expectAxeClean(page);
 
   // Paused: the copy returns, focus on Resume; P plays on.
@@ -138,7 +138,7 @@ test("is played by keyboard through to Play again: Space swings, Escape and P pa
   await expect(page.getByRole("heading", { name: copy.paused.title })).toBeVisible();
   await expect(page.getByText(copy.paused.line, { exact: true })).toBeVisible();
   await expect(announcer(page)).toHaveText(`${copy.paused.title}. ${copy.paused.line}`);
-  await expect(page.getByRole("heading", { level: 2, name: derby.heading })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: derby.heading })).toBeVisible();
   const resume = page.getByRole("main").getByRole("button", { name: copy.resume }).last();
   await expect(resume).toBeFocused();
   await expectAxeClean(page);
@@ -282,7 +282,7 @@ test.describe("the Play of the Game", () => {
     expect(announced.endsWith(` ${copy.play.title}. ${distance} ${copy.feet}.`)).toBe(true);
     expect(announced.slice(0, -` ${copy.play.title}. ${distance} ${copy.feet}.`.length)).toMatch(overLine);
     await expect(page.getByRole("button", { name: copy.play.done })).toBeFocused();
-    await expect(page.getByRole("heading", { level: 2, name: derby.heading })).toBeHidden();
+    await expect(page.getByRole("heading", { level: 1, name: derby.heading })).toBeHidden();
     // The camera moves.
     const canvas = page.locator("canvas");
     const first = await canvas.screenshot();

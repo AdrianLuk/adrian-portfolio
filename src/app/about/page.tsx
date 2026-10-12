@@ -59,12 +59,12 @@ function HobbyPanel({
       {...rest}
     >
       <PanelCorners className={bracket} />
-      <h3
+      <h2
         id={`${id}-heading`}
         className="font-display text-3xl font-bold [font-stretch:120%]"
       >
         {heading}
-      </h3>
+      </h2>
       <ul className="mt-4 list-disc space-y-2 pl-5 leading-relaxed text-ink/90 marker:text-cyan">
         {lines.map((line) => (
           <li key={line}>{line}</li>
@@ -108,12 +108,12 @@ export default async function AboutPage() {
           <p className="font-display text-sm tracking-[0.3em] text-cyan uppercase [font-stretch:75%]">
             {about.eyebrow}
           </p>
-          <h2
+          <h1
             id="about-heading"
             className="mt-3 font-display text-4xl font-extrabold uppercase [font-stretch:140%] sm:text-5xl"
           >
             {about.heading}
-          </h2>
+          </h1>
           {about.intro.map((paragraph) => (
             <p key={paragraph} className="mt-4 text-lg text-ink/90">
               {paragraph}

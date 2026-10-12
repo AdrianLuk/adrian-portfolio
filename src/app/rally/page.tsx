@@ -43,12 +43,12 @@ export default async function PlayPage() {
             <p className="font-display text-sm tracking-[0.3em] text-violet uppercase [font-stretch:75%]">
               {rally.eyebrow}
             </p>
-            <h2
+            <h1
               id="play-heading"
               className="mt-3 font-display text-5xl font-extrabold uppercase [font-stretch:140%]"
             >
               {rally.heading}
-            </h2>
+            </h1>
             <div id={HINT_ID} className="mt-4 space-y-1 text-ink/85">
               <p>{rally.hint.swing}</p>
               <p>{rally.hint.keys}</p>

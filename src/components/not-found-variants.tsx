@@ -142,9 +142,9 @@ export function NotFoundVariants({
             data-variant={i}
             className={`col-start-1 row-start-1 flex flex-col items-center gap-4 ${i === current ? "" : "invisible"}`}
           >
-            <h2 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
+            <h1 className="font-display text-5xl font-extrabold uppercase [font-stretch:140%]">
               {variant.heading}
-            </h2>
+            </h1>
             <p
               className={`text-lg text-ink/85 ${"recall" in variant ? "touch-none select-none [-webkit-touch-callout:none]" : ""}`}
               {...("recall" in variant ? pointerHold : {})}

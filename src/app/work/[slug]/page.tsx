@@ -107,12 +107,12 @@ function Tool({ tool, label }: { tool: PlayerTool; label: string }) {
         className={`flex flex-col gap-4 ${overPlace.court}`}
       >
         <PanelCorners className="border-violet" />
-        <h5
+        <h4
           id={`tool-${id}`}
           className="font-display text-2xl font-bold [font-stretch:115%]"
         >
           {tool.name}
-        </h5>
+        </h4>
         <p className="max-w-2xl text-ink/90">
           {tool.summary} <span className="text-ink/70">{tool.accessNote}</span>
         </p>
@@ -177,12 +177,12 @@ export default async function CaseStudyPage({
       <header className={`${overPlace.court} ${arrivesAtCourt}`}>
         <PanelCorners className="border-violet" />
         <p className={eyebrowClass}>Case study · {study.byline}</p>
-        <h2
+        <h1
           id="case-study-heading"
           className="mt-3 font-display text-5xl font-extrabold uppercase [font-stretch:140%]"
         >
           {study.title}
-        </h2>
+        </h1>
         <ul className="mt-6 flex flex-wrap gap-3">
           {siteLinks.map((link) => (
             <li key={link.href}>
@@ -208,12 +208,12 @@ export default async function CaseStudyPage({
           >
             <div className={`flex flex-col gap-4 ${overPlace.court}`}>
               <PanelCorners className="border-violet" />
-              <h3
+              <h2
                 id={`${section.id}-heading`}
                 className="font-display text-3xl font-bold [font-stretch:120%]"
               >
                 {section.heading}
-              </h3>
+              </h2>
               {section.paragraphs.map((p) => (
                 <p key={p} className="max-w-2xl text-lg leading-relaxed text-ink/90">
                   {p}
@@ -230,7 +230,7 @@ export default async function CaseStudyPage({
               // header's width at most) so the stage sits beside a readable
               // column of copy.
               <PlayerToolsScene className="space-y-4 pt-6 pinned:mx-[calc(50%-min(36rem,50vw-1.5rem))]">
-                <h4 className={eyebrowClass}>Player tools</h4>
+                <h3 className={eyebrowClass}>Player tools</h3>
                 <div className="pinned:grid pinned:grid-cols-[5fr_7fr] pinned:gap-12">
                   <ul className="space-y-14">
                     {study.tools.map((tool) => (

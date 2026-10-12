@@ -33,7 +33,7 @@ test("the header links to the About page, which opens on the intro, then each ho
   await expect(page).toHaveURL(/\/about$/);
   await settled(page);
 
-  const heading = page.getByRole("heading", { level: 2, name: about.heading });
+  const heading = page.getByRole("heading", { level: 1, name: about.heading });
   await expect(heading).toBeVisible();
   for (const paragraph of about.intro) {
     await expect(page.getByText(paragraph)).toBeVisible();
@@ -43,7 +43,7 @@ test("the header links to the About page, which opens on the intro, then each ho
   for (const section of sections) {
     const panel = page.locator(`#${section.id}`);
     await expect(
-      panel.getByRole("heading", { level: 3, name: section.heading }),
+      panel.getByRole("heading", { level: 2, name: section.heading }),
     ).toBeVisible();
     for (const line of section.lines) {
       await expect(panel.getByRole("listitem").filter({ hasText: line })).toBeVisible();
