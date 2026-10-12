@@ -1,4 +1,5 @@
 import {
+  contact,
   hero,
   isoMonth,
   person,
@@ -15,7 +16,8 @@ const personId = `${siteUrl}/#person`;
 
 /**
  * The home page's structured data for search engines: the site, named for
- * Adrian, and Adrian as a Person (who he is, where he works from and the
+ * Adrian, the home page as his profile page, and Adrian as a Person (who he
+ * is, his photo from the contact section, where he works from and the
  * profiles that are also him). Taken from the site's own copy, so it never
  * says more than the page does.
  */
@@ -31,10 +33,18 @@ export const homeJsonLd = {
       about: { "@id": personId },
     },
     {
+      "@type": "ProfilePage",
+      "@id": `${siteUrl}/#profile`,
+      url: siteUrl,
+      isPartOf: { "@id": `${siteUrl}/#website` },
+      mainEntity: { "@id": personId },
+    },
+    {
       "@type": "Person",
       "@id": personId,
       name: person.name,
       url: siteUrl,
+      image: `${siteUrl}${contact.portrait.stills.at(-1)!.src}`,
       jobTitle: hero.titleLine,
       description: hero.backendLine,
       address: {

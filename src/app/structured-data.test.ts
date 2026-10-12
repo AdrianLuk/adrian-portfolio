@@ -4,7 +4,7 @@ import robots from "./robots";
 import sitemap from "./sitemap";
 import { homeJsonLd, jsonLdScript, resumeJsonLd } from "./structured-data";
 
-const [website, personJsonLd] = homeJsonLd["@graph"];
+const [website, profilePage, personJsonLd] = homeJsonLd["@graph"];
 
 describe("sitemap", () => {
   it("lists every public route, absolute", () => {
@@ -45,6 +45,21 @@ describe("home structured data", () => {
       url: siteUrl,
       jobTitle: "Senior frontend engineer",
     });
+  });
+
+  it("makes home his profile page", () => {
+    expect(profilePage).toMatchObject({
+      "@type": "ProfilePage",
+      url: siteUrl,
+      isPartOf: { "@id": website["@id"] },
+      mainEntity: { "@id": personJsonLd["@id"] },
+    });
+  });
+
+  it("shows him with the contact section's photo, absolute", () => {
+    expect("image" in personJsonLd && personJsonLd.image).toBe(
+      `${siteUrl}/contact/adrian-luk-720.webp`,
+    );
   });
 
   it("places him in Toronto, Ontario", () => {
