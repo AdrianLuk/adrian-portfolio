@@ -818,7 +818,8 @@ export const about = {
   intro: [
     "I'm Adrian, a senior frontend engineer in Toronto. I've worked in React and TypeScript since 2018, and I do the back end when it needs building. Most recently I was at Control D, where I led an accessibility overhaul across 248 components and built single sign-on for four identity providers.",
     "I was born and raised in Canada, and my parents and family are from Hong Kong.",
-    "Off the clock, it's pickleball, baseball, K-pop concerts and video games. Pickleball even made it into my side project. I'm the only engineer on Juice Bros, a pickleball media brand, and I built its player tools for my own play.",
+    // A word joiner after K-pop's hyphen, so a phone doesn't break the word there.
+    "Off the clock, it's pickleball, baseball, K-⁠pop concerts and video games. Pickleball even made it into my side project. I'm the only engineer on Juice Bros, a pickleball media brand, and I built its player tools for my own play.",
     "Each hobby has its own stop further down, and two come with a game you can play: pickleball at the court and a home run derby at the ballpark.",
   ],
   pickleball: {
