@@ -18,7 +18,7 @@ const settled = (page: Page) =>
     timeout: SCENE_TIMEOUT,
   });
 
-test("the header links to the About page, which opens on the roots line, then each hobby in order, its lines as bullets", async ({
+test("the header links to the About page, which opens on the intro, then each hobby in order, its lines as bullets", async ({
   page,
 }) => {
   // Home's world, then the About page's: two compiles in software on CI.
@@ -35,10 +35,11 @@ test("the header links to the About page, which opens on the roots line, then ea
 
   const heading = page.getByRole("heading", { level: 2, name: about.heading });
   await expect(heading).toBeVisible();
-  const roots = page.getByText(about.roots);
-  await expect(roots).toBeVisible();
-  // Roots first, then the hobbies in the route's order.
-  let above = (await roots.boundingBox())!.y;
+  for (const paragraph of about.intro) {
+    await expect(page.getByText(paragraph)).toBeVisible();
+  }
+  // The intro first, then the hobbies in the route's order.
+  let above = (await page.getByText(about.intro.at(-1)!).boundingBox())!.y;
   for (const section of sections) {
     const panel = page.locator(`#${section.id}`);
     await expect(

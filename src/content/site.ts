@@ -804,8 +804,9 @@ export const encore = {
 };
 
 /**
- * The About page, along the Hobby route: roots first, then Off the clock's
- * lines (Personal facts, docs/HANDOFF.md), each section's as bullets in a
+ * The About page, along the Hobby route: the intro first (work, roots, the
+ * hobbies and the side project, each claim from the resume or the Personal
+ * facts), then Off the clock's lines (Personal facts, docs/HANDOFF.md), each section's as bullets in a
  * panel beside its stop: pickleball at the court, baseball at the Diamond,
  * K-pop in the Arena with the ticket wall, then the gaming line. The first
  * three panels' ids are the route's stops (src/components/hobby-scroll.tsx).
@@ -814,7 +815,13 @@ export const about = {
   path: "/about",
   eyebrow: "About",
   heading: "Off the clock",
-  roots: "Born and raised in Canada. My parents are from Hong Kong.",
+  intro: [
+    "I'm Adrian, a senior frontend engineer in Toronto. I've worked in React and TypeScript since 2018, and I do the back end when it needs building. Most recently I was at Control D, where I led an accessibility overhaul across 248 components and built single sign-on for four identity providers.",
+    "I was born and raised in Canada, and my parents and family are from Hong Kong.",
+    // A word joiner after K-pop's hyphen, so a phone doesn't break the word there.
+    "Off the clock, it's pickleball, baseball, K-⁠pop concerts and video games. Pickleball even made it into my side project. I'm the only engineer on Juice Bros, a pickleball media brand, and I built its player tools for my own play.",
+    "Each hobby has its own stop further down, and two come with a game you can play: pickleball at the court and a home run derby at the ballpark.",
+  ],
   pickleball: {
     id: "pickleball",
     heading: "Pickleball",

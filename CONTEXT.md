@@ -125,7 +125,7 @@ A stadium's light in the haze over the ridge, seen from far down the valley: flo
 _Avoid_: Beacon, beam, skyglow
 
 **About page**:
-The page (`/about`) about Adrian outside work, along the Hobby route: roots first ("Born and raised in Canada. My parents are from Hong Kong."), then pickleball, baseball, K-pop and the gaming line. Its Place is the Hobby route, starting at the court; Hong Kong is not on it.
+The page (`/about`) about Adrian outside work, along the Hobby route: the intro first (his work, his roots, born and raised in Canada with family from Hong Kong, then the hobbies and Juice Bros), then pickleball, baseball, K-pop and the gaming line. Its Place is the Hobby route, starting at the court; Hong Kong is not on it.
 _Avoid_: Bio, About me, personal page
 
 **Role**:
