@@ -180,6 +180,9 @@ test.describe("on a phone", () => {
     ]) {
       await expect(control).toBeInViewport({ ratio: 1 });
     }
+    // Pressing the ring before it's charged keeps the game going.
+    await ring(page).click({ force: true });
+    await expect(gameRoot(page)).toHaveAttribute("data-paused", "false");
     await expectAxeClean(page);
   });
 });

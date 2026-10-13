@@ -241,6 +241,22 @@ body {
   }
 }
 
+/* A headshot's: it lands big and holds a beat, so the head pays off. */
+@keyframes head-marker {
+  from {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 /* A game in play (the Rally game, the Home Run Derby): its field fills the
    screen, so the site's header and footer step aside with the page's copy
    (faded, then out of reach of focus), and return at once at a pause or the

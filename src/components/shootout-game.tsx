@@ -50,6 +50,9 @@ const KEY_TURN = 1.6;
 /** Radians the aim turns per pixel of a captured mouse's movement. */
 const MOUSE_TURN = 0.0022;
 
+/** How much faster than the thumb a drag turns the aim: a quick flick crosses the Arena. */
+const DRAG_TURN = 1.8;
+
 /** How far a press may move, in CSS pixels, and still count as a click, not a drag. */
 const CLICK_SLOP = 10;
 
@@ -427,8 +430,8 @@ export function ShootoutGame({
     drag.y = event.clientY;
     drag.moved += Math.abs(dx) + Math.abs(dy);
     // Steadier while the ultimate runs, for sweeping the reticles on.
-    // The aim follows the thumb, as the mouse's does: drag right to turn right, up to look up.
-    const k = view.perPixel() * (gameRef.current.ult ? 0.7 : 1);
+    // The aim turns with the thumb, as the mouse's does: drag right to turn right, up to look up.
+    const k = view.perPixel() * DRAG_TURN * (gameRef.current.ult ? 0.7 : 1);
     view.look(-dx * k, -dy * k);
   }
 
@@ -488,7 +491,7 @@ export function ShootoutGame({
       <div
         className={`pointer-events-none fixed inset-x-0 top-0 z-30 flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 ${filled ? "" : "invisible"}`}
       >
-        <dl className="flex gap-2.5 rounded-full bg-night/80 px-3.5 py-2 font-display text-xs font-bold tracking-wide whitespace-nowrap uppercase [font-stretch:100%] sm:gap-5 sm:px-5 sm:text-lg sm:[font-stretch:110%]">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-2xl bg-night/80 px-3.5 py-2 sm:flex sm:rounded-full font-display text-xs font-bold tracking-wide whitespace-nowrap uppercase [font-stretch:100%] sm:gap-5 sm:px-5 sm:text-lg sm:[font-stretch:110%]">
           <div className="flex items-baseline gap-2">
             <dt className="text-ink/80">{copy.score.score}</dt>
             <dd className="text-cyan tabular-nums">{hud.score}</dd>
@@ -498,7 +501,7 @@ export function ShootoutGame({
             <dd className="tabular-nums">{hud.kills}</dd>
           </div>
           <div className="flex items-baseline gap-2">
-            {/* Short on a phone, where the full word pushes Reset and Pause off screen. */}
+            {/* Short on a phone, where the HUD is two lines. */}
             <dt className="text-ink/80">
               <span aria-hidden="true" className="sm:hidden">
                 {copy.score.headshotsShort}
@@ -561,7 +564,7 @@ export function ShootoutGame({
               </p>
             </>
           )}
-          {/* The crosshair, and a hit's marker, spore pink for the head: on the world canvas's middle (50lvh), where a shot goes, not the screen's. */}
+          {/* The crosshair, and a hit's marker, big and red for the head: on the world canvas's middle (50lvh), where a shot goes, not the screen's. */}
           <svg viewBox="-11 -11 22 22" className="absolute top-[50lvh] left-1/2 size-6 -translate-1/2 overflow-visible">
             <g className="stroke-night" strokeWidth="3.5" strokeLinecap="round">
               <path d="M0 -10v5M0 5v5M-10 0h5M5 0h5" />
@@ -570,15 +573,17 @@ export function ShootoutGame({
               <path d="M0 -10v5M0 5v5M-10 0h5M5 0h5" />
             </g>
             <circle r="1.6" className="fill-cyan" />
-            {hit && (
-              <g
-                key={hit.n}
-                className={`animate-[hit-marker_180ms_forwards] ${hit.head ? "stroke-magenta" : "stroke-ink"}`}
-                strokeWidth="2"
-              >
-                <path d="M-12 -12l6 6M12 -12l-6 6M-12 12l6 -6M12 12l-6 -6" />
-              </g>
-            )}
+            {hit &&
+              (hit.head ? (
+                <g key={hit.n} className="animate-[head-marker_420ms_forwards]" strokeLinecap="round">
+                  <path className="stroke-night" strokeWidth="7" d="M-34 -34l18 18M34 -34l-18 18M-34 34l18 -18M34 34l-18 -18" />
+                  <path className="stroke-neon-red" strokeWidth="4" d="M-34 -34l18 18M34 -34l-18 18M-34 34l18 -18M34 34l-18 -18" />
+                </g>
+              ) : (
+                <g key={hit.n} className="animate-[hit-marker_180ms_forwards] stroke-ink" strokeWidth="2">
+                  <path d="M-12 -12l6 6M12 -12l-6 6M-12 12l6 -6M12 12l-6 -6" />
+                </g>
+              ))}
           </svg>
           {reticles.map((r) => (
             <div
@@ -605,7 +610,10 @@ export function ShootoutGame({
           type="button"
           aria-label={ringLabel}
           tabIndex={filled ? 0 : -1}
-          disabled={hud.ult === "charging"}
+          // Not `disabled`: pressing a disabled button sends focus to the page, which pauses the game.
+          aria-disabled={hud.ult === "charging"}
+          // Focus stays on the view, so the keys keep reaching the game.
+          onMouseDown={(event) => event.preventDefault()}
           onClick={ultimate}
           className={`pointer-events-auto relative grid size-16 place-content-center rounded-full bg-night/75 font-display text-sm font-extrabold uppercase tabular-nums sm:size-18 ${hud.ult === "charging" ? "text-ink" : "text-magenta shadow-[0_0_22px_2px_color-mix(in_srgb,var(--color-magenta)_55%,transparent)]"}`}
         >

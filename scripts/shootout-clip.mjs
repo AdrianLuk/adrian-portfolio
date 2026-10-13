@@ -38,14 +38,14 @@ const LENGTH_MS = 9000;
  * 150), and lifts once within `lift` of it; with no bot in view it turns
  * `pan` a frame. After a shot it rests `rest` ms, as a player does.
  */
-const THUMB = { share: 0.3, most: 26, lift: 1, pan: 10, rest: 280 };
+const THUMB = { share: 0.3, most: 14, lift: 1, pan: 6, rest: 280 };
 /**
  * How far the aim may turn left or right of facing Hong Kong, in CSS pixels
- * of drag (about a tenth of a degree each): the clip stays on the harbour,
+ * of drag (about a sixth of a degree each: a drag turns 1.8 times the thumb): the clip stays on the harbour,
  * its bots round the rim behind the visitor left out. (The game keeps the
  * aim's pitch in reach.)
  */
-const REACH = 600;
+const REACH = 330;
 /** Where a bot's head is, down from the top of its outline, as a share of its height. */
 const HEAD = 0.22;
 /** The bots' outline's red as drawn (palette.neonRed, unlit), apart from Hong Kong's neon. */
