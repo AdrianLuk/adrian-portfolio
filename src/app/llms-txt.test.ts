@@ -54,7 +54,7 @@ describe("llms.txt", () => {
     expect(built).toContain("(https://github.com/AdrianLuk/adrian-portfolio)");
   });
 
-  it("links the Resume page and PDF, the Case study, LinkedIn, GitHub and the repo", () => {
+  it("links the Resume page and PDF, the Case study, the three games, LinkedIn, GitHub and the repo", () => {
     const links = [...section("Links").matchAll(/\]\(([^)]+)\)/g)].map(
       (match) => match[1],
     );
@@ -65,6 +65,9 @@ describe("llms.txt", () => {
       "https://adrianluk.com/resume",
       "https://adrianluk.com/Adrian-Luk-Resume-2026.pdf",
       "https://adrianluk.com/work/juice-bros",
+      "https://adrianluk.com/rally",
+      "https://adrianluk.com/derby",
+      "https://adrianluk.com/shootout",
       "https://www.linkedin.com/in/adrian-luk",
       "https://github.com/AdrianLuk",
       "https://github.com/AdrianLuk/adrian-portfolio",

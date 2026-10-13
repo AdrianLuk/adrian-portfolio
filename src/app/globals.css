@@ -231,6 +231,16 @@ body {
   animation-duration: 260ms;
 }
 
+/* The Shootout's hit marker: shown at once, gone within a few frames. */
+@keyframes hit-marker {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* A game in play (the Rally game, the Home Run Derby): its field fills the
    screen, so the site's header and footer step aside with the page's copy
    (faded, then out of reach of focus), and return at once at a pause or the

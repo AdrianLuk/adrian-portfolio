@@ -157,7 +157,14 @@ export default async function AboutPage() {
           <EarnOnReach target={kpop.id} achievement="encore" />
         </HobbyPanel>
 
-        <HobbyPanel section={gaming} light="cyan" still="arena" />
+        <HobbyPanel section={gaming} light="cyan" still="arena">
+          <div className="mt-6">
+            <Recording recording={gaming.clip} needsWebGL />
+          </div>
+          <p className="mt-4">
+            <PlayButton link={gaming.play} light="cyan" />
+          </p>
+        </HobbyPanel>
       </div>
     </article>
   );

@@ -2,6 +2,7 @@
 // first paint. The paths the world hands it do the maths.
 import { HOBBY_SCROLL_ROUTE, LIT_SITES } from "./lit-sites";
 import { placeOfView, type PlaceView } from "./world-places";
+import type { Quaternion } from "three";
 import type { FlightPath, Pose } from "./world/flight";
 import { smoothstep } from "./world/noise";
 import {
@@ -28,7 +29,7 @@ export type CameraPaths = {
    * The camera's vertical field of view, in degrees: the world's own, the
    * Skyline's for the screen's shape (wider on a narrow screen), /rally's
    * (the Rally game's framing of the court), the Derby's (its framing of
-   * the Diamond) and the Arena's inside view's.
+   * the Diamond), the Arena's inside view's and the Shootout's.
    */
   fovY: {
     world: number;
@@ -36,6 +37,7 @@ export type CameraPaths = {
     play: number;
     derby: number;
     encore: number;
+    shootout: number;
   };
   /** The court's pose, for the screen's shape: off the route, beside its stop. */
   court: Pose;
@@ -45,6 +47,8 @@ export type CameraPaths = {
   play: Pose;
   /** The Derby's view of the Diamond, for the screen's shape: raised behind home plate. */
   derby: Pose;
+  /** The Shootout's view, for the screen's shape: on the Arena's stage roof, facing Hong Kong. */
+  shootout: Pose;
   /** The court's stop on the route (Juice Bros' Lit site). */
   courtStop: number;
   transit(route: Route, departure: Departure, to: Arrival): Transit;
@@ -111,7 +115,7 @@ type Looks = Pick<CameraLights, "court" | "skyline">;
  * the Hobby route has the camera (its show, and its field of view):
  * blended alike through a Transit (see `looks`).
  */
-type Blend = Looks & { play: number; derby: number; arena: number };
+type Blend = Looks & { play: number; derby: number; shootout: number; arena: number };
 
 /**
  * Where the camera leans, toward the pointer: -1 to 1 each way from the
@@ -216,6 +220,8 @@ export function createCameraDirector({
   let trip: Trip | null = null;
   /** The Derby's cut away from its view (a home run's wide shot), while it holds. */
   let shot: { pose: Pose; fovY: number } | null = null;
+  /** Where the Shootout's game aims the camera, from the Shootout's own view; null: its view as it stands. */
+  let aimed: Quaternion | null = null;
   /** The last pose drawn, for a Transit leaving before the paths are in. */
   let last: Pose | null = null;
   /** Where the pointer is on screen; null while it is off it, or not a mouse's. */
@@ -233,6 +239,9 @@ export function createCameraDirector({
     if (shown === "court") return paths?.court ?? null;
     if (shown === "play") return paths?.play ?? null;
     if (shown === "derby") return paths?.derby ?? null;
+    if (shown === "shootout") {
+      return paths && { position: paths.shootout.position, quaternion: aimed ?? paths.shootout.quaternion };
+    }
     if (shown === "hobby") return paths?.hobby.poseAt(hobbyStop()) ?? null;
     const home = shown === "hero" && homePaths();
     if (!home) return null;
@@ -259,14 +268,18 @@ export function createCameraDirector({
    * Plans the Transit once its route is known: at once to the court's views,
    * the Skyline or the Derby's view, whose poses need no page; home only
    * once its page is in (and its own paths measured), where its scroll says.
-   * Between the court's two views it needs no route at all.
+   * Between the court's two views it needs no route at all, nor from the
+   * Arena's inside view up onto the Shootout's deck.
    */
   function plan(t: Trip, now: number) {
     if (!paths) return;
     const court = t.to === "play" ? paths.play : paths.court;
     if (t.within && "pose" in t.departure) {
       t.stop = paths.courtStop;
-      t.transit = paths.within(t.departure.pose, court);
+      t.transit = paths.within(
+        t.departure.pose,
+        t.to === "shootout" ? paths.shootout : court,
+      );
       t.start = now;
       return;
     }
@@ -277,7 +290,7 @@ export function createCameraDirector({
     if (t.to === "court" || t.to === "play") {
       t.stop = paths.courtStop;
       to = court;
-    } else if (t.to === "skyline" || t.to === "derby") {
+    } else if (t.to === "skyline" || t.to === "derby" || t.to === "shootout") {
       to = paths[t.to];
     } else if (t.to === "hobby") {
       // Its first stop, however its page is scrolled: its scroll route
@@ -382,10 +395,12 @@ export function createCameraDirector({
    * same way, for its field of view.
    */
   function looks(now: number): Blend {
-    /** Whether `view` is /rally's view, the Derby's, or a view of the Place `key`. */
+    /** Whether `view` is /rally's view, the Derby's, the Shootout's, or a view of the Place `key`. */
     const is = (view: PlaceView | null, key: keyof Blend) =>
       view !== null &&
-      (key === "play" || key === "derby" ? view : placeOfView(view)) === key;
+      (key === "play" || key === "derby" || key === "shootout"
+        ? view
+        : placeOfView(view)) === key;
     /** How far into the Arena the Hobby route has the camera; no Transit lands there. */
     const arena = () =>
       shown === "hobby"
@@ -404,6 +419,7 @@ export function createCameraDirector({
       skyline: at("skyline"),
       play: at("play"),
       derby: at("derby"),
+      shootout: at("shootout"),
       arena: at("arena"),
     };
   }
@@ -537,11 +553,17 @@ export function createCameraDirector({
       const from = departure(now);
       if (!from) return false;
       const place = placeOfView(to);
+      // From K-pop's stop inside the Arena, straight up the bowl onto the
+      // Shootout's deck: no way back out along the route first.
+      const upTheBowl =
+        !trip && to === "shootout" && "back" in from.departure && !!from.departure.back;
+      if (upTheBowl) from.departure = { pose: from.held };
       const within =
-        "pose" in from.departure &&
-        (trip
-          ? trip.within && placeOfView(trip.to) === place
-          : shown !== null && shown !== to && placeOfView(shown) === place);
+        upTheBowl ||
+        ("pose" in from.departure &&
+          (trip
+            ? trip.within && placeOfView(trip.to) === place
+            : shown !== null && shown !== to && placeOfView(shown) === place));
       trip = {
         to,
         within,
@@ -575,6 +597,14 @@ export function createCameraDirector({
     cut(next: { pose: Pose; fovY: number } | null) {
       shot = next;
     },
+    /**
+     * Turns the Shootout's camera to `quaternion` where it stands (the
+     * game's aim), or back to its own view with null. Held only there, once
+     * landed: a Transit flies from wherever it was aimed.
+     */
+    aim(quaternion: Quaternion | null) {
+      aimed = quaternion && quaternion.clone();
+    },
 
     // To the world.
 
@@ -595,6 +625,7 @@ export function createCameraDirector({
           (fov.skyline - fov.world) * blend.skyline +
           (fov.play - fov.world) * blend.play +
           (fov.derby - fov.world) * blend.derby +
+          (fov.shootout - fov.world) * blend.shootout +
           (fov.encore - fov.world) * smoothstep(0, 1, blend.arena)
         : null;
       return {

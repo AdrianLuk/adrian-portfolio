@@ -15,7 +15,7 @@ const announced = (page: Page) => page.getByRole("main").locator("p[aria-live=po
 const counter = (page: Page, n: number) =>
   page
     .getByRole("contentinfo")
-    .getByRole("button", { name: `${achievements.label}: ${n} ${achievements.of} 6` });
+    .getByRole("button", { name: `${achievements.label}: ${n} ${achievements.of} 7` });
 
 test("opens on the first variant, and the button takes the next, round to the first", async ({
   page,

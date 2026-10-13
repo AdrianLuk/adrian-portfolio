@@ -14,6 +14,9 @@
 //   the Skyline as the camera holds it there.
 // - public/world/diamond-*.webp: the Home Run Derby's first paint, likewise:
 //   the Diamond as the camera holds it behind home plate.
+// - public/world/shootout-*.webp: the Shootout's first paint, likewise: the
+//   Arena's stage roof as the camera holds it, facing Hong Kong; and what
+//   stays without WebGL.
 // - public/world/arena-*.webp: the About page's K-pop stop where the world
 //   isn't live behind it: the page scrolled to its foot, the camera in the
 //   Arena and its floor filled.
@@ -29,7 +32,7 @@
 //
 // Re-run it whenever the world or the share cards change. Name sets to draw
 // only those: `--share`, `--valley`, `--court`, `--skyline`, `--diamond`,
-// `--arena`, `--route` (for example
+// `--shootout`, `--arena`, `--route` (for example
 // `node scripts/share-stills.mjs http://localhost:3300 --court`).
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
@@ -45,6 +48,7 @@ import {
   highlights,
   routeStills,
   shareCards,
+  shootoutStills,
   skylineStills,
   valleyStills,
 } from "../src/content/site.ts";
@@ -52,7 +56,7 @@ import { openOnFirstFrame, skipOpening, WORLD_ONLY } from "./world-frame.mjs";
 
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
-const SETS = ["share", "valley", "court", "skyline", "diamond", "arena", "route"];
+const SETS = ["share", "valley", "court", "skyline", "diamond", "shootout", "arena", "route"];
 const named = SETS.filter((set) => args.includes(`--${set}`));
 const unknown = args.filter(
   (a) => a.startsWith("--") && !SETS.includes(a.slice(2)),
@@ -72,10 +76,11 @@ const SCENE_TIMEOUT = 60_000;
  */
 const VALLEY_STOP = { landscape: 1, portrait: 0.6 };
 
-/** The pages whose Places have stills of their own: the court, the Skyline, the Diamond. */
+/** The pages whose Places have stills of their own: the court, the Skyline, the Diamond, the Arena's stage roof. */
 const COURT_PAGE = "/work/juice-bros";
 const SKYLINE_PAGE = "/resume";
 const DIAMOND_PAGE = "/derby";
+const SHOOTOUT_PAGE = "/shootout";
 
 /** The world's two still shapes: wide, and a tall phone or tablet. */
 function stillShots(stills) {
@@ -305,6 +310,8 @@ try {
     await drawPlace(browser, SKYLINE_PAGE, skylineStills);
   if (sets.has("diamond"))
     await drawPlace(browser, DIAMOND_PAGE, diamondStills);
+  if (sets.has("shootout"))
+    await drawPlace(browser, SHOOTOUT_PAGE, shootoutStills);
   if (sets.has("arena")) await drawArena(browser);
   if (sets.has("route")) await drawRoute(browser);
 } finally {

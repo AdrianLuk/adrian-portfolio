@@ -244,6 +244,9 @@ export const rallyLink = { label: "Play pickleball against Dinkbot", href: "/ral
 /** Into the Home Run Derby, from the About page's baseball section. Says it's a game, as `rallyLink` does. */
 export const derbyLink = { label: "Bat against Curvebot", href: "/derby" } as const;
 
+/** Into the Shootout, from the About page's gaming section. Says it's a game, as `derbyLink` does. */
+export const shootoutLink = { label: "Shoot against the training bots", href: "/shootout" } as const;
+
 /** A rally in the Rally game, over its link in the Juice Bros Highlight and on the About page. */
 export const rallyClip: Recording = {
   label: "A rally in the Rally game: the player and Dinkbot trading shots across the floodlit court.",
@@ -267,6 +270,20 @@ export const derbyClip: Recording = {
   sources: [
     { src: `${derbyMedia}/home-run.webm`, type: "video/webm" },
     { src: `${derbyMedia}/home-run.mp4`, type: "video/mp4" },
+  ],
+};
+
+const shootoutMedia = "/shootout";
+
+/** A round of the Shootout, over its play button. Recorded by scripts/shootout-clip.mjs. */
+export const shootoutClip: Recording = {
+  label: "A round of the Shootout, from the Arena's stage roof: training bots outlined in red pop up round Victoria Harbour, on the shore, a lit pad on the water and a Hong Kong roof, and the six-shooter in the corner drops them one by one.",
+  poster: `${shootoutMedia}/round-poster.webp`,
+  width: 720,
+  height: 540,
+  sources: [
+    { src: `${shootoutMedia}/round.webm`, type: "video/webm" },
+    { src: `${shootoutMedia}/round.mp4`, type: "video/mp4" },
   ],
 };
 
@@ -820,7 +837,7 @@ export const about = {
     "I was born and raised in Canada, and my parents and family are from Hong Kong.",
     // A word joiner after K-pop's hyphen, so a phone doesn't break the word there.
     "Off the clock, it's pickleball, baseball, K-⁠pop concerts and gaming. Pickleball even made it into my side project. I'm the only engineer on Juice Bros, a pickleball media brand, and I built its player tools for my own play.",
-    "Each hobby has its own stop further down, and two come with a game you can play: pickleball at the court and a home run derby at the ballpark.",
+    "Each hobby has its own stop further down, and three come with a game you can play: pickleball at the court, a home run derby at the ballpark, and a shootout on the Arena's stage.",
   ],
   pickleball: {
     id: "pickleball",
@@ -848,6 +865,8 @@ export const about = {
     id: "gaming",
     heading: "Gaming",
     lines: ["Overwatch and League of Legends. Some habits stick: try recalling."],
+    clip: shootoutClip,
+    play: shootoutLink,
   },
   metaTitle: "Off the clock: Adrian Luk",
   metaDescription:
@@ -867,7 +886,7 @@ export const footer = {
 /** The Achievements: the footer's counter, its list and the toasts. */
 export const achievements = {
   label: "Achievements",
-  /** The counter's "2 of 6". */
+  /** The counter's "2 of 7". */
   of: "of",
   /** Joins the names in a toast of two: "Dinkbot down and First Blood". */
   and: "and",
@@ -878,6 +897,7 @@ export const achievements = {
     "full-rotation": "Full rotation",
     "back-to-back-to-back": "Back-to-back-to-back",
     "dinkbot-down": "Dinkbot down",
+    "three-for-one": "Three for one",
   } satisfies Record<AchievementId, string>,
   unearned: "???",
   unearnedLabel: "Not earned yet",
@@ -1068,6 +1088,79 @@ export const derby = {
   },
 } as const;
 
+/**
+ * The Shootout on /shootout. As the Derby's, the page's own copy is plain;
+ * the game's lines may joke, and make no claims. No Cassidy names, art or
+ * sounds (#91's rule): the ultimate is just "Ultimate", its 12:00 clock the
+ * only nod. The targets are always "bots".
+ */
+export const shootout = {
+  metaTitle: "Shootout on the Arena's stage | Adrian Luk",
+  metaDescription:
+    "Shoot training bots from the Arena's stage roof, across Victoria Harbour from Hong Kong: drag to aim, lift to shoot, and charge an ultimate.",
+  eyebrow: "Shootout",
+  heading: "The Arena's stage",
+  hint: {
+    aim: "Training bots pop up all round the harbour. Headshots and long shots score more.",
+    keys: "Click to aim with the mouse (Esc frees it), and click to shoot. Arrow keys aim, Space shoots, N snaps to the next bot, Q is the ultimate. Esc or P pauses.",
+    touch: "Drag to aim, and lift your thumb to shoot.",
+  },
+  aboutLink: { label: "Back to the About page", href: "/about" },
+  game: {
+    label: "Shootout",
+    loading: "Lighting the Arena…",
+    unavailable: "This game needs WebGL, which this browser has off or doesn't support.",
+    start: {
+      title: "Training round",
+      line: "No ammo, no timer. Shoot as long as you like.",
+      action: "Start",
+    },
+    slowMode: {
+      label: "Slow mode",
+      description: "Half-speed pop-ups, no strafing, no recoil.",
+    },
+    pause: "Pause",
+    resume: "Resume",
+    paused: {
+      title: "Paused",
+      line: "The training bots are holding still. Mostly.",
+    },
+    reset: "Reset",
+    score: { score: "Score", bots: "Bots", best: "Best" },
+    ultimate: {
+      label: "Ultimate",
+      /** Its ring's label as it charges: "Ultimate, 40% charged". */
+      charged: "charged",
+      ready: "Ready",
+      fire: "Fire",
+      /** What a screen reader hears. */
+      readyLine: "Ultimate ready.",
+      runningLine: "Ultimate. Tap the ring or press Q to fire.",
+      /** The one nod, over the screen while it runs. */
+      clock: "12:00",
+    },
+    /** A bot up, as a screen reader hears it: "Bot up on the shore, to your left." */
+    up: "Bot up",
+    where: {
+      rim: "on the Arena's rim",
+      shore: "on the shore",
+      pad: "on the harbour",
+      roof: "on a Hong Kong roof",
+      tower: "on a light tower at the Diamond",
+    },
+    direction: {
+      ahead: "ahead",
+      left: "to your left",
+      right: "to your right",
+      behind: "behind you",
+    },
+    headshot: "Headshot.",
+    longShot: "Long shot.",
+    /** The score, announced after a kill: "Score 450." */
+    scoreLine: "Score",
+  },
+} as const;
+
 const settledFrameAlt =
   "Adrian Luk's name in lit 3D letters on a night valley floor, between glowing towers, with Toronto's skyline and the CN Tower behind.";
 
@@ -1113,6 +1206,14 @@ export const shareCards = {
     imageAlt: `${settledFrameAlt} Captioned "${derby.eyebrow}: ${derby.heading}".`,
     caption: { eyebrow: derby.eyebrow, title: derby.heading },
   },
+  shootout: {
+    path: "/shootout",
+    title: shootout.metaTitle,
+    description: shootout.metaDescription,
+    image: "/share/shootout.png",
+    imageAlt: `${settledFrameAlt} Captioned "${shootout.eyebrow}: ${shootout.heading}".`,
+    caption: { eyebrow: shootout.eyebrow, title: shootout.heading },
+  },
   about: {
     path: about.path,
     title: about.metaTitle,
@@ -1122,7 +1223,7 @@ export const shareCards = {
     caption: { eyebrow: about.eyebrow, title: about.heading },
   },
 } as const satisfies Record<
-  "home" | "resume" | "play" | "derby" | "about" | CaseStudySlug,
+  "home" | "resume" | "play" | "derby" | "shootout" | "about" | CaseStudySlug,
   ShareCard
 >;
 
@@ -1138,6 +1239,7 @@ export type StillName =
   | "skyline"
   | "diamond"
   | "arena"
+  | "shootout"
   | RouteStillName;
 
 /** A stop on home's scroll route after the settled view: each Lit site's (by its Highlight), the Diamond's, Hong Kong's. */
@@ -1186,6 +1288,12 @@ export const diamondStills = worldStills("diamond");
  * WebGL, or under reduced motion): the Arena from inside, its show on.
  */
 export const arenaStills = worldStills("arena");
+
+/**
+ * The Shootout's first paint, likewise: the world as the camera holds it on
+ * the Arena's stage roof, facing Hong Kong; and what stays without WebGL.
+ */
+export const shootoutStills = worldStills("shootout");
 
 /**
  * Home's scroll route under reduced motion, where the world stays the hero's

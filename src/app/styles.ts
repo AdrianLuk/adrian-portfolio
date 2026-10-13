@@ -53,12 +53,14 @@ export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";
  */
 const inCyan =
   "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8";
+const inViolet =
+  "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8";
 
 export const overPlace = {
   skyline: inCyan,
   diamond: inCyan,
-  court:
-    "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8",
+  court: inViolet,
+  arena: inViolet,
 } as const;
 
 /**
@@ -100,6 +102,13 @@ export const arrivesAtHobby =
  */
 export const arrivesAtDerby =
   "in-data-[arriving=derby]:invisible in-data-[arriving=derby]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
+
+/**
+ * The Shootout's copy over the Arena's stage roof, held back the same way
+ * while the world's root carries data-arriving="shootout", then faded in.
+ */
+export const arrivesAtShootout =
+  "in-data-[arriving=shootout]:invisible in-data-[arriving=shootout]:opacity-0 motion-safe:transition-opacity motion-safe:duration-500";
 
 /**
  * A route stop's stretch of the page under reduced motion: it clips its

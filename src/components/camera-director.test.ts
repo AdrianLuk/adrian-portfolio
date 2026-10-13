@@ -23,6 +23,7 @@ import {
   hobbyRoute,
   playView,
   ROUTE_STOPS,
+  shootoutView,
   skylinePose,
 } from "./world/route";
 import { COURT_STOP, transit, transitWithin } from "./world/transit";
@@ -42,6 +43,11 @@ const aspect = 1.6;
 const play = playView(aspect, layoutLandmarks().court);
 /** The Derby's view of the Diamond, and its field of view. */
 const derby = derbyView(aspect, layoutLandmarks().field);
+/** The Shootout's view of Hong Kong from the Arena's stage roof, and its field of view. */
+const shootout = shootoutView(aspect);
+
+/** How long the director waits on a page that never arrives, at most, in ms: its arrival limit and the longest Transit. */
+const ARRIVAL_WAIT = 4000 + TRANSIT_MAX_SECONDS * 1000;
 
 const FRAME = 16;
 
@@ -68,11 +74,13 @@ function setup() {
       play: play.fovY,
       derby: derby.fovY,
       encore: arenaView(aspect).fovY,
+      shootout: shootout.fovY,
     },
     court: courtPose(aspect),
     hobby: hobbyRoute(aspect),
     play: play.pose,
     derby: derby.pose,
+    shootout: shootout.pose,
     courtStop: COURT_STOP,
     transit,
     within: transitWithin,
@@ -920,9 +928,9 @@ describe("the Camera director", () => {
 
     director.show("hero");
     director.fly("court", 10_000);
-    director.advance(16_000);
+    director.advance(10_000 + ARRIVAL_WAIT - 500);
     expect(director.flying()).toBe("court");
-    director.advance(16_600);
+    director.advance(10_000 + ARRIVAL_WAIT + 100);
     expect(director.flying()).toBeNull();
   });
 
@@ -931,9 +939,9 @@ describe("the Camera director", () => {
     director.show("hero");
     director.openingLands();
     director.fly("skyline", 0);
-    director.advance(6000);
+    director.advance(ARRIVAL_WAIT - 500);
     expect(director.flying()).toBe("skyline");
-    director.advance(6600);
+    director.advance(ARRIVAL_WAIT + 100);
     expect(director.flying()).toBeNull();
   });
 
@@ -1176,5 +1184,80 @@ describe("the About page's Hobby route", () => {
     const landed = director.frame(now);
     expect(landed.fovY).toBeCloseTo(CAMERA.fovY);
     expect(landed.lights).toMatchObject({ encore: 0, fill: 0 });
+  });
+});
+
+describe("the Shootout's view of Hong Kong", () => {
+  const inside = arenaView(aspect);
+  /** A turn of `yaw` radians round the vertical from the Shootout's own view. */
+  const turned = (yaw: number) =>
+    new Quaternion()
+      .setFromAxisAngle(new Vector3(0, 1, 0), yaw)
+      .multiply(shootout.pose.quaternion);
+
+  it("holds the Shootout's pose there, in its own field of view, the Arena's show off, never leaning", () => {
+    const { director } = setup();
+    director.show("shootout");
+    director.pointerAt({ x: 1, y: 1 });
+    const { pose, lights, lean, fovY } = director.frame(0);
+    expectSamePose(pose!, shootout.pose);
+    expect(fovY).toBe(shootout.fovY);
+    expect(lights).toMatchObject({ encore: 0, fill: 0, court: 0, skyline: 0 });
+    expect(lean).toEqual({ x: 0, y: 0 });
+  });
+
+  it("turns where the game aims once it has landed there, from where it stands, and back on null", () => {
+    const { director } = setup();
+    director.show("shootout");
+    director.aim(turned(0.4));
+    const aimed = director.frame(0).pose!;
+    expect(aimed.position.distanceTo(shootout.pose.position)).toBeLessThan(1e-9);
+    expect(aimed.quaternion.angleTo(turned(0.4))).toBeLessThan(1e-9);
+    director.aim(null);
+    expectSamePose(director.frame(0).pose!, shootout.pose);
+  });
+
+  it("aims only at the Shootout; a Transit leaves from where it aimed, and no aim turns it", () => {
+    const { director } = setup();
+    director.show("derby");
+    director.aim(turned(0.4));
+    expectSamePose(director.frame(0).pose!, derby.pose);
+    director.show("shootout");
+    director.fly("hero", 0);
+    expect(director.frame(0).pose!.quaternion.angleTo(turned(0.4))).toBeLessThan(1e-9);
+    director.aim(turned(-0.4));
+    expect(director.frame(0).pose!.quaternion.angleTo(turned(0.4))).toBeLessThan(1e-9);
+  });
+
+  it("flies from K-pop's stop straight up the bowl onto the deck, never back out along the route first", () => {
+    const { director } = setup();
+    director.show("hobby");
+    director.scrolled(3, [1, 1, 1], "hobby");
+    const { poses } = flyTo(director, "shootout", 0, 0);
+    expectNoJump(poses);
+    expectSamePose(poses.at(-1)!, shootout.pose);
+    // Every pose on the straight line between the two.
+    const from = inside.pose.position;
+    const to = shootout.pose.position;
+    const way = to.clone().sub(from).normalize();
+    for (const { position } of poses) {
+      const off = position.clone().sub(from);
+      expect(off.sub(way.clone().multiplyScalar(off.dot(way))).length()).toBeLessThan(0.5);
+    }
+  });
+
+  it("flies there from home along the route and back home, without a jump", () => {
+    const { director, route } = setup();
+    director.show("hero");
+    director.openingLands();
+    const there = flyTo(director, "shootout", 0);
+    expectNoJump(there.poses);
+    expectSamePose(there.poses.at(-1)!, shootout.pose);
+    expect(director.frame(there.landedAt).fovY).toBe(shootout.fovY);
+    const back = flyTo(director, "hero", there.landedAt + 1000, 300, (now) => {
+      if (now >= there.landedAt + 1300) director.openingLands();
+    });
+    expectNoJump(back.poses);
+    expectSamePose(director.frame(back.landedAt).pose!, route.poseAt(0));
   });
 });

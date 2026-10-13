@@ -4,7 +4,7 @@ import { EARN_EVENT, type AchievementId } from "../src/components/achievements";
 import { achievements as copy } from "../src/content/site";
 
 const counter = (page: Page, n: number) =>
-  page.getByRole("contentinfo").getByRole("button", { name: `${copy.label}: ${n} ${copy.of} 6` });
+  page.getByRole("contentinfo").getByRole("button", { name: `${copy.label}: ${n} ${copy.of} 7` });
 const toast = (page: Page) => page.getByRole("status");
 const dialog = (page: Page) => page.getByRole("dialog", { name: copy.label });
 
@@ -35,6 +35,15 @@ const toastFor = (page: Page, id: AchievementId, ms = 15_000) =>
       }),
     [EARN_EVENT, id, ms] as const,
   );
+
+test("earning Three for one, the Shootout's, toasts it by name with First Blood, counted of seven", async ({
+  page,
+}) => {
+  await page.goto("/shootout");
+  const shown = await toastFor(page, "three-for-one");
+  expect(shown).toContain(copy.names["three-for-one"]);
+  await expect(counter(page, 2)).toBeVisible();
+});
 
 test("earning Dinkbot down toasts it and First Blood together, counted in the footer and remembered", async ({
   page,
@@ -108,6 +117,7 @@ test("the counter opens the list by keyboard: unearned as ???, Esc closes it, fo
     unearned,
     unearned,
     copy.names["dinkbot-down"],
+    unearned,
   ]);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
@@ -125,7 +135,7 @@ test.describe("on touch", () => {
       await counter(page, 0).tap();
       await expect(dialog(page)).toBeVisible({ timeout: 500 });
     }).toPass();
-    await expect(dialog(page).getByRole("listitem")).toHaveCount(6);
+    await expect(dialog(page).getByRole("listitem")).toHaveCount(7);
     await dialog(page).getByRole("button", { name: copy.close }).tap();
     await expect(dialog(page)).toBeHidden();
   });

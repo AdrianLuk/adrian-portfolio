@@ -8,8 +8,11 @@ import {
   hrefFor,
   linkLabelFor,
   person,
+  derbyLink,
   profiles,
+  rallyLink,
   resume,
+  shootoutLink,
   roles,
   sideProjects,
   siteUrl,
@@ -92,6 +95,7 @@ export function llmsTxt(): string {
         ...caseStudies.map((study) =>
           link(`${study.title} case study`, hrefFor({ kind: "case-study", slug: study.slug })),
         ),
+        ...[rallyLink, derbyLink, shootoutLink].map((game) => link(game.label, game.href)),
         ...profiles.map((profile) => link(profile.label, profile.href)),
         link(footer.source.label, footer.source.href),
       ]

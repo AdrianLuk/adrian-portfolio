@@ -164,3 +164,37 @@ describe("the Home Run Derby's place, the Diamond", () => {
     expect(transitBetween("derby", "/derby#derby")).toBeNull();
   });
 });
+
+describe("the Shootout's place, the Arena", () => {
+  it("is the Shootout page's, `/shootout`, however its URL is written", () => {
+    for (const url of [
+      "/shootout",
+      "/shootout/",
+      "/shootout?x=1",
+      "https://adrianluk.com/shootout",
+    ]) {
+      expect(viewOf(url)).toBe("shootout");
+      expect(placeOf(url)).toBe("arena");
+    }
+    expect(placeOfView("shootout")).toBe("arena");
+  });
+
+  it("flies between the Shootout and every other view, either way", () => {
+    const others = {
+      hero: "/",
+      court: "/work/juice-bros",
+      play: "/rally",
+      derby: "/derby",
+      skyline: "/resume",
+      hobby: "/about",
+    } as const;
+    for (const [view, url] of Object.entries(others)) {
+      expect(transitBetween(view as keyof typeof others, "/shootout")).toBe("shootout");
+      expect(transitBetween("shootout", url)).toBe(view);
+    }
+  });
+
+  it("never flies within the Shootout", () => {
+    expect(transitBetween("shootout", "/shootout?weather=rain")).toBeNull();
+  });
+});

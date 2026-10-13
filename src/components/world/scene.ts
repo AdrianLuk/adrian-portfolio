@@ -8,6 +8,7 @@ import {
   Object3D,
   PerspectiveCamera,
   Points,
+  Quaternion,
   Raycaster,
   Scene,
   SRGBColorSpace,
@@ -50,6 +51,7 @@ import {
   PANEL_STOPS,
   playView,
   projectionBeam,
+  shootoutView,
   SITES,
   skylineView,
   type Route,
@@ -115,7 +117,9 @@ export type ViewOptions = {
  * page's, the camera still and low down the valley from downtown, looking
  * back up at Toronto's skyline. hobby: the About page's, the camera on the
  * Hobby route, from the court to the Diamond and into the Arena as its page
- * scrolls. Away from the hero, the plate and the lit sites are out of sight.
+ * scrolls. shootout: the Shootout's, the camera standing on the Arena's
+ * stage roof facing Hong Kong, where the game aims it. Away from the hero,
+ * the plate and the lit sites are out of sight.
  */
 export type WorldView =
   | { kind: "hero"; measure: () => Measurement }
@@ -123,7 +127,8 @@ export type WorldView =
   | { kind: "play" }
   | { kind: "derby" }
   | { kind: "skyline" }
-  | { kind: "hobby" };
+  | { kind: "hobby" }
+  | { kind: "shootout" };
 
 /**
  * The world: one scene, which any of its views can show, so changing view
@@ -197,6 +202,23 @@ export type DiamondStage = Stage & {
   cut(shot: { pose: Pose; fovY: number } | null): void;
 };
 
+/**
+ * The Arena's stage roof and the world round it, for the Shootout to play
+ * in: its guests stand in world units, wherever in the world they are.
+ */
+export type ArenaStage = Stage & {
+  /**
+   * Turns the camera where the game aims, from where the Shootout's view
+   * stands (null: its own view), through the Camera director.
+   */
+  aim(quaternion: Quaternion | null): void;
+  /**
+   * Whether nothing of the world (the ground, a building, a Landmark)
+   * stands between `from` and `to`, short of `margin` before `to`.
+   */
+  sees(from: Vector3, to: Vector3, margin?: number): boolean;
+};
+
 /** A view of the world on a canvas. */
 export type View = {
   /** Re-measures and re-poses (after a resize or reflow). */
@@ -243,6 +265,8 @@ export type World = View & {
   court: CourtStage;
   /** The Diamond's field, for the Home Run Derby to play on. */
   diamond: DiamondStage;
+  /** The Arena's stage roof and the world round it, for the Shootout. */
+  arena: ArenaStage;
 };
 
 /**
@@ -469,6 +493,8 @@ export async function createWorld(
   let guestGroup: Group | null = null;
   const courtGroup = new Group();
   const fieldGroup = new Group();
+  /** The Shootout's objects, in world units. */
+  const shootoutGroup = new Group();
   {
     const { field } = structures;
     fieldGroup.position.set(field.x, field.level, field.z);
@@ -511,6 +537,7 @@ export async function createWorld(
     plate.group,
     courtGroup,
     fieldGroup,
+    shootoutGroup,
   );
 
   let motes: ReturnType<typeof createMotes> | null = null;
@@ -738,6 +765,7 @@ export async function createWorld(
     const play = playView(camera.aspect, structures.court);
     const inside = arenaView(camera.aspect);
     const derby = derbyView(camera.aspect, structures.field);
+    const shootout = shootoutView(camera.aspect);
     const court = { pose: courtPose(camera.aspect), fovY: CAMERA.fovY };
     if (hobby?.aspect !== camera.aspect) {
       hobby = { aspect: camera.aspect, route: hobbyRoute(camera.aspect) };
@@ -747,7 +775,7 @@ export async function createWorld(
     const still =
       view.kind === "hero"
         ? null
-        : { court, play, derby, skyline, hobby: about }[view.kind];
+        : { court, play, derby, skyline, shootout, hobby: about }[view.kind];
     // The view's own field of view; the plate is measured in the world's.
     setFov(still?.fovY ?? CAMERA.fovY);
     posed = still
@@ -767,11 +795,13 @@ export async function createWorld(
         play: play.fovY,
         derby: derby.fovY,
         encore: inside.fovY,
+        shootout: shootout.fovY,
       },
       court: court.pose,
       hobby: hobby.route,
       play: play.pose,
       derby: derby.pose,
+      shootout: shootout.pose,
       courtStop: COURT_STOP,
       transit,
       within: transitWithin,
@@ -1101,8 +1131,27 @@ export async function createWorld(
     return stage;
   }
 
+  const sight = new Raycaster();
+  const toward = new Vector3();
+
   return {
     court: { ...stageOn(courtGroup), court: structures.court },
+    arena: {
+      ...stageOn(shootoutGroup),
+      aim(quaternion) {
+        options.director.aim(quaternion);
+      },
+      sees(from, to, margin = 0) {
+        toward.subVectors(to, from);
+        const far = toward.length() - margin;
+        toward.normalize();
+        const ground = groundHit(from, toward, far);
+        if (ground && ground.distance < far) return false;
+        sight.set(from, toward);
+        sight.far = far;
+        return sight.intersectObjects(solids, false).length === 0;
+      },
+    },
     diamond: {
       ...stageOn(fieldGroup),
       field: structures.field,

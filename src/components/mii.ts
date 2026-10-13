@@ -108,7 +108,7 @@ const ease = (from: number, to: number, rate: number, dt: number) =>
  * A part's material: dark (the night, tinted 14% toward `color`), edged by a
  * fresnel rim of `color`, lit through by `core`. Opaque and depth-writing.
  */
-function figureMaterial(color: Color, core = 0, rim = 1.25, map: Texture | null = null) {
+export function figureMaterial(color: Color, core = 0, rim = 1.25, map: Texture | null = null) {
   return new ShaderMaterial({
     uniforms: {
       uColor: { value: color.clone() },
