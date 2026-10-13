@@ -6,6 +6,18 @@ import { playerToolsSelector, SCENE } from "./player-tools-markup";
 import { REDUCED_MOTION } from "./reduced-motion";
 import { RecordingVideo } from "./recording-video";
 
+/** Whether this browser draws WebGL: asked once, of a throwaway canvas. */
+let webgl: boolean | null = null;
+function drawsWebGL() {
+  if (webgl === null) {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    webgl = gl !== null;
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+  }
+  return webgl;
+}
+
 /**
  * A silent screen recording. It plays on its own only while it is on screen
  * and the visitor allows motion; under prefers-reduced-motion it stays on its
@@ -17,7 +29,14 @@ import { RecordingVideo } from "./recording-video";
  * then out of sight, so it stays paused with its controls off, and the
  * keyboard never stops on it unseen.
  */
-export function Recording({ recording }: { recording: RecordingContent }) {
+export function Recording({
+  recording,
+  needsWebGL = false,
+}: {
+  recording: RecordingContent;
+  /** A game's clip that needs WebGL to play: without it, the poster stays. */
+  needsWebGL?: boolean;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -27,10 +46,11 @@ export function Recording({ recording }: { recording: RecordingContent }) {
     const scene = video.closest<HTMLElement>(playerToolsSelector);
     let onScreen = false;
 
+    const playable = !needsWebGL || drawsWebGL();
     const sync = () => {
       const offStage = scene?.hasAttribute(SCENE) ?? false;
       video.controls = !offStage;
-      if (onScreen && !reduced.matches && !offStage) {
+      if (onScreen && playable && !reduced.matches && !offStage) {
         video.play().catch(() => {});
       } else video.pause();
     };
@@ -53,7 +73,7 @@ export function Recording({ recording }: { recording: RecordingContent }) {
       pinning.disconnect();
       reduced.removeEventListener("change", sync);
     };
-  }, []);
+  }, [needsWebGL]);
 
   return (
     <RecordingVideo

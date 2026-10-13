@@ -53,14 +53,14 @@ export const panel = "rounded-2xl bg-dusk/70 p-6 sm:p-8";
  */
 const inCyan =
   "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-cyan/10 sm:p-8";
+const inViolet =
+  "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8";
 
 export const overPlace = {
   skyline: inCyan,
   diamond: inCyan,
-  arena:
-    "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8",
-  court:
-    "relative rounded-sm bg-dusk/80 p-6 shadow-2xl shadow-violet/10 sm:p-8",
+  court: inViolet,
+  arena: inViolet,
 } as const;
 
 /**

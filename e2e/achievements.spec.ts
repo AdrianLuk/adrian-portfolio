@@ -117,6 +117,7 @@ test("the counter opens the list by keyboard: unearned as ???, Esc closes it, fo
     unearned,
     unearned,
     copy.names["dinkbot-down"],
+    unearned,
   ]);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 

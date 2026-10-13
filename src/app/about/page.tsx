@@ -159,7 +159,7 @@ export default async function AboutPage() {
 
         <HobbyPanel section={gaming} light="cyan" still="arena">
           <div className="mt-6">
-            <Recording recording={gaming.clip} />
+            <Recording recording={gaming.clip} needsWebGL />
           </div>
           <p className="mt-4">
             <PlayButton link={gaming.play} light="cyan" />

@@ -32,7 +32,7 @@ export type Bot = {
   /** How far it strafes each way, in metres: 0 stands still. */
   strafe: number;
   /** Where in its strafe it started, radians. */
-  phase: number;
+  strafeFrom: number;
   /** The ultimate's lock on it, 0 to 1. */
   lock: number;
 };
@@ -307,7 +307,7 @@ function spawn(game: Game): Game {
     age: 0,
     life,
     strafe: strafes ? BOT.strafe : 0,
-    phase: next() * Math.PI * 2,
+    strafeFrom: next() * Math.PI * 2,
     lock: 0,
   };
   const gap = BOT.gap[0] + next() * (BOT.gap[1] - BOT.gap[0]);

@@ -5,7 +5,6 @@ import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
-  Color,
   CylinderGeometry,
   Euler,
   Float32BufferAttribute,
@@ -249,7 +248,7 @@ function createTrainingBot(outline: Material) {
     add(root, box(0.07, 0.08, 0.08), joint, [s * 0.355, 0.86, 0.08], "body", { rx: -0.2 });
   }
   // A neck, then the big round head on it.
-  add(root, tube(0.05, 0.06, 0.08), joint, [0, 1.58, 0], "head");
+  add(root, tube(0.05, 0.06, 0.08), joint, [0, 1.58, 0], "body");
   const head = new Group();
   head.position.set(0, 1.6, 0);
   head.scale.setScalar(HEAD);
@@ -301,7 +300,7 @@ function bake(root: Group) {
 /**
  * The six-shooter, in the camera's frame (its barrel along -z): a long
  * barrel over its rod, a frame, a hammer, a violet grip, a trigger guard,
- * the cylinder with its six chambers lit ember, a cyan front sight and two
+ * the cylinder with its six chambers lit spore pink, a cyan front sight and two
  * lines of cyan down the barrel, and a muzzle flash.
  */
 function createSixShooter(flashMap: CanvasTexture) {
@@ -310,7 +309,7 @@ function createSixShooter(flashMap: CanvasTexture) {
   const dark = figureMaterial(palette.fog, 0.15, 0.9);
   const grip = figureMaterial(palette.violet, 0.3, 1);
   const cyan = new MeshBasicMaterial({ color: palette.cyan });
-  const ember = new MeshBasicMaterial({ color: new Color("#ffb347") });
+  const chambers = new MeshBasicMaterial({ color: palette.magenta });
   const add = (geometry: BufferGeometry, material: Material, x: number, y: number, z: number, rx = 0, rz = 0) => {
     const mesh = new Mesh(geometry, material);
     mesh.position.set(x, y, z);
@@ -335,7 +334,7 @@ function createSixShooter(flashMap: CanvasTexture) {
   drum.add(cylinder);
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
-    const chamber = new Mesh(new CylinderGeometry(0.014, 0.014, 0.01, 10), ember);
+    const chamber = new Mesh(new CylinderGeometry(0.014, 0.014, 0.01, 10), chambers);
     chamber.rotation.x = Math.PI / 2;
     chamber.position.set(Math.cos(a) * 0.042, Math.sin(a) * 0.042, -0.066);
     drum.add(chamber);
@@ -343,7 +342,7 @@ function createSixShooter(flashMap: CanvasTexture) {
   const flash = new Sprite(
     new SpriteMaterial({
       map: flashMap,
-      color: new Color("#ffb347"),
+      color: palette.magenta,
       transparent: true,
       depthWrite: false,
       blending: AdditiveBlending,
@@ -413,7 +412,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
     depthWrite: false,
     blending: AdditiveBlending,
   });
-  const tracerMaterial = new LineBasicMaterial({ color: new Color("#ffb347"), transparent: true });
+  const tracerMaterial = new LineBasicMaterial({ color: palette.magenta, transparent: true });
   group.add(pads, gun);
 
   /** The aim, absolute: yaw round the vertical, pitch up from level; facing Hong Kong to start. */
@@ -466,7 +465,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
     d.group.position.copy(spot);
     if (bot.strafe) {
       const across = new Vector3(eye.z - spot.z, 0, spot.x - eye.x).normalize();
-      d.group.position.addScaledVector(across, Math.sin(bot.age * STRAFE_PACE + bot.phase) * bot.strafe);
+      d.group.position.addScaledVector(across, Math.sin(bot.age * STRAFE_PACE + bot.strafeFrom) * bot.strafe);
     }
     d.group.rotation.y = Math.atan2(eye.x - d.group.position.x, eye.z - d.group.position.z);
   }

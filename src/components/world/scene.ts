@@ -494,7 +494,7 @@ export async function createWorld(
   const courtGroup = new Group();
   const fieldGroup = new Group();
   /** The Shootout's objects, in world units. */
-  const rangeGroup = new Group();
+  const shootoutGroup = new Group();
   {
     const { field } = structures;
     fieldGroup.position.set(field.x, field.level, field.z);
@@ -537,7 +537,7 @@ export async function createWorld(
     plate.group,
     courtGroup,
     fieldGroup,
-    rangeGroup,
+    shootoutGroup,
   );
 
   let motes: ReturnType<typeof createMotes> | null = null;
@@ -1137,7 +1137,7 @@ export async function createWorld(
   return {
     court: { ...stageOn(courtGroup), court: structures.court },
     arena: {
-      ...stageOn(rangeGroup),
+      ...stageOn(shootoutGroup),
       aim(quaternion) {
         options.director.aim(quaternion);
       },

@@ -1092,7 +1092,7 @@ export const derby = {
  * The Shootout on /shootout. As the Derby's, the page's own copy is plain;
  * the game's lines may joke, and make no claims. No Cassidy names, art or
  * sounds (#91's rule): the ultimate is just "Ultimate", its 12:00 clock the
- * only nod. The enemies are always "bots".
+ * only nod. The targets are always "bots".
  */
 export const shootout = {
   metaTitle: "Shootout on the Arena's stage | Adrian Luk",
@@ -1158,7 +1158,6 @@ export const shootout = {
     longShot: "Long shot.",
     /** The score, announced after a kill: "Score 450." */
     scoreLine: "Score",
-    reticle: "Locked",
   },
 } as const;
 

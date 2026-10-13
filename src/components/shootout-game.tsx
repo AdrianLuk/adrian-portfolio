@@ -53,6 +53,9 @@ const MOUSE_TURN = 0.0022;
 /** How far a press may move, in CSS pixels, and still count as a click, not a drag. */
 const CLICK_SLOP = 10;
 
+/** How long a kill's score or the ultimate's line stands before a bot up may replace it, in ms. */
+const HOLD_LINE_MS = 1500;
+
 /** Where the best score is kept: this browser only. */
 const BEST_KEY = "shootout-best";
 
@@ -159,13 +162,21 @@ export function ShootoutGame({
   const [announcement, setAnnouncement] = useState("");
   const [hud, setHud] = useState<Hud>(() => hudFor(createGame({ spots: [] })));
 
-  /** What a screen reader hears of the frame's events, in a line. */
+  /** When a line a screen reader must hear (a kill's score, the ultimate) was last said. */
+  const saidAtRef = useRef(0);
+
+  /**
+   * What a screen reader hears of the frame's events, in a line. A bot up
+   * waits out a moment after a kill's score or the ultimate's line, so the
+   * next pop-up never cuts it off.
+   */
   const announce = useCallback(
     (events: readonly GameEvent[], game: Game) => {
       const view = viewRef.current;
       const lines: string[] = [];
+      const holding = performance.now() - saidAtRef.current < HOLD_LINE_MS;
       for (const event of events) {
-        if (event.type === "up" && view) {
+        if (event.type === "up" && view && !holding) {
           const where = copy.where[game.spots[event.spot].kind];
           const way = copy.direction[view.directionOf(event.spot)];
           lines.push(`${copy.up} ${where}, ${way}.`);
@@ -178,6 +189,9 @@ export function ShootoutGame({
         } else if (event.type === "ult-start") {
           lines.push(copy.ultimate.runningLine);
         }
+      }
+      if (events.some((e) => e.type !== "up" && e.type !== "shot" && e.type !== "hit")) {
+        saidAtRef.current = performance.now();
       }
       if (lines.length) setAnnouncement(lines.join(" "));
     },
@@ -216,17 +230,8 @@ export function ShootoutGame({
       const locks = view.reticles(game);
       setReticles((shown) => (shown.length === 0 && locks.length === 0 ? shown : locks));
       const next = hudFor(game);
-      setHud((s) =>
-        s.score === next.score &&
-        s.kills === next.kills &&
-        s.best === next.best &&
-        s.charge === next.charge &&
-        s.ult === next.ult &&
-        s.paused === next.paused &&
-        s.phase === next.phase &&
-        s.slow === next.slow
-          ? s
-          : next,
+      setHud((shown) =>
+        (Object.keys(next) as (keyof Hud)[]).every((key) => shown[key] === next[key]) ? shown : next,
       );
       if (game.phase === "playing" && !game.paused) {
         frameRef.current = requestAnimationFrame(tick);
@@ -491,7 +496,7 @@ export function ShootoutGame({
           </div>
           <div className="flex items-baseline gap-2">
             <dt className="text-ink/80">{copy.score.best}</dt>
-            <dd className="text-ember tabular-nums">{hud.best}</dd>
+            <dd className="text-ink tabular-nums">{hud.best}</dd>
           </div>
         </dl>
         <div className="flex flex-col items-end gap-2 sm:flex-row">
@@ -534,16 +539,16 @@ export function ShootoutGame({
           {hud.ult === "running" && (
             <>
               {!hud.slow && (
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,color-mix(in_srgb,var(--color-ember)_32%,transparent)_100%)]" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,color-mix(in_srgb,var(--color-magenta)_32%,transparent)_100%)]" />
               )}
               <p
-                className={`absolute inset-x-0 top-[18%] text-center font-display text-4xl font-extrabold text-ember tabular-nums [font-stretch:130%] ${overField}`}
+                className={`absolute inset-x-0 top-[18%] text-center font-display text-4xl font-extrabold text-magenta tabular-nums [font-stretch:130%] ${overField}`}
               >
                 {copy.ultimate.clock}
               </p>
             </>
           )}
-          {/* The crosshair, and a hit's marker, ember for the head. */}
+          {/* The crosshair, and a hit's marker, spore pink for the head. */}
           <svg viewBox="-11 -11 22 22" className="absolute top-1/2 left-1/2 size-6 -translate-1/2 overflow-visible">
             <g className="stroke-night" strokeWidth="3.5" strokeLinecap="round">
               <path d="M0 -10v5M0 5v5M-10 0h5M5 0h5" />
@@ -555,7 +560,7 @@ export function ShootoutGame({
             {hit && (
               <g
                 key={hit.n}
-                className={`animate-[hit-marker_180ms_forwards] ${hit.head ? "stroke-ember" : "stroke-ink"}`}
+                className={`animate-[hit-marker_180ms_forwards] ${hit.head ? "stroke-magenta" : "stroke-ink"}`}
                 strokeWidth="2"
               >
                 <path d="M-12 -12l6 6M12 -12l-6 6M-12 12l6 -6M12 12l-6 -6" />
@@ -565,13 +570,13 @@ export function ShootoutGame({
           {reticles.map((r) => (
             <div
               key={r.id}
-              className="absolute size-11 -translate-1/2 rounded-full [mask:radial-gradient(circle,transparent_15px,#000_16px)] data-full:shadow-[0_0_18px_2px_var(--color-ember)]"
+              className="absolute size-11 -translate-1/2 rounded-full [mask:radial-gradient(circle,transparent_15px,#000_16px)] data-full:shadow-[0_0_18px_2px_var(--color-magenta)]"
               data-full={r.lock >= 1 || undefined}
               style={
                 {
                   left: r.x,
                   top: r.y,
-                  background: `conic-gradient(var(--color-ember) ${r.lock * 360}deg, color-mix(in srgb, var(--color-ember) 18%, transparent) 0)`,
+                  background: `conic-gradient(var(--color-magenta) ${r.lock * 360}deg, color-mix(in srgb, var(--color-magenta) 18%, transparent) 0)`,
                 } as CSSProperties
               }
             />
@@ -589,13 +594,13 @@ export function ShootoutGame({
           tabIndex={filled ? 0 : -1}
           disabled={hud.ult === "charging"}
           onClick={ultimate}
-          className={`pointer-events-auto relative grid size-16 place-content-center rounded-full bg-night/75 font-display text-sm font-extrabold uppercase tabular-nums sm:size-18 ${hud.ult === "charging" ? "text-ink" : "text-ember shadow-[0_0_22px_2px_color-mix(in_srgb,var(--color-ember)_55%,transparent)]"}`}
+          className={`pointer-events-auto relative grid size-16 place-content-center rounded-full bg-night/75 font-display text-sm font-extrabold uppercase tabular-nums sm:size-18 ${hud.ult === "charging" ? "text-ink" : "text-magenta shadow-[0_0_22px_2px_color-mix(in_srgb,var(--color-magenta)_55%,transparent)]"}`}
         >
           <span
             aria-hidden="true"
             className="absolute inset-0 rounded-full [mask:radial-gradient(circle,transparent_calc(50%-4px),#000_calc(50%-3px))]"
             style={{
-              background: `conic-gradient(${hud.ult === "charging" ? "var(--color-cyan)" : "var(--color-ember)"} ${charge * 360}deg, color-mix(in srgb, var(--color-ink) 14%, transparent) 0)`,
+              background: `conic-gradient(${hud.ult === "charging" ? "var(--color-cyan)" : "var(--color-magenta)"} ${charge * 360}deg, color-mix(in srgb, var(--color-ink) 14%, transparent) 0)`,
             }}
           />
           <span aria-hidden="true">

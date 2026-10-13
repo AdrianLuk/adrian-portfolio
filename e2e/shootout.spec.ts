@@ -169,7 +169,7 @@ test.describe("on a phone", () => {
     );
   });
 
-  test("dragging turns the aim, and the score, Reset, Pause and the ultimate's ring fit across the screen", async ({ page }) => {
+  test("a drag doesn't break play, and the score, Reset, Pause and the ultimate's ring fit across the screen", async ({ page }) => {
     await openShootout(page);
     await startSlow(page);
     await thumb(page, 120, 0);
@@ -187,6 +187,7 @@ test.describe("on a phone", () => {
 test("the ultimate charges from shots, starts on Q with its 12:00, and fires on Q again", async ({ page }) => {
   test.setTimeout(300_000);
   await openShootout(page);
+  const said = await hearAll(page);
   await startSlow(page);
   await expect(ring(page)).toBeDisabled();
   await hunt(
@@ -195,7 +196,7 @@ test("the ultimate charges from shots, starts on Q with its 12:00, and fires on 
     async () => (await gameRoot(page).getAttribute("data-ult")) === "ready",
     200,
   );
-  await expect(announcer(page)).toContainText(copy.ultimate.readyLine);
+  expect((await said()).some((line) => line.includes(copy.ultimate.readyLine))).toBe(true);
   await page.keyboard.press("q");
   await expect(gameRoot(page)).toHaveAttribute("data-ult", "running");
   await expect(page.getByText(copy.ultimate.clock, { exact: true })).toBeVisible();
@@ -230,6 +231,12 @@ test("without WebGL the stage roof's still stays, and the game says it needs Web
   await expect(page.getByText(copy.unavailable)).toBeVisible();
   await expect(page.getByRole("button", { name: copy.start.action })).toHaveCount(0);
   await expect(page.getByRole("link", { name: shootout.aboutLink.label })).toBeVisible();
+  // The About page's gaming clip stays on its poster: it shows a game that can't run here.
+  await page.goto("/about");
+  const clip = page.locator(`#${about.gaming.id} video`);
+  await clip.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1000);
+  expect(await clip.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
 });
 
 test("the About page's gaming panel has the clip, then the play button, and the camera flies from the Arena up onto the stage roof", async ({

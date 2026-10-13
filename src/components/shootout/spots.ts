@@ -46,7 +46,7 @@ const RIM = { count: 11, near: 14, far: 95, most: 4 };
 const SHORE = { near: 24, far: 95, every: 8, below: 6, most: 8 };
 
 /**
- * The lit pads on Victoria Harbour (new): `count` of them on open water,
+ * The lit pads on Victoria Harbour, the Shootout's own: `count` of them on open water,
  * `near` to `far` from the stage's front and out ahead of it, spread as far
  * apart as they go, the first `first` ahead of the stage.
  */
