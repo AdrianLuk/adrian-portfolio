@@ -226,7 +226,7 @@ export const hero = {
 export const credits = {
   label: "Opening credits",
   lines: [
-    "A portfolio by: Adrian Luk",
+    "A website by: Adrian Luk",
     "Starring: Adrian Luk, as himself",
     "Motion by: Adrian Luk (yes, also me)",
     "Budget: one Claude subscription",
@@ -731,7 +731,7 @@ export const contact = {
   offClock: {
     id: "off-the-clock",
     heading: "Off the clock",
-    text: "Pickleball, baseball, K-pop concerts and games.",
+    text: "Pickleball, baseball, K-pop concerts and gaming.",
     link: { label: "More on the About page", href: "/about" },
     derby: { label: "Bat in the Home Run Derby", href: derbyLink.href },
     clip: derbyClip,
@@ -836,7 +836,7 @@ export const about = {
     "I'm Adrian, a senior frontend engineer in Toronto. I've worked in React and TypeScript since 2018, and I do the back end when it needs building. Most recently I was at Control D, where I led an accessibility overhaul across 248 components and built single sign-on for four identity providers.",
     "I was born and raised in Canada, and my parents and family are from Hong Kong.",
     // A word joiner after K-pop's hyphen, so a phone doesn't break the word there.
-    "Off the clock, it's pickleball, baseball, K-⁠pop concerts and video games. Pickleball even made it into my side project. I'm the only engineer on Juice Bros, a pickleball media brand, and I built its player tools for my own play.",
+    "Off the clock, it's pickleball, baseball, K-⁠pop concerts and gaming. Pickleball even made it into my side project. I'm the only engineer on Juice Bros, a pickleball media brand, and I built its player tools for my own play.",
     "Each hobby has its own stop further down, and three come with a game you can play: pickleball at the court, a home run derby at the ballpark, and a shootout on the Arena's stage.",
   ],
   pickleball: {
