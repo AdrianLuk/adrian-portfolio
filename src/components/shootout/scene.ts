@@ -81,16 +81,14 @@ const SCALE = 1.6;
 const CHEST = 1.35 * SCALE;
 /** The big round head, twice a life-size one, as a Mii's is. */
 const HEAD = 2.1;
-/** The head's middle over the feet: on the neck (1.6), its ball's centre HEAD times 0.11 up (createTrainingBot). */
-const HEAD_AT = (1.6 + 0.11 * HEAD) * SCALE;
 /** The outline's width: a share of the distance, so it keeps its width on screen at any distance. */
 const OUTLINE_WIDTH = 0.0028;
 
 /** How far the aim may tip down and up from level, radians: down to the shore, never into the deck. */
 const PITCH = { down: 0.6, up: 0.8 };
 
-/** How near on screen a near miss must pass a bot, in CSS pixels, for a phone's aim assist to count it. */
-const ASSIST_PX = 20;
+/** How near on screen a near miss must pass a bot's chest, in CSS pixels, for a phone's aim assist to count it: small, as a far bot's head is a few pixels across. */
+const ASSIST_PX = 10;
 
 /** How the six-shooter stands off the eye, in the camera's frame: lower right, nearer the middle on a narrow screen. 3 times life size at 3 times the distance, so it looks the same and stays past the camera's near plane. */
 const GUN = {
@@ -464,7 +462,6 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
   }
 
   const chestOf = (d: Drawn) => d.group.position.clone().setY(d.group.position.y + CHEST);
-  const headOf = (d: Drawn) => d.group.position.clone().setY(d.group.position.y + HEAD_AT);
 
   /** Where bot `bot` stands now: its spot, strafing across the line of sight. */
   function standBot(d: Drawn, bot: Game["bots"][number]) {
@@ -553,20 +550,17 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
         }
         tracer(raycaster.ray.at(600, new Vector3()));
         if (!assist) return null;
-        // A near miss on a phone counts as a shot to the nearer of the head and the chest:
-        // one just over the head is a headshot, not a body shot.
+        // A near miss on a phone counts as a body shot: a headshot takes a real hit on the head.
         const { width, height } = screen();
-        let best: { bot: number; head: boolean; px: number } | null = null;
+        let best: { bot: number; px: number } | null = null;
         for (const bot of game.bots) {
           const d = drawn.get(bot.id);
           if (!d || d.down !== null) continue;
-          for (const [head, point] of [[false, chestOf(d)], [true, headOf(d)]] as const) {
-            const at = onScreen(point);
-            const px = Math.hypot(at.x - width / 2, at.y - height / 2);
-            if (at.front && px <= ASSIST_PX && (!best || px < best.px)) best = { bot: bot.id, head, px };
-          }
+          const at = onScreen(chestOf(d));
+          const px = Math.hypot(at.x - width / 2, at.y - height / 2);
+          if (at.front && px <= ASSIST_PX && (!best || px < best.px)) best = { bot: bot.id, px };
         }
-        return best && { bot: best.bot, head: best.head };
+        return best && { bot: best.bot, head: false };
       },
       inView(id) {
         const d = drawn.get(id);
