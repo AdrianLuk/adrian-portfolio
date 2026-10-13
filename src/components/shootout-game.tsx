@@ -67,6 +67,7 @@ type Hud = {
   score: number;
   best: number;
   kills: number;
+  headshots: number;
   /** The ultimate's charge, in whole percent. */
   charge: number;
   ult: "charging" | "ready" | "running";
@@ -79,6 +80,7 @@ const hudFor = (game: Game): Hud => ({
   score: game.score,
   best: game.best,
   kills: game.kills,
+  headshots: game.headshots,
   charge: Math.floor(game.charge * 100),
   ult: game.ult ? "running" : game.charge >= 1 ? "ready" : "charging",
 });
@@ -496,6 +498,16 @@ export function ShootoutGame({
             <dd className="tabular-nums">{hud.kills}</dd>
           </div>
           <div className="flex items-baseline gap-2">
+            {/* Short on a phone, where the full word pushes Reset and Pause off screen. */}
+            <dt className="text-ink/80">
+              <span aria-hidden="true" className="sm:hidden">
+                {copy.score.headshotsShort}
+              </span>
+              <span className="sr-only sm:not-sr-only">{copy.score.headshots}</span>
+            </dt>
+            <dd className="tabular-nums">{hud.headshots}</dd>
+          </div>
+          <div className="flex items-baseline gap-2">
             <dt className="text-ink/80">{copy.score.best}</dt>
             <dd className="text-ink tabular-nums">{hud.best}</dd>
           </div>
@@ -549,8 +561,8 @@ export function ShootoutGame({
               </p>
             </>
           )}
-          {/* The crosshair, and a hit's marker, spore pink for the head. */}
-          <svg viewBox="-11 -11 22 22" className="absolute top-1/2 left-1/2 size-6 -translate-1/2 overflow-visible">
+          {/* The crosshair, and a hit's marker, spore pink for the head: on the world canvas's middle (50lvh), where a shot goes, not the screen's. */}
+          <svg viewBox="-11 -11 22 22" className="absolute top-[50lvh] left-1/2 size-6 -translate-1/2 overflow-visible">
             <g className="stroke-night" strokeWidth="3.5" strokeLinecap="round">
               <path d="M0 -10v5M0 5v5M-10 0h5M5 0h5" />
             </g>

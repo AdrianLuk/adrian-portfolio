@@ -98,6 +98,7 @@ describe("the Shootout's rules", () => {
     expect(kill).toMatchObject({ bot: id, head: false });
     expect(game.score).toBe(SPOTS[kill!.type === "kill" ? kill!.spot : 0].distance > LONG_SHOT ? 150 : 100);
     expect(game.kills).toBe(1);
+    expect(game.headshots).toBe(0);
     expect(game.bots.some((b) => b.id === id)).toBe(false);
 
     let head = withBots(1);
@@ -105,6 +106,7 @@ describe("the Shootout's rules", () => {
     head = step(head, 0, { trigger: true }, aimAtFirst(true));
     expect(head.events).toContainEqual(expect.objectContaining({ type: "kill", bot: target.id, head: true }));
     expect(head.score).toBe(150 + (SPOTS[target.spot].distance > LONG_SHOT ? 50 : 0));
+    expect(head.headshots).toBe(1);
   });
 
   it("adds 50 for a long shot, past 120 m", () => {
@@ -226,7 +228,7 @@ describe("the Shootout's rules", () => {
     expect(game.best).toBe(game.score);
     expect(game.best).toBeGreaterThan(0);
     const reset = resetGame({ ...game, charge: 0.5 });
-    expect(reset).toMatchObject({ score: 0, kills: 0, charge: 0, ult: null, bots: [], best: game.best, phase: "playing" });
+    expect(reset).toMatchObject({ score: 0, kills: 0, headshots: 0, charge: 0, ult: null, bots: [], best: game.best, phase: "playing" });
   });
 
   it("starts from a best kept from an earlier visit", () => {
