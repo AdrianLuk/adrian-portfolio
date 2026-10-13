@@ -51,6 +51,8 @@ const MOUSE_TURN = 0.0022;
 
 /** How much faster than the thumb a drag turns the aim: a quick flick crosses the Arena. */
 const DRAG_TURN = 1.8;
+/** How much slower a drag turns while the crosshair is over a bot, as a console's aim assist does: a far head is a few pixels across. */
+const OVER_BOT_TURN = 0.5;
 
 /**
  * A lifting thumb rolls: its last moves, within `ms` of the lift and
@@ -442,9 +444,10 @@ export function ShootoutGame({
     drag.x = event.clientX;
     drag.y = event.clientY;
     drag.moved += Math.abs(dx) + Math.abs(dy);
-    // Steadier while the ultimate runs, for sweeping the reticles on.
+    // Steadier while the ultimate runs, for sweeping the reticles on, and slower still over a bot, to aim at its head.
     // The aim turns with the thumb, as the mouse's does: drag right to turn right, up to look up.
-    const k = view.perPixel() * DRAG_TURN * (gameRef.current.ult ? 0.7 : 1);
+    const game = gameRef.current;
+    const k = view.perPixel() * DRAG_TURN * (game.ult ? 0.7 : view.overBot(game) ? OVER_BOT_TURN : 1);
     view.look(-dx * k, -dy * k);
     drag.recent = drag.recent.filter((m) => event.timeStamp - m.t <= LIFT.ms);
     drag.recent.push({ t: event.timeStamp, yaw: -dx * k, pitch: -dy * k, px: Math.abs(dx) + Math.abs(dy) });
