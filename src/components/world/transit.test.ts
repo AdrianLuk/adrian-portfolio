@@ -6,8 +6,10 @@ import { SETTLED_RIG, type FlightRig } from "./rigs";
 import {
   courtPose,
   createRoute,
+  arenaView,
   derbyView,
   playView,
+  shootoutView,
   ROUTE_STOPS,
   SITES,
   skylinePose,
@@ -764,6 +766,7 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
         "/rally": playView(aspect, landmarks.court).pose,
         "the Skyline": skylineView,
         "the Derby": derbyView(aspect, landmarks.field).pose,
+        "the Shootout": shootoutView(aspect).pose,
       };
       const arrival = (pose: Pose) => (pose === settled ? SETTLED_STOP : pose);
 
@@ -781,6 +784,13 @@ for (const [name, { settled, plateCentre, aspect }] of Object.entries(
           });
         }
       }
+
+      it(`the Arena's inside view (the Hobby route's last stop) and the Shootout, either way, move straight up the bowl, no faster than ${limit}°/s`, () => {
+        const inside = arenaView(aspect).pose;
+        const stand = places["the Shootout"];
+        expectOneTurn(transitWithin(inside, stand), limit);
+        expectOneTurn(transitWithin(stand, inside), limit);
+      });
 
       it(`home's scroll at the route's end and the Skyline or the Derby, either way, turn once, straight round, no faster than ${limit}°/s`, () => {
         const end = ROUTE_STOPS - 1;

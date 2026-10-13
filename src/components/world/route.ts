@@ -1,6 +1,6 @@
 import { CatmullRomCurve3, Matrix4, Quaternion, Vector3 } from "three";
 import { ARENA_SIDE, DIAMOND_SIDE, LIT_SITES, type LitSite } from "../lit-sites";
-import { ARENA, arenaAxes, STAGE, STRETCH, type Beam } from "./arena";
+import { ARENA, arenaAxes, ROOF_DECK, STAGE, STRETCH, type Beam } from "./arena";
 import type { RallyCourt } from "./court-look";
 import { diamondMiddle, type DiamondField } from "./diamond";
 import type { Pose } from "./flight";
@@ -240,6 +240,40 @@ export function arenaView(aspect: number): { pose: Pose; fovY: number } {
   const fovY = Math.max(
     CAMERA.fovY,
     (2 * Math.atan(tanX / aspect) * 180) / Math.PI,
+  );
+  return {
+    pose: { position, quaternion: new Quaternion().setFromRotationMatrix(look) },
+    fovY,
+  };
+}
+
+/** How high the Shootout's eye stands over its deck: a person's, in world units. */
+export const SHOOTOUT_EYE = 1.7;
+
+/**
+ * The Shootout's view, for a screen of this shape: standing on the deck on
+ * the stage's truss (ROOF_DECK), on the Arena's axis, facing Hong Kong
+ * across Victoria Harbour, aimed at the city's middle `aim` up. Its field
+ * of view (vertical, in degrees) widens on a narrow screen until about
+ * `wide` degrees across show, up to `most`, so a phone sees round it.
+ */
+const SHOOTOUT_VIEW = { aim: 25, wide: 70, most: 78 };
+
+export function shootoutView(aspect: number): { pose: Pose; fovY: number } {
+  const arena = arenaAxes();
+  const front = -ARENA.floor * STRETCH + STAGE.front;
+  const [x, z] = arena.toWorld(0, front - STAGE.depth + 1);
+  const position = new Vector3(
+    x,
+    arena.level + STAGE.truss + ROOF_DECK.thick + SHOOTOUT_EYE,
+    z,
+  );
+  const city = new Vector3(HONG_KONG_CENTRE.x, SHOOTOUT_VIEW.aim, HONG_KONG_CENTRE.z);
+  const look = new Matrix4().lookAt(position, city, UP);
+  const tanX = Math.tan(((SHOOTOUT_VIEW.wide / 2) * Math.PI) / 180);
+  const fovY = Math.min(
+    SHOOTOUT_VIEW.most,
+    Math.max(CAMERA.fovY, (2 * Math.atan(tanX / aspect) * 180) / Math.PI),
   );
   return {
     pose: { position, quaternion: new Quaternion().setFromRotationMatrix(look) },

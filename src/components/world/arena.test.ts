@@ -30,6 +30,8 @@ import {
   PANEL_STOPS,
   playView,
   ROUTE_STOPS,
+  SHOOTOUT_EYE,
+  shootoutView,
   SITES,
   skylinePose,
 } from "./route";
@@ -529,6 +531,46 @@ describe("the Arena's inside view", () => {
         expect(Math.abs(p.x)).toBeLessThan(0.3);
         expect(Math.abs(p.y)).toBeLessThan(1);
         expect(position.distanceTo(city)).toBeGreaterThan(position.distanceTo(mid));
+      });
+    });
+  }
+});
+
+describe("the Shootout's view", () => {
+  const { roofDeck, stage } = arena;
+
+  it("stands on a small deck on the back of the stage's truss, over the LED wall, built into the Arena", () => {
+    expect(arena.solids).toContain(roofDeck);
+    const outline = roofDeck.sections![0].outline;
+    const along = outline.map(([, z]) => z);
+    // On the truss's back frame, which stands a unit inside the deck's back.
+    const back = stage.front - STAGE.depth + 1;
+    expect(Math.min(...along)).toBeLessThan(back);
+    expect(Math.max(...along)).toBeGreaterThan(back);
+    // Above the truss, which is above the LED wall's top.
+    expect(roofDeck.y).toBeCloseTo(level + STAGE.truss);
+    expect(roofDeck.y).toBeGreaterThan(stage.screen.from[1] + stage.screen.width / 2);
+  });
+
+  for (const [name, aspect] of Object.entries(shapes)) {
+    describe(name, () => {
+      const { pose, fovY } = shootoutView(aspect);
+      const { position } = pose;
+
+      it("stands a person's eye over the deck, on the Arena's axis", () => {
+        const { lx } = framed(position.x, position.z);
+        expect(Math.abs(lx)).toBeLessThan(1e-6);
+        const top = roofDeck.y + roofDeck.sections![1].h;
+        expect(position.y - top).toBeCloseTo(SHOOTOUT_EYE);
+      });
+
+      it("faces Hong Kong across Victoria Harbour, the city in frame, level enough to aim either way", () => {
+        const city = new Vector3(HONG_KONG_CENTRE.x, 30, HONG_KONG_CENTRE.z);
+        const p = project(pose, aspect, city, fovY);
+        expect(p.z).toBeLessThan(1);
+        expect(Math.abs(p.x)).toBeLessThan(0.1);
+        expect(Math.abs(p.y)).toBeLessThan(0.5);
+        expect(fovY).toBeGreaterThanOrEqual(CAMERA.fovY);
       });
     });
   }

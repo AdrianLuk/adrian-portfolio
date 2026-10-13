@@ -132,6 +132,14 @@ const JOIN_SPREAD = 0.5;
  */
 const TURN_REACH = 400;
 
+/**
+ * World units of the trip, per radian, that the whole turn takes at least,
+ * from the departure's view to the landing's: a short trip with a wide turn
+ * (the Derby round to the Shootout's view of Hong Kong) slows to a
+ * medium-speed pan, even on a phone, whose narrow frame shows a pan faster.
+ */
+const WHOLE_TURN_REACH = 560;
+
 /** Seconds a transit flying `distance` world units takes, up to the cap. */
 function durationFor(distance: number) {
   return distance === 0
@@ -404,8 +412,10 @@ export function transitPath(route: Route, departure: Pose, to: Arrival) {
   }
 
   return {
-    /** Seconds the transit takes: longer the further it flies, up to the cap. */
-    duration: durationFor(distance),
+    /** Seconds the transit takes: longer the further it flies (or the wider it turns), up to the cap. */
+    duration: durationFor(
+      Math.max(distance, WHOLE_TURN_REACH * departure.quaternion.angleTo(end.quaternion)),
+    ),
     /** World units it flies. */
     distance,
     along,

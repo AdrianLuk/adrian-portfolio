@@ -74,6 +74,13 @@ export const STAGE = {
   bStage: { r: 4, h: 1.4 },
 } as const;
 
+/**
+ * The Shootout's deck: a small platform on the back frame of the stage's
+ * truss, over the LED wall, `across` wide and `deep` along the axis,
+ * `thick` on top of the truss, its edge lit. The visitor stands on it.
+ */
+export const ROOF_DECK = { across: 6, deep: 3, thick: 0.3 } as const;
+
 /** How far under the floor the underside hangs. */
 export const UNDERSIDE = 2.2;
 
@@ -454,6 +461,16 @@ export function layoutArena() {
     );
   }
   strokes.push(...truss);
+  // The Shootout's deck, on the truss's back frame.
+  const deckAt = frames[1];
+  const roofOutline = rect(
+    -ROOF_DECK.across / 2,
+    ROOF_DECK.across / 2,
+    deckAt - ROOF_DECK.deep / 2,
+    deckAt + ROOF_DECK.deep / 2,
+  );
+  const roofDeck = prism(roofOutline, s.truss, s.truss + ROOF_DECK.thick, palette.dusk, 0);
+  rings.push(line([...roofOutline, roofOutline[0]], s.truss + ROOF_DECK.thick, 0.12, cyan));
   const lamps = Array.from({ length: 8 }, (_, i) => {
     const [wx, wz] = toWorld(-half + 2 + (i * (s.width - 4)) / 7, frames[0]);
     return { x: wx, y: level + s.truss - 0.6, z: wz };
@@ -602,6 +619,7 @@ export function layoutArena() {
     canopyY,
     canopyEdges: { inner, edge },
     stage: { deck, runway, bStage, front, lamps, screen, truss },
+    roofDeck,
     braces,
     braceLights,
     seats,
@@ -609,7 +627,7 @@ export function layoutArena() {
     beams,
     rings,
     strokes,
-    solids: [floor, ...tiers, ...underside, ...canopy, deck, runway, bStage, ...braces],
+    solids: [floor, ...tiers, ...underside, ...canopy, deck, roofDeck, runway, bStage, ...braces],
     bounds,
   };
 }

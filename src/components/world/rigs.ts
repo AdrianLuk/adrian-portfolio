@@ -55,6 +55,8 @@ export const TURN_EASE = { name: "power2.out", opening: 3 } as const;
  * The longest a transit (the camera flying between home and the Resume page)
  * ever takes, in seconds, however far it flies: well under the opening
  * (FLIGHT_TIMING's flight and turn), so navigation never feels slow. Their
- * copy never waits longer.
+ * copy never waits longer. Long enough that the widest turn between two
+ * Places (about 121°, from the Skyline round to the Shootout's view of Hong
+ * Kong) stays a medium-speed pan on a phone.
  */
-export const TRANSIT_MAX_SECONDS = 2.5;
+export const TRANSIT_MAX_SECONDS = 2.6;

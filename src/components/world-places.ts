@@ -14,22 +14,30 @@ import type { CaseStudySlug } from "@/content/site";
  * study and the Rally game at its court (Lit site 3's Landmark), the Resume
  * page at the Skyline (face to face with Toronto's skyline), the Home Run
  * Derby at the Diamond, the About page on the Hobby route (the court, the
- * Diamond, then the Arena, as its scroll goes).
+ * Diamond, then the Arena, as its scroll goes), the Shootout on the Arena's
+ * stage roof.
  */
-export type Place = "hero" | "court" | "skyline" | "diamond" | "hobby";
+export type Place = "hero" | "court" | "skyline" | "diamond" | "hobby" | "arena";
 
 /**
  * A page's view of its Place, where the camera stands there: each Place's
  * own, but the court has one per page, courtside for the Juice Bros Case
  * study ("court") and behind the player's baseline for /rally ("play"). A
  * navigation between two views of one Place is a Transit too. The Diamond's
- * one view is the Derby's ("derby"), behind home plate.
+ * one view is the Derby's ("derby"), behind home plate; the Arena's the
+ * Shootout's ("shootout"), on its stage roof facing Hong Kong.
  */
-export type PlaceView = Exclude<Place, "diamond"> | "play" | "derby";
+export type PlaceView = Exclude<Place, "diamond" | "arena"> | "play" | "derby" | "shootout";
 
 /** The Place a view is of. */
 export const placeOfView = (view: PlaceView): Place =>
-  view === "play" ? "court" : view === "derby" ? "diamond" : view;
+  view === "play"
+    ? "court"
+    : view === "derby"
+      ? "diamond"
+      : view === "shootout"
+        ? "arena"
+        : view;
 
 /**
  * The Case study whose Place is the court: Juice Bros', whose Landmark it
@@ -61,6 +69,7 @@ export function viewOf(url: string): PlaceView | null {
   if (page === COURT_PAGE) return "court";
   if (page === "/rally") return "play";
   if (page === "/derby") return "derby";
+  if (page === "/shootout") return "shootout";
   if (page === "/resume") return "skyline";
   if (page === "/about") return "hobby";
   return null;
