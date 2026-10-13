@@ -442,8 +442,12 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
     probe.updateMatrixWorld();
   }
 
-  /** The screen, in CSS pixels: the world's canvas covers it. */
-  const screen = () => ({ width: window.innerWidth, height: window.innerHeight });
+  /**
+   * The world's canvas, in CSS pixels, from the screen's top: as tall as the
+   * screen with a phone's address bar hidden (lvh), so taller than the
+   * screen while it shows. A shot goes through its middle, not the screen's.
+   */
+  const screen = () => ({ width: window.innerWidth, height: window.innerWidth / stage.camera.aspect });
 
   /** Where `point` stands on screen, in CSS pixels, and whether it is in front. */
   function onScreen(point: Vector3) {
