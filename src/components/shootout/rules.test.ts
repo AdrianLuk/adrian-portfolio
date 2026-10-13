@@ -3,6 +3,7 @@ import {
   BOT,
   createGame,
   DAMAGE,
+  doomed,
   FIRE_GAP,
   LONG_SHOT,
   resetGame,
@@ -185,6 +186,15 @@ describe("the Shootout's rules", () => {
       expect(game.events.filter((e) => e.type === "kill")).toHaveLength(locked);
       expect(game.events).toContainEqual({ type: "ult-fire", kills: locked });
       expect(game.events).toContainEqual({ type: "three-for-one" });
+    });
+
+    it("dooms a bot (its skull shows) once firing now takes it down: a hurt one at half a lock", () => {
+      const bot = withBots(1).bots[0];
+      expect(doomed({ ...bot, lock: 0 })).toBe(false);
+      expect(doomed({ ...bot, lock: 0.9 })).toBe(false);
+      expect(doomed({ ...bot, lock: 1 })).toBe(true);
+      expect(doomed({ ...bot, hp: BOT.hp - DAMAGE.body, lock: 0.5 })).toBe(true);
+      expect(doomed({ ...bot, hp: BOT.hp - DAMAGE.body, lock: 0.45 })).toBe(false);
     });
 
     it("fires itself when its time runs out, and only bots in view are hit", () => {

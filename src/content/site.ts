@@ -1091,8 +1091,8 @@ export const derby = {
 /**
  * The Shootout on /shootout. As the Derby's, the page's own copy is plain;
  * the game's lines may joke, and make no claims. No Cassidy names, art or
- * sounds (#91's rule): the ultimate is just "Ultimate", its 12:00 clock the
- * only nod. The targets are always "bots".
+ * sounds (#91's rule): the ultimate is just "Ultimate", a skull in a full
+ * lock (our own drawing) the only nod. The targets are always "bots".
  */
 export const shootout = {
   metaTitle: "Shootout on the Arena's stage | Adrian Luk",
@@ -1136,8 +1136,6 @@ export const shootout = {
       /** What a screen reader hears. */
       readyLine: "Ultimate ready.",
       runningLine: "Ultimate. Tap the ring or press Q to fire.",
-      /** The one nod, over the screen while it runs. */
-      clock: "12:00",
     },
     /** A bot up, as a screen reader hears it: "Bot up on the shore, to your left." */
     up: "Bot up",

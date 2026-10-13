@@ -36,7 +36,7 @@ import { palette } from "../world/palette";
 import { shootoutView } from "../world/route";
 import type { ArenaStage } from "../world/scene";
 import { VICTORIA_HARBOUR } from "../world/terrain";
-import { BOT, type Game, type Sight } from "./rules";
+import { BOT, doomed, type Game, type Sight } from "./rules";
 import { harbourPads, shootoutSpots, type PlacedSpot } from "./spots";
 
 /**
@@ -65,8 +65,8 @@ export type ShootoutView = {
   sight(assist: boolean): Sight;
   /** Which way a spot is from where the visitor aims. */
   directionOf(spot: number): Direction;
-  /** Where each locked-on bot's chest is on screen, in CSS pixels, while the ultimate runs. */
-  reticles(game: Game): { id: number; x: number; y: number; lock: number }[];
+  /** Where each locked-on bot's chest is on screen, in CSS pixels, while the ultimate runs, and whether firing now takes it down. */
+  reticles(game: Game): { id: number; x: number; y: number; lock: number; doomed: boolean }[];
   /** Draws the game as it stands, `dt` seconds on; `recoil` kicks the gun and the view on a shot. */
   draw(game: Game, dt: number, recoil: boolean): void;
   /** Takes the game out of the world, and frees its GPU memory. */
@@ -81,6 +81,8 @@ const SCALE = 1.6;
 const CHEST = 1.35 * SCALE;
 /** The big round head, twice a life-size one, as a Mii's is. */
 const HEAD = 2.1;
+/** The head's middle over the feet: on the neck (1.6), its ball's centre HEAD times 0.11 up (createTrainingBot). */
+const HEAD_AT = (1.6 + 0.11 * HEAD) * SCALE;
 /** The outline's width: a share of the distance, so it keeps its width on screen at any distance. */
 const OUTLINE_WIDTH = 0.0028;
 
@@ -462,6 +464,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
   }
 
   const chestOf = (d: Drawn) => d.group.position.clone().setY(d.group.position.y + CHEST);
+  const headOf = (d: Drawn) => d.group.position.clone().setY(d.group.position.y + HEAD_AT);
 
   /** Where bot `bot` stands now: its spot, strafing across the line of sight. */
   function standBot(d: Drawn, bot: Game["bots"][number]) {
@@ -550,17 +553,20 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
         }
         tracer(raycaster.ray.at(600, new Vector3()));
         if (!assist) return null;
-        // A near miss on a phone counts as a body shot.
+        // A near miss on a phone counts as a shot to the nearer of the head and the chest:
+        // one just over the head is a headshot, not a body shot.
         const { width, height } = screen();
-        let best: { bot: number; px: number } | null = null;
+        let best: { bot: number; head: boolean; px: number } | null = null;
         for (const bot of game.bots) {
           const d = drawn.get(bot.id);
           if (!d || d.down !== null) continue;
-          const at = onScreen(chestOf(d));
-          const px = Math.hypot(at.x - width / 2, at.y - height / 2);
-          if (at.front && px <= ASSIST_PX && (!best || px < best.px)) best = { bot: bot.id, px };
+          for (const [head, point] of [[false, chestOf(d)], [true, headOf(d)]] as const) {
+            const at = onScreen(point);
+            const px = Math.hypot(at.x - width / 2, at.y - height / 2);
+            if (at.front && px <= ASSIST_PX && (!best || px < best.px)) best = { bot: bot.id, head, px };
+          }
         }
-        return best && { bot: best.bot, head: false };
+        return best && { bot: best.bot, head: best.head };
       },
       inView(id) {
         const d = drawn.get(id);
@@ -711,7 +717,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
       const d = drawn.get(bot.id);
       if (!d || bot.lock <= 0) return [];
       const at = onScreen(chestOf(d));
-      return at.front ? [{ id: bot.id, x: at.x, y: at.y, lock: bot.lock }] : [];
+      return at.front ? [{ id: bot.id, x: at.x, y: at.y, lock: bot.lock, doomed: doomed(bot) }] : [];
     });
   }
 

@@ -265,6 +265,12 @@ function fire(game: Game, sight: Sight): Game {
   return next;
 }
 
+/** What the ultimate deals `bot` if fired now: its lock's share of a kill. */
+const ultimateDamage = (bot: Bot) => (bot.lock >= 1 ? BOT.hp : Math.round(bot.lock * BOT.hp));
+
+/** Whether firing the ultimate now takes `bot` down: its skull shows. */
+export const doomed = (bot: Bot) => bot.lock > 0 && ultimateDamage(bot) >= bot.hp;
+
 /** Fires the ultimate: each locked bot takes its lock's share of a kill. */
 function fireUltimate(game: Game): Game {
   let next: Game = { ...game, ult: null, cooldown: FIRE_GAP };
@@ -272,7 +278,7 @@ function fireUltimate(game: Game): Game {
   for (const bot of game.bots) {
     if (bot.lock <= 0) continue;
     const before = next.kills;
-    next = damageBot(next, bot.id, bot.lock >= 1 ? BOT.hp : Math.round(bot.lock * BOT.hp), false, "ultimate");
+    next = damageBot(next, bot.id, ultimateDamage(bot), false, "ultimate");
     kills += next.kills - before;
   }
   next.bots = next.bots.map((b) => ({ ...b, lock: 0 }));

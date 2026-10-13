@@ -17,7 +17,6 @@ import { earnAchievement } from "./achievements";
 import {
   gameButton,
   gamePrimary,
-  overField,
   overlayTitle,
   SlowMode,
   StepsAside,
@@ -153,7 +152,7 @@ export function ShootoutGame({
   );
   /** The last pointer to press: touch gets aim assist. */
   const touchRef = useRef(false);
-  const [reticles, setReticles] = useState<{ id: number; x: number; y: number; lock: number }[]>([]);
+  const [reticles, setReticles] = useState<ReturnType<ShootoutView["reticles"]>>([]);
   const [hit, setHit] = useState<{ n: number; head: boolean } | null>(null);
 
   const [hosted, setHosted] = useState<"waiting" | "hosted" | "failed">("waiting");
@@ -552,17 +551,8 @@ export function ShootoutGame({
 
       {filled && (
         <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-20">
-          {hud.ult === "running" && (
-            <>
-              {!hud.slow && (
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,color-mix(in_srgb,var(--color-magenta)_32%,transparent)_100%)]" />
-              )}
-              <p
-                className={`absolute inset-x-0 top-[18%] text-center font-display text-4xl font-extrabold text-magenta tabular-nums [font-stretch:130%] ${overField}`}
-              >
-                {copy.ultimate.clock}
-              </p>
-            </>
+          {hud.ult === "running" && !hud.slow && (
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,color-mix(in_srgb,var(--color-magenta)_32%,transparent)_100%)]" />
           )}
           {/* The crosshair, and a hit's marker, big and red for the head: on the world canvas's middle (50lvh), where a shot goes, not the screen's. */}
           <svg viewBox="-11 -11 22 22" className="absolute top-[50lvh] left-1/2 size-6 -translate-1/2 overflow-visible">
@@ -585,19 +575,30 @@ export function ShootoutGame({
                 </g>
               ))}
           </svg>
+          {/* Each lock's ring, and a skull in it once firing now takes that bot down, as Cassidy's Deadeye shows. */}
           {reticles.map((r) => (
             <div
               key={r.id}
-              className="absolute size-11 -translate-1/2 rounded-full [mask:radial-gradient(circle,transparent_15px,#000_16px)] data-full:shadow-[0_0_18px_2px_var(--color-magenta)]"
-              data-full={r.lock >= 1 || undefined}
-              style={
-                {
-                  left: r.x,
-                  top: r.y,
+              data-doomed={r.doomed || undefined}
+              className="absolute grid size-11 -translate-1/2 place-items-center"
+              style={{ left: r.x, top: r.y } as CSSProperties}
+            >
+              <div
+                className="absolute inset-0 rounded-full [mask:radial-gradient(circle,transparent_15px,#000_16px)] data-full:shadow-[0_0_18px_2px_var(--color-magenta)]"
+                data-full={r.lock >= 1 || undefined}
+                style={{
                   background: `conic-gradient(var(--color-magenta) ${r.lock * 360}deg, color-mix(in srgb, var(--color-magenta) 18%, transparent) 0)`,
-                } as CSSProperties
-              }
-            />
+                }}
+              />
+              {r.doomed && (
+                <svg viewBox="0 0 24 24" className="size-6 fill-magenta drop-shadow-[0_0_3px_var(--color-night)]">
+                  <path
+                    fillRule="evenodd"
+                    d="M12 2C7 2 3.5 5.5 3.5 10c0 2.6 1.2 4.6 3 5.8V19a1 1 0 0 0 1 1H9v-2h1.5v2h3v-2H15v2h1.5a1 1 0 0 0 1-1v-3.2c1.8-1.2 3-3.2 3-5.8C20.5 5.5 17 2 12 2ZM8.5 9.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM12 13.5l1.2 2.2h-2.4Z"
+                  />
+                </svg>
+              )}
+            </div>
           ))}
         </div>
       )}
