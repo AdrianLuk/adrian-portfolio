@@ -1,6 +1,6 @@
 import { InstancedMesh, type ShaderMaterial, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { AIRLINERS, airlinerAt, airlinerBox, createAirliners, strobeOn } from "./airliners";
+import { AIRLINERS, airlinerAt, airlinerBox, createAirliners, rondelle, strobeOn, titles } from "./airliners";
 import { keepClear, landsIn, onScreen, SCREENS, SHAPES, settledView, type Shape } from "./clearance";
 import type { Pose } from "./flight";
 import { FOG_DENSITY } from "./palette";
@@ -125,6 +125,27 @@ describe("the Airliners' lights", () => {
       expect(flashes).toBeGreaterThanOrEqual(7);
       expect(flashes).toBeLessThanOrEqual(30);
     });
+  });
+});
+
+describe("the Airliners' livery", () => {
+  it("spells the titles in 5-by-7 letters a column apart, rows bottom up, with a clear margin", () => {
+    const { data, width, height } = titles("AI").image as { data: Uint8Array; width: number; height: number };
+    expect([width, height]).toEqual([13, 9]);
+    const row = (j: number) => Array.from(data.slice(j * width, (j + 1) * width), (v) => (v ? "#" : ".")).join("");
+    expect(row(8)).toBe(".............");
+    expect(row(7)).toBe("..###..#####.");
+    expect(row(1)).toBe(".#...#.#####.");
+    expect(row(0)).toBe(".............");
+  });
+
+  it("paints the rondelle's ring and leaf, and nothing between them", () => {
+    const { data, width } = rondelle(64).image as { data: Uint8Array; width: number };
+    const at = (x: number, y: number) => data[Math.floor(((y + 1) / 2) * width) * width + Math.floor(((x + 1) / 2) * width)];
+    expect(at(0, 0)).toBe(255); // the leaf's middle
+    expect(at(0.92, 0)).toBe(255); // the ring
+    expect(at(0.6, 0.5)).toBe(0); // between
+    expect(at(0.99, 0.99)).toBe(0); // outside
   });
 });
 

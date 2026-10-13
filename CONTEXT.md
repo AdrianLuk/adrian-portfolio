@@ -49,7 +49,7 @@ The mouth of a Streetcar's tunnel: a lit opening in a headwall standing on the v
 _Avoid_: Tunnel, station
 
 **Airliner**:
-One of the three planes over the valley, in Air Canada's 2017 scheme: the red maple leaf on its black tail, with no ring round it and no wordmark. Steady magenta and cyan wingtip lights, and a white strobe flashing under three times a second. Two fly along the valley, one across it.
+One of the three planes over the valley, in an Air Canada livery mixed for red that reads from below: the 2017 scheme's white top and black belly, with red rondelles under the belly and on the engines and red AIR CANADA titles, and Air Canada Rouge's red tail with a huge white rondelle. Steady magenta and cyan wingtip lights, and a white strobe flashing under three times a second. Two fly along the valley, one across it.
 _Avoid_: Plane (unqualified), jet, aircraft
 
 **Ferry**:
