@@ -72,9 +72,10 @@ describe("where the Shootout's bots pop up", () => {
     expect(shootoutSpots(eye, blind).map((s) => s.kind)).toEqual(["practice"]);
   });
 
-  it("stands the practice bot close by, level with the visitor's feet", () => {
+  it("stands the practice bot on the B-stage, not too far off, below the visitor", () => {
     const [practice] = ofKind("practice");
-    expect(practice.distance).toBeLessThan(12);
-    expect(eye.y - practice.position.y).toBeCloseTo(SHOOTOUT_EYE + ROOF_DECK.thick);
+    expect(practice.distance).toBeGreaterThan(15);
+    expect(practice.distance).toBeLessThan(35);
+    expect(practice.position.y).toBeLessThan(eye.y - SHOOTOUT_EYE - ROOF_DECK.thick);
   });
 });
