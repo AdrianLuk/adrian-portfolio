@@ -36,6 +36,15 @@ const toastFor = (page: Page, id: AchievementId, ms = 15_000) =>
     [EARN_EVENT, id, ms] as const,
   );
 
+test("earning Three for one, the Shootout's, toasts it by name with First Blood, counted of seven", async ({
+  page,
+}) => {
+  await page.goto("/shootout");
+  const shown = await toastFor(page, "three-for-one");
+  expect(shown).toContain(copy.names["three-for-one"]);
+  await expect(counter(page, 2)).toBeVisible();
+});
+
 test("earning Dinkbot down toasts it and First Blood together, counted in the footer and remembered", async ({
   page,
 }) => {

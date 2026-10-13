@@ -31,6 +31,7 @@ import {
   Vector3,
   type Object3D,
 } from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { figureMaterial } from "../mii";
 import { palette } from "../world/palette";
 import { shootoutView } from "../world/route";
@@ -170,8 +171,9 @@ function dotTexture() {
  * machined limbs, a red chest core and back vents, and a big round head
  * (HEAD times life size) with a wraparound red visor, two eyes, ear pods and
  * an aerial. Each part is tagged head or body for a shot; each has the red
- * outline. Built once; every bot is a clone, sharing its geometry and
- * materials.
+ * outline. Built once, then baked into one mesh per material for its head
+ * and for its body, and one outline each (about a dozen draws a bot, not a
+ * hundred); every bot is a clone, sharing its geometry and materials.
  */
 function createTrainingBot(outline: Material) {
   const plate = figureMaterial(palette.ink, 0.08, 1.1);
@@ -264,7 +266,36 @@ function createTrainingBot(outline: Material) {
   add(head, ball(0.075, 16, 10), shell, [0, 0.03, 0.05], "head", { sy: 0.5, sx: 1.15 });
   add(head, tube(0.004, 0.004, 0.08, 6), joint, [0.06, 0.27, -0.04], "head", { rz: -0.25, lined: false });
   add(head, ball(0.012, 8, 6), red, [0.07, 0.31, -0.04], "head", { lined: false });
-  return root;
+  return bake(root);
+}
+
+/** Merges a figure's meshes, in its own frame, into one per part (head or body) and material. */
+function bake(root: Group) {
+  root.updateMatrixWorld(true);
+  const toRoot = root.matrixWorld.clone().invert();
+  const sets = new Map<string, { part: string; material: Material; geometries: BufferGeometry[] }>();
+  root.traverse((object) => {
+    if (!(object instanceof Mesh)) return;
+    // An outline takes its part from the mesh it outlines.
+    const part = (object.userData.part ?? object.parent?.userData.part) as string;
+    const material = object.material as Material;
+    const key = `${part}:${material.uuid}`;
+    const set = sets.get(key) ?? { part, material, geometries: [] };
+    sets.set(key, set);
+    set.geometries.push(object.geometry.clone().applyMatrix4(toRoot.clone().multiply(object.matrixWorld)));
+  });
+  const baked = new Group();
+  for (const { part, material, geometries } of sets.values()) {
+    const mesh = new Mesh(mergeGeometries(geometries), material);
+    mesh.userData.part = part;
+    if (material instanceof ShaderMaterial && material.side === BackSide) mesh.raycast = () => {};
+    baked.add(mesh);
+    for (const g of geometries) g.dispose();
+  }
+  root.traverse((object) => {
+    if (object instanceof Mesh) object.geometry.dispose();
+  });
+  return baked;
 }
 
 /**

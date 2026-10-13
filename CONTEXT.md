@@ -61,11 +61,11 @@ The home page's fly-in on a first visit: the camera's flight down the canyon to 
 _Avoid_: Intro, fly-through
 
 **Place**:
-A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/rally` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net), the Diamond for the Home Run Derby (seen from behind home plate), the Skyline for the Resume page and the Hobby route for the About page. A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/rally`. A page without a Place, such as the 404, shows a still of the world instead.
+A page's spot in the one world, with its own look, that the camera flies to: home's settled view and scroll route, the court for the Juice Bros Case study and `/rally` (Juice Bros' Lit site, its floodlights up, the fog tinted violet, a ball rallying over the net), the Diamond for the Home Run Derby (seen from behind home plate), the Skyline for the Resume page, the Hobby route for the About page and the Arena for the Shootout (from a deck on its stage's truss, facing Hong Kong). A Place can have a view per page: the court is seen from courtside for the Juice Bros Case study, and from behind the player's baseline for `/rally`. A page without a Place, such as the 404, shows a still of the world instead.
 _Avoid_: Scene, stop, destination
 
 **Transit**:
-The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court, the Skyline or the Diamond (sweeping off the route across the Harbour, panning to face downtown; or leaving it at the Diamond's stop to come down behind home plate), between any two of them, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court.
+The camera flying through the world between two Places, in place of a crossfade, when the visitor navigates between them: down the valley from home to the court, the Skyline or the Diamond (sweeping off the route across the Harbour, panning to face downtown; or leaving it at the Diamond's stop to come down behind home plate), between any two of them, or back up it to home. Also between two views of one Place, as between the Juice Bros Case study and `/rally`: the camera moves round the court; and from the Arena's inside view (the About page's K-pop stop) straight up the bowl onto the Shootout's deck.
 _Avoid_: Flight (that's the Opening), route transition, page transition
 
 **Camera director**:
@@ -77,11 +77,11 @@ The short pickleball game on `/rally`: singles against an AI, Dinkbot, played in
 _Avoid_: Mini-game, minigame, Pong
 
 **Easter egg**:
-A hidden or playful extra that shows who Adrian is outside work: the Home Run Derby, the Recall, the Encore, the 404's themed variants and the Achievements. Every one follows the ground rules in `docs/HANDOFF.md`, and a visitor who finds none loses nothing.
+A hidden or playful extra that shows who Adrian is outside work: the Home Run Derby, the Shootout, the Recall, the Encore, the 404's themed variants and the Achievements. Every one follows the ground rules in `docs/HANDOFF.md`, and a visitor who finds none loses nothing.
 _Avoid_: Secret, hidden feature, gimmick
 
 **Achievement**:
-One of six milestones a visitor earns by finding or playing an Easter egg: First Blood, Back to base, Encore!, Full rotation, Back-to-back-to-back and Dinkbot down. Toasted the first time it is earned, counted in the footer, and remembered in that browser only.
+One of seven milestones a visitor earns by finding or playing an Easter egg: First Blood, Back to base, Encore!, Full rotation, Back-to-back-to-back, Dinkbot down and Three for one. Toasted the first time it is earned, counted in the footer, and remembered in that browser only.
 _Avoid_: Badge, trophy (the trophy is BT Cup's hologram), award
 
 **Off the clock**:
@@ -104,6 +104,14 @@ _Avoid_: Baseball game, batting game, mini-game
 After a Derby with a home run, the longest replayed in slow motion under its banner, from its own camera in front of the plate until the bat meets the ball, then the home run's wide shot, its tracer drawn along the flight. Under reduced motion, one still of the bat on the ball. "Watch again" replays it.
 _Avoid_: Highlight, instant replay
 
+**Shootout**:
+The first-person shooting game on its own page, `/shootout`, reached from the About page's gaming line: the visitor stands on a deck on the Arena's stage truss, facing Hong Kong across Victoria Harbour, a six-shooter in the frame's corner, and shoots Training bots as they pop up round the harbour. Shoot and an Ultimate only; no ammo, no reload, no timer. Modelled on Overwatch's Cassidy, with none of his names, art or sounds.
+_Avoid_: Range, practice range, Harbour Range, shooter (unqualified)
+
+**Training bot**:
+A Shootout target: a robot drawn 1.6 times life size with a big round Mii-style head, a red visor and chest core, and a red outline as wide on screen at any distance. Pops up on the Arena's rim, the shore, a lit pad on Victoria Harbour, a Hong Kong Landmark's roof or a light tower at the Diamond. "Bots" in copy, always.
+_Avoid_: Robot (in copy), enemy, target dummy
+
 **Curvebot**:
 The Home Run Derby's pitcher, an AI, as Dinkbot is the Rally game's opponent. It mixes pitches of different speeds and has a short line for each outcome.
 _Avoid_: Pitcher (unqualified), Knucklebot
@@ -117,7 +125,7 @@ The About page's scroll route: the camera moves from the court (pickleball) to t
 _Avoid_: About route, second route
 
 **Arena**:
-The K-pop concert arena built from light, seated in the valley's right wall beside Victoria Harbour, past the Diamond: a horseshoe of tiers whose seats are lightsticks, a canopy over them, and a stage closing its open end, aimed at Hong Kong so the city stands behind the stage. Its back is cut into the wall; the rest stands out over the shore on lit braces, as Stark's house stands out over Malibu Point. Its floor holds the lightstick crowd. The Encore's frame, the Hobby route's last stop, seen from inside, up the back tiers behind the crowd. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
+The K-pop concert arena built from light, seated in the valley's right wall beside Victoria Harbour, past the Diamond: a horseshoe of tiers whose seats are lightsticks, a canopy over them, and a stage closing its open end, aimed at Hong Kong so the city stands behind the stage. Its back is cut into the wall; the rest stands out over the shore on lit braces, as Stark's house stands out over Malibu Point. Its floor holds the lightstick crowd. The Encore's frame, the Hobby route's last stop, seen from inside, up the back tiers behind the crowd, and the Shootout's Place, from a deck on its stage's truss. Home's scroll route glimpses it but never frames it. It is not a Lit site, and K-pop never uses BT Cup's stadium bowl, which is employer work.
 _Avoid_: Stadium, stadium bowl (BT Cup's Landmark), venue, concert hall
 
 **Sky glow**:
