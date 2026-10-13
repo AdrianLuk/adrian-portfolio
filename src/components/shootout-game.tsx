@@ -425,8 +425,9 @@ export function ShootoutGame({
     drag.y = event.clientY;
     drag.moved += Math.abs(dx) + Math.abs(dy);
     // Steadier while the ultimate runs, for sweeping the reticles on.
+    // The aim follows the thumb, as the mouse's does: drag right to turn right, up to look up.
     const k = view.perPixel() * (gameRef.current.ult ? 0.7 : 1);
-    view.look(dx * k, dy * k);
+    view.look(-dx * k, -dy * k);
   }
 
   function onPointerUp(event: PointerEvent<HTMLDivElement>) {
