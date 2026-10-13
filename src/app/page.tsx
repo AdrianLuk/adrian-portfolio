@@ -40,7 +40,7 @@ export const metadata: Metadata = shareMetadata(shareCards.home);
 const skipCard =
   "relative w-fit max-w-full mx-auto opening:before:absolute opening:before:-inset-x-3 opening:before:-inset-y-1.5 opening:before:-z-10 opening:before:rounded-lg opening:before:bg-night/70 opening:before:backdrop-blur-sm";
 
-/** "A portfolio by: Adrian Luk" as its role and its name, for a title card. */
+/** "A website by: Adrian Luk" as its role and its name, for a title card. */
 function creditParts(line: string) {
   const at = line.indexOf(": ");
   return { role: line.slice(0, at), name: line.slice(at + 2) };
