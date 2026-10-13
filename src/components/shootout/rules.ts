@@ -127,7 +127,7 @@ export const BOT = {
 export const POINTS = { kill: 100, head: 50, long: 50 } as const;
 
 /** A long shot: past this many metres. */
-export const LONG_SHOT = 80;
+export const LONG_SHOT = 120;
 
 /**
  * The ultimate: charged a share `perDamage` per point of damage dealt,

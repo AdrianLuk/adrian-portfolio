@@ -107,13 +107,16 @@ describe("the Shootout's rules", () => {
     expect(head.score).toBe(150 + (SPOTS[target.spot].distance > LONG_SHOT ? 50 : 0));
   });
 
-  it("adds 50 for a long shot, past 80 m", () => {
-    const far: Spot[] = [{ kind: "shore", distance: LONG_SHOT + 1 }];
-    let game = startGame(createGame({ spots: far }));
-    game = run(game, 3).game;
-    game = step(game, 0, { trigger: true }, aimAtFirst(true));
-    expect(game.score).toBe(200);
-    expect(game.events).toContainEqual(expect.objectContaining({ type: "kill", long: true }));
+  it("adds 50 for a long shot, past 120 m", () => {
+    const headshotAt = (distance: number) => {
+      let game = startGame(createGame({ spots: [{ kind: "shore", distance }] }));
+      game = run(game, 3).game;
+      return step(game, 0, { trigger: true }, aimAtFirst(true));
+    };
+    const far = headshotAt(121);
+    expect(far.score).toBe(200);
+    expect(far.events).toContainEqual(expect.objectContaining({ type: "kill", long: true }));
+    expect(headshotAt(100).score).toBe(150);
   });
 
   it("fires two shots a second at most: a pull in the gap fires the moment it ends, once", () => {
