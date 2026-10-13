@@ -22,7 +22,7 @@ import {
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { piece } from "./attributes";
 import { smoothstep } from "./noise";
-import { fogChunk, fogUniforms, MOON, palette } from "./palette";
+import { MOON, palette } from "./palette";
 import type { SharedUniforms } from "./shared";
 import type { Box } from "./structures";
 
@@ -233,7 +233,8 @@ function airlinerGeometry() {
  * belly, cockpit mask and nacelles, grey wings, a lit row of cabin windows,
  * red rondelles under the belly, on the engines and by the cockpit, and red
  * AIR CANADA titles; and Air Canada Rouge's red tail with a huge white
- * rondelle, lit as the logo lights light it. Steady magenta (port) and cyan
+ * rondelle, lit as the logo lights light it. Unfogged, so the Places' fog
+ * tints never wash the livery pink or violet. Steady magenta (port) and cyan
  * (starboard) wingtip lights, and a white strobe at each tip (`STROBE`).
  */
 export function createAirliners(shared: SharedUniforms) {
@@ -266,7 +267,6 @@ export function createAirliners(shared: SharedUniforms) {
       uPort: { value: palette.magenta },
       uStarboard: { value: palette.cyan },
       uStrobe: { value: palette.ink },
-      ...fogUniforms(),
     },
     vertexShader: /* glsl */ `
       uniform float uTraffic;
@@ -276,7 +276,6 @@ export function createAirliners(shared: SharedUniforms) {
       attribute vec2 aRun;
       varying vec3 vLocal;
       varying vec3 vNormal;
-      varying vec3 vWorld;
       varying vec2 vCorner;
       varying float vPart;
       varying float vShow;
@@ -295,7 +294,6 @@ export function createAirliners(shared: SharedUniforms) {
         vPart = aPart;
         vNormal = turn * normal;
         vec3 world = aFrom + along * u + turn * position;
-        vWorld = world;
         vec4 view = viewMatrix * vec4(world, 1.0);
         vCorner = uv * 2.0 - 1.0;
         // Lights open to face the camera, a few pixels across at any distance.
@@ -317,12 +315,10 @@ export function createAirliners(shared: SharedUniforms) {
       uniform sampler2D uTitles;
       varying vec3 vLocal;
       varying vec3 vNormal;
-      varying vec3 vWorld;
       varying vec2 vCorner;
       varying float vPart;
       varying float vShow;
       varying float vStrobe;
-      ${fogChunk}
       // How much of a rondelle (centre c, radius r) is painted at p.
       float rondelle(vec2 p, vec2 c, float r) {
         vec2 q = (p - c) / r;
@@ -332,12 +328,11 @@ export function createAirliners(shared: SharedUniforms) {
       void main() {
         if (vShow < 0.001) discard;
         int part = int(vPart + 0.5);
-        float fog = fogAmount(vWorld);
         if (part > 2) {
           float glow = pow(max(1.0 - length(vCorner), 0.0), 2.0);
           if (glow < 0.02) discard;
           vec3 c = part == 3 ? uPort : part == 4 ? uStarboard : part == 5 ? uStrobe * 1.4 * vStrobe : uStrobe * 0.7;
-          gl_FragColor = vec4(c * glow * (1.0 - fog), 1.0);
+          gl_FragColor = vec4(c * glow, 1.0);
         } else {
           vec3 n = normalize(gl_FrontFacing ? vNormal : -vNormal);
           // Brighter than the moon alone would light it, so the white reads white.
@@ -376,10 +371,10 @@ export function createAirliners(shared: SharedUniforms) {
             if (abs(vLocal.x) > 0.7)
               red = max(red, rondelle(vec2(vLocal.z * side, vLocal.y), vec2(8.3 * side, -0.15), 0.42));
           }
-          // The rondelles glow as if lit from the city below, to carry through the fog.
+          // The rondelles glow as if lit from the city below.
           c = mix(c, uRed, red);
           glow += uRed * red * 1.1;
-          gl_FragColor = vec4(mix(c * lit + vec3(0.03, 0.035, 0.07) + glow, uFogColor, fog), 1.0);
+          gl_FragColor = vec4(c * lit + vec3(0.03, 0.035, 0.07) + glow, 1.0);
         }
         // Encoded for the screen first, then premultiplied by the fade, so a
         // fading Airliner fades evenly. Alpha 0 for the lights: they add.
