@@ -65,6 +65,7 @@ const ROOFS: Record<string, number> = {
 };
 const ROOF_EDGE = 2.5;
 
+
 /** The pads on Victoria Harbour, in front of the Arena's stage, numbered left to right as seen from it. */
 export function harbourPads(): Vector3[] {
   const arena = arenaAxes();
@@ -165,5 +166,10 @@ export function shootoutSpots(eye: Vector3, sees: Sees): PlacedSpot[] {
   }
 
   for (const tower of lightTowers()) if (seen(tower)) add("tower", tower);
+
+  // The practice bot, on the B-stage in the Arena behind the visitor (as arena.ts places it).
+  const front = -ARENA.floor * STRETCH + STAGE.front;
+  const [px, pz] = arena.toWorld(0, front + STAGE.runway.length + STAGE.bStage.r - 1);
+  add("practice", new Vector3(px, arena.level + STAGE.bStage.h, pz));
   return spots;
 }

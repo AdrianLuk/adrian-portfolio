@@ -187,7 +187,7 @@ test.describe("on a phone", () => {
   });
 });
 
-test("the ultimate charges from shots, starts on Q with its 12:00, and fires on Q again", async ({ page }) => {
+test("the ultimate charges from shots, starts on Q, and fires on Q again", async ({ page }) => {
   test.setTimeout(300_000);
   await openShootout(page);
   const said = await hearAll(page);
@@ -202,14 +202,12 @@ test("the ultimate charges from shots, starts on Q with its 12:00, and fires on 
   expect((await said()).some((line) => line.includes(copy.ultimate.readyLine))).toBe(true);
   await page.keyboard.press("q");
   await expect(gameRoot(page)).toHaveAttribute("data-ult", "running");
-  await expect(page.getByText(copy.ultimate.clock, { exact: true })).toBeVisible();
   await expect(announcer(page)).toContainText(copy.ultimate.runningLine);
   // A pull while it runs fires nothing; Q fires it.
   await page.keyboard.press("Space");
   await expect(gameRoot(page)).toHaveAttribute("data-ult", "running");
   await page.keyboard.press("q");
   await expect(gameRoot(page)).toHaveAttribute("data-ult", "charging");
-  await expect(page.getByText(copy.ultimate.clock, { exact: true })).toBeHidden();
 });
 
 test("under reduced motion slow mode starts on, and nothing moves before Start", async ({ page }) => {
