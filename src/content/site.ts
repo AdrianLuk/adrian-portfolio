@@ -277,7 +277,7 @@ const shootoutMedia = "/shootout";
 
 /** A round of the Shootout, over its play button. Recorded by scripts/shootout-clip.mjs. */
 export const shootoutClip: Recording = {
-  label: "A round of the Shootout, from the Arena's stage roof: the aim swings from bot to bot across Victoria Harbour, training bots outlined in red on Hong Kong's roofs and a lit pad on the water, and the six-shooter in the corner drops six of them.",
+  label: "A round of the Shootout, from the Arena's stage roof: the aim swings from bot to bot across Victoria Harbour, training bots outlined in red on Hong Kong's roofs and a lit pad on the water, and the six-shooter in the corner drops five of them, each with a headshot.",
   poster: `${shootoutMedia}/round-poster.webp`,
   width: 720,
   height: 540,

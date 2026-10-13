@@ -31,14 +31,14 @@ const base = process.argv[2] ?? "http://localhost:3000";
 const FPS = 25;
 const FRAME_MS = 1000 / FPS;
 /** How long the clip runs, in ms, from the first bot in view. */
-const LENGTH_MS = 11_000;
+const LENGTH_MS = 9000;
 /**
  * The thumb: each frame it drags a share of the way to the bot's head, at
  * most `most` CSS pixels (about 80 degrees a second, under the Transits'
  * 150), and lifts once within `lift` of it; with no bot in view it turns
  * `pan` a frame. After a shot it rests `rest` ms, as a player does.
  */
-const THUMB = { share: 0.3, most: 26, lift: 3, pan: 10, rest: 280 };
+const THUMB = { share: 0.3, most: 26, lift: 1, pan: 10, rest: 280 };
 /**
  * How far the aim may turn left or right of facing Hong Kong, in CSS pixels
  * of drag (about a tenth of a degree each): the clip stays on the harbour,
@@ -46,6 +46,8 @@ const THUMB = { share: 0.3, most: 26, lift: 3, pan: 10, rest: 280 };
  * aim's pitch in reach.)
  */
 const REACH = 600;
+/** Where a bot's head is, down from the top of its outline, as a share of its height. */
+const HEAD = 0.22;
 /** The bots' outline's red as drawn (palette.neonRed, unlit), apart from Hong Kong's neon. */
 const isOutline = (r, g, b) => r > 170 && g < 45 && b < 55;
 /** The clip's last moments fade into its first frame, so it loops without a jump. */
@@ -122,12 +124,18 @@ try {
         }
       }
       if (box.cells < 2) continue;
-      const left = (box.x0 * CELL) / DPR;
-      const right = ((box.x1 + 1) * CELL) / DPR;
-      const top = (box.y0 * CELL) / DPR;
-      const bottom = ((box.y1 + 1) * CELL) / DPR;
+      // The outline's own pixels within its cells, to the pixel: a far bot is only a few cells tall.
+      let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
+      for (let y = box.y0 * CELL; y < Math.min(info.height, (box.y1 + 1) * CELL); y++) {
+        for (let x = box.x0 * CELL; x < Math.min(info.width, (box.x1 + 1) * CELL); x++) {
+          const i = (y * info.width + x) * info.channels;
+          if (!isOutline(data[i], data[i + 1], data[i + 2])) continue;
+          left = Math.min(left, x); right = Math.max(right, x);
+          top = Math.min(top, y); bottom = Math.max(bottom, y);
+        }
+      }
       // The big round head is the top of the box.
-      bots.push({ x: (left + right) / 2, y: top + (bottom - top) * 0.2 });
+      bots.push({ x: (left + right + 1) / 2 / DPR, y: (top + (bottom + 1 - top) * HEAD) / DPR });
     }
     return bots;
   };
