@@ -2,12 +2,16 @@ import {
   Color,
   CustomBlending,
   CylinderGeometry,
+  DataTexture,
   DoubleSide,
   InstancedBufferAttribute,
   InstancedMesh,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   OneFactor,
   OneMinusSrcAlphaFactor,
   PlaneGeometry,
+  RedFormat,
   Shape,
   ShapeGeometry,
   ShaderMaterial,
@@ -18,7 +22,7 @@ import {
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { piece } from "./attributes";
 import { smoothstep } from "./noise";
-import { fogChunk, fogUniforms, MOON, palette } from "./palette";
+import { MOON, palette } from "./palette";
 import type { SharedUniforms } from "./shared";
 import type { Box } from "./structures";
 
@@ -98,15 +102,69 @@ export function airlinerBox(plane: AirlinerRoute, t: number): Box {
   } as Box;
 }
 
-/** What each piece of the merged Airliner is, for the shader (`aPart`). */
-const PART = { body: 0, black: 1, wing: 2, leaf: 3, port: 4, starboard: 5, strobe: 6, tail: 7 };
+/** What each piece of the merged Airliner is, for the shader (`aPart`): the lights from 3 up. */
+const PART = { body: 0, black: 1, wing: 2, port: 3, starboard: 4, strobe: 5, tail: 6 };
 
-/** The red maple leaf's outline, 0 to 1 across, y down (as drawn on a canvas). */
+/** The maple leaf's outline, 0 to 1 across, y down (as drawn on a canvas). */
 const LEAF = [
   [50, 2], [57, 15], [64, 12], [61, 34], [74, 20], [77, 27], [90, 25], [85, 40], [93, 44],
   [72, 60], [75, 68], [53, 65], [54, 92], [46, 92], [47, 65], [25, 68], [28, 60], [7, 44],
   [15, 40], [10, 25], [23, 27], [26, 20], [39, 34], [36, 12], [43, 15],
 ].map(([x, y]) => [x / 100, y / 100]);
+
+function inLeaf(x: number, y: number) {
+  let inside = false;
+  for (let i = 0, j = LEAF.length - 1; i < LEAF.length; j = i++) {
+    const [xi, yi] = LEAF[i];
+    const [xj, yj] = LEAF[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** A one-channel mask (255 = paint), rows bottom up, as the shader samples it. */
+function mask(width: number, height: number, paint: (i: number, j: number) => boolean) {
+  const data = new Uint8Array(width * height);
+  for (let j = 0; j < height; j++) for (let i = 0; i < width; i++) data[j * width + i] = paint(i, j) ? 255 : 0;
+  const t = new DataTexture(data, width, height, RedFormat);
+  t.unpackAlignment = 1;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** The rondelle: the maple leaf in a ring, -1 to 1 across. */
+export function rondelle(size = 128) {
+  return mask(size, size, (i, j) => {
+    const x = ((i + 0.5) / size) * 2 - 1;
+    const y = ((j + 0.5) / size) * 2 - 1;
+    const r = Math.hypot(x, y);
+    return (r > 0.84 && r < 1) || inLeaf(0.5 + x * 0.66, 0.47 - y * 0.66);
+  });
+}
+
+/** The titles' letters, 5 by 7, top row first. */
+const GLYPHS: Record<string, string[]> = {
+  A: [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+  I: ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "#####"],
+  R: ["####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"],
+  C: [".####", "#....", "#....", "#....", "#....", "#....", ".####"],
+  N: ["#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#"],
+  D: ["####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."],
+  " ": [".....", ".....", ".....", ".....", ".....", ".....", "....."],
+};
+
+/** "AIR CANADA" in the glyphs, a column apart, with a pixel's margin all round. */
+export function titles(text = "AIR CANADA") {
+  const width = text.length * 6 + 1;
+  return mask(width, 9, (i, j) => {
+    const [col, row] = [i - 1, 7 - j];
+    const glyph = GLYPHS[text[Math.floor(col / 6)]];
+    return col >= 0 && row >= 0 && row < 7 && col % 6 < 5 && glyph?.[row][col % 6] === "#";
+  });
+}
 
 /** A swept wing, both halves, flat in the Airliner's xz (its root's leading edge forward). */
 function swept(span: number, root: number, tip: number, sweep: number) {
@@ -131,8 +189,8 @@ function light(x: number, y: number, z: number, kind: number) {
 
 /**
  * One Airliner, its nose to +z and its port wing to +x, about 28 long: the
- * fuselage, nose and tail cone, swept wings, tailplane, fin, two engines,
- * the maple leaf each side of the fin (`body`), and its lights (`lights`).
+ * fuselage, nose and tail cone, swept wings, tailplane, fin and two engines
+ * (`body`), and its lights (`lights`).
  */
 function airlinerGeometry() {
   // From radius r0 at its back (-z) to r1 at its front.
@@ -144,14 +202,6 @@ function airlinerGeometry() {
   fin.lineTo(-15.8, 6.6);
   fin.lineTo(-15.2, 1);
   fin.closePath();
-  const leaf = new Shape();
-  LEAF.forEach(([x, y], i) => (i ? leaf.lineTo(x, -y) : leaf.moveTo(x, -y)));
-  const leafSide = (s: 1 | -1) =>
-    new ShapeGeometry(leaf)
-      .translate(-0.48, 0.47, 0)
-      .scale(2.6, 2.6, 1)
-      .rotateY((s * Math.PI) / 2)
-      .translate(s * 0.07, 3.9, -13.9);
   const tipZ = -2.2;
   return {
     body: mergeGeometries([
@@ -163,8 +213,6 @@ function airlinerGeometry() {
       piece(new ShapeGeometry(fin).rotateY(-Math.PI / 2), PART.black),
       piece(swept(11.5, 5, 1.4, 4.5).translate(0, -0.5, 0.5), PART.wing),
       piece(swept(4.2, 2.6, 0.9, 2).translate(0, 0.6, -13.2), PART.wing),
-      piece(leafSide(1), PART.leaf),
-      piece(leafSide(-1), PART.leaf),
     ])!,
     lights: mergeGeometries([
       light(11.5, -0.5, tipZ, PART.port),
@@ -180,10 +228,13 @@ function airlinerGeometry() {
  * The three Airliners and all their lights, in one instanced draw. Each
  * flies its route on the traffic's clock (`uTraffic`) in the vertex shader,
  * as `airlinerAt` reckons it, so nothing moves on the CPU and the Airliners
- * hold still with the traffic. Air Canada's 2017 scheme is painted in the
- * shader: white above, black belly, cockpit mask, nacelles and fin, grey
- * wings, a lit row of cabin windows each side, and the red maple leaf on
- * the tail, lit as the logo lights light it. Steady magenta (port) and cyan
+ * hold still with the traffic. An Air Canada livery is painted in the
+ * shader, for red that reads from below: the 2017 scheme's white top, black
+ * belly, cockpit mask and nacelles, grey wings, a lit row of cabin windows,
+ * red rondelles under the belly, on the engines and by the cockpit, and red
+ * AIR CANADA titles; and Air Canada Rouge's red tail with a huge white
+ * rondelle, lit as the logo lights light it. Unfogged, so the Places' fog
+ * tints never wash the livery pink or violet. Steady magenta (port) and cyan
  * (starboard) wingtip lights, and a white strobe at each tip (`STROBE`).
  */
 export function createAirliners(shared: SharedUniforms) {
@@ -209,12 +260,13 @@ export function createAirliners(shared: SharedUniforms) {
       uWhite: { value: new Color("#dfe3ee") },
       uBlack: { value: new Color("#15161c") },
       uWing: { value: new Color("#8a90a6") },
-      uLeaf: { value: new Color("#f01428") },
+      uRed: { value: new Color("#f01428") },
       uWindow: { value: new Color("#ffd89a") },
+      uRondelle: { value: rondelle() },
+      uTitles: { value: titles() },
       uPort: { value: palette.magenta },
       uStarboard: { value: palette.cyan },
       uStrobe: { value: palette.ink },
-      ...fogUniforms(),
     },
     vertexShader: /* glsl */ `
       uniform float uTraffic;
@@ -224,7 +276,6 @@ export function createAirliners(shared: SharedUniforms) {
       attribute vec2 aRun;
       varying vec3 vLocal;
       varying vec3 vNormal;
-      varying vec3 vWorld;
       varying vec2 vCorner;
       varying float vPart;
       varying float vShow;
@@ -243,11 +294,10 @@ export function createAirliners(shared: SharedUniforms) {
         vPart = aPart;
         vNormal = turn * normal;
         vec3 world = aFrom + along * u + turn * position;
-        vWorld = world;
         vec4 view = viewMatrix * vec4(world, 1.0);
         vCorner = uv * 2.0 - 1.0;
         // Lights open to face the camera, a few pixels across at any distance.
-        if (aPart > 3.5) view.xy += vCorner * max(0.3, -view.z * 0.0035);
+        if (aPart > 2.5) view.xy += vCorner * max(0.3, -view.z * 0.0035);
         gl_Position = projectionMatrix * view;
       }
     `,
@@ -256,54 +306,80 @@ export function createAirliners(shared: SharedUniforms) {
       uniform vec3 uWhite;
       uniform vec3 uBlack;
       uniform vec3 uWing;
-      uniform vec3 uLeaf;
+      uniform vec3 uRed;
       uniform vec3 uWindow;
       uniform vec3 uPort;
       uniform vec3 uStarboard;
       uniform vec3 uStrobe;
+      uniform sampler2D uRondelle;
+      uniform sampler2D uTitles;
       varying vec3 vLocal;
       varying vec3 vNormal;
-      varying vec3 vWorld;
       varying vec2 vCorner;
       varying float vPart;
       varying float vShow;
       varying float vStrobe;
-      ${fogChunk}
+      // How much of a rondelle (centre c, radius r) is painted at p.
+      float rondelle(vec2 p, vec2 c, float r) {
+        vec2 q = (p - c) / r;
+        if (abs(q.x) > 1.0 || abs(q.y) > 1.0) return 0.0;
+        return texture2D(uRondelle, q * 0.5 + 0.5).r;
+      }
       void main() {
         if (vShow < 0.001) discard;
         int part = int(vPart + 0.5);
-        float fog = fogAmount(vWorld);
-        if (part > 3) {
+        if (part > 2) {
           float glow = pow(max(1.0 - length(vCorner), 0.0), 2.0);
           if (glow < 0.02) discard;
-          vec3 c = part == 4 ? uPort : part == 5 ? uStarboard : part == 6 ? uStrobe * 1.4 * vStrobe : uStrobe * 0.7;
-          gl_FragColor = vec4(c * glow * (1.0 - fog), 1.0);
+          vec3 c = part == 3 ? uPort : part == 4 ? uStarboard : part == 5 ? uStrobe * 1.4 * vStrobe : uStrobe * 0.7;
+          gl_FragColor = vec4(c * glow, 1.0);
         } else {
           vec3 n = normalize(gl_FrontFacing ? vNormal : -vNormal);
-          float lit = 0.3 + 0.55 * max(dot(n, uMoon), 0.0);
+          // Brighter than the moon alone would light it, so the white reads white.
+          float lit = 0.9 + 0.55 * max(dot(n, uMoon), 0.0);
           vec3 c = uWhite;
           vec3 glow = vec3(0.0);
-          if (part == 1) c = uBlack;
-          else if (part == 2) c = uWing;
-          else if (part == 3) {
-            // The logo lights shine up the fin from the tailplane.
+          float red = 0.0;
+          float side = sign(vLocal.x);
+          if (part == 1 && vLocal.z < -10.0) {
+            // Rouge's tail: red, lit up the fin by the logo lights from the
+            // tailplane, and a huge white rondelle cropped by its edges.
             c = vec3(0.0);
-            glow = uLeaf * (1.6 - 0.25 * (vLocal.y - 2.6));
-          } else {
-            // Air Canada's 2017 scheme: black belly and cockpit mask, a row of windows.
+            float white = rondelle(vLocal.zy, vec2(-14.4, 4.7), 2.2);
+            glow = mix(uRed * (1.2 - 0.19 * (vLocal.y - 2.6)), vec3(1.5), white);
+          } else if (part == 1) {
+            // An engine: a rondelle each side.
+            c = uBlack;
+            red = rondelle(vec2(vLocal.z * side, vLocal.y), vec2(2.1 * side, -1.35), 0.62);
+          } else if (part == 2) c = uWing;
+          else {
+            // Black belly and cockpit mask, a row of windows.
             bool belly = vLocal.y < -0.5;
             bool mask = vLocal.z > 10.5 && vLocal.y > 0.15 && abs(vLocal.x) < 1.05;
             bool pane = abs(vLocal.y - 0.35) < 0.12 && vLocal.z > -8.5 && vLocal.z < 7.5
               && fract(vLocal.z * 1.1) < 0.45;
             if (belly || mask) c = uBlack;
             if (pane) { c = vec3(0.0); glow = uWindow; }
+            // The titles, below the windows (the real ones sit above, but the
+            // Airliners are only seen from below), left to right either side.
+            if (abs(vLocal.x) > 0.3 && vLocal.y > -0.48 && vLocal.y < 0.17) {
+              float u = side > 0.0 ? (7.8 - vLocal.z) / 6.6 : (vLocal.z - 1.2) / 6.6;
+              if (u > 0.0 && u < 1.0) red = texture2D(uTitles, vec2(u, (vLocal.y + 0.48) / 0.65)).r;
+            }
+            // A big rondelle under the belly, ahead of the wing; a small one by the cockpit.
+            if (vLocal.y < -0.6) red = rondelle(vLocal.xz, vec2(0.0, 6.2), 1.25);
+            if (abs(vLocal.x) > 0.7)
+              red = max(red, rondelle(vec2(vLocal.z * side, vLocal.y), vec2(8.3 * side, -0.15), 0.42));
           }
-          gl_FragColor = vec4(mix(c * lit + vec3(0.03, 0.035, 0.07) + glow, uFogColor, fog), 1.0);
+          // The rondelles glow as if lit from the city below.
+          c = mix(c, uRed, red);
+          glow += uRed * red * 1.1;
+          gl_FragColor = vec4(c * lit + vec3(0.03, 0.035, 0.07) + glow, 1.0);
         }
         // Encoded for the screen first, then premultiplied by the fade, so a
         // fading Airliner fades evenly. Alpha 0 for the lights: they add.
         #include <colorspace_fragment>
-        gl_FragColor = vec4(gl_FragColor.rgb * vShow, part > 3 ? 0.0 : vShow);
+        gl_FragColor = vec4(gl_FragColor.rgb * vShow, part > 2 ? 0.0 : vShow);
       }
     `,
   };
