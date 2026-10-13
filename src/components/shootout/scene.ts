@@ -684,6 +684,8 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
     aimProbe();
     const { width } = screen();
     const seen = game.bots
+      // Not the practice bot: N finds the bots that pop up.
+      .filter((b) => spots[b.spot].kind !== "practice")
       .map((b) => drawn.get(b.id))
       .filter((d): d is Drawn => !!d && d.down === null)
       .map((d) => ({ d, at: onScreen(chestOf(d)) }))

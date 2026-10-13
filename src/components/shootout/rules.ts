@@ -15,7 +15,8 @@
 export type Phase = "ready" | "playing";
 
 /** Where a bot can pop up: the Arena's rim, the shore, a pad on the harbour, a Hong Kong roof, a light tower at the Diamond. */
-export type SpotKind = "rim" | "shore" | "pad" | "roof" | "tower";
+/** Where bots pop up; the practice spot holds one bot all game, for shooting over and over. */
+export type SpotKind = "rim" | "shore" | "pad" | "roof" | "tower" | "practice";
 
 /** A spot a bot can pop up on, and how far it stands from the visitor, in metres. */
 export type Spot = { kind: SpotKind; distance: number };
@@ -143,7 +144,10 @@ export const ULT = { perDamage: 1 / 1600, time: 6, lock: 1.3, slow: 0.35, three:
 export const SLOW_SPEED = 0.5;
 
 /** How often a bot pops up on each kind of spot, against the others. */
-const WEIGHT: Record<SpotKind, number> = { rim: 2, shore: 3, pad: 3, roof: 2, tower: 1 };
+const WEIGHT: Record<SpotKind, number> = { rim: 2, shore: 3, pad: 3, roof: 2, tower: 1, practice: 0 };
+
+/** Whether bot `bot` is the practice bot: it never pops down, scores or charges the ultimate. */
+const practicing = (game: Game, bot: Bot) => game.spots[bot.spot].kind === "practice";
 
 /** A small seeded generator (mulberry32): returns the next value and seed. */
 function random(seed: number): [number, number] {
@@ -187,10 +191,19 @@ export function createGame({
 
 export const startGame = (game: Game): Game => ({ ...resetGame(game), phase: "playing" });
 
+/** The practice bot, up on its spot for good, if there is one. */
+function practiceBot(game: Game): Game {
+  const spot = game.spots.findIndex((s) => s.kind === "practice");
+  if (spot < 0) return game;
+  const bot: Bot = { id: game.nextId, spot, hp: BOT.hp, age: 0, life: Infinity, strafe: 0, strafeFrom: 0, lock: 0 };
+  return { ...game, nextId: game.nextId + 1, bots: [bot] };
+}
+
 /** Clears the score, the bots and the ultimate; the best stays. */
-export const resetGame = (game: Game): Game => ({
-  ...game,
-  bots: [],
+export const resetGame = (game: Game): Game =>
+  practiceBot({
+    ...game,
+    bots: [],
   score: 0,
   kills: 0,
   headshots: 0,
@@ -198,9 +211,9 @@ export const resetGame = (game: Game): Game => ({
   queued: false,
   charge: 0,
   ult: null,
-  spawnIn: 0.4,
-  events: [],
-});
+    spawnIn: 0.4,
+    events: [],
+  });
 
 export const setPaused = (game: Game, paused: boolean): Game => ({ ...game, paused });
 
@@ -220,6 +233,8 @@ function damageBot(
 ): Game {
   const bot = game.bots.find((b) => b.id === id);
   if (!bot) return game;
+  // The practice bot takes every hit and stays up, as it was.
+  if (practicing(game, bot)) return { ...game, events: [...game.events, { type: "hit", bot: id, head, damage }] };
   const dealt = Math.min(bot.hp, damage);
   const events: GameEvent[] = [...game.events, { type: "hit", bot: id, head, damage }];
   // The ultimate charges from damage dealt by shots, not by itself.
@@ -290,7 +305,7 @@ function fireUltimate(game: Game): Game {
 /** Pops a bot up on a free spot, chosen by weight. */
 function spawn(game: Game): Game {
   const taken = new Set(game.bots.map((b) => b.spot));
-  const free = game.spots.map((s, i) => ({ s, i })).filter(({ i }) => !taken.has(i));
+  const free = game.spots.map((s, i) => ({ s, i })).filter(({ s, i }) => !taken.has(i) && s.kind !== "practice");
   if (!free.length) return game;
   let seed = game.seed;
   const next = () => {
@@ -383,6 +398,7 @@ export function step(game: Game, dt: number, input: Input, sight: Sight): Game {
 
   // The next bot, while there's room (none pop up while the ultimate runs).
   next.spawnIn -= botDt;
-  if (!next.ult && next.spawnIn <= 0 && next.bots.length < BOT.most) next = spawn(next);
+  const up = next.bots.filter((b) => !practicing(next, b)).length;
+  if (!next.ult && next.spawnIn <= 0 && up < BOT.most) next = spawn(next);
   return next;
 }

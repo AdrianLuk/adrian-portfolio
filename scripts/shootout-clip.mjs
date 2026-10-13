@@ -134,6 +134,8 @@ try {
           top = Math.min(top, y); bottom = Math.max(bottom, y);
         }
       }
+      // The practice bot, close by, stands far taller on screen than any that pop up: left out.
+      if ((bottom - top) / DPR > 120) continue;
       // The big round head is the top of the box.
       bots.push({ x: (left + right + 1) / 2 / DPR, y: (top + (bottom + 1 - top) * HEAD) / DPR });
     }

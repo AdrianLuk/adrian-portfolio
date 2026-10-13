@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { layoutHongKong } from "../world/hong-kong";
-import { shootoutView } from "../world/route";
+import { ROOF_DECK } from "../world/arena";
+import { SHOOTOUT_EYE, shootoutView } from "../world/route";
 import { arenaReach, groundHit, VICTORIA_HARBOUR, waterAt } from "../world/terrain";
 import { harbourPads, shootoutSpots, type Sees } from "./spots";
 
@@ -66,8 +67,14 @@ describe("where the Shootout's bots pop up", () => {
     }
   });
 
-  it("puts only what can be seen: a spot behind the ground is left out", () => {
+  it("puts only what can be seen: a spot behind the ground is left out, but for the practice bot's beside the visitor", () => {
     const blind: Sees = () => false;
-    expect(shootoutSpots(eye, blind)).toEqual([]);
+    expect(shootoutSpots(eye, blind).map((s) => s.kind)).toEqual(["practice"]);
+  });
+
+  it("stands the practice bot close by, level with the visitor's feet", () => {
+    const [practice] = ofKind("practice");
+    expect(practice.distance).toBeLessThan(12);
+    expect(eye.y - practice.position.y).toBeCloseTo(SHOOTOUT_EYE + ROOF_DECK.thick);
   });
 });

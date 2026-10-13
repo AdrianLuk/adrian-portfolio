@@ -65,6 +65,9 @@ const ROOFS: Record<string, number> = {
 };
 const ROOF_EDGE = 2.5;
 
+/** The practice bot: on the truss's back frame, `across` metres to the visitor's side. */
+const PRACTICE = { across: -8 };
+
 /** The pads on Victoria Harbour, in front of the Arena's stage, numbered left to right as seen from it. */
 export function harbourPads(): Vector3[] {
   const arena = arenaAxes();
@@ -165,5 +168,10 @@ export function shootoutSpots(eye: Vector3, sees: Sees): PlacedSpot[] {
   }
 
   for (const tower of lightTowers()) if (seen(tower)) add("tower", tower);
+
+  // The practice bot, close by on the truss the visitor stands on.
+  const back = -ARENA.floor * STRETCH + STAGE.front - STAGE.depth + 1;
+  const [px, pz] = arena.toWorld(PRACTICE.across, back);
+  add("practice", new Vector3(px, arena.level + STAGE.truss, pz));
   return spots;
 }

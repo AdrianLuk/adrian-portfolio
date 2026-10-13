@@ -57,6 +57,28 @@ function run(game: Game, seconds: number, sight: Sight = blind) {
 }
 
 describe("the Shootout's rules", () => {
+  it("keeps the practice bot up all game, taking every hit without scoring or charging, beside the four that pop up", () => {
+    const spots: Spot[] = [...SPOTS, { kind: "practice", distance: 8 }];
+    const practice = spots.length - 1;
+    let game = startGame(createGame({ spots, seed: 3 }));
+    expect(game.bots.map((b) => b.spot)).toEqual([practice]);
+    const id = game.bots[0].id;
+    const atPractice: Sight = { target: () => ({ bot: id, head: true }), inView: () => true };
+    let most = 0;
+    for (let i = 0; i < 600; i++) {
+      game = step(game, 0.05, { trigger: i % 10 === 0 }, atPractice);
+      most = Math.max(most, game.bots.filter((b) => b.spot !== practice).length);
+      expect(game.events.some((e) => e.type === "up" && e.spot === practice)).toBe(false);
+    }
+    expect(game.bots.find((b) => b.id === id)).toMatchObject({ hp: BOT.hp });
+    expect(most).toBe(BOT.most);
+    expect(game.score).toBe(0);
+    expect(game.kills).toBe(0);
+    expect(game.charge).toBe(0);
+    // Reset puts it back up.
+    expect(resetGame(game).bots.map((b) => b.spot)).toEqual([practice]);
+  });
+
   it("moves nothing before Start", () => {
     const game = run(createGame({ spots: SPOTS }), 5).game;
     expect(game.phase).toBe("ready");
@@ -77,7 +99,7 @@ describe("the Shootout's rules", () => {
     expect(game.phase).toBe("playing");
   });
 
-  it("drops each bot after 3 to 5 seconds up, 1.2 longer on a roof or a tower", () => {
+  it("drops each bot after 5 to 8 seconds up, 2 longer on a roof or a tower", () => {
     const game = withBots(1);
     const bot = game.bots[0];
     const extra = ["roof", "tower"].includes(SPOTS[bot.spot].kind) ? BOT.lofty : 0;

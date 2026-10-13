@@ -1145,6 +1145,7 @@ export const shootout = {
       pad: "on the harbour",
       roof: "on a Hong Kong roof",
       tower: "on a light tower at the Diamond",
+      practice: "beside you",
     },
     direction: {
       ahead: "ahead",

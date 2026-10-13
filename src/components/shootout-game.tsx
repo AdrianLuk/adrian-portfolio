@@ -52,6 +52,13 @@ const MOUSE_TURN = 0.0022;
 /** How much faster than the thumb a drag turns the aim: a quick flick crosses the Arena. */
 const DRAG_TURN = 1.8;
 
+/**
+ * A lifting thumb rolls: its last moves, within `ms` of the lift and
+ * `px` CSS pixels in all, are undone before the shot, so it goes where the
+ * crosshair rested. A bigger move then is a flick, and stands.
+ */
+const LIFT = { ms: 90, px: 24 };
+
 /** How far a press may move, in CSS pixels, and still count as a click, not a drag. */
 const CLICK_SLOP = 10;
 
@@ -147,9 +154,15 @@ export function ShootoutGame({
   /** Arrow keys held. */
   const keysRef = useRef(new Set<string>());
   /** The one pointer aiming by drag, and how far it has moved. */
-  const dragRef = useRef<{ id: number; x: number; y: number; moved: number; type: string } | null>(
-    null,
-  );
+  const dragRef = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    moved: number;
+    type: string;
+    /** Its latest turns of the aim, for undoing a lift's roll. */
+    recent: { t: number; yaw: number; pitch: number; px: number }[];
+  } | null>(null);
   /** The last pointer to press: touch gets aim assist. */
   const touchRef = useRef(false);
   const [reticles, setReticles] = useState<ReturnType<ShootoutView["reticles"]>>([]);
@@ -410,6 +423,7 @@ export function ShootoutGame({
       y: event.clientY,
       moved: 0,
       type: event.pointerType,
+      recent: [],
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
@@ -432,6 +446,8 @@ export function ShootoutGame({
     // The aim turns with the thumb, as the mouse's does: drag right to turn right, up to look up.
     const k = view.perPixel() * DRAG_TURN * (gameRef.current.ult ? 0.7 : 1);
     view.look(-dx * k, -dy * k);
+    drag.recent = drag.recent.filter((m) => event.timeStamp - m.t <= LIFT.ms);
+    drag.recent.push({ t: event.timeStamp, yaw: -dx * k, pitch: -dy * k, px: Math.abs(dx) + Math.abs(dy) });
   }
 
   function onPointerUp(event: PointerEvent<HTMLDivElement>) {
@@ -447,8 +463,13 @@ export function ShootoutGame({
       Promise.resolve(surface.requestPointerLock()).catch(shoot);
       return;
     }
-    // Lifting the thumb shoots; while the ultimate runs it only stops aiming.
-    if (!gameRef.current.ult) shoot();
+    // Lifting the thumb shoots, from where it rested; while the ultimate runs it only stops aiming.
+    if (gameRef.current.ult) return;
+    const roll = drag.recent.filter((m) => event.timeStamp - m.t <= LIFT.ms);
+    if (roll.reduce((px, m) => px + m.px, 0) <= LIFT.px) {
+      viewRef.current?.look(-roll.reduce((s, m) => s + m.yaw, 0), -roll.reduce((s, m) => s + m.pitch, 0));
+    }
+    shoot();
   }
 
   const charge = hud.ult === "charging" ? hud.charge / 100 : 1;
