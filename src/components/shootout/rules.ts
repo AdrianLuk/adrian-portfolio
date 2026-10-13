@@ -117,8 +117,8 @@ export const DAMAGE = { body: 70, head: 140 } as const;
 export const BOT = {
   hp: 140,
   most: 4,
-  life: [3, 5],
-  lofty: 1.2,
+  life: [5, 8],
+  lofty: 2,
   rise: 0.22,
   duck: 0.2,
   gap: [0.35, 0.9],
