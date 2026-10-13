@@ -84,6 +84,8 @@ export type Game = {
   /** The best score, this visit's or an earlier one's. */
   best: number;
   kills: number;
+  /** Kills by a shot to the head. */
+  headshots: number;
   /** Seconds until the next shot can fire. */
   cooldown: number;
   /** A shot pulled in the gap, fired as it ends. */
@@ -171,6 +173,7 @@ export function createGame({
     score: 0,
     best,
     kills: 0,
+    headshots: 0,
     cooldown: 0,
     queued: false,
     charge: 0,
@@ -190,6 +193,7 @@ export const resetGame = (game: Game): Game => ({
   bots: [],
   score: 0,
   kills: 0,
+  headshots: 0,
   cooldown: 0,
   queued: false,
   charge: 0,
@@ -241,6 +245,7 @@ function damageBot(
     score,
     best: Math.max(game.best, score),
     kills: game.kills + 1,
+    headshots: game.headshots + (head ? 1 : 0),
     bots: game.bots.filter((b) => b.id !== id),
   };
 }

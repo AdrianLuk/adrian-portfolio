@@ -67,6 +67,7 @@ type Hud = {
   score: number;
   best: number;
   kills: number;
+  headshots: number;
   /** The ultimate's charge, in whole percent. */
   charge: number;
   ult: "charging" | "ready" | "running";
@@ -79,6 +80,7 @@ const hudFor = (game: Game): Hud => ({
   score: game.score,
   best: game.best,
   kills: game.kills,
+  headshots: game.headshots,
   charge: Math.floor(game.charge * 100),
   ult: game.ult ? "running" : game.charge >= 1 ? "ready" : "charging",
 });
@@ -494,6 +496,16 @@ export function ShootoutGame({
           <div className="flex items-baseline gap-2">
             <dt className="text-ink/80">{copy.score.bots}</dt>
             <dd className="tabular-nums">{hud.kills}</dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            {/* Short on a phone, where the full word pushes Reset and Pause off screen. */}
+            <dt className="text-ink/80">
+              <span aria-hidden="true" className="sm:hidden">
+                {copy.score.headshotsShort}
+              </span>
+              <span className="sr-only sm:not-sr-only">{copy.score.headshots}</span>
+            </dt>
+            <dd className="tabular-nums">{hud.headshots}</dd>
           </div>
           <div className="flex items-baseline gap-2">
             <dt className="text-ink/80">{copy.score.best}</dt>

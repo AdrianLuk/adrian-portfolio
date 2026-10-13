@@ -1126,7 +1126,7 @@ export const shootout = {
       line: "The training bots are holding still. Mostly.",
     },
     reset: "Reset",
-    score: { score: "Score", bots: "Bots", best: "Best" },
+    score: { score: "Score", bots: "Bots", headshots: "Headshots", headshotsShort: "HS", best: "Best" },
     ultimate: {
       label: "Ultimate",
       /** Its ring's label as it charges: "Ultimate, 40% charged". */
