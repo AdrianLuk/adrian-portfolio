@@ -36,8 +36,8 @@ const aimAtFirst = (head = false): Sight => ({
 });
 
 /** A game started on SPOTS, run on until `bots` bots are up. */
-function withBots(bots: number, options: Parameters<typeof createGame>[0] = {}) {
-  let game = startGame(createGame({ spots: SPOTS, seed: 7, ...options }));
+function withBots(bots: number, options: { seed?: number; slow?: boolean } = {}) {
+  let game = startGame(createGame({ seed: 7, ...options, spots: SPOTS }));
   for (let i = 0; i < 400 && game.bots.length < bots; i++) {
     game = step(game, 0.05, {}, blind);
   }

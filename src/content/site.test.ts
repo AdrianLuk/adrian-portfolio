@@ -277,6 +277,7 @@ for (const [place, shots] of [
   ["court", site.courtStills],
   ["Skyline", site.skylineStills],
   ["Diamond", site.diamondStills],
+  ["Shootout", site.shootoutStills],
 ] as const) {
   describe(`The ${place} still`, () => {
     const name = place.toLowerCase();
@@ -329,8 +330,8 @@ for (const [place, shots] of [
 }
 
 describe("Game clips", () => {
-  it("ship the Rally and Derby clips, each with its poster at the size it declares", async () => {
-    for (const clip of [site.rallyClip, site.derbyClip]) {
+  it("ship the Rally, Derby and Shootout clips, each with its poster at the size it declares", async () => {
+    for (const clip of [site.rallyClip, site.derbyClip, site.shootoutClip]) {
       for (const src of [clip.poster, ...clip.sources.map((s) => s.src)]) {
         expect(existsSync(path.join("public", src)), src).toBe(true);
       }

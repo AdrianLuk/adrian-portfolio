@@ -4,6 +4,7 @@ import {
   courtStills,
   diamondStills,
   routeStills,
+  shootoutStills,
   skylineStills,
   srcSet,
   valleyStills,
@@ -16,6 +17,7 @@ const STILLS = {
   skyline: skylineStills,
   arena: arenaStills,
   diamond: diamondStills,
+  shootout: shootoutStills,
   ...routeStills,
 } as const;
 

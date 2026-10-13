@@ -1,0 +1,651 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
+import { arrivesAtShootout, overPlace } from "@/app/styles";
+import type { shootout } from "@/content/site";
+import { afterFirstPaint } from "./after-first-paint";
+import { earnAchievement } from "./achievements";
+import {
+  gameButton,
+  gamePrimary,
+  overField,
+  overlayTitle,
+  SlowMode,
+  StepsAside,
+} from "./game-ui";
+import { REDUCED_MOTION } from "./reduced-motion";
+import { useWorldState } from "./use-world-state";
+import { worldHost, type WorldState } from "./world-host";
+import { worldTransits } from "./world-transits";
+import {
+  createGame,
+  resetGame,
+  setPaused,
+  setSlow,
+  startGame,
+  step,
+  type Game,
+  type GameEvent,
+  type Input,
+} from "./shootout/rules";
+import type { ShootoutView } from "./shootout/scene";
+
+type Copy = (typeof shootout)["game"];
+
+/** The longest step a frame may take, in seconds: a long stall can't jump the game. */
+const MAX_STEP = 0.1;
+
+/** How fast the arrow keys turn the aim, radians a second. */
+const KEY_TURN = 1.6;
+
+/** Radians the aim turns per pixel of a captured mouse's movement. */
+const MOUSE_TURN = 0.0022;
+
+/** How far a press may move, in CSS pixels, and still count as a click, not a drag. */
+const CLICK_SLOP = 10;
+
+/** Where the best score is kept: this browser only. */
+const BEST_KEY = "shootout-best";
+
+/** What the game's UI shows: kept in React state, changed only by events. */
+type Hud = {
+  phase: Game["phase"];
+  paused: boolean;
+  slow: boolean;
+  score: number;
+  best: number;
+  kills: number;
+  /** The ultimate's charge, in whole percent. */
+  charge: number;
+  ult: "charging" | "ready" | "running";
+};
+
+const hudFor = (game: Game): Hud => ({
+  phase: game.phase,
+  paused: game.paused,
+  slow: game.slow,
+  score: game.score,
+  best: game.best,
+  kills: game.kills,
+  charge: Math.floor(game.charge * 100),
+  ult: game.ult ? "running" : game.charge >= 1 ? "ready" : "charging",
+});
+
+function readBest() {
+  try {
+    return Math.max(0, Number(localStorage.getItem(BEST_KEY)) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function keepBest(best: number) {
+  try {
+    localStorage.setItem(BEST_KEY, String(best));
+  } catch {
+    // Kept for this visit only.
+  }
+}
+
+/**
+ * The Shootout, played in the world on the Arena's stage roof: the bots,
+ * the pads and the six-shooter drawn into the world's own scene (their
+ * Three.js loaded after the first paint, and built once any Transit has
+ * landed), the game's own UI over it, and a polite live region announcing
+ * each bot up and where, headshots, the ultimate and the score. As the
+ * Derby's, the page's copy stands over the view before Start, steps aside
+ * in play, the view filling the screen with only the score, Reset, Pause
+ * and the ultimate's ring over it, and returns at a pause.
+ *
+ * On a phone, dragging aims and lifting the thumb shoots (a lift in the
+ * gap between shots fires as it ends; a second finger does nothing). With
+ * a mouse, a click captures it to aim (Esc frees it) and a click shoots;
+ * where it can't be captured, dragging aims and a click shoots. Keys:
+ * arrows aim, Space shoots, N snaps to the next bot in view, Q is the
+ * ultimate, Esc or P pauses. Under reduced motion slow mode starts on, and
+ * nothing moves before Start.
+ */
+export function ShootoutGame({
+  copy,
+  describedBy,
+  intro,
+  outro,
+  corners,
+}: {
+  copy: Copy;
+  /** The id of the page's controls hint, which describes the view. */
+  describedBy: string;
+  /** The page's heading and hint, and its link back, over the view. */
+  intro: ReactNode;
+  outro: ReactNode;
+  /** The game's panel's corner brackets, in the Arena's light. */
+  corners: ReactNode;
+}) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const resumeRef = useRef<HTMLButtonElement>(null);
+  const viewRef = useRef<ShootoutView | null>(null);
+  const gameRef = useRef<Game>(createGame({ spots: [] }));
+  const frameRef = useRef(0);
+  /** Input waiting for the next frame. */
+  const inputRef = useRef<Input>({});
+  /** Arrow keys held. */
+  const keysRef = useRef(new Set<string>());
+  /** The one pointer aiming by drag, and how far it has moved. */
+  const dragRef = useRef<{ id: number; x: number; y: number; moved: number; type: string } | null>(
+    null,
+  );
+  /** The last pointer to press: touch gets aim assist. */
+  const touchRef = useRef(false);
+  const [reticles, setReticles] = useState<{ id: number; x: number; y: number; lock: number }[]>([]);
+  const [hit, setHit] = useState<{ n: number; head: boolean } | null>(null);
+
+  const [hosted, setHosted] = useState<"waiting" | "hosted" | "failed">("waiting");
+  const world = useWorldState();
+  const view: WorldState =
+    world === "unavailable" || hosted === "failed"
+      ? "unavailable"
+      : world === "drawn" && hosted === "hosted"
+        ? "drawn"
+        : "pending";
+  const [announcement, setAnnouncement] = useState("");
+  const [hud, setHud] = useState<Hud>(() => hudFor(createGame({ spots: [] })));
+
+  /** What a screen reader hears of the frame's events, in a line. */
+  const announce = useCallback(
+    (events: readonly GameEvent[], game: Game) => {
+      const view = viewRef.current;
+      const lines: string[] = [];
+      for (const event of events) {
+        if (event.type === "up" && view) {
+          const where = copy.where[game.spots[event.spot].kind];
+          const way = copy.direction[view.directionOf(event.spot)];
+          lines.push(`${copy.up} ${where}, ${way}.`);
+        } else if (event.type === "kill") {
+          if (event.head) lines.push(copy.headshot);
+          if (event.long) lines.push(copy.longShot);
+          lines.push(`${copy.scoreLine} ${game.score}.`);
+        } else if (event.type === "ult-ready") {
+          lines.push(copy.ultimate.readyLine);
+        } else if (event.type === "ult-start") {
+          lines.push(copy.ultimate.runningLine);
+        }
+      }
+      if (lines.length) setAnnouncement(lines.join(" "));
+    },
+    [copy],
+  );
+
+  /** The game loop: one step a frame while the game runs, then a draw. */
+  const loop = useCallback(() => {
+    cancelAnimationFrame(frameRef.current);
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, MAX_STEP);
+      last = now;
+      const view = viewRef.current;
+      if (!view) return;
+      // Held arrows turn the aim.
+      const keys = keysRef.current;
+      const turn = KEY_TURN * dt;
+      const yaw = (keys.has("ArrowLeft") ? turn : 0) - (keys.has("ArrowRight") ? turn : 0);
+      const pitch = (keys.has("ArrowUp") ? turn : 0) - (keys.has("ArrowDown") ? turn : 0);
+      if (yaw || pitch) view.look(yaw, pitch);
+
+      const input = inputRef.current;
+      inputRef.current = {};
+      const before = gameRef.current;
+      const game = step(before, dt, input, view.sight(touchRef.current));
+      gameRef.current = game;
+      view.draw(game, dt, !game.slow);
+
+      for (const event of game.events) {
+        if (event.type === "hit") setHit({ n: performance.now(), head: event.head });
+        if (event.type === "three-for-one") earnAchievement("three-for-one");
+      }
+      announce(game.events, game);
+      if (game.best > before.best) keepBest(game.best);
+      const locks = view.reticles(game);
+      setReticles((shown) => (shown.length === 0 && locks.length === 0 ? shown : locks));
+      const next = hudFor(game);
+      setHud((s) =>
+        s.score === next.score &&
+        s.kills === next.kills &&
+        s.best === next.best &&
+        s.charge === next.charge &&
+        s.ult === next.ult &&
+        s.paused === next.paused &&
+        s.phase === next.phase &&
+        s.slow === next.slow
+          ? s
+          : next,
+      );
+      if (game.phase === "playing" && !game.paused) {
+        frameRef.current = requestAnimationFrame(tick);
+      }
+    };
+    frameRef.current = requestAnimationFrame(tick);
+  }, [announce]);
+
+  // Three.js is the page's heaviest code: it never holds up the first paint.
+  useEffect(() => {
+    const host = worldHost();
+    let cancelled = false;
+    async function start() {
+      // Slow mode starts on under reduced motion, before Start can be pressed.
+      const slow = window.matchMedia(REDUCED_MOTION).matches;
+      gameRef.current = createGame({ spots: [], slow, best: readBest() });
+      setHud(hudFor(gameRef.current));
+      try {
+        const [{ createShootoutView }, live] = await Promise.all([
+          import("./shootout/scene"),
+          host.start(),
+        ]);
+        // Built (its shaders compiled) only once any Transit has landed, so
+        // it doesn't stutter. Without a world, its own state says so.
+        if (cancelled || !live) return;
+        await worldTransits().landed();
+        if (cancelled) return;
+        const created = await createShootoutView(live.arena);
+        if (cancelled) {
+          created.dispose();
+          return;
+        }
+        viewRef.current = created;
+        gameRef.current = { ...gameRef.current, spots: created.spots };
+        setHosted("hosted");
+      } catch {
+        // A stale chunk after a deploy, say.
+        if (!cancelled) setHosted("failed");
+      }
+    }
+    const cancelStart = afterFirstPaint(start);
+    return () => {
+      cancelled = true;
+      cancelStart();
+      cancelAnimationFrame(frameRef.current);
+      if (document.pointerLockElement) document.exitPointerLock();
+      viewRef.current?.dispose();
+      viewRef.current = null;
+    };
+  }, []);
+
+  const pause = useCallback(
+    (paused: boolean) => {
+      const game = gameRef.current;
+      if (game.phase !== "playing" || game.paused === paused) return;
+      inputRef.current = {};
+      keysRef.current.clear();
+      dragRef.current = null;
+      gameRef.current = setPaused(game, paused);
+      setHud(hudFor(gameRef.current));
+      setAnnouncement(paused ? `${copy.paused.title}. ${copy.paused.line}` : copy.resume);
+      if (paused) {
+        cancelAnimationFrame(frameRef.current);
+        if (document.pointerLockElement) document.exitPointerLock();
+      } else {
+        loop();
+      }
+    },
+    [copy, loop],
+  );
+
+  // A hidden tab pauses the game.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) pause(true);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [pause]);
+
+  // Paused: focus the way back in. (Playing, the view has focus: it takes the keys.)
+  useEffect(() => {
+    if (hud.paused) resumeRef.current?.focus();
+  }, [hud.paused]);
+
+  function begin() {
+    inputRef.current = {};
+    const fresh = startGame(gameRef.current);
+    gameRef.current = fresh;
+    viewRef.current?.resetAim();
+    setHud(hudFor(fresh));
+    setAnnouncement(copy.start.line);
+    surfaceRef.current?.focus();
+    loop();
+  }
+
+  function reset() {
+    gameRef.current = resetGame(gameRef.current);
+    inputRef.current = {};
+    viewRef.current?.resetAim();
+    setHud(hudFor(gameRef.current));
+    setReticles([]);
+    setAnnouncement(`${copy.reset}. ${copy.scoreLine} 0.`);
+    surfaceRef.current?.focus();
+  }
+
+  function resume() {
+    pause(false);
+    surfaceRef.current?.focus();
+  }
+
+  function toggleSlow(slow: boolean) {
+    gameRef.current = setSlow(gameRef.current, slow);
+    setHud(hudFor(gameRef.current));
+  }
+
+  const shoot = () => {
+    inputRef.current = { ...inputRef.current, trigger: true };
+  };
+  const ultimate = () => {
+    inputRef.current = { ...inputRef.current, ultimate: true };
+  };
+
+  const playing = hud.phase === "playing";
+  /** In play and not paused: the view fills the screen, and the copy steps aside. */
+  const filled = playing && !hud.paused;
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape" || event.key === "p" || event.key === "P") {
+      if (!playing) return;
+      event.preventDefault();
+      if (hud.paused) resume();
+      else pause(true);
+      return;
+    }
+    // The view takes the game's keys; the buttons keep their own.
+    if (event.target !== surfaceRef.current || !filled) return;
+    if (event.key.startsWith("Arrow")) {
+      event.preventDefault();
+      keysRef.current.add(event.key);
+    } else if (event.key === " ") {
+      event.preventDefault();
+      touchRef.current = false;
+      if (!event.repeat) shoot();
+    } else if (event.key === "q" || event.key === "Q") {
+      event.preventDefault();
+      if (!event.repeat) ultimate();
+    } else if (event.key === "n" || event.key === "N") {
+      event.preventDefault();
+      viewRef.current?.snapToNext(gameRef.current);
+    }
+  }
+
+  function onKeyUp(event: KeyboardEvent<HTMLDivElement>) {
+    keysRef.current.delete(event.key);
+  }
+
+  const captured = () => document.pointerLockElement === surfaceRef.current;
+
+  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (!filled) return;
+    touchRef.current = event.pointerType !== "mouse";
+    if (captured()) {
+      if (event.button === 0) shoot();
+      return;
+    }
+    // A second finger does nothing: one thumb aims.
+    if (dragRef.current || !event.isPrimary) return;
+    dragRef.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: 0,
+      type: event.pointerType,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const view = viewRef.current;
+    if (!view || !filled) return;
+    if (captured()) {
+      view.look(-event.movementX * MOUSE_TURN, -event.movementY * MOUSE_TURN);
+      return;
+    }
+    const drag = dragRef.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    drag.moved += Math.abs(dx) + Math.abs(dy);
+    // Steadier while the ultimate runs, for sweeping the reticles on.
+    const k = view.perPixel() * (gameRef.current.ult ? 0.7 : 1);
+    view.look(dx * k, dy * k);
+  }
+
+  function onPointerUp(event: PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    dragRef.current = null;
+    if (!filled) return;
+    if (drag.type === "mouse") {
+      // A click: it captures the mouse to aim where it can; where it can't, it shoots.
+      if (drag.moved > CLICK_SLOP) return;
+      const surface = surfaceRef.current;
+      if (!surface?.requestPointerLock) return shoot();
+      Promise.resolve(surface.requestPointerLock()).catch(shoot);
+      return;
+    }
+    // Lifting the thumb shoots; while the ultimate runs it only stops aiming.
+    if (!gameRef.current.ult) shoot();
+  }
+
+  const charge = hud.ult === "charging" ? hud.charge / 100 : 1;
+  const ringLabel =
+    hud.ult === "running"
+      ? copy.ultimate.runningLine
+      : hud.ult === "ready"
+        ? `${copy.ultimate.label}, ${copy.ultimate.ready}`
+        : `${copy.ultimate.label}, ${hud.charge}% ${copy.ultimate.charged}`;
+  const lit = view === "drawn";
+
+  return (
+    <div
+      className="flex flex-col gap-6"
+      data-world={view}
+      data-phase={hud.phase}
+      data-paused={hud.paused}
+      data-slow={hud.slow}
+      data-score={hud.score}
+      data-kills={hud.kills}
+      data-best={hud.best}
+      data-ult={hud.ult}
+      // The Recall's B waits while a game is in play (src/components/recall.tsx).
+      data-game-in-play={playing || undefined}
+      // The site's header steps aside with the copy (see globals.css).
+      data-game-filled={filled || undefined}
+      onKeyDown={onKeyDown}
+      onKeyUp={onKeyUp}
+      onBlur={(event) => {
+        // Focus left the game: the keys can't reach it, so pause.
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) pause(true);
+      }}
+    >
+      <StepsAside away={filled} arrives={arrivesAtShootout}>
+        {intro}
+      </StepsAside>
+
+      {/* The score, Reset and Pause, pinned to the screen's top in play. */}
+      <div
+        className={`pointer-events-none fixed inset-x-0 top-0 z-30 flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 ${filled ? "" : "invisible"}`}
+      >
+        <dl className="flex gap-2.5 rounded-full bg-night/80 px-3.5 py-2 font-display text-xs font-bold tracking-wide whitespace-nowrap uppercase [font-stretch:100%] sm:gap-5 sm:px-5 sm:text-lg sm:[font-stretch:110%]">
+          <div className="flex items-baseline gap-2">
+            <dt className="text-ink/80">{copy.score.score}</dt>
+            <dd className="text-cyan tabular-nums">{hud.score}</dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <dt className="text-ink/80">{copy.score.bots}</dt>
+            <dd className="tabular-nums">{hud.kills}</dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <dt className="text-ink/80">{copy.score.best}</dt>
+            <dd className="text-ember tabular-nums">{hud.best}</dd>
+          </div>
+        </dl>
+        <div className="flex flex-col items-end gap-2 sm:flex-row">
+          <button
+            type="button"
+            className={`${gameButton} pointer-events-auto`}
+            onClick={reset}
+            tabIndex={filled ? 0 : -1}
+          >
+            {copy.reset}
+          </button>
+          <button
+            type="button"
+            className={`${gameButton} pointer-events-auto`}
+            onClick={() => (hud.paused ? resume() : pause(true))}
+            tabIndex={playing ? 0 : -1}
+          >
+            {hud.paused ? copy.resume : copy.pause}
+          </button>
+        </div>
+      </div>
+
+      {/* The view, the whole screen: in play it takes the drag, the click and the keys. */}
+      <div
+        ref={surfaceRef}
+        role="application"
+        aria-label={copy.label}
+        aria-describedby={describedBy}
+        tabIndex={playing ? 0 : -1}
+        className={`fixed inset-0 z-20 touch-none select-none focus-visible:outline-offset-[-6px] ${filled ? "cursor-crosshair" : "pointer-events-none"}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => (dragRef.current = null)}
+        onContextMenu={(event) => event.preventDefault()}
+      />
+
+      {filled && (
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-20">
+          {hud.ult === "running" && (
+            <>
+              {!hud.slow && (
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,color-mix(in_srgb,var(--color-ember)_32%,transparent)_100%)]" />
+              )}
+              <p
+                className={`absolute inset-x-0 top-[18%] text-center font-display text-4xl font-extrabold text-ember tabular-nums [font-stretch:130%] ${overField}`}
+              >
+                {copy.ultimate.clock}
+              </p>
+            </>
+          )}
+          {/* The crosshair, and a hit's marker, ember for the head. */}
+          <svg viewBox="-11 -11 22 22" className="absolute top-1/2 left-1/2 size-6 -translate-1/2 overflow-visible">
+            <g className="stroke-night" strokeWidth="3.5" strokeLinecap="round">
+              <path d="M0 -10v5M0 5v5M-10 0h5M5 0h5" />
+            </g>
+            <g className="stroke-cyan" strokeWidth="2" strokeLinecap="round">
+              <path d="M0 -10v5M0 5v5M-10 0h5M5 0h5" />
+            </g>
+            <circle r="1.6" className="fill-cyan" />
+            {hit && (
+              <g
+                key={hit.n}
+                className={`animate-[hit-marker_180ms_forwards] ${hit.head ? "stroke-ember" : "stroke-ink"}`}
+                strokeWidth="2"
+              >
+                <path d="M-12 -12l6 6M12 -12l-6 6M-12 12l6 -6M12 12l-6 -6" />
+              </g>
+            )}
+          </svg>
+          {reticles.map((r) => (
+            <div
+              key={r.id}
+              className="absolute size-11 -translate-1/2 rounded-full [mask:radial-gradient(circle,transparent_15px,#000_16px)] data-full:shadow-[0_0_18px_2px_var(--color-ember)]"
+              data-full={r.lock >= 1 || undefined}
+              style={
+                {
+                  left: r.x,
+                  top: r.y,
+                  background: `conic-gradient(var(--color-ember) ${r.lock * 360}deg, color-mix(in srgb, var(--color-ember) 18%, transparent) 0)`,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {/* The ultimate's ring: tap it (or press Q) to start it, and again to fire. */}
+      <div
+        className={`pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center pb-[max(1.5rem,env(safe-area-inset-bottom))] ${filled ? "" : "invisible"}`}
+      >
+        <button
+          type="button"
+          aria-label={ringLabel}
+          tabIndex={filled ? 0 : -1}
+          disabled={hud.ult === "charging"}
+          onClick={ultimate}
+          className={`pointer-events-auto relative grid size-16 place-content-center rounded-full bg-night/75 font-display text-sm font-extrabold uppercase tabular-nums sm:size-18 ${hud.ult === "charging" ? "text-ink" : "text-ember shadow-[0_0_22px_2px_color-mix(in_srgb,var(--color-ember)_55%,transparent)]"}`}
+        >
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 rounded-full [mask:radial-gradient(circle,transparent_calc(50%-4px),#000_calc(50%-3px))]"
+            style={{
+              background: `conic-gradient(${hud.ult === "charging" ? "var(--color-cyan)" : "var(--color-ember)"} ${charge * 360}deg, color-mix(in srgb, var(--color-ink) 14%, transparent) 0)`,
+            }}
+          />
+          <span aria-hidden="true">
+            {hud.ult === "running" ? copy.ultimate.fire : hud.ult === "ready" ? copy.ultimate.ready : `${hud.charge}%`}
+          </span>
+        </button>
+      </div>
+
+      <StepsAside away={filled} arrives={arrivesAtShootout}>
+        <div className={`${overPlace.arena} flex flex-col items-center gap-5 text-center`}>
+          {corners}
+          {playing && hud.paused ? (
+            <>
+              <h2 className={overlayTitle}>{copy.paused.title}</h2>
+              <p className="text-ink/85">{copy.paused.line}</p>
+              <button ref={resumeRef} type="button" className={gamePrimary} onClick={resume}>
+                {copy.resume}
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className={overlayTitle}>{copy.start.title}</h2>
+              <p className="text-ink/85">{copy.start.line}</p>
+              <SlowMode copy={copy.slowMode} checked={hud.slow} onChange={toggleSlow} />
+              {view === "unavailable" ? (
+                <p className="max-w-sm text-ink/85">{copy.unavailable}</p>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <button type="button" className={gamePrimary} disabled={!lit} onClick={begin}>
+                    {copy.start.action}
+                  </button>
+                  {/* Kept in the flow once the view is lit, so nothing shifts. */}
+                  <p className={`text-sm text-ink/70 ${lit ? "invisible" : ""}`}>{copy.loading}</p>
+                </div>
+              )}
+            </>
+          )}
+          {playing && hud.paused && (
+            <SlowMode copy={copy.slowMode} checked={hud.slow} onChange={toggleSlow} />
+          )}
+        </div>
+      </StepsAside>
+
+      <StepsAside away={filled} arrives={arrivesAtShootout}>
+        {outro}
+      </StepsAside>
+
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+    </div>
+  );
+}

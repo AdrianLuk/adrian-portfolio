@@ -6,6 +6,7 @@ import {
   caseStudies,
   derby,
   meta,
+  shootout,
   rally,
   resume,
   shareCards,
@@ -49,6 +50,7 @@ const routes = [
   { path: "/resume", card: shareCards.resume, title: resume.metaTitle },
   { path: "/rally", card: shareCards.play, title: rally.metaTitle },
   { path: "/derby", card: shareCards.derby, title: derby.metaTitle },
+  { path: "/shootout", card: shareCards.shootout, title: shootout.metaTitle },
   { path: "/about", card: shareCards.about, title: about.metaTitle },
   ...caseStudies.map((study) => ({
     path: `/work/${study.slug}`,

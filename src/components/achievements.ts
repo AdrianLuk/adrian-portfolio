@@ -1,4 +1,4 @@
-/** The six Achievements, in the order the footer's list shows them. */
+/** The seven Achievements, in the order the footer's list shows them. */
 export const ACHIEVEMENT_IDS = [
   "first-blood",
   "back-to-base",
@@ -6,6 +6,7 @@ export const ACHIEVEMENT_IDS = [
   "full-rotation",
   "back-to-back-to-back",
   "dinkbot-down",
+  "three-for-one",
 ] as const;
 
 export type AchievementId = (typeof ACHIEVEMENT_IDS)[number];

@@ -32,7 +32,7 @@ describe("the Achievements store", () => {
     expect(achievements.earn("back-to-base")).toEqual(["back-to-base"]);
   });
 
-  it("lists all six in order, earned or not, and counts the earned", () => {
+  it("lists all seven in order, earned or not, and counts the earned", () => {
     const achievements = createAchievements(memoryStorage());
     expect(achievements.count()).toBe(0);
     achievements.earn("dinkbot-down");
@@ -43,6 +43,7 @@ describe("the Achievements store", () => {
       { id: "full-rotation", earned: false },
       { id: "back-to-back-to-back", earned: false },
       { id: "dinkbot-down", earned: true },
+      { id: "three-for-one", earned: false },
     ]);
     expect(achievements.count()).toBe(2);
   });

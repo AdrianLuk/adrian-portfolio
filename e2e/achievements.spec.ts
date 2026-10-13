@@ -4,7 +4,7 @@ import { EARN_EVENT, type AchievementId } from "../src/components/achievements";
 import { achievements as copy } from "../src/content/site";
 
 const counter = (page: Page, n: number) =>
-  page.getByRole("contentinfo").getByRole("button", { name: `${copy.label}: ${n} ${copy.of} 6` });
+  page.getByRole("contentinfo").getByRole("button", { name: `${copy.label}: ${n} ${copy.of} 7` });
 const toast = (page: Page) => page.getByRole("status");
 const dialog = (page: Page) => page.getByRole("dialog", { name: copy.label });
 
@@ -125,7 +125,7 @@ test.describe("on touch", () => {
       await counter(page, 0).tap();
       await expect(dialog(page)).toBeVisible({ timeout: 500 });
     }).toPass();
-    await expect(dialog(page).getByRole("listitem")).toHaveCount(6);
+    await expect(dialog(page).getByRole("listitem")).toHaveCount(7);
     await dialog(page).getByRole("button", { name: copy.close }).tap();
     await expect(dialog(page)).toBeHidden();
   });
