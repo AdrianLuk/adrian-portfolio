@@ -51,6 +51,8 @@ const MOUSE_TURN = 0.0022;
 
 /** How much faster than the thumb a drag turns the aim: a quick flick crosses the Arena. */
 const DRAG_TURN = 1.8;
+/** How much slower a thumb's drag turns while the crosshair is over a bot, as a console's aim assist does: a far head is a few pixels across. A phone's only aim assist. */
+const OVER_BOT_TURN = 0.5;
 
 /**
  * A lifting thumb rolls: its last moves, within `ms` of the lift and
@@ -163,8 +165,6 @@ export function ShootoutGame({
     /** Its latest turns of the aim, for undoing a lift's roll. */
     recent: { t: number; yaw: number; pitch: number; px: number }[];
   } | null>(null);
-  /** The last pointer to press: touch gets aim assist. */
-  const touchRef = useRef(false);
   const [reticles, setReticles] = useState<ReturnType<ShootoutView["reticles"]>>([]);
   const [hit, setHit] = useState<{ n: number; head: boolean } | null>(null);
 
@@ -234,7 +234,7 @@ export function ShootoutGame({
       const input = inputRef.current;
       inputRef.current = {};
       const before = gameRef.current;
-      const game = step(before, dt, input, view.sight(touchRef.current));
+      const game = step(before, dt, input, view.sight());
       gameRef.current = game;
       view.draw(game, dt, !game.slow);
 
@@ -391,7 +391,6 @@ export function ShootoutGame({
       keysRef.current.add(event.key);
     } else if (event.key === " ") {
       event.preventDefault();
-      touchRef.current = false;
       if (!event.repeat) shoot();
     } else if (event.key === "q" || event.key === "Q") {
       event.preventDefault();
@@ -410,7 +409,6 @@ export function ShootoutGame({
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!filled) return;
-    touchRef.current = event.pointerType !== "mouse";
     if (captured()) {
       if (event.button === 0) shoot();
       return;
@@ -442,9 +440,11 @@ export function ShootoutGame({
     drag.x = event.clientX;
     drag.y = event.clientY;
     drag.moved += Math.abs(dx) + Math.abs(dy);
-    // Steadier while the ultimate runs, for sweeping the reticles on.
+    // Steadier while the ultimate runs, for sweeping the reticles on, and a thumb's slower still over a bot, to aim at its head.
     // The aim turns with the thumb, as the mouse's does: drag right to turn right, up to look up.
-    const k = view.perPixel() * DRAG_TURN * (gameRef.current.ult ? 0.7 : 1);
+    const game = gameRef.current;
+    const slow = drag.type === "touch" && view.overBot(game) ? OVER_BOT_TURN : 1;
+    const k = view.perPixel() * DRAG_TURN * (game.ult ? 0.7 : slow);
     view.look(-dx * k, -dy * k);
     drag.recent = drag.recent.filter((m) => event.timeStamp - m.t <= LIFT.ms);
     drag.recent.push({ t: event.timeStamp, yaw: -dx * k, pitch: -dy * k, px: Math.abs(dx) + Math.abs(dy) });

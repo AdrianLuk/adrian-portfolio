@@ -61,8 +61,10 @@ export type ShootoutView = {
   snapToNext(game: Game): boolean;
   /** Back to facing Hong Kong. */
   resetAim(): void;
-  /** What a shot fired now hits, with a phone's aim assist if `assist`, and which bots are in view. */
-  sight(assist: boolean): Sight;
+  /** What a shot fired now hits, and which bots are in view. */
+  sight(): Sight;
+  /** Whether the crosshair is over a standing bot, near its head or chest, so a drag slows to aim at it. */
+  overBot(game: Game): boolean;
   /** Which way a spot is from where the visitor aims. */
   directionOf(spot: number): Direction;
   /** Where each locked-on bot's chest is on screen, in CSS pixels, while the ultimate runs, and whether firing now takes it down. */
@@ -89,8 +91,8 @@ const OUTLINE_WIDTH = 0.0028;
 /** How far the aim may tip down and up from level, radians: down to the shore, never into the deck. */
 const PITCH = { down: 0.6, up: 0.8 };
 
-/** How near on screen a near miss must pass a bot, in CSS pixels, for a phone's aim assist to count it. */
-const ASSIST_PX = 20;
+/** How near on screen the crosshair must be to a bot's head or chest, in CSS pixels, for a drag to slow over it. */
+const SLOW_PX = 24;
 
 /** How the six-shooter stands off the eye, in the camera's frame: lower right, nearer the middle on a narrow screen. 3 times life size at 3 times the distance, so it looks the same and stays past the camera's near plane. */
 const GUN = {
@@ -539,7 +541,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
   const raycaster = new Raycaster();
   const middle = new Vector2(0, 0);
 
-  function sight(assist: boolean): Sight {
+  function sight(): Sight {
     return {
       target(game) {
         aimProbe();
@@ -552,21 +554,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
           return { bot: hit.object.userData.bot as number, head: hit.object.userData.part === "head" };
         }
         tracer(raycaster.ray.at(600, new Vector3()));
-        if (!assist) return null;
-        // A near miss on a phone counts as a shot to the nearer of the head and the chest:
-        // one just over the head is a headshot, not a body shot.
-        const { width, height } = screen();
-        let best: { bot: number; head: boolean; px: number } | null = null;
-        for (const bot of game.bots) {
-          const d = drawn.get(bot.id);
-          if (!d || d.down !== null) continue;
-          for (const [head, point] of [[false, chestOf(d)], [true, headOf(d)]] as const) {
-            const at = onScreen(point);
-            const px = Math.hypot(at.x - width / 2, at.y - height / 2);
-            if (at.front && px <= ASSIST_PX && (!best || px < best.px)) best = { bot: bot.id, head, px };
-          }
-        }
-        return best && { bot: best.bot, head: best.head };
+        return null;
       },
       inView(id) {
         const d = drawn.get(id);
@@ -575,6 +563,19 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
         return onScreen(chestOf(d)).inView;
       },
     };
+  }
+
+  function overBot(game: Game) {
+    aimProbe();
+    const { width, height } = screen();
+    return game.bots.some((bot) => {
+      const d = drawn.get(bot.id);
+      if (!d || d.down !== null) return false;
+      return [chestOf(d), headOf(d)].some((point) => {
+        const at = onScreen(point);
+        return at.front && Math.hypot(at.x - width / 2, at.y - height / 2) <= SLOW_PX;
+      });
+    });
   }
 
   /** Puts the six-shooter in the frame's lower right, kicked back by a shot. */
@@ -773,6 +774,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
       stage.draw();
     },
     sight,
+    overBot,
     directionOf,
     reticles,
     draw,
