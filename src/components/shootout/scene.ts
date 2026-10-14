@@ -61,8 +61,8 @@ export type ShootoutView = {
   snapToNext(game: Game): boolean;
   /** Back to facing Hong Kong. */
   resetAim(): void;
-  /** What a shot fired now hits, with a phone's aim assist if `assist`, and which bots are in view. */
-  sight(assist: boolean): Sight;
+  /** What a shot fired now hits, and which bots are in view. */
+  sight(): Sight;
   /** Whether the crosshair is over a standing bot, near its head or chest, so a drag slows to aim at it. */
   overBot(game: Game): boolean;
   /** Which way a spot is from where the visitor aims. */
@@ -91,8 +91,6 @@ const OUTLINE_WIDTH = 0.0028;
 /** How far the aim may tip down and up from level, radians: down to the shore, never into the deck. */
 const PITCH = { down: 0.6, up: 0.8 };
 
-/** How near on screen a near miss must pass a bot's chest, in CSS pixels, for a phone's aim assist to count it: small, as a far bot's head is a few pixels across. */
-const ASSIST_PX = 10;
 /** How near on screen the crosshair must be to a bot's head or chest, in CSS pixels, for a drag to slow over it. */
 const SLOW_PX = 24;
 
@@ -543,7 +541,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
   const raycaster = new Raycaster();
   const middle = new Vector2(0, 0);
 
-  function sight(assist: boolean): Sight {
+  function sight(): Sight {
     return {
       target(game) {
         aimProbe();
@@ -556,18 +554,7 @@ export async function createShootoutView(stage: ArenaStage): Promise<ShootoutVie
           return { bot: hit.object.userData.bot as number, head: hit.object.userData.part === "head" };
         }
         tracer(raycaster.ray.at(600, new Vector3()));
-        if (!assist) return null;
-        // A near miss on a phone counts as a body shot: a headshot takes a real hit on the head.
-        const { width, height } = screen();
-        let best: { bot: number; px: number } | null = null;
-        for (const bot of game.bots) {
-          const d = drawn.get(bot.id);
-          if (!d || d.down !== null) continue;
-          const at = onScreen(chestOf(d));
-          const px = Math.hypot(at.x - width / 2, at.y - height / 2);
-          if (at.front && px <= ASSIST_PX && (!best || px < best.px)) best = { bot: bot.id, px };
-        }
-        return best && { bot: best.bot, head: false };
+        return null;
       },
       inView(id) {
         const d = drawn.get(id);
