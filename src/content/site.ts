@@ -589,7 +589,7 @@ export const roles = [
       "Built the cypress-axe suite that keeps it passing: WCAG 2.1 A/AA assertions across 96 routes, each run in desktop and mobile at both light and dark themes, with network calls stubbed so results stay deterministic.",
       "Fixed focus management in the shared primitives instead of page by page. Modal and tray dialogs moved onto react-focus-lock, popups regained focus restoration, and colour contrast moved into the theme palette for both modes.",
       "Added keyboard navigation to card, row and filter components that had been mouse-only.",
-      "Sole engineer on the PHP REST API, implementing SSO for four identity providers over 18 months, covering internal admins, customer organizations and personal users: Okta with group-to-role mapping, Google, Microsoft Entra ID with per-tenant OIDC discovery and PKCE, and Tailscale, all behind one entry point.",
+      "Implemented SSO for four identity providers over 18 months, covering internal admins, customer organizations and personal users: Okta with group-to-role mapping, Google, Microsoft Entra ID with per-tenant OIDC discovery and PKCE, and Tailscale, all behind one entry point.",
       "Owned the HubSpot integration in production for 18 months. A PHP client created contacts, companies, deals, invoices and line items, driven by Stripe webhooks for payment, subscription and payment-method events.",
       "Built org-level scheduled reporting: React and RTK Query on the front, a PHP controller and cron behind it, branded PDFs out the other end.",
     ],
@@ -618,7 +618,7 @@ export const roles = [
     start: "Mar 2022",
     end: "Aug 2022",
     bullets: [
-      "Sole developer after taking over a stalled prototype of the agency's marketing site. Rebuilt the landing page, navigation and case-study system over roughly 170 pull requests, writing about 70% of the shipped source.",
+      "Sole developer on the agency's marketing site after picking up a stalled prototype. Rebuilt the landing page, navigation and case-study system over roughly 170 pull requests, writing about 70% of the shipped source.",
       "Built the scroll engine driving the site: four coordinated GSAP ScrollTriggers per section for active state, page-chrome theming, paint gating on offscreen content and pinned stacked-section reveals, with offsets resolved per section and per breakpoint and full teardown on resize.",
       "Rendered route transitions on canvas. GSAP timelines paint staggered DPR-scaled ripples out from the click point, and navigation fires from the animation's completion callback.",
       "Wrote the deploy pipeline: three GitHub Actions workflows to Firebase Hosting production and dev, plus an ephemeral preview channel per pull request.",
