@@ -43,7 +43,8 @@ function startsRecall(event: KeyboardEvent) {
 export function RecallName({ name, copy }: { name: string; copy: typeof recall }) {
   const router = useRouter();
   // The H1 on home only: every other page names itself in its own H1.
-  const Name = usePathname() === "/" ? "h1" : "p";
+  // Vercel's ISR regeneration renders home as "/index", which shipped a <p>.
+  const Name = ["/", "/index"].includes(usePathname()) ? "h1" : "p";
   const [channeling, setChanneling] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   /** The channel under way: its timer. */
